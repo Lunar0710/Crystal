@@ -7,7 +7,6 @@ import { Launch } from './components/pages/Launch'
 import { Instances } from './components/pages/Instances'
 import { Cosmetics } from './components/pages/Cosmetics'
 import { Logs } from './components/pages/Logs'
-import { Store } from './components/pages/Store'
 import { Friends } from './components/pages/Friends'
 import { News } from './components/pages/News'
 import { Settings } from './components/pages/Settings'
@@ -20,7 +19,7 @@ export default function App() {
       <TitleBar />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
-        <main className="flex-1 overflow-y-auto overflow-x-hidden">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden" id="main">
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
@@ -28,7 +27,6 @@ export default function App() {
             <Route path="/instances" element={<Instances />} />
             <Route path="/cosmetics" element={<Cosmetics />} />
             <Route path="/logs" element={<Logs />} />
-            <Route path="/store" element={<Store />} />
             <Route path="/friends" element={<Friends />} />
             <Route path="/news" element={<News />} />
             <Route path="/settings" element={<Settings />} />

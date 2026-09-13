@@ -11,7 +11,12 @@ import java.util.function.Supplier;
 public class KeybindSetting extends Setting<Integer> {
 
     public KeybindSetting(String name, Supplier<Integer> getter, Consumer<Integer> setter) {
-        super(name, getter, setter, GLFW.GLFW_KEY_UNKNOWN);
+        this(name, getter, setter, GLFW.GLFW_KEY_UNKNOWN);
+    }
+
+    /** With a default key, which "reset to default" returns to. */
+    public KeybindSetting(String name, Supplier<Integer> getter, Consumer<Integer> setter, int defaultKey) {
+        super(name, getter, setter, defaultKey);
     }
 
     public boolean isBound() { return getValue() != GLFW.GLFW_KEY_UNKNOWN; }

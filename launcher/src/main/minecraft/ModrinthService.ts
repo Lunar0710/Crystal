@@ -203,6 +203,59 @@ export class ModrinthService {
     }
   }
 
+  /** sha1 per file, keyed by path + size + mtime so unchanged jars are never re-hashed. */
+  private hashCache = new Map<string, string>()
+
+  private sha1Of(filePath: string): string | null {
+    try {
+      const stat = fs.statSync(filePath)
+      const key = `${filePath}|${stat.size}|${stat.mtimeMs}`
+      const cached = this.hashCache.get(key)
+      if (cached) return cached
+      const hash = createHash('sha1').update(fs.readFileSync(filePath)).digest('hex')
+      this.hashCache.set(key, hash)
+      return hash
+    } catch {
+      return null
+    }
+  }
+
+  /**
+   * Identifies every file in one content folder with a single request
+   * (Modrinth's bulk version_files endpoint), instead of one request per jar.
+   * Returns fileName -> { projectId, versionId } for the files Modrinth knows.
+   */
+  async identifyFolder(instanceId: string, type: ContentType): Promise<Record<string, { projectId: string; versionId: string }>> {
+    const dir = path.join(this.gameDir(instanceId), TARGET_FOLDER[type])
+    if (!fs.existsSync(dir)) return {}
+
+    const byHash = new Map<string, string>()
+    for (const fileName of fs.readdirSync(dir)) {
+      const hash = this.sha1Of(path.join(dir, fileName))
+      if (hash) byHash.set(hash, fileName)
+    }
+    if (byHash.size === 0) return {}
+
+    try {
+      const res = await (globalThis as any).fetch(`${API_BASE}/version_files`, {
+        method: 'POST',
+        headers: { ...HEADERS, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hashes: [...byHash.keys()], algorithm: 'sha1' }),
+      })
+      if (!res.ok) return {}
+      const data = await res.json() as Record<string, { id: string; project_id: string }>
+      const result: Record<string, { projectId: string; versionId: string }> = {}
+      for (const [hash, version] of Object.entries(data)) {
+        const fileName = byHash.get(hash)
+        if (fileName) result[fileName] = { projectId: version.project_id, versionId: version.id }
+      }
+      return result
+    } catch (err) {
+      logger.warn('client', 'Modrinth-Sammelabfrage fehlgeschlagen', String(err))
+      return {}
+    }
+  }
+
   /**
    * Replaces an installed file with a different version of the same project.
    * The old file is only deleted once the new one is on disk, so a failed

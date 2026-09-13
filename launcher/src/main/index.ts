@@ -144,11 +144,19 @@ app.whenReady().then(async () => {
   // Updates are checked *after* the window is up and reported as a dismissible
   // banner — nothing blocks getting into the launcher.
   const updater = new UpdateManager(store)
-  updater.check()
-    .then(info => {
+  // Sent only once the page has loaded and subscribed: a result that arrived
+  // before the renderer was listening used to vanish, so the banner never
+  // appeared even though an update was available.
+  const rendererReady = new Promise<void>(resolve => {
+    const wc = mainWindow?.webContents
+    if (!wc || !wc.isLoading()) resolve()
+    else wc.once('did-finish-load', () => resolve())
+  })
+  Promise.all([updater.check(), rendererReady])
+    .then(([info]) => {
       if (info.available) mainWindow?.webContents.send('update:available', info)
     })
-    .catch(() => { /* no release channel configured, or offline */ })
+    .catch(err => logger.warn('updater', 'Update-Prüfung beim Start fehlgeschlagen', String(err)))
 
   ipcMain.handle('update:downloadAndRestart', async () => {
     return updater.install((event, data) => mainWindow?.webContents.send(event, data))

@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Rocket, ChevronDown, Plus, ExternalLink, Trash2, Settings2, Blocks, FlaskConical, CheckCircle2, RotateCcw, Wrench, AlertTriangle } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { Play, ChevronDown, Plus, ExternalLink, X, FlaskConical, CheckCircle2, RotateCcw, AlertTriangle, Boxes } from 'lucide-react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { notify } from '../../store/notificationStore'
 import { LoginPanel } from '../ui/LoginPanel'
-import { CrystalWordmark } from '../../theme/CrystalWordmark'
+import { Page, PageHeader, EmptyState } from '../ui/Page'
 
 interface ExternalClient {
   id: string
@@ -38,6 +38,7 @@ const DEFAULT_RAM = 4096
 
 export function Launch() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [instances, setInstances] = useState<Instance[]>([])
   const [instanceId, setInstanceId] = useState<string>('')
   const [externalClients, setExternalClients] = useState<ExternalClient[]>([])
@@ -57,7 +58,11 @@ export function Launch() {
     api?.getInstances().then((list: Instance[]) => {
       const all = list || []
       setInstances(all)
-      setInstanceId(current => (all.some(i => i.id === current) ? current : all[0]?.id ?? ''))
+      const requested = searchParams.get('instance')
+      setInstanceId(current =>
+        all.some(i => i.id === current) ? current
+          : requested && all.some(i => i.id === requested) ? requested
+          : all[0]?.id ?? '')
     })
   }
 
@@ -186,186 +191,173 @@ export function Launch() {
     })
   }
 
+  const busy = launching || trying
+
   return (
-    <div className="p-6 max-w-2xl mx-auto space-y-4">
-      <div className="flex items-center gap-2 mb-2">
-        <Rocket size={20} className="text-crystal-accent" />
-        <h1 className="text-xl font-bold text-crystal-text">Launch</h1>
-      </div>
+    <Page>
+      <PageHeader title="Starten" description="Wähle Konto und Instanz, dann kann es losgehen." />
 
-      <LoginPanel profile={profile} onProfileChange={setProfile} />
+      <div className="space-y-6">
+        <section>
+          <h2 className="text-[13px] font-semibold text-crystal-text mb-2 px-0.5">Konto</h2>
+          <LoginPanel profile={profile} onProfileChange={setProfile} />
+        </section>
 
-      {/* Instance picker */}
-      <div className="crystal-card p-5 space-y-4">
-        <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <label className="text-crystal-muted text-xs font-medium uppercase tracking-wide">Instanz</label>
-            <button
-              onClick={() => navigate('/instances')}
-              className="text-crystal-accent text-xs hover:underline flex items-center gap-1"
-            >
-              <Settings2 size={11} /> Verwalten
+        <section>
+          <div className="flex items-baseline justify-between mb-2 px-0.5">
+            <h2 className="text-[13px] font-semibold text-crystal-text">Instanz</h2>
+            <button onClick={() => navigate('/instances')} className="text-xs text-crystal-muted hover:text-crystal-text">
+              Verwalten
             </button>
           </div>
 
           {instances.length === 0 ? (
-            <div className="flex items-center justify-between gap-3 p-3 rounded-lg bg-crystal-panel border border-dashed border-crystal-border">
-              <span className="text-crystal-muted text-sm">Noch keine Instanz vorhanden.</span>
-              <button onClick={() => navigate('/instances')} className="crystal-btn-primary text-xs px-3 py-1.5">
-                Instanz anlegen
-              </button>
-            </div>
+            <EmptyState
+              icon={<Boxes size={22} strokeWidth={1.75} />}
+              title="Noch keine Instanz"
+              action={<button onClick={() => navigate('/instances')} className="crystal-btn-primary text-[13px]"><Plus size={14} /> Instanz anlegen</button>}
+            >
+              Lege zuerst eine Instanz an. Mods, Welten und Einstellungen liegen dann getrennt voneinander.
+            </EmptyState>
           ) : (
-            <div className="relative">
-              <select
-                value={instanceId}
-                onChange={e => setInstanceId(e.target.value)}
-                className="crystal-input w-full appearance-none pr-8 cursor-pointer"
-              >
-                {instances.map(i => (
-                  <option key={i.id} value={i.id}>
-                    {i.name} — {i.version} ({i.useCrystalClient ? 'Crystal Client' : 'Vanilla + Mods'})
-                  </option>
-                ))}
-              </select>
-              <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-crystal-muted pointer-events-none" />
+            <div className="crystal-card p-4 space-y-4">
+              <div className="relative">
+                <select
+                  value={instanceId}
+                  onChange={e => { setInstanceId(e.target.value); setProblems(null); setTryStatus(null) }}
+                  disabled={busy}
+                  className="crystal-input w-full appearance-none pr-9 cursor-pointer text-[13px]"
+                >
+                  {instances.map(i => (
+                    <option key={i.id} value={i.id}>{i.name}</option>
+                  ))}
+                </select>
+                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-crystal-muted pointer-events-none" />
+              </div>
+
+              {instance && (
+                <dl className="grid grid-cols-3 gap-3 text-xs">
+                  <div>
+                    <dt className="text-crystal-muted">Version</dt>
+                    <dd className="text-crystal-text mt-0.5 tabular">{instance.version}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-crystal-muted">Modus</dt>
+                    <dd className="text-crystal-text mt-0.5">{instance.useCrystalClient ? 'Crystal Client' : 'Vanilla mit Mods'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-crystal-muted">Arbeitsspeicher</dt>
+                    <dd className="text-crystal-text mt-0.5 tabular">{(maxRam / 1024).toLocaleString('de-DE', { maximumFractionDigits: 1 })} GB</dd>
+                  </div>
+                </dl>
+              )}
+
+              {progress && (
+                <div className="space-y-1.5" aria-live="polite">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-crystal-muted truncate">{progress.step}</span>
+                    <span className="text-crystal-text tabular">{progress.percent}%</span>
+                  </div>
+                  <div className="h-1 bg-crystal-border rounded-full overflow-hidden">
+                    <div className="h-full bg-crystal-accent rounded-full transition-[width] duration-300" style={{ width: `${progress.percent}%` }} />
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <button onClick={launch} disabled={busy || !instance} className="crystal-btn-primary flex-1 py-2.5 text-[14px] disabled:opacity-60">
+                  <Play size={15} fill="currentColor" />
+                  {launching ? 'Startet…' : 'Spielen'}
+                </button>
+                <button
+                  onClick={tryWithCrystal}
+                  disabled={busy || !instance}
+                  title="Startet die Instanz einmal mit Crystal. Klappt es nicht, wird automatisch alles zurückgesetzt."
+                  className="crystal-btn-ghost border border-crystal-border text-crystal-text disabled:opacity-60"
+                >
+                  <FlaskConical size={14} strokeWidth={1.75} />
+                  {trying ? 'Teste…' : 'Mit Crystal testen'}
+                </button>
+              </div>
+
+              {tryStatus && (
+                <div className={`flex items-start gap-2.5 p-3 rounded-lg text-xs border ${
+                  tryStatus.ok ? 'border-crystal-success/30 bg-crystal-success/[0.07]' : 'border-crystal-warning/30 bg-crystal-warning/[0.07]'
+                }`}>
+                  {tryStatus.ok
+                    ? <CheckCircle2 size={14} className="text-crystal-success shrink-0 mt-px" />
+                    : <RotateCcw size={14} className="text-crystal-warning shrink-0 mt-px" />}
+                  <span className="text-crystal-text">{tryStatus.message}</span>
+                </div>
+              )}
             </div>
           )}
-        </div>
-
-        {instance && (
-          <div className="flex items-center gap-2 text-xs text-crystal-muted">
-            {instance.useCrystalClient ? (
-              <>
-                <CrystalWordmark size={11} className="text-crystal-text" />
-                <span>· Module aktiv · {instance.loader} · {maxRam} MB RAM</span>
-              </>
-            ) : (
-              <>
-                <Blocks size={12} />
-                <span>Vanilla + Mods · {instance.loader} · {maxRam} MB RAM</span>
-              </>
-            )}
-          </div>
-        )}
-
-        {progress && (
-          <div className="space-y-1.5">
-            <div className="flex justify-between text-xs">
-              <span className="text-crystal-muted">{progress.step}</span>
-              <span className="text-crystal-accent">{progress.percent}%</span>
-            </div>
-            <div className="h-1.5 bg-crystal-border rounded-full overflow-hidden">
-              <div
-                className="h-full bg-crystal-gradient rounded-full transition-all duration-300"
-                style={{ width: `${progress.percent}%` }}
-              />
-            </div>
-          </div>
-        )}
-
-        <div className="grid grid-cols-[1fr_auto] gap-2">
-          <button
-            onClick={launch}
-            disabled={launching || trying || !instance}
-            className="flex items-center justify-center gap-2 py-3 rounded-xl bg-crystal-gradient text-white font-semibold shadow-glow hover:opacity-90 active:scale-95 transition-all duration-200 disabled:opacity-60"
-          >
-            <Rocket size={18} className={launching ? 'animate-pulse' : ''} />
-            {launching ? 'Startet...' : 'Play'}
-          </button>
-
-          <button
-            onClick={tryWithCrystal}
-            disabled={launching || trying || !instance}
-            title="Einmaliger Testlauf mit Crystal — bei Fehlschlag wird automatisch zurückgesetzt"
-            className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-crystal-accent/50 text-crystal-accent font-semibold hover:bg-crystal-accent/10 active:scale-95 transition-all duration-200 disabled:opacity-60"
-          >
-            <FlaskConical size={16} className={trying ? 'animate-pulse' : ''} />
-            {trying ? 'Teste...' : 'Try with Crystal'}
-          </button>
-        </div>
-
-        {tryStatus && (
-          <div
-            className={`flex items-start gap-2 p-3 rounded-lg text-xs border ${
-              tryStatus.ok
-                ? 'bg-crystal-success/10 border-crystal-success/30 text-crystal-text'
-                : 'bg-crystal-warning/10 border-crystal-warning/30 text-crystal-text'
-            }`}
-          >
-            {tryStatus.ok
-              ? <CheckCircle2 size={14} className="text-crystal-success shrink-0 mt-0.5" />
-              : <RotateCcw size={14} className="text-crystal-warning shrink-0 mt-0.5" />}
-            <span>{tryStatus.message}</span>
-          </div>
-        )}
+        </section>
 
         {problems && problems.length > 0 && (
-          <div className="space-y-2 pt-1">
-            <div className="flex items-center gap-2 text-sm font-medium text-crystal-text">
-              <Wrench size={14} className="text-crystal-warning" />
-              Start fehlgeschlagen — {problems.length === 1 ? 'eine Ursache gefunden' : `${problems.length} Ursachen gefunden`}
-            </div>
-            {problems.map(p => (
-              <div key={p.id} className="flex items-start gap-3 p-3 rounded-lg border border-crystal-border bg-crystal-panel">
-                <AlertTriangle size={14} className="text-crystal-warning shrink-0 mt-0.5" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-crystal-text">{p.title}</p>
-                  <p className="text-xs text-crystal-muted mt-0.5">{p.detail}</p>
+          <section aria-live="polite">
+            <h2 className="text-[13px] font-semibold text-crystal-text mb-0.5 px-0.5">Start fehlgeschlagen</h2>
+            <p className="text-xs text-crystal-muted mb-2 px-0.5">
+              {problems.length === 1 ? 'Crystal hat die Ursache gefunden.' : `Crystal hat ${problems.length} Ursachen gefunden.`}
+            </p>
+            <div className="crystal-card divide-y divide-crystal-border">
+              {problems.map(p => (
+                <div key={p.id} className="flex items-start gap-3 px-4 py-3">
+                  <AlertTriangle size={15} strokeWidth={1.75} className="text-crystal-warning shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] text-crystal-text">{p.title}</p>
+                    <p className="text-xs text-crystal-muted mt-0.5">{p.detail}</p>
+                  </div>
+                  {p.fix && (
+                    <button onClick={() => applyFix(p)} disabled={fixing === p.id} className="crystal-btn-primary text-xs px-3 py-1.5 shrink-0 disabled:opacity-60">
+                      {fixing === p.id ? 'Behebe…' : p.fix.label}
+                    </button>
+                  )}
                 </div>
-                {p.fix && (
-                  <button
-                    onClick={() => applyFix(p)}
-                    disabled={fixing === p.id}
-                    className="crystal-btn-primary text-xs px-3 py-1.5 shrink-0 disabled:opacity-50"
-                  >
-                    {fixing === p.id ? '...' : p.fix.label}
-                  </button>
-                )}
+              ))}
+              {lastError && (
+                <details className="px-4 py-2.5 text-xs text-crystal-muted">
+                  <summary className="cursor-pointer hover:text-crystal-text select-none">Vollständige Fehlermeldung</summary>
+                  <pre className="mt-2 p-2.5 rounded-md bg-crystal-bg border border-crystal-border font-mono text-[11px] whitespace-pre-wrap break-all max-h-56 overflow-auto select-text">{lastError}</pre>
+                </details>
+              )}
+            </div>
+          </section>
+        )}
+
+        <section>
+          <h2 className="text-[13px] font-semibold text-crystal-text mb-0.5 px-0.5">Andere Clients</h2>
+          <p className="text-xs text-crystal-muted mb-2 px-0.5">
+            Startet eine .exe oder .jar direkt. Crystal verändert deren Dateien nicht, die Einstellungen oben gelten dafür nicht.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {externalClients.map(c => (
+              <div key={c.id} className="group flex items-center rounded-lg border border-crystal-border bg-crystal-card overflow-hidden">
+                <button
+                  onClick={() => launchExternal(c.id)}
+                  title={c.executablePath}
+                  className="flex items-center gap-1.5 pl-3 pr-2 py-1.5 text-[13px] text-crystal-text hover:bg-crystal-panel transition-colors"
+                >
+                  <ExternalLink size={12} className="text-crystal-muted" /> {c.name}
+                </button>
+                <button
+                  onClick={e => removeExternalClient(c.id, e)}
+                  aria-label={`${c.name} entfernen`}
+                  className="px-2 py-1.5 text-crystal-muted hover:text-crystal-danger hover:bg-crystal-panel transition-colors"
+                >
+                  <X size={12} />
+                </button>
               </div>
             ))}
-            {lastError && (
-              <details className="text-xs text-crystal-muted">
-                <summary className="cursor-pointer hover:text-crystal-text">Vollständige Fehlermeldung</summary>
-                <pre className="mt-2 p-2 rounded bg-crystal-bg border border-crystal-border whitespace-pre-wrap break-all max-h-48 overflow-auto">{lastError}</pre>
-              </details>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* External clients stay separate — Crystal never touches their files. */}
-      <div className="crystal-card p-4 space-y-2">
-        <span className="text-crystal-muted text-xs font-medium uppercase tracking-wide">
-          Andere Clients
-        </span>
-        <div className="flex flex-wrap gap-2">
-          {externalClients.map(c => (
             <button
-              key={c.id}
-              onClick={() => launchExternal(c.id)}
-              title={c.executablePath}
-              className="group flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border bg-crystal-panel text-crystal-muted border-crystal-border hover:text-crystal-text transition-all"
+              onClick={addExternalClient}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] text-crystal-muted border border-dashed border-crystal-border hover:text-crystal-text hover:border-crystal-muted transition-colors"
             >
-              <ExternalLink size={12} /> {c.name}
-              <Trash2
-                size={12}
-                onClick={e => removeExternalClient(c.id, e)}
-                className="opacity-0 group-hover:opacity-70 hover:!opacity-100 transition-opacity"
-              />
+              <Plus size={13} /> Client hinzufügen
             </button>
-          ))}
-          <button
-            onClick={addExternalClient}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm text-crystal-muted border border-dashed border-crystal-border hover:text-crystal-accent hover:border-crystal-accent transition-colors"
-          >
-            <Plus size={14} /> Meteor, Feather, eigene .exe/.jar...
-          </button>
-        </div>
-        <p className="text-crystal-muted text-xs">
-          Startet die gewählte Datei direkt — getrennt von Crystal, die Einstellungen oben gelten dafür nicht.
-        </p>
+          </div>
+        </section>
       </div>
-    </div>
+    </Page>
   )
 }

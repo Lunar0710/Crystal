@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import { randomUUID } from 'crypto'
 
 export type NotificationType = 'success' | 'error' | 'warning' | 'info'
 
@@ -21,7 +20,8 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
   notifications: [],
   add(n) {
     const id = Math.random().toString(36).slice(2)
-    const note: Notification = { id, duration: 4000, ...n }
+    // Errors stay longer: they usually carry something the user has to read.
+    const note: Notification = { id, duration: n.type === 'error' ? 9000 : 4000, ...n }
     set(s => ({ notifications: [...s.notifications, note] }))
     if (note.duration && note.duration > 0) {
       setTimeout(() => get().remove(id), note.duration)

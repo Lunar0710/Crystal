@@ -115,15 +115,36 @@ export class InstanceManager {
     return instances[index]
   }
 
-  delete(id: string): boolean {
+  /**
+   * Removes an instance from Crystal. Its folder is never destroyed: it holds
+   * the player's worlds, and a single mis-click used to rm -rf all of them.
+   * The folder is moved into <data root>/trash instead, where it can be
+   * restored by hand or cleared deliberately. Imported folders belong to the
+   * user and are only unregistered.
+   */
+  delete(id: string): { movedTo: string | null } {
     const instance = this.get(id)
+    let movedTo: string | null = null
 
-    // Imported folders belong to the user — only ever unregister those.
     if (instance && !instance.imported && instance.gameDir && fs.existsSync(instance.gameDir)) {
-      fs.rmSync(instance.gameDir, { recursive: true, force: true })
+      const safeName = instance.name.replace(/[^\w.-]+/g, '_').slice(0, 40) || 'instanz'
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+      const target = crystalPath('trash', `${safeName}-${stamp}`)
+      fs.mkdirSync(path.dirname(target), { recursive: true })
+
+      try {
+        fs.renameSync(instance.gameDir, target)
+      } catch (err) {
+        // rename can't cross drives (EXDEV) once the data root lives elsewhere;
+        // copy first and only remove the original after the copy succeeded.
+        if ((err as NodeJS.ErrnoException).code !== 'EXDEV') throw err
+        fs.cpSync(instance.gameDir, target, { recursive: true })
+        fs.rmSync(instance.gameDir, { recursive: true, force: true })
+      }
+      movedTo = target
     }
 
     this.store.set('instances', this.list().filter(i => i.id !== id))
-    return true
+    return { movedTo }
   }
 }

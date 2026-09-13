@@ -1,34 +1,31 @@
-import React, { useEffect } from 'react'
-import { CheckCircle, XCircle, AlertCircle, Info, X } from 'lucide-react'
+import React from 'react'
+import { CheckCircle2, XCircle, AlertTriangle, Info, X } from 'lucide-react'
 import { useNotificationStore, NotificationType } from '../../store/notificationStore'
 
 const icons: Record<NotificationType, React.ReactNode> = {
-  success: <CheckCircle size={16} className="text-crystal-success" />,
-  error:   <XCircle    size={16} className="text-crystal-danger" />,
-  warning: <AlertCircle size={16} className="text-crystal-warning" />,
-  info:    <Info        size={16} className="text-crystal-accent" />,
+  success: <CheckCircle2  size={15} strokeWidth={2} className="text-crystal-success" />,
+  error:   <XCircle       size={15} strokeWidth={2} className="text-crystal-danger" />,
+  warning: <AlertTriangle size={15} strokeWidth={2} className="text-crystal-warning" />,
+  info:    <Info          size={15} strokeWidth={2} className="text-crystal-muted" />,
 }
 
 export function NotificationContainer() {
   const { notifications, remove } = useNotificationStore()
 
   return (
-    <div className="fixed bottom-4 right-4 flex flex-col gap-2 z-50 pointer-events-none">
+    <div className="fixed bottom-4 right-4 flex flex-col gap-2 z-50 pointer-events-none" role="status" aria-live="polite">
       {notifications.map(n => (
         <div
           key={n.id}
-          className="crystal-card flex items-start gap-3 p-3 pr-4 min-w-64 max-w-80 pointer-events-auto animate-slide-in shadow-card"
+          className="flex items-start gap-2.5 w-80 pl-3 pr-2 py-2.5 rounded-lg bg-crystal-panel shadow-popover pointer-events-auto animate-slide-in"
         >
-          <div className="mt-0.5 flex-shrink-0">{icons[n.type]}</div>
-          <div className="flex-1">
-            {n.title && <p className="font-medium text-crystal-text text-sm">{n.title}</p>}
-            <p className="text-crystal-muted text-xs">{n.message}</p>
+          <span className="mt-px shrink-0">{icons[n.type]}</span>
+          <div className="flex-1 min-w-0">
+            {n.title && <p className="text-[13px] font-medium text-crystal-text">{n.title}</p>}
+            <p className={`text-xs text-crystal-muted break-words ${n.title ? 'mt-0.5' : ''} line-clamp-4`}>{n.message}</p>
           </div>
-          <button
-            onClick={() => remove(n.id)}
-            className="text-crystal-muted hover:text-crystal-text transition-colors flex-shrink-0"
-          >
-            <X size={14} />
+          <button onClick={() => remove(n.id)} aria-label="Schließen" className="p-1 rounded text-crystal-muted hover:text-crystal-text">
+            <X size={13} />
           </button>
         </div>
       ))}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
-import { Users, UserPlus, Search, Trash2, X } from 'lucide-react'
+import { UserPlus, Search, Trash2, Users, X } from 'lucide-react'
 import { notify } from '../../store/notificationStore'
+import { Page, PageHeader, EmptyState } from '../ui/Page'
 
 interface Friend {
   id: string
@@ -12,11 +13,12 @@ interface Friend {
 const api = (window as any).crystal
 
 export function Friends() {
-  const [friends, setFriends] = useState<Friend[]>([])
+  const [friends, setFriends] = useState<Friend[] | null>(null)
   const [search, setSearch] = useState('')
   const [adding, setAdding] = useState(false)
   const [newName, setNewName] = useState('')
   const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   function refresh() {
     api?.listFriends().then((list: Friend[]) => setFriends(list || []))
@@ -27,119 +29,120 @@ export function Friends() {
   async function addFriend() {
     const name = newName.trim()
     if (!name) return
-
     setBusy(true)
+    setError(null)
     const result = await api?.addFriend(name)
     setBusy(false)
-
     if (result?.success) {
       notify({ type: 'success', message: `${result.friend.username} hinzugefügt` })
       setNewName('')
       setAdding(false)
       refresh()
     } else {
-      notify({ type: 'error', message: result?.error || 'Konnte Freund nicht hinzufügen' })
+      setError(result?.error || 'Diesen Spieler gibt es nicht.')
     }
   }
 
-  async function removeFriend(id: string, username: string) {
+  async function removeFriend(id: string) {
     await api?.removeFriend(id)
-    notify({ type: 'info', message: `${username} entfernt` })
     refresh()
   }
 
-  const filtered = friends.filter(f => f.username.toLowerCase().includes(search.toLowerCase()))
+  const list = friends ?? []
+  const filtered = list.filter(f => f.username.toLowerCase().includes(search.toLowerCase()))
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Users size={20} className="text-crystal-accent" />
-          <h1 className="text-xl font-bold text-crystal-text">Freunde</h1>
-          <span className="text-xs text-crystal-muted bg-crystal-border px-2 py-0.5 rounded-full">
-            {friends.length}
-          </span>
-        </div>
-        <button onClick={() => setAdding(true)} className="crystal-btn-primary flex items-center gap-1.5 text-sm">
-          <UserPlus size={14} /> Freund hinzufügen
-        </button>
-      </div>
+    <Page>
+      <PageHeader
+        title="Freunde"
+        description="Deine Liste liegt nur auf diesem PC. Online-Status und Chat gibt es noch nicht."
+        actions={
+          <button onClick={() => { setAdding(true); setError(null) }} disabled={adding} className="crystal-btn-primary text-[13px] disabled:opacity-60">
+            <UserPlus size={14} /> Hinzufügen
+          </button>
+        }
+      />
 
       {adding && (
-        <div className="crystal-card p-4 space-y-3 border-crystal-accent/50">
-          <div className="flex items-center justify-between">
-            <h3 className="text-crystal-text font-medium text-sm">Freund hinzufügen</h3>
-            <button onClick={() => setAdding(false)} className="text-crystal-muted hover:text-crystal-text">
-              <X size={14} />
-            </button>
+        <div className="crystal-card mb-5">
+          <div className="flex items-center justify-between px-4 pt-3.5">
+            <h2 className="text-[13px] font-semibold text-crystal-text">Freund hinzufügen</h2>
+            <button onClick={() => setAdding(false)} aria-label="Abbrechen" className="p-1 rounded text-crystal-muted hover:text-crystal-text"><X size={14} /></button>
           </div>
-          <input
-            autoFocus
-            type="text"
-            value={newName}
-            onChange={e => setNewName(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && addFriend()}
-            className="crystal-input w-full"
-            placeholder="Minecraft-Username"
-          />
-          <p className="text-crystal-muted text-xs">
-            Der Name wird gegen Mojang geprüft, damit keine Tippfehler in der Liste landen.
-          </p>
-          <div className="flex gap-2">
-            <button onClick={addFriend} disabled={busy} className="crystal-btn-primary text-sm disabled:opacity-60">
-              {busy ? 'Prüfe...' : 'Hinzufügen'}
-            </button>
-            <button onClick={() => setAdding(false)} className="crystal-btn-ghost text-sm">Abbrechen</button>
+          <div className="px-4 pt-3 pb-4 space-y-1.5">
+            <label htmlFor="friend-name" className="crystal-label">Spielername</label>
+            <div className="flex gap-2">
+              <input
+                id="friend-name"
+                autoFocus
+                maxLength={16}
+                value={newName}
+                onChange={e => { setNewName(e.target.value); setError(null) }}
+                onKeyDown={e => e.key === 'Enter' && addFriend()}
+                aria-invalid={!!error}
+                className={`crystal-input flex-1 text-[13px] ${error ? 'border-crystal-danger/70' : ''}`}
+              />
+              <button onClick={addFriend} disabled={busy || !newName.trim()} className="crystal-btn-primary text-[13px] disabled:opacity-50">
+                {busy ? 'Prüfe…' : 'Hinzufügen'}
+              </button>
+            </div>
+            {error
+              ? <p className="text-xs text-crystal-danger">{error}</p>
+              : <p className="text-xs text-crystal-muted">Der Name wird bei Mojang geprüft, damit sich keine Tippfehler einschleichen.</p>}
           </div>
         </div>
       )}
 
-      {friends.length > 0 && (
-        <div className="relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-crystal-muted" />
+      {list.length > 3 && (
+        <div className="relative mb-3">
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-crystal-muted" />
           <input
-            type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="crystal-input w-full pl-8"
-            placeholder="Freunde durchsuchen..."
+            className="crystal-input w-full pl-8 text-[13px]"
+            placeholder="Freunde filtern"
+            aria-label="Freunde filtern"
           />
         </div>
       )}
 
-      <div className="space-y-2">
-        {filtered.map(friend => (
-          <div key={friend.id} className="crystal-card p-4 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-crystal-gradient flex items-center justify-center text-white text-sm font-bold shrink-0">
-              {friend.username.charAt(0).toUpperCase()}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-crystal-text font-medium text-sm">{friend.username}</p>
-              <p className="text-crystal-muted text-xs">
-                {friend.uuid ? 'Verifizierter Account' : 'Nicht verifiziert (offline hinzugefügt)'}
-              </p>
-            </div>
-            <button
-              onClick={() => removeFriend(friend.id, friend.username)}
-              className="p-2 rounded-lg hover:bg-crystal-border text-crystal-muted hover:text-crystal-danger transition-colors"
-            >
-              <Trash2 size={14} />
-            </button>
-          </div>
-        ))}
+      {friends && list.length === 0 && !adding && (
+        <EmptyState
+          icon={<Users size={22} strokeWidth={1.75} />}
+          title="Noch niemand in der Liste"
+          action={<button onClick={() => setAdding(true)} className="crystal-btn-primary text-[13px]"><UserPlus size={14} /> Freund hinzufügen</button>}
+        />
+      )}
 
-        {friends.length === 0 && !adding && (
-          <div className="crystal-card p-8 text-center text-crystal-muted">
-            <Users size={32} className="mx-auto mb-2 opacity-30" />
-            <p className="text-sm">Noch keine Freunde hinzugefügt.</p>
-          </div>
-        )}
-      </div>
+      {filtered.length > 0 && (
+        <div className="crystal-card divide-y divide-crystal-border overflow-hidden">
+          {filtered.map(friend => (
+            <div key={friend.id} className="group flex items-center gap-3 px-4 py-2.5">
+              <span className="w-8 h-8 rounded-md bg-crystal-panel border border-crystal-border flex items-center justify-center text-xs font-semibold text-crystal-text shrink-0">
+                {friend.username.charAt(0).toUpperCase()}
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] text-crystal-text truncate">{friend.username}</p>
+                <p className="text-xs text-crystal-muted">
+                  Seit {new Date(friend.addedAt).toLocaleDateString('de-DE', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  {!friend.uuid && ', nicht verifiziert'}
+                </p>
+              </div>
+              <button
+                onClick={() => removeFriend(friend.id)}
+                aria-label={`${friend.username} entfernen`}
+                className="p-1.5 rounded-md text-crystal-muted opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-crystal-danger hover:bg-crystal-border/50 transition"
+              >
+                <Trash2 size={13} strokeWidth={1.75} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
-      <p className="text-crystal-muted text-xs">
-        Die Liste liegt nur lokal auf diesem Rechner. Online-Status und Chat brauchen einen
-        Crystal-Account-Server, den es noch nicht gibt.
-      </p>
-    </div>
+      {list.length > 0 && filtered.length === 0 && (
+        <p className="text-center text-xs text-crystal-muted py-6">Niemand heißt so.</p>
+      )}
+    </Page>
   )
 }

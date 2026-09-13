@@ -1,12 +1,9 @@
 import React, { useState, useEffect } from 'react'
-import { Download, X } from 'lucide-react'
+import { ArrowDownToLine, X } from 'lucide-react'
 
 const api = (window as any).crystal
 
-/**
- * Discord-style update prompt: a quiet strip at the bottom rather than a modal,
- * so an available update never interrupts what you were doing.
- */
+/** A quiet strip at the bottom rather than a modal, so an update never interrupts what you were doing. */
 export function UpdateBanner() {
   const [version, setVersion] = useState<string | null>(null)
   const [dismissed, setDismissed] = useState(false)
@@ -24,6 +21,11 @@ export function UpdateBanner() {
         setProgress(null)
       }),
     ]
+    // Ask directly as well: the startup broadcast can land before this
+    // component has subscribed, and then the banner would never show.
+    api?.checkUpdate().then((info: { available: boolean; version?: string } | undefined) => {
+      if (info?.available && info.version) setVersion(info.version)
+    }).catch(() => {})
     return () => unsubs.forEach(u => u?.())
   }, [])
 
@@ -32,48 +34,35 @@ export function UpdateBanner() {
   const downloading = progress !== null
 
   return (
-    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 animate-slide-in">
-      <div className="crystal-card flex items-center gap-3 pl-4 pr-3 py-2.5 border-crystal-accent/40 shadow-glow">
-        <Download size={15} className="text-crystal-accent shrink-0" />
+    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 animate-slide-in" role="status">
+      <div className="flex items-center gap-3 pl-3.5 pr-2 py-2 rounded-lg bg-crystal-panel shadow-popover min-w-[320px]">
+        <ArrowDownToLine size={15} strokeWidth={1.75} className="text-crystal-accent shrink-0" />
 
-        <div className="text-sm">
+        <div className="flex-1 min-w-0 text-[13px]">
           {error ? (
             <span className="text-crystal-danger">{error}</span>
           ) : downloading ? (
-            <span className="text-crystal-text">Update wird geladen… {Math.round(progress!)}%</span>
+            <span className="text-crystal-text tabular">Update wird geladen, {Math.round(progress!)} %</span>
           ) : (
-            <span className="text-crystal-text">
-              Update auf <strong>{version}</strong> verfügbar
-            </span>
+            <span className="text-crystal-text">Version {version} ist verfügbar</span>
+          )}
+          {downloading && (
+            <div className="h-0.5 mt-1.5 bg-crystal-border rounded-full overflow-hidden">
+              <div className="h-full bg-crystal-accent transition-[width] duration-300" style={{ width: `${progress}%` }} />
+            </div>
           )}
         </div>
 
         {!downloading && !error && (
-          <button
-            onClick={() => { setProgress(0); api?.downloadAndRestart() }}
-            className="crystal-btn-primary text-xs px-3 py-1.5"
-          >
-            Jetzt neu starten
+          <button onClick={() => { setProgress(0); api?.downloadAndRestart() }} className="crystal-btn-primary text-xs py-1.5">
+            Aktualisieren
           </button>
         )}
 
-        <button
-          onClick={() => setDismissed(true)}
-          className="p-1 rounded text-crystal-muted hover:text-crystal-text transition-colors"
-          title="Später"
-        >
-          <X size={14} />
+        <button onClick={() => setDismissed(true)} aria-label="Später" title="Später" className="p-1.5 rounded text-crystal-muted hover:text-crystal-text">
+          <X size={13} />
         </button>
       </div>
-
-      {downloading && (
-        <div className="h-1 mt-1 bg-crystal-border rounded-full overflow-hidden">
-          <div
-            className="h-full bg-crystal-gradient transition-all duration-300"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-      )}
     </div>
   )
 }

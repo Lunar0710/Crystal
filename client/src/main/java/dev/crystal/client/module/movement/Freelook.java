@@ -23,7 +23,9 @@ import java.util.function.Consumer;
  */
 public class Freelook extends Module {
 
-    private int key = GLFW.GLFW_KEY_UNKNOWN;
+    // Left Alt out of the box, like most clients: an unbound key made the
+    // module look broken to anyone who just switched it on.
+    private int key = GLFW.GLFW_KEY_LEFT_ALT;
     private boolean active = false;
     private float cameraYaw;
     private float cameraPitch;
@@ -66,8 +68,10 @@ public class Freelook extends Module {
 
     /** Called from {@link dev.crystal.client.mixin.MixinEntity} with the same deltas that would otherwise turn the player's body. */
     public void accumulate(double deltaX, double deltaY) {
-        cameraYaw += (float) deltaX;
-        cameraPitch = MathHelper.clamp(cameraPitch + (float) deltaY, -90f, 90f);
+        // Same 0.15 factor vanilla applies in Entity.changeLookDirection, so
+        // freelook turns at your normal sensitivity instead of ~6.7x faster.
+        cameraYaw += (float) deltaX * 0.15f;
+        cameraPitch = MathHelper.clamp(cameraPitch + (float) deltaY * 0.15f, -90f, 90f);
     }
 
     public float getCameraYaw() { return cameraYaw; }
@@ -75,6 +79,6 @@ public class Freelook extends Module {
 
     @Override
     public List<Setting<?>> getSettings() {
-        return List.of(new KeybindSetting("Freelook Key", () -> key, v -> key = v));
+        return List.of(new KeybindSetting("Freelook Key", () -> key, v -> key = v, GLFW.GLFW_KEY_LEFT_ALT));
     }
 }

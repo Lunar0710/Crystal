@@ -1,63 +1,71 @@
 import React from 'react'
-import { Newspaper, Clock } from 'lucide-react'
+import { ArrowUpRight, WifiOff } from 'lucide-react'
+import { Page, PageHeader, EmptyState } from '../ui/Page'
+import { useReleases, relativeDate, plainNotes } from '../../hooks/useReleases'
 
-const news = [
-  {
-    id: 1,
-    title: 'Crystal Client 1.0 — Official Launch',
-    excerpt: 'After months of development, Crystal Client 1.0 is officially released. Featuring a brand new modular HUD system, improved performance, Crystal Store integration, and full Fabric 1.21.4 support.',
-    date: '2 hours ago',
-    tag: 'Release',
-    tagColor: 'bg-crystal-success/20 text-crystal-success border border-crystal-success/30',
-  },
-  {
-    id: 2,
-    title: 'New Cosmetics: Crystal Wings Collection',
-    excerpt: 'Show off your style with the new Crystal Wings cape collection available in the Crystal Store. Featuring Aurora, Void and Galaxy variants.',
-    date: '1 day ago',
-    tag: 'Cosmetics',
-    tagColor: 'bg-crystal-accent/20 text-crystal-accent border border-crystal-accent/30',
-  },
-  {
-    id: 3,
-    title: 'Performance Update: 30% Lower GPU Usage',
-    excerpt: 'Our improved rendering pipeline reduces GPU usage by up to 30% on mid-range hardware. The update also addresses several memory leaks found in the HUD rendering system.',
-    date: '3 days ago',
-    tag: 'Update',
-    tagColor: 'bg-crystal-warning/20 text-crystal-warning border border-crystal-warning/30',
-  },
-  {
-    id: 4,
-    title: 'Crystal Store: Coming Q1 2025',
-    excerpt: 'The Crystal Store will launch in Q1 2025 featuring Crystal Coins, premium cosmetics, profile customization and more.',
-    date: '1 week ago',
-    tag: 'Announcement',
-    tagColor: 'bg-crystal-accent-2/20 text-crystal-accent-2 border border-crystal-accent-2/30',
-  },
-]
+const api = (window as any).crystal
 
 export function News() {
-  return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center gap-2">
-        <Newspaper size={20} className="text-crystal-accent" />
-        <h1 className="text-xl font-bold text-crystal-text">News</h1>
-      </div>
+  const { loading, ok, items } = useReleases()
 
-      <div className="space-y-3">
-        {news.map(item => (
-          <div key={item.id} className="crystal-card p-5 hover:border-crystal-accent/40 transition-colors cursor-pointer">
-            <div className="flex items-center gap-2 mb-2">
-              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${item.tagColor}`}>{item.tag}</span>
-              <span className="text-crystal-muted text-xs flex items-center gap-1">
-                <Clock size={10} /> {item.date}
-              </span>
+  return (
+    <Page>
+      <PageHeader title="Neuigkeiten" description="Was sich in jeder Crystal-Version geändert hat." />
+
+      {loading && (
+        <div className="space-y-6 ml-1.5 pl-6 border-l border-crystal-border">
+          {[0, 1, 2].map(i => (
+            <div key={i} className="animate-pulse">
+              <div className="h-3 w-20 rounded bg-crystal-border mb-2.5" />
+              <div className="h-4 w-56 rounded bg-crystal-border mb-2" />
+              <div className="h-3 w-80 max-w-full rounded bg-crystal-border/60" />
             </div>
-            <h3 className="text-crystal-text font-semibold mb-2">{item.title}</h3>
-            <p className="text-crystal-muted text-sm leading-relaxed">{item.excerpt}</p>
-          </div>
-        ))}
-      </div>
-    </div>
+          ))}
+        </div>
+      )}
+
+      {!loading && !ok && (
+        <EmptyState icon={<WifiOff size={22} strokeWidth={1.75} />} title="Neuigkeiten konnten nicht geladen werden">
+          GitHub ist gerade nicht erreichbar. Prüf deine Internetverbindung und öffne die Seite später erneut.
+        </EmptyState>
+      )}
+
+      {!loading && ok && items.length === 0 && (
+        <EmptyState title="Noch keine Versionen veröffentlicht" />
+      )}
+
+      {!loading && items.length > 0 && (
+        <ol className="relative border-l border-crystal-border ml-1.5">
+          {items.map((release, index) => (
+            <li key={release.id} className="pl-6 pb-8 last:pb-0 relative">
+              <span
+                className={`absolute -left-[5px] top-[7px] w-[9px] h-[9px] rounded-full ring-4 ring-crystal-bg ${
+                  index === 0 ? 'bg-crystal-accent' : 'bg-crystal-border'
+                }`}
+              />
+              <div className="flex items-baseline gap-2.5 mb-1">
+                <span className="font-mono text-xs text-crystal-text">{release.tag}</span>
+                <span className="text-xs text-crystal-muted">{relativeDate(release.publishedAt)}</span>
+                {index === 0 && (
+                  <span className="text-[11px] px-1.5 py-px rounded bg-crystal-accent/15 text-crystal-accent">aktuell</span>
+                )}
+              </div>
+              <h2 className="text-[15px] font-semibold text-crystal-text">{release.title}</h2>
+              {release.body.trim() && (
+                <div className="mt-1.5 space-y-0.5 text-[13px] text-crystal-muted leading-relaxed max-w-[68ch]">
+                  {plainNotes(release.body).map((line, i) => <p key={i}>{line}</p>)}
+                </div>
+              )}
+              <button
+                onClick={() => api?.openExternal(release.url)}
+                className="mt-2.5 inline-flex items-center gap-1 text-xs text-crystal-muted hover:text-crystal-text transition-colors"
+              >
+                Auf GitHub ansehen <ArrowUpRight size={12} />
+              </button>
+            </li>
+          ))}
+        </ol>
+      )}
+    </Page>
   )
 }

@@ -19,30 +19,34 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        mono: ['JetBrains Mono', 'monospace'],
+        sans: ['Geist Variable', 'Segoe UI', 'system-ui', 'sans-serif'],
+        mono: ['Geist Mono Variable', 'Consolas', 'monospace'],
       },
       borderRadius: {
-        xl: '0.875rem',
-        '2xl': '1.25rem',
+        lg: '7px',
+        xl: '10px',
+        '2xl': '14px',
       },
+      // Kept as names so existing markup still resolves, but deliberately flat:
+      // gradient fills and glow shadows were the loudest "template" tells.
       backgroundImage: {
-        'crystal-gradient': 'linear-gradient(135deg, rgb(var(--c-accent)) 0%, rgb(var(--c-accent-2)) 100%)',
-        'panel-gradient':   'linear-gradient(180deg, rgb(var(--c-card)) 0%, rgb(var(--c-panel)) 100%)',
+        'crystal-gradient': 'linear-gradient(rgb(var(--c-accent)), rgb(var(--c-accent)))',
+        'panel-gradient':   'none',
       },
       boxShadow: {
-        crystal: '0 4px 24px rgb(var(--c-accent) / 0.15)',
-        card:    '0 2px 16px rgba(0, 0, 0, 0.4)',
-        glow:    '0 0 20px rgb(var(--c-accent) / 0.3)',
+        crystal: 'none',
+        card:    'none',
+        glow:    'none',
+        popover: '0 12px 32px -8px rgb(0 0 0 / 0.55), 0 0 0 1px rgb(var(--c-border))',
       },
       animation: {
         'fade-in':    'fadeIn 0.2s ease-out',
-        'slide-in':   'slideIn 0.3s ease-out',
+        'slide-in':   'slideIn 0.18s cubic-bezier(0.16, 1, 0.3, 1)',
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
       },
       keyframes: {
         fadeIn:  { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
-        slideIn: { '0%': { transform: 'translateX(-10px)', opacity: '0' }, '100%': { transform: 'translateX(0)', opacity: '1' } },
+        slideIn: { '0%': { transform: 'translateY(6px)', opacity: '0' }, '100%': { transform: 'translateY(0)', opacity: '1' } },
       },
     },
   },

@@ -21,6 +21,10 @@ contextBridge.exposeInMainWorld('crystal', {
   switchAccount:  (uuid: string) => ipcRenderer.invoke('auth:switchAccount', uuid),
   removeAccount:  (uuid: string) => ipcRenderer.invoke('auth:removeAccount', uuid),
 
+  // News (GitHub releases)
+  listNews:     () => ipcRenderer.invoke('news:list'),
+  openExternal: (url: string) => ipcRenderer.invoke('shell:openExternal', url),
+
   // Data folder
   getDataRoot:   () => ipcRenderer.invoke('dataRoot:get'),
   pickDataRoot:  () => ipcRenderer.invoke('dataRoot:pick'),
@@ -100,6 +104,7 @@ contextBridge.exposeInMainWorld('crystal', {
   openLogFolder:    () => ipcRenderer.invoke('launcherLog:openFolder'),
   setDebugMode:     (enabled: boolean) => ipcRenderer.invoke('launcherLog:setDebug', enabled),
   isDebugMode:      () => ipcRenderer.invoke('launcherLog:isDebug'),
+  openTrashFolder: () => ipcRenderer.invoke('trash:open'),
   openInstanceLogFolder: (instanceId: string, kind: string) => ipcRenderer.invoke('logs:openFolder', instanceId, kind),
 
   // Logs / crashes
@@ -135,6 +140,8 @@ contextBridge.exposeInMainWorld('crystal', {
     ipcRenderer.invoke('modrinth:install', instanceId, projectId, gameVersion, loader, type, versionId),
   identifyModFile: (instanceId: string, type: string, fileName: string) =>
     ipcRenderer.invoke('modrinth:identifyFile', instanceId, type, fileName),
+  identifyModFolder: (instanceId: string, type: string) =>
+    ipcRenderer.invoke('modrinth:identifyFolder', instanceId, type),
   switchModVersion: (instanceId: string, type: string, fileName: string, versionId: string) =>
     ipcRenderer.invoke('modrinth:switchVersion', instanceId, type, fileName, versionId),
 

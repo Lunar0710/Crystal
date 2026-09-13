@@ -1,68 +1,103 @@
-import React from 'react'
-import { NavLink, useLocation } from 'react-router-dom'
+import React, { useEffect, useState } from 'react'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
-  LayoutDashboard, Rocket, Layers,
-  Sparkles, Users, Newspaper,
-  Settings, Terminal
+  Home, Play, Boxes, Shirt, Users, Newspaper, ScrollText, Settings, type LucideIcon,
 } from 'lucide-react'
 
-const navItems = [
-  { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { path: '/launch',    icon: Rocket,          label: 'Launch' },
-  { path: '/instances', icon: Layers,          label: 'Instanzen & Mods' },
-  { path: '/cosmetics', icon: Sparkles,        label: 'Cosmetics' },
-  { path: '/logs',      icon: Terminal,        label: 'Logs' },
-  { path: '/friends',   icon: Users,           label: 'Friends' },
-  { path: '/news',      icon: Newspaper,       label: 'News' },
+interface NavItem {
+  path: string
+  icon: LucideIcon
+  label: string
+}
+
+const groups: { title: string; items: NavItem[] }[] = [
+  {
+    title: 'Spielen',
+    items: [
+      { path: '/dashboard', icon: Home,  label: 'Übersicht' },
+      { path: '/launch',    icon: Play,  label: 'Starten' },
+      { path: '/instances', icon: Boxes, label: 'Instanzen' },
+    ],
+  },
+  {
+    title: 'Profil',
+    items: [
+      { path: '/cosmetics', icon: Shirt, label: 'Cosmetics' },
+      { path: '/friends',   icon: Users, label: 'Freunde' },
+    ],
+  },
+  {
+    title: 'Mehr',
+    items: [
+      { path: '/news', icon: Newspaper,  label: 'Neuigkeiten' },
+      { path: '/logs', icon: ScrollText, label: 'Logs' },
+    ],
+  },
 ]
 
+const api = (window as any).crystal
+
 export function Sidebar() {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const [username, setUsername] = useState<string | null>(null)
+
+  // Re-read on navigation: logging in or switching accounts happens on other
+  // pages, and the chip should follow without a reload.
+  useEffect(() => {
+    api?.getProfile().then((p: { username: string } | null) => setUsername(p?.username ?? null))
+  }, [location.pathname])
+
   return (
-    <nav className="flex flex-col w-16 bg-crystal-panel border-r border-crystal-border py-3 gap-1 items-center">
-      {navItems.map(({ path, icon: Icon, label }) => (
-        <NavLink
-          key={path}
-          to={path}
-          title={label}
-          className={({ isActive }) =>
-            `group relative flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-200 ` +
-            (isActive
-              ? 'bg-crystal-gradient text-white shadow-glow'
-              : 'text-crystal-muted hover:text-crystal-text hover:bg-crystal-card')
-          }
+    <nav className="flex flex-col w-52 shrink-0 bg-crystal-panel border-r border-crystal-border">
+      <div className="flex-1 overflow-y-auto px-2.5 pt-4 pb-2 space-y-5">
+        {groups.map(group => (
+          <div key={group.title}>
+            <p className="px-2.5 mb-1 text-[11px] font-medium text-crystal-muted/80">{group.title}</p>
+            <div className="space-y-px">
+              {group.items.map(item => <Item key={item.path} {...item} />)}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="px-2.5 py-2.5 border-t border-crystal-border space-y-px">
+        <Item path="/settings" icon={Settings} label="Einstellungen" />
+        <button
+          onClick={() => navigate('/launch')}
+          className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md text-left hover:bg-crystal-card transition-colors"
         >
-          <Icon size={18} />
-          <Tooltip label={label} />
-        </NavLink>
-      ))}
-
-      <div className="flex-1" />
-
-      <NavLink
-        to="/settings"
-        title="Settings"
-        className={({ isActive }) =>
-          `group relative flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-200 ` +
-          (isActive
-            ? 'bg-crystal-gradient text-white shadow-glow'
-            : 'text-crystal-muted hover:text-crystal-text hover:bg-crystal-card')
-        }
-      >
-        <Settings size={18} />
-        <Tooltip label="Settings" />
-      </NavLink>
-
-      <div className="w-8 h-8 rounded-full bg-crystal-gradient flex items-center justify-center text-xs font-bold text-white mt-2 cursor-pointer shadow-crystal">
-        C
+          <span className="w-6 h-6 rounded bg-crystal-border text-crystal-text text-[11px] font-semibold flex items-center justify-center shrink-0">
+            {username ? username.charAt(0).toUpperCase() : '?'}
+          </span>
+          <span className="min-w-0">
+            <span className="block text-[13px] text-crystal-text truncate">{username ?? 'Nicht angemeldet'}</span>
+            <span className="block text-[11px] text-crystal-muted">{username ? 'Konto wechseln' : 'Anmelden'}</span>
+          </span>
+        </button>
       </div>
     </nav>
   )
 }
 
-function Tooltip({ label }: { label: string }) {
+function Item({ path, icon: Icon, label }: NavItem) {
   return (
-    <div className="absolute left-full ml-3 px-2 py-1 bg-crystal-card border border-crystal-border rounded-lg text-xs text-crystal-text whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 shadow-card">
-      {label}
-    </div>
+    <NavLink
+      to={path}
+      className={({ isActive }) =>
+        `relative flex items-center gap-2.5 px-2.5 py-[7px] rounded-md text-[13px] transition-colors ` +
+        (isActive
+          ? 'bg-crystal-card text-crystal-text font-medium'
+          : 'text-crystal-muted hover:text-crystal-text hover:bg-crystal-card/60')
+      }
+    >
+      {({ isActive }) => (
+        <>
+          {isActive && <span className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-full bg-crystal-accent" />}
+          <Icon size={15} strokeWidth={isActive ? 2 : 1.75} className={isActive ? 'text-crystal-accent' : ''} />
+          {label}
+        </>
+      )}
+    </NavLink>
   )
 }

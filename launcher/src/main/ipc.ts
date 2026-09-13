@@ -147,6 +147,38 @@ export function registerIpcHandlers(store: Store) {
     client: minecraft.getBundledClientVersion(),
   }))
 
+  // News = the project's real GitHub releases. Public endpoint, no token; on
+  // failure the UI shows an honest "couldn't load" instead of placeholder posts.
+  ipcMain.handle('news:list', async () => {
+    try {
+      const res = await (globalThis as any).fetch('https://api.github.com/repos/Lunar0710/Crystal/releases?per_page=10', {
+        headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'crystal-launcher' },
+      })
+      if (!res.ok) return { ok: false, items: [] }
+      const releases = await res.json() as any[]
+      return {
+        ok: true,
+        items: releases
+          .filter(r => !r.draft)
+          .map(r => ({
+            id: String(r.id),
+            title: r.name || r.tag_name,
+            tag: r.tag_name,
+            body: r.body || '',
+            publishedAt: r.published_at,
+            url: r.html_url,
+          })),
+      }
+    } catch (err) {
+      logger.warn('launcher', 'News konnten nicht geladen werden', String(err))
+      return { ok: false, items: [] }
+    }
+  })
+  ipcMain.handle('shell:openExternal', (_e, url: string) => {
+    // Only ever the project's own GitHub pages — never an arbitrary URL from the renderer.
+    if (typeof url === 'string' && url.startsWith('https://github.com/Lunar0710/Crystal')) shell.openExternal(url)
+  })
+
   // Data folder location. Existing instances keep their stored absolute path,
   // so switching never strands or moves anyone's worlds — only new instances,
   // downloads and caches go to the new folder.
@@ -239,6 +271,11 @@ export function registerIpcHandlers(store: Store) {
   ipcMain.handle('instances:update', (_e, id: string, patch) => instances.update(id, patch))
   ipcMain.handle('instances:import', (_e, version: string) => instances.importFromDisk(version))
   ipcMain.handle('instances:delete', (_e, id: string) => instances.delete(id))
+  ipcMain.handle('trash:open', () => {
+    const dir = crystalPath('trash')
+    fs.mkdirSync(dir, { recursive: true })
+    return shell.openPath(dir)
+  })
 
   // One-shot Crystal attempt with automatic revert on failure
   ipcMain.handle('tryCrystal:run', async (_e, instanceId: string) => {
@@ -282,6 +319,8 @@ export function registerIpcHandlers(store: Store) {
   // Version switching for files that are already installed.
   ipcMain.handle('modrinth:identifyFile', (_e, instanceId: string, type: ContentType, fileName: string) =>
     modrinth.identifyFile(instanceId, type, fileName))
+  ipcMain.handle('modrinth:identifyFolder', (_e, instanceId: string, type: ContentType) =>
+    modrinth.identifyFolder(instanceId, type))
   ipcMain.handle('modrinth:switchVersion', (_e, instanceId: string, type: ContentType, fileName: string, versionId: string) =>
     modrinth.switchVersion(instanceId, type, fileName, versionId))
 
