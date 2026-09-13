@@ -47,4 +47,21 @@ public abstract class Module {
 
     /** Tunable values shown in the module's settings expander. Empty by default. */
     public List<Setting<?>> getSettings() { return Collections.emptyList(); }
+
+    private List<Setting<?>> settingsCache;
+
+    /**
+     * The one list every consumer must use.
+     *
+     * getSettings() builds a fresh List.of(new XSetting(...)) on each call, so
+     * two calls never return the same objects. The GUI tracks which row is
+     * being edited by object identity (setting == editingText), which meant
+     * that state was dead on the very next frame — clicking a text field and
+     * typing did nothing visible, and keybind capture never showed "...".
+     * Building once and reusing keeps those references stable for the session.
+     */
+    public final List<Setting<?>> settings() {
+        if (settingsCache == null) settingsCache = getSettings();
+        return settingsCache;
+    }
 }

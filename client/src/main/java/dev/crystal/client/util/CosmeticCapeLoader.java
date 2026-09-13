@@ -10,6 +10,8 @@ import net.minecraft.util.Identifier;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Loads whichever cape the launcher's Cosmetics page has equipped from
@@ -29,10 +31,17 @@ public final class CosmeticCapeLoader {
 
     private static final long CHECK_INTERVAL_MS = 1000;
 
-    private static long lastLoadedMtime = -1;
-    private static long lastCheckedAt = 0;
-    private static boolean registered = false;
-    private static boolean fileExists = false;
+    private static final ExecutorService CHECKER = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "Crystal-Cape-Watcher");
+        t.setDaemon(true);
+        return t;
+    });
+
+    private static volatile long lastLoadedMtime = -1;
+    private static volatile long lastCheckedAt = 0;
+    private static volatile boolean checkInFlight = false;
+    private static volatile boolean registered = false;
+    private static volatile boolean fileExists = false;
 
     private CosmeticCapeLoader() {}
 
@@ -44,29 +53,38 @@ public final class CosmeticCapeLoader {
      */
     public static AssetInfo.TextureAsset getEquippedCape() {
         long now = System.currentTimeMillis();
-        if (now - lastCheckedAt < CHECK_INTERVAL_MS) {
-            return fileExists ? ASSET : null;
-        }
-        lastCheckedAt = now;
-
-        Path path = capeFilePath();
-        long mtime;
-        try {
-            mtime = Files.getLastModifiedTime(path).toMillis();
-        } catch (IOException e) {
-            // No cape equipped right now.
-            fileExists = false;
-            return null;
-        }
-
-        if (mtime != lastLoadedMtime) {
-            reload(path, mtime);
+        if (now - lastCheckedAt >= CHECK_INTERVAL_MS && !checkInFlight) {
+            lastCheckedAt = now;
+            checkInFlight = true;
+            // Off the render thread on purpose: this runs from getSkin(), which
+            // is on the frame path, and a filesystem stat there can stall a
+            // frame. The result is picked up by whichever frame comes next.
+            CHECKER.execute(CosmeticCapeLoader::checkFile);
         }
         return fileExists ? ASSET : null;
     }
 
+    private static void checkFile() {
+        try {
+            Path path = capeFilePath();
+            long mtime;
+            try {
+                mtime = Files.getLastModifiedTime(path).toMillis();
+            } catch (IOException e) {
+                // No cape equipped right now.
+                fileExists = false;
+                return;
+            }
+            if (mtime != lastLoadedMtime) {
+                reload(path, mtime);
+            }
+        } finally {
+            checkInFlight = false;
+        }
+    }
+
     private static Path capeFilePath() {
-        return Path.of(System.getProperty("user.home"), ".crystal", "cosmetics", "equipped_cape.png");
+        return CrystalPaths.root().resolve("cosmetics").resolve("equipped_cape.png");
     }
 
     private static void reload(Path path, long mtime) {

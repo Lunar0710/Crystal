@@ -8,8 +8,11 @@ import { registerIpcHandlers } from './ipc'
 import { syncThemeToClient } from './theme/ThemeSync'
 import { BrandingManager } from './branding/BrandingManager'
 import { logger } from './logs/Logger'
+import { setCrystalRoot } from './paths'
 
 const store = new Store()
+// Applied before anything touches the data folder (logs are written from the first lines below).
+setCrystalRoot(store.get('dataRoot') as string | undefined)
 const isDev = process.env.NODE_ENV === 'development'
 
 let mainWindow: BrowserWindow | null = null
@@ -126,7 +129,7 @@ app.whenReady().then(async () => {
   splashWindow = createSplash()
 
   registerIpcHandlers(store)
-  syncThemeToClient((store.get('theme') as string) || 'crystal-blue', store.get('customTheme') as any)
+  syncThemeToClient((store.get('theme') as string) || 'crystal-blue')
 
   setSplashStatus(`Crystal ${app.getVersion()}`, 70)
 

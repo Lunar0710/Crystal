@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
+import { crystalPath } from '../paths'
 
 // Mirrors the CSS custom properties defined in globals.css for each theme id.
 // Kept in sync manually since the renderer's CSS can't be read from the main process.
@@ -20,6 +21,12 @@ const THEME_COLORS: Record<string, Record<string, [number, number, number]>> = {
   'prism':            { bg: [9,10,20], panel: [15,17,32], card: [21,24,45], border: [34,39,70], accent: [34,211,238], accent2: [168,85,247], text: [230,236,252], muted: [116,126,160] },
   'obsidian':         { bg: [10,9,7], panel: [17,15,11], card: [25,22,16], border: [46,40,27], accent: [251,191,36], accent2: [180,83,9], text: [248,244,232], muted: [130,119,93] },
   'void':             { bg: [3,3,6], panel: [8,8,14], card: [13,13,22], border: [24,24,38], accent: [255,255,255], accent2: [180,180,210], text: [240,240,250], muted: [120,120,140] },
+  'aurora':           { bg: [5,12,16], panel: [9,20,26], card: [13,28,36], border: [24,48,58], accent: [52,211,153], accent2: [129,140,248], text: [226,245,242], muted: [112,141,145] },
+  'sakura':           { bg: [18,8,18], panel: [27,12,27], card: [36,17,36], border: [61,29,58], accent: [244,114,182], accent2: [126,34,206], text: [250,232,244], muted: [158,116,148] },
+  'terminal':         { bg: [2,8,5], panel: [4,14,9], card: [6,20,13], border: [14,44,28], accent: [34,197,94], accent2: [22,163,74], text: [209,250,229], muted: [82,130,102] },
+  'sandstorm':        { bg: [18,12,6], panel: [28,19,10], card: [37,25,13], border: [66,45,22], accent: [217,119,6], accent2: [245,158,11], text: [250,240,224], muted: [160,130,92] },
+  'nebula':           { bg: [8,5,18], panel: [14,9,30], card: [20,13,42], border: [40,26,76], accent: [192,132,252], accent2: [34,211,238], text: [237,231,252], muted: [132,116,168] },
+  'blueprint':        { bg: [6,16,33], panel: [9,23,46], card: [12,30,60], border: [24,56,98], accent: [56,189,248], accent2: [14,116,205], text: [224,240,255], muted: [112,146,186] },
 }
 
 function rgbToArgbHex(rgb: [number, number, number], alpha = 0xFF): string {
@@ -27,29 +34,8 @@ function rgbToArgbHex(rgb: [number, number, number], alpha = 0xFF): string {
   return '0x' + [alpha, r, g, b].map(v => v.toString(16).padStart(2, '0')).join('')
 }
 
-function hexToRgb(hex: string): [number, number, number] {
-  const clean = hex.replace('#', '')
-  return [
-    parseInt(clean.substring(0, 2), 16) || 0,
-    parseInt(clean.substring(2, 4), 16) || 0,
-    parseInt(clean.substring(4, 6), 16) || 0,
-  ]
-}
-
-export interface CustomThemeColors {
-  bg: string; panel: string; card: string; border: string
-  accent: string; accent2: string; text: string; muted: string
-}
-
-export function syncThemeToClient(themeId: string, customColors?: CustomThemeColors) {
-  const colors = themeId === 'custom' && customColors
-    ? {
-        bg: hexToRgb(customColors.bg), panel: hexToRgb(customColors.panel),
-        card: hexToRgb(customColors.card), border: hexToRgb(customColors.border),
-        accent: hexToRgb(customColors.accent), accent2: hexToRgb(customColors.accent2),
-        text: hexToRgb(customColors.text), muted: hexToRgb(customColors.muted),
-      }
-    : THEME_COLORS[themeId] || THEME_COLORS['crystal-blue']
+export function syncThemeToClient(themeId: string) {
+  const colors = THEME_COLORS[themeId] || THEME_COLORS['crystal-blue']
 
   const payload = {
     id: themeId,
@@ -58,7 +44,7 @@ export function syncThemeToClient(themeId: string, customColors?: CustomThemeCol
     ),
   }
 
-  const configDir = path.join(os.homedir(), '.crystal', 'config')
+  const configDir = crystalPath('config')
   fs.mkdirSync(configDir, { recursive: true })
   fs.writeFileSync(path.join(configDir, 'theme.json'), JSON.stringify(payload, null, 2))
 }

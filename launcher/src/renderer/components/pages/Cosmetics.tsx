@@ -86,7 +86,10 @@ export function Cosmetics() {
     setUploading(false)
     if (cape) {
       notify({ type: 'success', title: cape.name, message: 'Cape hochgeladen' })
-      refreshCustom()
+      // Awaited: equipping before the thumbnail is loaded leaves equippedCapeUrl
+      // null, which the sync effect deliberately skips — the cape would then
+      // only reach the game on a later re-render.
+      await refreshCustom()
       equip('cape', `custom:${cape.id}`)
     }
   }

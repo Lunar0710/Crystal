@@ -14,10 +14,18 @@ export interface AuthProfile {
 // here since the main process's tsconfig can't reach into src/renderer.
 export type RankId = 'owner' | 'co_owner' | 'admin' | 'staff' | 'developer' | 'media' | 'crystal_plus' | 'member'
 
+/** One saved account. xboxCache is the refreshable Microsoft session; offline accounts have none. */
+interface StoredAccount {
+  profile: AuthProfile
+  xboxCache?: string
+}
+
 export interface RankGrant {
   username: string
   rank: RankId
   grantedAt: number
+  /** Absent means permanent. Expired grants are dropped the next time getGrants() reads the store. */
+  expiresAt?: number
 }
 
 export class AuthManager {
@@ -48,8 +56,7 @@ export class AuthManager {
         type: 'microsoft',
       }
 
-      this.store.set('auth.profile', profile)
-      this.store.set('auth.xboxCache', xboxToken.save())
+      this.setActive(profile, xboxToken.save())
       return profile
     } catch (err) {
       logger.error('launcher', 'Microsoft-Login fehlgeschlagen', err)
@@ -64,8 +71,92 @@ export class AuthManager {
       accessToken: 'offline',
       type: 'offline',
     }
-    this.store.set('auth.profile', profile)
+    this.setActive(profile)
     return profile
+  }
+
+  // --- multiple accounts ---------------------------------------------------
+  //
+  // Every account lives in auth.accounts; the active one is also mirrored to
+  // auth.profile / auth.xboxCache, which is what launching, ranks and
+  // cosmetics already read. Keeping that mirror means adding multi-account
+  // support didn't have to touch any of those call sites.
+
+  listAccounts(): AuthProfile[] {
+    return this.getAccounts().map(a => a.profile)
+  }
+
+  private getAccounts(): StoredAccount[] {
+    const accounts = this.store.get('auth.accounts') as StoredAccount[] | undefined
+    if (accounts) return accounts
+
+    // Installs from before multi-account only have the single active login —
+    // carry it over so it shows up in the list instead of looking logged out.
+    const legacy = this.getStoredProfile()
+    if (!legacy) return []
+    const migrated: StoredAccount[] = [{ profile: legacy, xboxCache: this.store.get('auth.xboxCache') as string | undefined }]
+    this.store.set('auth.accounts', migrated)
+    return migrated
+  }
+
+  /** Stores the profile as the active account, replacing any earlier entry for the same UUID. */
+  private setActive(profile: AuthProfile, xboxCache?: string) {
+    const accounts = this.getAccounts().filter(a => a.profile.uuid !== profile.uuid)
+    accounts.push({ profile, xboxCache })
+    this.store.set('auth.accounts', accounts)
+
+    this.store.set('auth.profile', profile)
+    if (xboxCache) this.store.set('auth.xboxCache', xboxCache)
+    else this.store.delete('auth.xboxCache')
+  }
+
+  /**
+   * Switches to an already-added account. Microsoft accounts get their token
+   * refreshed, since a stored access token is short-lived and launching with
+   * a stale one fails at Mojang's session server rather than here.
+   */
+  async switchAccount(uuid: string): Promise<AuthProfile | null> {
+    const account = this.getAccounts().find(a => a.profile.uuid === uuid)
+    if (!account) return null
+
+    if (account.profile.type === 'offline' || !account.xboxCache) {
+      this.setActive(account.profile, account.xboxCache)
+      return account.profile
+    }
+
+    try {
+      const xboxToken = await this.auth.refresh(account.xboxCache)
+      const minecraft = await xboxToken.getMinecraft()
+      if (!minecraft.profile) throw new Error('No Minecraft profile found on this account')
+
+      const profile: AuthProfile = {
+        username: minecraft.profile.name,
+        uuid: minecraft.profile.id,
+        accessToken: minecraft.mcToken,
+        type: 'microsoft',
+      }
+      this.setActive(profile, xboxToken.save())
+      return profile
+    } catch (err) {
+      logger.warn('launcher', `Konto ${account.profile.username} konnte nicht aktualisiert werden`, String(err))
+      // Still switch to it — the user gets a clear session error on launch
+      // rather than a silent no-op here.
+      this.setActive(account.profile, account.xboxCache)
+      return account.profile
+    }
+  }
+
+  removeAccount(uuid: string): void {
+    const remaining = this.getAccounts().filter(a => a.profile.uuid !== uuid)
+    this.store.set('auth.accounts', remaining)
+
+    if (this.getStoredProfile()?.uuid !== uuid) return
+
+    // The active account was the one removed — fall back to another, or to
+    // logged-out, so the launcher never points at an account that's gone.
+    const next = remaining[0]
+    if (next) this.setActive(next.profile, next.xboxCache)
+    else this.logout()
   }
 
   async tryAutoLogin(): Promise<AuthProfile | null> {
@@ -83,8 +174,7 @@ export class AuthManager {
         accessToken: minecraft.mcToken,
         type: 'microsoft',
       }
-      this.store.set('auth.profile', profile)
-      this.store.set('auth.xboxCache', xboxToken.save())
+      this.setActive(profile, xboxToken.save())
       return profile
     } catch (err) {
       logger.warn('launcher', 'Auto-Login nicht moeglich, Sitzung abgelaufen?', String(err))
@@ -114,10 +204,26 @@ export class AuthManager {
   getRank(): RankId {
     const profile = this.getStoredProfile()
     if (profile) {
-      const grant = this.getGrants()[profile.username.toLowerCase()]
-      if (grant) return grant.rank
+      const key = profile.username.toLowerCase()
+
+      // A locally granted rank wins over the published one, so the owner can
+      // test a rank on this machine without publishing it to everyone.
+      const local = this.getGrants()[key]
+      if (local) return local.rank
+
+      const remote = this.getRemoteGrant(key)
+      if (remote) return remote.rank
     }
     return (this.store.get('account.rank') as RankId) || 'member'
+  }
+
+  /** Published grants mirrored from the repo by RankSyncService — expired ones are ignored. */
+  private getRemoteGrant(usernameKey: string): RankGrant | null {
+    const remote = (this.store.get('ranks.remoteCache') as Record<string, RankGrant>) || {}
+    const grant = remote[usernameKey]
+    if (!grant) return null
+    if (grant.expiresAt && grant.expiresAt <= Date.now()) return null
+    return grant
   }
 
   setRank(rank: RankId) {
@@ -125,13 +231,31 @@ export class AuthManager {
   }
 
   getGrants(): Record<string, RankGrant> {
-    return (this.store.get('account.rankGrants') as Record<string, RankGrant>) || {}
+    const stored = (this.store.get('account.rankGrants') as Record<string, RankGrant>) || {}
+    const now = Date.now()
+    let changed = false
+    for (const key of Object.keys(stored)) {
+      if (stored[key].expiresAt && stored[key].expiresAt! <= now) {
+        delete stored[key]
+        changed = true
+      }
+    }
+    if (changed) this.store.set('account.rankGrants', stored)
+    return stored
   }
 
-  /** Only ever call this after confirming the caller's own rank is 'owner' — see ipc.ts. */
-  grantRank(username: string, rank: RankId): void {
+  /**
+   * Only ever call this after confirming the caller's own rank is 'owner' — see ipc.ts.
+   * durationMs is optional; omit it for a permanent grant.
+   */
+  grantRank(username: string, rank: RankId, durationMs?: number): void {
     const grants = this.getGrants()
-    grants[username.toLowerCase()] = { username, rank, grantedAt: Date.now() }
+    grants[username.toLowerCase()] = {
+      username,
+      rank,
+      grantedAt: Date.now(),
+      ...(durationMs ? { expiresAt: Date.now() + durationMs } : {}),
+    }
     this.store.set('account.rankGrants', grants)
   }
 

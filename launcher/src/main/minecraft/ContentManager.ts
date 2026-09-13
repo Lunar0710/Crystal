@@ -3,6 +3,7 @@ import path from 'path'
 import os from 'os'
 import { dialog, BrowserWindow } from 'electron'
 import { InstanceManager } from './InstanceManager'
+import { crystalPath } from '../paths'
 
 export type ContentType = 'mod' | 'resourcepack' | 'shader'
 
@@ -41,7 +42,7 @@ export class ContentManager {
   private instanceDir(instanceId: string): string {
     const gameDir = this.instances?.get(instanceId)?.gameDir
     if (gameDir) return gameDir
-    return path.join(os.homedir(), '.crystal', 'instances', instanceId)
+    return crystalPath('instances', instanceId)
   }
 
   contentDir(instanceId: string, type: ContentType): string {

@@ -36,7 +36,7 @@ public class CrystalHUD {
 
     /** Draws a HUD module using its own position, colour, scale, shadow and background settings. */
     private void drawStyledText(DrawContext context, HudModule module) {
-        String text = module.getText();
+        String text = module.getDisplayText();
         if (text == null || text.isEmpty()) return;
 
         MinecraftClient mc = MinecraftClient.getInstance();

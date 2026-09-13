@@ -26,10 +26,16 @@ export const themes: CrystalTheme[] = [
   { id: 'matcha',    name: 'Matcha',    preview: ['#84cc16', '#4d7c0f'], requiredRank: 'crystal_plus' },
 
   { id: 'void', name: 'Void', preview: ['#ffffff', '#b4b4d2'], requiredRank: 'crystal_plus' },
+  { id: 'aurora',    name: 'Aurora',    preview: ['#34d399', '#818cf8'], requiredRank: 'crystal_plus' },
+  { id: 'sakura',    name: 'Sakura',    preview: ['#f472b6', '#7e22ce'], requiredRank: 'crystal_plus' },
+  { id: 'terminal',  name: 'Terminal',  preview: ['#22c55e', '#052e16'], requiredRank: 'crystal_plus' },
+  { id: 'sandstorm', name: 'Sandstorm', preview: ['#d97706', '#78350f'], requiredRank: 'crystal_plus' },
 
   // Team only
   { id: 'prism',     name: 'Prism',     preview: ['#22d3ee', '#a855f7'], requiredRank: 'developer' },
   { id: 'obsidian',  name: 'Obsidian Gold', preview: ['#fbbf24', '#18181b'], requiredRank: 'developer' },
+  { id: 'nebula',    name: 'Nebula',    preview: ['#c084fc', '#22d3ee'], requiredRank: 'developer' },
+  { id: 'blueprint', name: 'Blueprint', preview: ['#38bdf8', '#0c2340'], requiredRank: 'developer' },
 ]
 
 export const DEFAULT_THEME = 'crystal-blue'

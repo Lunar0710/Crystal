@@ -160,7 +160,7 @@ public class CrystalClientScreen extends Screen {
         int rowTop = cursorY;
 
         for (Module module : modules) {
-            boolean expanded = module == expandedModule && !module.getSettings().isEmpty();
+            boolean expanded = module == expandedModule && !module.settings().isEmpty();
 
             CardLayout card = new CardLayout();
             card.module = module;
@@ -176,7 +176,7 @@ public class CrystalClientScreen extends Screen {
                 card.y = rowTop;
 
                 int settingsTop = rowTop + CARD_H;
-                for (Setting<?> setting : module.getSettings()) {
+                for (Setting<?> setting : module.settings()) {
                     SettingRow row = new SettingRow();
                     row.setting = setting;
                     row.x = card.x;
@@ -188,7 +188,7 @@ public class CrystalClientScreen extends Screen {
                     card.settings.add(row);
                     settingsTop += SETTING_ROW_H;
                 }
-                card.height = CARD_H + module.getSettings().size() * SETTING_ROW_H + 6;
+                card.height = CARD_H + module.settings().size() * SETTING_ROW_H + 6;
                 rowTop += card.height + CARD_GAP;
             } else {
                 card.x = innerX + column * (columnWidth + CARD_GAP);
@@ -337,7 +337,7 @@ public class CrystalClientScreen extends Screen {
     private void renderCard(DrawContext context, CardLayout card, int mouseX, int mouseY) {
         Module module = card.module;
         boolean enabled = module.isEnabled();
-        boolean hasSettings = !module.getSettings().isEmpty();
+        boolean hasSettings = !module.settings().isEmpty();
         boolean expanded = module == expandedModule && hasSettings;
         boolean hover = mouseX >= card.x && mouseX <= card.x + card.width
                 && mouseY >= card.y && mouseY <= card.y + CARD_H;
@@ -554,7 +554,7 @@ public class CrystalClientScreen extends Screen {
                 card.module.toggle();
                 return true;
             }
-            if (!card.module.getSettings().isEmpty()
+            if (!card.module.settings().isEmpty()
                     && mouseX >= card.gearX - 4 && mouseX <= card.gearX + 12
                     && mouseY >= card.gearY - 4 && mouseY <= card.gearY + 10) {
                 expandedModule = expandedModule == card.module ? null : card.module;
@@ -569,7 +569,7 @@ public class CrystalClientScreen extends Screen {
             }
 
             // Anywhere else on the card: left-click toggles, right-click opens settings.
-            if (rightClick && !card.module.getSettings().isEmpty()) {
+            if (rightClick && !card.module.settings().isEmpty()) {
                 expandedModule = expandedModule == card.module ? null : card.module;
             } else if (!rightClick) {
                 card.module.toggle();

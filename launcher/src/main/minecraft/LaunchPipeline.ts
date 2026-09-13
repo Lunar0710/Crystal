@@ -6,6 +6,7 @@ import { spawn } from 'child_process'
 import extract from 'extract-zip'
 import { AuthProfile } from '../auth/AuthManager'
 import { logger } from '../logs/Logger'
+import { crystalRoot } from '../paths'
 
 // Electron/Node 18+ ships a global fetch; not covered by this tsconfig's
 // ES2020-only lib, so declared locally instead of pulling in a DOM lib.
@@ -16,10 +17,11 @@ declare function fetch(url: string, init?: { headers?: Record<string, string> })
   arrayBuffer(): Promise<ArrayBuffer>
 }>
 
-const ROOT = path.join(os.homedir(), '.crystal')
-const VERSIONS_DIR = path.join(ROOT, 'versions')
-const LIBRARIES_DIR = path.join(ROOT, 'libraries')
-const ASSETS_DIR = path.join(ROOT, 'assets')
+// Getters, not constants: the user-configured data root is applied during
+// startup, after this module has already been imported.
+const VERSIONS_DIR = () => path.join(crystalRoot(), 'versions')
+const LIBRARIES_DIR = () => path.join(crystalRoot(), 'libraries')
+const ASSETS_DIR = () => path.join(crystalRoot(), 'assets')
 
 export interface LaunchPipelineOptions {
   version: string
@@ -84,9 +86,9 @@ export class LaunchPipeline {
     }
 
     fs.mkdirSync(opts.gameDir, { recursive: true })
-    fs.mkdirSync(VERSIONS_DIR, { recursive: true })
-    fs.mkdirSync(LIBRARIES_DIR, { recursive: true })
-    fs.mkdirSync(ASSETS_DIR, { recursive: true })
+    fs.mkdirSync(VERSIONS_DIR(), { recursive: true })
+    fs.mkdirSync(LIBRARIES_DIR(), { recursive: true })
+    fs.mkdirSync(ASSETS_DIR(), { recursive: true })
 
     emit('launch:progress', { step: 'Resolving version metadata...', percent: 5 })
     const manifest = await this.getJson<{ versions: { id: string; url: string }[] }>(
@@ -121,7 +123,7 @@ export class LaunchPipeline {
     }
 
     emit('launch:progress', { step: 'Downloading client jar...', percent: 18 })
-    const versionDir = path.join(VERSIONS_DIR, opts.version)
+    const versionDir = path.join(VERSIONS_DIR(), opts.version)
     fs.mkdirSync(versionDir, { recursive: true })
     const clientJarPath = path.join(versionDir, `${opts.version}.jar`)
     await this.downloadIfMissing(versionJson.downloads.client.url, clientJarPath)
@@ -134,7 +136,7 @@ export class LaunchPipeline {
 
     // LWJGL loads its .dll files off java.library.path, so the natives jars
     // have to be unpacked to disk — without this Minecraft dies on startup.
-    const nativesDir = path.join(VERSIONS_DIR, opts.version, 'natives')
+    const nativesDir = path.join(VERSIONS_DIR(), opts.version, 'natives')
     emit('launch:progress', { step: 'Extracting natives...', percent: 56 })
     await this.extractNatives(nativeJars, nativesDir)
 
@@ -150,6 +152,9 @@ export class LaunchPipeline {
       `-Xmx${opts.maxRam}M`, '-Xms512M',
       '-XX:+UseG1GC', '-XX:+ParallelRefProcEnabled', '-XX:MaxGCPauseMillis=200',
       `-Djava.library.path=${nativesDir}`,
+      // Tells the in-game client where the launcher keeps cosmetics/theme files,
+      // so a moved data folder doesn't silently break cape and theme sync.
+      `-Dcrystal.root=${crystalRoot()}`,
       '-cp', classpath,
     ]
 
@@ -233,6 +238,10 @@ export class LaunchPipeline {
     // only blows up once a world loads), so keep watching rather than assuming
     // everything went fine from here on.
     proc.once('exit', code => {
+      // Fires for every exit, clean or not — anything tracking "is the game
+      // running" (Discord presence, UI state) needs the clean case too.
+      emit('launch:exit', { code })
+
       if (code === 0 || code === null) {
         logger.info('client', `Minecraft beendet (Exit-Code ${code})`)
         return
@@ -268,7 +277,7 @@ export class LaunchPipeline {
       auth_player_name: opts.profile.username,
       version_name: opts.version,
       game_directory: opts.gameDir,
-      assets_root: ASSETS_DIR,
+      assets_root: ASSETS_DIR(),
       assets_index_name: versionJson.assetIndex.id,
       auth_uuid: opts.profile.uuid,
       auth_access_token: opts.profile.accessToken,
@@ -316,7 +325,7 @@ export class LaunchPipeline {
 
       const artifact = lib.downloads?.artifact
       if (artifact?.url && artifact.path) {
-        const dest = path.join(LIBRARIES_DIR, artifact.path)
+        const dest = path.join(LIBRARIES_DIR(), artifact.path)
         fs.mkdirSync(path.dirname(dest), { recursive: true })
         await this.downloadIfMissing(artifact.url, dest)
         if (isNative) natives.push(dest)
@@ -327,7 +336,7 @@ export class LaunchPipeline {
         // branch the loader itself never lands on the classpath.
         const relative = this.mavenToPath(lib.name)
         if (relative) {
-          const dest = path.join(LIBRARIES_DIR, relative)
+          const dest = path.join(LIBRARIES_DIR(), relative)
           fs.mkdirSync(path.dirname(dest), { recursive: true })
           const base = lib.url.endsWith('/') ? lib.url : `${lib.url}/`
           await this.downloadIfMissing(base + relative.replace(/\\/g, '/'), dest)
@@ -336,7 +345,7 @@ export class LaunchPipeline {
       }
 
       if (classifier?.url && classifier.path) {
-        const dest = path.join(LIBRARIES_DIR, classifier.path)
+        const dest = path.join(LIBRARIES_DIR(), classifier.path)
         fs.mkdirSync(path.dirname(dest), { recursive: true })
         await this.downloadIfMissing(classifier.url, dest)
         natives.push(dest)
@@ -367,14 +376,14 @@ export class LaunchPipeline {
   }
 
   private async downloadAssets(assetIndexRef: { id: string; url: string }, onProgress: (done: number, total: number) => void) {
-    const indexDir = path.join(ASSETS_DIR, 'indexes')
+    const indexDir = path.join(ASSETS_DIR(), 'indexes')
     fs.mkdirSync(indexDir, { recursive: true })
     const indexPath = path.join(indexDir, `${assetIndexRef.id}.json`)
     await this.downloadIfMissing(assetIndexRef.url, indexPath)
 
     const index = JSON.parse(fs.readFileSync(indexPath, 'utf-8')) as { objects: Record<string, { hash: string; size: number }> }
     const entries = Object.values(index.objects)
-    const objectsDir = path.join(ASSETS_DIR, 'objects')
+    const objectsDir = path.join(ASSETS_DIR(), 'objects')
 
     let done = 0
     for (const obj of entries) {

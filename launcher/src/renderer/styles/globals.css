@@ -289,6 +289,134 @@ html, body, #root {
   --theme-pattern-size: 280px 220px;
 }
 
+[data-theme='aurora'] {
+  --c-bg: 5 12 16;
+  --c-panel: 9 20 26;
+  --c-card: 13 28 36;
+  --c-border: 24 48 58;
+  --c-accent: 52 211 153;
+  --c-accent-2: 129 140 248;
+  --c-text: 226 245 242;
+  --c-muted: 112 141 145;
+  --c-success: 52 211 153;
+  --c-danger: 248 113 113;
+  --c-warning: 251 191 36;
+  /* Wide soft curtains rather than dots — polar light ribbons drifting at an angle. */
+  --theme-pattern:
+    linear-gradient(102deg, transparent 0%, rgba(52,211,153,0.10) 18%, transparent 34%),
+    linear-gradient(94deg, transparent 30%, rgba(129,140,248,0.09) 52%, transparent 70%),
+    linear-gradient(110deg, transparent 60%, rgba(45,212,191,0.07) 78%, transparent 95%);
+  --theme-pattern-size: 620px 100%;
+}
+
+[data-theme='sakura'] {
+  --c-bg: 18 8 18;
+  --c-panel: 27 12 27;
+  --c-card: 36 17 36;
+  --c-border: 61 29 58;
+  --c-accent: 244 114 182;
+  --c-accent-2: 126 34 206;
+  --c-text: 250 232 244;
+  --c-muted: 158 116 148;
+  --c-success: 52 211 153;
+  --c-danger: 248 113 113;
+  --c-warning: 251 191 36;
+  /* Petals: elongated, unevenly placed ellipses, deliberately not round like a star field. */
+  --theme-pattern:
+    radial-gradient(5px 2.5px at 12% 18%, rgba(244,114,182,0.32), transparent 70%),
+    radial-gradient(4px 2px at 63% 42%, rgba(249,168,212,0.26), transparent 70%),
+    radial-gradient(6px 3px at 84% 12%, rgba(244,114,182,0.22), transparent 70%),
+    radial-gradient(3.5px 1.8px at 35% 76%, rgba(249,168,212,0.28), transparent 70%),
+    radial-gradient(5px 2.5px at 78% 88%, rgba(244,114,182,0.20), transparent 70%);
+  --theme-pattern-size: 340px 300px;
+}
+
+[data-theme='terminal'] {
+  --c-bg: 2 8 5;
+  --c-panel: 4 14 9;
+  --c-card: 6 20 13;
+  --c-border: 14 44 28;
+  --c-accent: 34 197 94;
+  --c-accent-2: 22 163 74;
+  --c-text: 209 250 229;
+  --c-muted: 82 130 102;
+  --c-success: 34 197 94;
+  --c-danger: 248 113 113;
+  --c-warning: 251 191 36;
+  /* CRT scanlines — horizontal, tight, nothing else in the set looks like this. */
+  --theme-pattern: repeating-linear-gradient(
+    0deg,
+    rgba(34,197,94,0.07) 0px, rgba(34,197,94,0.07) 1px,
+    transparent 1px, transparent 3px
+  );
+  --theme-pattern-size: 100% 3px;
+}
+
+[data-theme='sandstorm'] {
+  --c-bg: 18 12 6;
+  --c-panel: 28 19 10;
+  --c-card: 37 25 13;
+  --c-border: 66 45 22;
+  --c-accent: 217 119 6;
+  --c-accent-2: 245 158 11;
+  --c-text: 250 240 224;
+  --c-muted: 160 130 92;
+  --c-success: 52 211 153;
+  --c-danger: 248 113 113;
+  --c-warning: 251 191 36;
+  /* Wind-blown grain: many very fine diagonal streaks at two frequencies. */
+  --theme-pattern:
+    repeating-linear-gradient(72deg,
+      rgba(245,158,11,0.055) 0px, rgba(245,158,11,0.055) 1px,
+      transparent 1px, transparent 7px),
+    repeating-linear-gradient(68deg,
+      rgba(217,119,6,0.045) 0px, rgba(217,119,6,0.045) 1px,
+      transparent 1px, transparent 13px);
+  --theme-pattern-size: 180px 180px;
+}
+
+[data-theme='nebula'] {
+  --c-bg: 8 5 18;
+  --c-panel: 14 9 30;
+  --c-card: 20 13 42;
+  --c-border: 40 26 76;
+  --c-accent: 192 132 252;
+  --c-accent-2: 34 211 238;
+  --c-text: 237 231 252;
+  --c-muted: 132 116 168;
+  --c-success: 52 211 153;
+  --c-danger: 248 113 113;
+  --c-warning: 251 191 36;
+  /* Large soft gas clouds — same family as Void's space idea, but a completely
+     different scale: broad diffuse blobs instead of pin-sharp stars. */
+  --theme-pattern:
+    radial-gradient(circle at 22% 28%, rgba(192,132,252,0.16), transparent 55%),
+    radial-gradient(circle at 76% 62%, rgba(34,211,238,0.13), transparent 58%),
+    radial-gradient(circle at 58% 14%, rgba(236,72,153,0.10), transparent 50%);
+  --theme-pattern-size: 700px 560px;
+}
+
+[data-theme='blueprint'] {
+  --c-bg: 6 16 33;
+  --c-panel: 9 23 46;
+  --c-card: 12 30 60;
+  --c-border: 24 56 98;
+  --c-accent: 56 189 248;
+  --c-accent-2: 14 116 205;
+  --c-text: 224 240 255;
+  --c-muted: 112 146 186;
+  --c-success: 52 211 153;
+  --c-danger: 248 113 113;
+  --c-warning: 251 191 36;
+  /* Technical drafting grid: fine cells with a heavier line every fifth one. */
+  --theme-pattern:
+    linear-gradient(rgba(56,189,248,0.16) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56,189,248,0.16) 1px, transparent 1px),
+    linear-gradient(rgba(56,189,248,0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56,189,248,0.07) 1px, transparent 1px);
+  --theme-pattern-size: 100px 100px, 100px 100px, 20px 20px, 20px 20px;
+}
+
 /* Every theme's pattern (none for free themes) is applied consistently across
    the whole app — the base page and every card/panel surface — rather than
    only the empty space behind them, so premium themes feel woven through the

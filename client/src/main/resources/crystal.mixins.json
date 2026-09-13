@@ -18,7 +18,8 @@
     "MixinMouseScroll",
     "MixinDrawContext",
     "MixinAtmosphericFogModifier",
-    "MixinFogRenderer"
+    "MixinFogRenderer",
+    "SimpleOptionAccessor"
   ],
   "injectors": {
     "defaultRequire": 1

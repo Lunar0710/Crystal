@@ -4,6 +4,7 @@ import { dialog, BrowserWindow } from 'electron'
 import path from 'path'
 import os from 'os'
 import fs from 'fs'
+import { crystalPath } from '../paths'
 
 export interface Instance {
   id: string
@@ -50,7 +51,7 @@ export class InstanceManager {
       ...data,
     }
 
-    const gameDir = path.join(os.homedir(), '.crystal', 'instances', instance.id)
+    const gameDir = crystalPath('instances', instance.id)
     fs.mkdirSync(gameDir, { recursive: true })
     for (const folder of CONTENT_FOLDERS) {
       fs.mkdirSync(path.join(gameDir, folder), { recursive: true })

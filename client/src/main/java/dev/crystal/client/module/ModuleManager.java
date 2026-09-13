@@ -6,6 +6,7 @@ import dev.crystal.client.module.misc.*;
 import dev.crystal.client.module.movement.*;
 import dev.crystal.client.module.player.*;
 import dev.crystal.client.module.render.*;
+import org.lwjgl.glfw.GLFW;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -13,6 +14,14 @@ import java.util.stream.Collectors;
 public class ModuleManager {
 
     private final List<Module> modules = new ArrayList<>();
+    /**
+     * Name -> module, so lookups are a hash probe instead of a stream scan.
+     * getModuleByName() is called from render hot paths (FOV, camera, world
+     * and HUD rendering) more than twenty times per frame; scanning all 82
+     * modules with equalsIgnoreCase each time allocated a stream, a lambda and
+     * an Optional per call, which showed up as uneven frame times.
+     */
+    private final Map<String, Module> byName = new HashMap<>();
     private final EventBus eventBus;
 
     public ModuleManager(EventBus eventBus) {
@@ -115,10 +124,17 @@ public class ModuleManager {
 
     private void register(Module module) {
         modules.add(module);
+        byName.put(module.getName().toLowerCase(Locale.ROOT), module);
     }
 
+    /**
+     * The live list, wrapped once. Wrapping on every call allocated a new
+     * unmodifiable view each frame — the HUD iterates this every frame.
+     */
+    private final List<Module> modulesView = Collections.unmodifiableList(modules);
+
     public List<Module> getModules() {
-        return Collections.unmodifiableList(modules);
+        return modulesView;
     }
 
     public List<Module> getModulesByCategory(ModuleCategory category) {
@@ -128,10 +144,16 @@ public class ModuleManager {
     }
 
     public Optional<Module> getModuleByName(String name) {
-        return modules.stream().filter(m -> m.getName().equalsIgnoreCase(name)).findFirst();
+        return Optional.ofNullable(byName.get(name.toLowerCase(Locale.ROOT)));
     }
 
     public void handleKeybind(int key) {
+        // An unbound module's keybind IS GLFW_KEY_UNKNOWN (-1), and GLFW reports
+        // that same -1 for keys it can't map — which Alt+Tab produces. Without
+        // this guard every single unbound module got toggled on the way out of
+        // the window and toggled back on the way in.
+        if (key == GLFW.GLFW_KEY_UNKNOWN) return;
+
         for (Module module : modules) {
             if (module.getKeybind() == key) {
                 module.toggle();

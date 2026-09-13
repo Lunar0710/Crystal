@@ -51,4 +51,17 @@ export function lockLabel(required: RankId): string {
   return required === 'crystal_plus' ? 'Crystal+' : 'Team'
 }
 
+/**
+ * Themes specifically — Media sits below the staff ranks on the priority
+ * ladder (it's a title, not a permission level), but is deliberately given
+ * every theme including the Team ones. Handled as an explicit exception here
+ * rather than by moving Media up the ladder, which would hand it every other
+ * staff-gated perk too.
+ */
+export function canUseTheme(rank: RankId | undefined | null, required?: RankId): boolean {
+  if (!required) return true
+  if (rank === 'media') return true
+  return meetsRank(rank, required)
+}
+
 export const RANK_ORDER: RankId[] = ['owner', 'co_owner', 'admin', 'staff', 'developer', 'media', 'crystal_plus', 'member']

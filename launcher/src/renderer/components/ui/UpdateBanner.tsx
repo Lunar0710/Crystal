@@ -14,14 +14,17 @@ export function UpdateBanner() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    api?.on('update:available', (info: { version?: string }) => setVersion(info?.version ?? 'neue Version'))
-    api?.on('update:progress', (data: { percent?: number }) => {
-      if (typeof data?.percent === 'number') setProgress(data.percent)
-    })
-    api?.on('update:error', (message: string) => {
-      setError(typeof message === 'string' ? message : 'Update fehlgeschlagen')
-      setProgress(null)
-    })
+    const unsubs = [
+      api?.on('update:available', (info: { version?: string }) => setVersion(info?.version ?? 'neue Version')),
+      api?.on('update:progress', (data: { percent?: number }) => {
+        if (typeof data?.percent === 'number') setProgress(data.percent)
+      }),
+      api?.on('update:error', (message: string) => {
+        setError(typeof message === 'string' ? message : 'Update fehlgeschlagen')
+        setProgress(null)
+      }),
+    ]
+    return () => unsubs.forEach(u => u?.())
   }, [])
 
   if (!version || dismissed) return null

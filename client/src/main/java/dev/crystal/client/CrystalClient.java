@@ -24,7 +24,7 @@ public class CrystalClient implements ClientModInitializer {
 
     public static final String MOD_ID = "crystal";
     public static final String NAME = "Crystal Client";
-    public static final String VERSION = "1.1.0";
+    public static final String VERSION = "1.1.4";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
     private static CrystalClient instance;
@@ -47,12 +47,22 @@ public class CrystalClient implements ClientModInitializer {
         moduleManager = new ModuleManager(eventBus);
         hud = new CrystalHUD(moduleManager);
 
-        configManager.load();
-        themeManager.load();
+        // Modules must exist before load() can restore anything into them —
+        // loading first (the old order) silently did nothing, since
+        // getModuleManager().getModules() was still empty at that point, so
+        // every module always came back at its constructor default no matter
+        // what the player had toggled last session.
         moduleManager.initModules();
+        boolean hadSavedConfig = configManager.load();
+        themeManager.load();
 
         hudPresetManager = new HudPresetManager(moduleManager);
-        hudPresetManager.apply(HudPreset.DEFAULT);
+        // Only force the default HUD layout for a fresh install — a loaded
+        // config already restored each module's saved position/enabled state,
+        // and re-applying DEFAULT here would stomp right back over it.
+        if (!hadSavedConfig) {
+            hudPresetManager.apply(HudPreset.DEFAULT);
+        }
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             eventBus.post(new dev.crystal.client.event.events.TickEvent(client));

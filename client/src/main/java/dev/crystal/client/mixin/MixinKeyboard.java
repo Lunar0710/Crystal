@@ -29,6 +29,11 @@ public class MixinKeyboard {
             return;
         }
 
+        // Only while actually in the world — otherwise every character typed
+        // into a text field (Crystal's own menu, chat, sign editing) would also
+        // fire whatever module is bound to that key.
+        if (client.currentScreen != null) return;
+
         if (CrystalClient.getInstance() != null) {
             CrystalClient.getInstance().getModuleManager().handleKeybind(key);
         }

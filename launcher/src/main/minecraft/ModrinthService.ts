@@ -1,9 +1,11 @@
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
+import { createHash } from 'crypto'
 import { InstanceManager, Instance } from './InstanceManager'
 import { JarReader } from '../util/jarReader'
 import { logger } from '../logs/Logger'
+import { crystalPath } from '../paths'
 
 // Electron 31 ships a Node runtime with a native global fetch (Node 18+),
 // but this tsconfig's "lib" is ES2020-only (no DOM), so it isn't typed —
@@ -86,25 +88,25 @@ export class ModrinthService {
   /** Imported instances live outside ~/.crystal, so the registered gameDir is the source of truth when we have one. */
   private gameDir(instanceId: string): string {
     const registered = this.instances?.get(instanceId)?.gameDir
-    return registered || path.join(os.homedir(), '.crystal', 'instances', instanceId)
+    return registered || crystalPath('instances', instanceId)
   }
 
-  async search(query: string, gameVersion: string, loader: string, type: ContentType = 'mod'): Promise<ModrinthHit[]> {
+  async search(query: string, gameVersion: string, loader: string, type: ContentType = 'mod', offset = 0): Promise<{ hits: ModrinthHit[]; totalHits: number }> {
     const facets: string[][] = [
       [`project_type:${type}`],
       [`versions:${gameVersion}`],
     ]
     if (LOADER_FILTERED.includes(type)) facets.push([`categories:${loader}`])
 
-    const url = `${API_BASE}/search?query=${encodeURIComponent(query)}&facets=${encodeURIComponent(JSON.stringify(facets))}&limit=40`
+    const url = `${API_BASE}/search?query=${encodeURIComponent(query)}&facets=${encodeURIComponent(JSON.stringify(facets))}&limit=40&offset=${offset}`
 
     try {
       const res = await fetch(url, { headers: HEADERS })
-      if (!res.ok) return []
+      if (!res.ok) return { hits: [], totalHits: 0 }
       const data = await res.json()
-      return data.hits || []
+      return { hits: data.hits || [], totalHits: data.total_hits || 0 }
     } catch {
-      return []
+      return { hits: [], totalHits: 0 }
     }
   }
 
@@ -127,7 +129,8 @@ export class ModrinthService {
     projectId: string,
     gameVersion: string,
     loader: string,
-    type: ContentType = 'mod'
+    type: ContentType = 'mod',
+    versionId?: string
   ): Promise<ModInstallResult> {
     let versions = await this.getVersions(projectId, gameVersion, loader, type)
 
@@ -147,7 +150,10 @@ export class ModrinthService {
       return { success: false, error: `Keine passende Version für Minecraft ${gameVersion} gefunden` }
     }
 
-    const version = versions[0]
+    // Modrinth returns versions newest-first; an explicit versionId (from the
+    // version picker) overrides that default so the player can pick an older
+    // release instead of always getting latest.
+    const version = (versionId && versions.find(v => v.id === versionId)) || versions[0]
     const file = version.files.find(f => f.primary) || version.files[0]
     if (!file) return { success: false, error: 'Keine Datei zum Download gefunden' }
 
@@ -160,6 +166,73 @@ export class ModrinthService {
 
       const buffer = Buffer.from(await res.arrayBuffer())
       fs.writeFileSync(path.join(targetDir, file.filename), buffer)
+
+      return { success: true, fileName: file.filename }
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : 'Unbekannter Fehler' }
+    }
+  }
+
+  /**
+   * Works out which Modrinth project an already-installed jar belongs to by
+   * its SHA-1, which is how Modrinth indexes files. Returns null for anything
+   * it doesn't know (hand-built jars, files from elsewhere) — those simply
+   * can't offer a version switch.
+   */
+  async identifyFile(instanceId: string, type: ContentType, fileName: string): Promise<{
+    projectId: string
+    versionId: string
+    versionNumber: string
+  } | null> {
+    const filePath = path.join(this.gameDir(instanceId), TARGET_FOLDER[type], fileName)
+    if (!fs.existsSync(filePath)) return null
+
+    const sha1 = createHash('sha1').update(fs.readFileSync(filePath)).digest('hex')
+
+    try {
+      const res = await fetch(`${API_BASE}/version_file/${sha1}?algorithm=sha1`, { headers: HEADERS })
+      if (!res.ok) return null
+      const version = await res.json() as ModrinthVersion & { project_id: string }
+      return {
+        projectId: version.project_id,
+        versionId: version.id,
+        versionNumber: version.version_number,
+      }
+    } catch {
+      return null
+    }
+  }
+
+  /**
+   * Replaces an installed file with a different version of the same project.
+   * The old file is only deleted once the new one is on disk, so a failed
+   * download can't leave the instance with no mod at all.
+   */
+  async switchVersion(
+    instanceId: string,
+    type: ContentType,
+    fileName: string,
+    versionId: string
+  ): Promise<ModInstallResult> {
+    try {
+      const res = await fetch(`${API_BASE}/version/${versionId}`, { headers: HEADERS })
+      if (!res.ok) return { success: false, error: `Version konnte nicht geladen werden (HTTP ${res.status})` }
+
+      const version = await res.json() as ModrinthVersion
+      const file = version.files.find(f => f.primary) || version.files[0]
+      if (!file) return { success: false, error: 'Diese Version hat keine herunterladbare Datei' }
+
+      const download = await fetch(file.url)
+      if (!download.ok) return { success: false, error: `Download fehlgeschlagen (HTTP ${download.status})` }
+
+      const targetDir = path.join(this.gameDir(instanceId), TARGET_FOLDER[type])
+      fs.mkdirSync(targetDir, { recursive: true })
+      fs.writeFileSync(path.join(targetDir, file.filename), Buffer.from(await download.arrayBuffer()))
+
+      if (file.filename !== fileName) {
+        const old = path.join(targetDir, fileName)
+        if (fs.existsSync(old)) fs.unlinkSync(old)
+      }
 
       return { success: true, fileName: file.filename }
     } catch (err) {

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react'
-import { Rocket, ChevronDown, Plus, ExternalLink, Trash2, Settings2, Blocks, FlaskConical, CheckCircle2, RotateCcw } from 'lucide-react'
+import React, { useState, useEffect, useRef } from 'react'
+import { Rocket, ChevronDown, Plus, ExternalLink, Trash2, Settings2, Blocks, FlaskConical, CheckCircle2, RotateCcw, Wrench, AlertTriangle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { notify } from '../../store/notificationStore'
 import { LoginPanel } from '../ui/LoginPanel'
@@ -26,6 +26,13 @@ interface Profile {
   type: 'microsoft' | 'offline'
 }
 
+interface DetectedProblem {
+  id: string
+  title: string
+  detail: string
+  fix: { kind: string; label: string; modFile?: string; ram?: number } | null
+}
+
 const api = (window as any).crystal
 const DEFAULT_RAM = 4096
 
@@ -41,6 +48,10 @@ export function Launch() {
   const [progress, setProgress] = useState<{ step: string; percent: number } | null>(null)
   const [trying, setTrying] = useState(false)
   const [tryStatus, setTryStatus] = useState<{ ok: boolean; message: string } | null>(null)
+  const [problems, setProblems] = useState<DetectedProblem[] | null>(null)
+  const [lastError, setLastError] = useState<string | null>(null)
+  const [fixing, setFixing] = useState<string | null>(null)
+  const launchedInstanceRef = useRef<string | null>(null)
 
   function refreshInstances() {
     api?.getInstances().then((list: Instance[]) => {
@@ -65,7 +76,42 @@ export function Launch() {
       if (p) setProfile(p)
       else api?.autoLogin().then((auto: Profile | null) => auto && setProfile(auto))
     })
+
+    // Subscribed once for the page's lifetime rather than per click: a second
+    // Play press no longer stacks duplicate listeners, and a crash that happens
+    // after the game was already running still reaches the autofix panel.
+    const unsubs = [
+      api?.on('launch:progress', (data: { step: string; percent: number }) => setProgress(data)),
+      api?.on('launch:started', () => {
+        notify({ type: 'success', title: 'Crystal', message: 'Minecraft wurde gestartet' })
+        setLaunching(false)
+        setProgress(null)
+      }),
+      api?.on('launch:error', async (msg: string) => {
+        setLaunching(false)
+        setProgress(null)
+        setLastError(msg)
+        const target = launchedInstanceRef.current
+        const found: DetectedProblem[] = target ? (await api?.analyzeFailure(target, msg)) || [] : []
+        setProblems(found)
+        if (found.length === 0) notify({ type: 'error', title: 'Start fehlgeschlagen', message: msg })
+      }),
+    ]
+    return () => unsubs.forEach(u => u?.())
   }, [])
+
+  async function applyFix(problem: DetectedProblem) {
+    const target = launchedInstanceRef.current
+    if (!target || !problem.fix) return
+    setFixing(problem.id)
+    const result = await api?.applyFix(target, problem.fix)
+    setFixing(null)
+    notify({ type: result?.ok ? 'success' : 'error', title: 'Autofix', message: result?.message || 'Fehlgeschlagen' })
+    if (result?.ok) {
+      setProblems(prev => prev?.filter(p => p.id !== problem.id) ?? null)
+      if (problem.fix.kind === 'lower-ram' || problem.fix.kind === 'raise-ram') setMaxRam(problem.fix.ram!)
+    }
+  }
 
   const instance = instances.find(i => i.id === instanceId) ?? null
 
@@ -98,8 +144,6 @@ export function Launch() {
     setTryStatus(null)
     setProgress({ step: 'Teste Crystal...', percent: 0 })
 
-    api?.on('launch:progress', (data: { step: string; percent: number }) => setProgress(data))
-
     const result = await api?.tryWithCrystal(instance.id)
 
     setTrying(false)
@@ -128,18 +172,9 @@ export function Launch() {
 
     setLaunching(true)
     setProgress({ step: 'Vorbereiten...', percent: 0 })
-
-    api?.on('launch:progress', (data: { step: string; percent: number }) => setProgress(data))
-    api?.on('launch:error', (msg: string) => {
-      notify({ type: 'error', title: 'Launch Error', message: msg })
-      setLaunching(false)
-      setProgress(null)
-    })
-    api?.on('launch:started', () => {
-      notify({ type: 'success', title: 'Crystal', message: 'Minecraft wurde gestartet' })
-      setLaunching(false)
-      setProgress(null)
-    })
+    setProblems(null)
+    setLastError(null)
+    launchedInstanceRef.current = instance.id
 
     await api?.launchGame({
       version: instance.version,
@@ -262,6 +297,39 @@ export function Launch() {
               ? <CheckCircle2 size={14} className="text-crystal-success shrink-0 mt-0.5" />
               : <RotateCcw size={14} className="text-crystal-warning shrink-0 mt-0.5" />}
             <span>{tryStatus.message}</span>
+          </div>
+        )}
+
+        {problems && problems.length > 0 && (
+          <div className="space-y-2 pt-1">
+            <div className="flex items-center gap-2 text-sm font-medium text-crystal-text">
+              <Wrench size={14} className="text-crystal-warning" />
+              Start fehlgeschlagen — {problems.length === 1 ? 'eine Ursache gefunden' : `${problems.length} Ursachen gefunden`}
+            </div>
+            {problems.map(p => (
+              <div key={p.id} className="flex items-start gap-3 p-3 rounded-lg border border-crystal-border bg-crystal-panel">
+                <AlertTriangle size={14} className="text-crystal-warning shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-crystal-text">{p.title}</p>
+                  <p className="text-xs text-crystal-muted mt-0.5">{p.detail}</p>
+                </div>
+                {p.fix && (
+                  <button
+                    onClick={() => applyFix(p)}
+                    disabled={fixing === p.id}
+                    className="crystal-btn-primary text-xs px-3 py-1.5 shrink-0 disabled:opacity-50"
+                  >
+                    {fixing === p.id ? '...' : p.fix.label}
+                  </button>
+                )}
+              </div>
+            ))}
+            {lastError && (
+              <details className="text-xs text-crystal-muted">
+                <summary className="cursor-pointer hover:text-crystal-text">Vollständige Fehlermeldung</summary>
+                <pre className="mt-2 p-2 rounded bg-crystal-bg border border-crystal-border whitespace-pre-wrap break-all max-h-48 overflow-auto">{lastError}</pre>
+              </details>
+            )}
           </div>
         )}
       </div>

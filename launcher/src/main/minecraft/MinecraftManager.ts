@@ -1,4 +1,5 @@
-import { execFile, ChildProcess } from 'child_process'
+import { execFile, spawnSync, ChildProcess } from 'child_process'
+import extract from 'extract-zip'
 import { app } from 'electron'
 import path from 'path'
 import fs from 'fs'
@@ -8,6 +9,7 @@ import Store from 'electron-store'
 import { AuthProfile } from '../auth/AuthManager'
 import { LaunchPipeline } from './LaunchPipeline'
 import { logger } from '../logs/Logger'
+import { crystalPath } from '../paths'
 
 // Electron/Node 18+ ships a global fetch; not covered by this tsconfig's
 // ES2020-only lib, so declared locally instead of pulling in a DOM lib.
@@ -113,9 +115,11 @@ export class MinecraftManager {
   }
 
   async launch(opts: LaunchOptions, emit: (event: string, data: unknown) => void): Promise<boolean> {
-    const javaPath = this.findJava(opts.version)
+    const javaPath = await this.ensureJava(opts.version, emit)
     if (!javaPath) {
-      emit('launch:error', 'Java not found. Please install a compatible Java version.')
+      emit('launch:error',
+        'Es konnte keine passende Java-Version gefunden oder heruntergeladen werden.\n\n' +
+        'Prüfe deine Internetverbindung, oder installiere Java 21 manuell (adoptium.net).')
       return false
     }
 
@@ -124,7 +128,7 @@ export class MinecraftManager {
       return false
     }
 
-    const gameDir = opts.gameDir || path.join(os.homedir(), '.crystal', 'instances', opts.instanceId)
+    const gameDir = opts.gameDir || crystalPath('instances', opts.instanceId)
     fs.mkdirSync(gameDir, { recursive: true })
 
     const modsDir = path.join(gameDir, 'mods')
@@ -182,6 +186,12 @@ export class MinecraftManager {
       : path.join(app.getAppPath(), '..', 'client', 'build', 'libs')
   }
 
+  /** Version of the client mod jar that ships with this launcher, or null if none is bundled. */
+  getBundledClientVersion(): string | null {
+    const jar = this.findBundledCrystalJar()
+    return jar ? this.extractJarVersion(path.basename(jar)) : null
+  }
+
   private findBundledCrystalJar(): string | null {
     const dir = this.resolveCrystalModSourceDir()
     if (!fs.existsSync(dir)) return null
@@ -217,7 +227,7 @@ export class MinecraftManager {
       return true
     }
 
-    const cacheDir = path.join(os.homedir(), '.crystal', 'cache')
+    const cacheDir = crystalPath('cache')
     fs.mkdirSync(cacheDir, { recursive: true })
     const cachedPath = path.join(cacheDir, `fabric-api-${gameVersion}.jar`)
 
@@ -277,32 +287,123 @@ export class MinecraftManager {
     }
   }
 
-  private findJava(version: string): string | null {
+  /**
+   * A friend's fresh Windows install almost never has Java, and telling them to
+   * go install it themselves is exactly the kind of "fake installer" moment we
+   * don't want. So: check what's already there first (fixed paths, JAVA_HOME,
+   * PATH), and only if genuinely nothing is found, download a portable Temurin
+   * JDK 21 (Eclipse Adoptium's public build API, no auth needed) into
+   * ~/.crystal/jdk and use that from then on — cached, so this only ever
+   * happens once per machine.
+   */
+  private async ensureJava(version: string, emit: (event: string, data: unknown) => void): Promise<string | null> {
+    const bundledDir = crystalPath('jdk', '21')
+    const bundledJava = path.join(bundledDir, 'bin', 'java.exe')
+    // Check our own previously-downloaded copy first — no point re-validating
+    // it every launch, and it can't be some unrelated stale Java 8 install.
+    if (fs.existsSync(bundledJava)) return bundledJava
+
+    const existing = this.findJava(version)
+    if (existing) return existing
+
+    emit('launch:progress', { step: 'Lade Java 21 herunter (einmalig)...', percent: 5 })
+
+    try {
+      const apiUrl = 'https://api.adoptium.net/v3/binary/latest/21/ga/windows/x64/jdk/hotspot/normal/eclipse?project=jdk'
+      const res = await fetch(apiUrl)
+      if (!res.ok) {
+        logger.error('client', `Java-Download fehlgeschlagen: HTTP ${res.status}`)
+        return null
+      }
+
+      const cacheDir = crystalPath('cache')
+      fs.mkdirSync(cacheDir, { recursive: true })
+      const zipPath = path.join(cacheDir, 'temurin-21-windows-x64.zip')
+      fs.writeFileSync(zipPath, Buffer.from(await res.arrayBuffer()))
+
+      emit('launch:progress', { step: 'Installiere Java 21...', percent: 15 })
+
+      const extractDir = crystalPath('jdk', '21-extract')
+      fs.rmSync(extractDir, { recursive: true, force: true })
+      fs.mkdirSync(extractDir, { recursive: true })
+      await extract(zipPath, { dir: extractDir })
+
+      // The archive contains one top-level "jdk-21.x.y+z" folder — move its
+      // contents up so the final path is always ~/.crystal/jdk/21/bin/java.exe
+      // regardless of the exact patch version Adoptium currently serves.
+      const inner = fs.readdirSync(extractDir).find(f => fs.statSync(path.join(extractDir, f)).isDirectory())
+      if (!inner) {
+        logger.error('client', 'Java-Archiv hatte kein erwartetes JDK-Verzeichnis')
+        return null
+      }
+
+      fs.rmSync(bundledDir, { recursive: true, force: true })
+      fs.renameSync(path.join(extractDir, inner), bundledDir)
+      fs.rmSync(extractDir, { recursive: true, force: true })
+      fs.unlinkSync(zipPath)
+
+      if (!fs.existsSync(bundledJava)) {
+        logger.error('client', `Java-Installation unvollständig, erwartet: ${bundledJava}`)
+        return null
+      }
+
+      logger.info('client', `Java 21 automatisch installiert unter ${bundledDir}`)
+      return bundledJava
+    } catch (err) {
+      logger.error('client', 'Automatische Java-Installation fehlgeschlagen', err)
+      return null
+    }
+  }
+
+  /**
+   * Parses "java -version"'s stderr output for the major version.
+   * Handles both formats: `java version "1.8.0_411"` (old, major = 8) and
+   * `openjdk version "21.0.12" ...` (new, major = 21).
+   */
+  private getJavaMajorVersion(javaPath: string): number | null {
+    // "java -version" writes its output to stderr, not stdout, and exits 0 —
+    // execFileSync only returns stdout, so it looked like empty output no
+    // matter what Java was actually installed. spawnSync captures both.
+    const result = spawnSync(javaPath, ['-version'], { encoding: 'utf8' })
+    const text = (result.stderr || '') + (result.stdout || '')
+    const match = text.match(/version "(\d+)(?:\.(\d+))?/)
+    if (!match) return null
+    const first = parseInt(match[1], 10)
+    // "1.8.0_411" -> major is the SECOND number; "21.0.12" -> major is the first.
+    return first === 1 ? parseInt(match[2] || '0', 10) : first
+  }
+
+  private requiredJavaMajor(version: string): number {
     // 1.17+ requires Java 16+, 1.18+ requires Java 17+, 1.20.5+ requires Java 21.
-    // Pre-1.17 versions run best on Java 8. We probe for the closest match
-    // and fall back to whatever JDK is available.
-    const needsModernJava = this.compareVersions(version, '1.17') >= 0
+    if (this.compareVersions(version, '1.20.5') >= 0) return 21
+    if (this.compareVersions(version, '1.18') >= 0) return 17
+    if (this.compareVersions(version, '1.17') >= 0) return 16
+    return 8
+  }
+
+  private findJava(version: string): string | null {
+    const required = this.requiredJavaMajor(version)
     const homeCandidate = process.env.JAVA_HOME ? path.join(process.env.JAVA_HOME, 'bin', 'java.exe') : null
 
-    const modernCandidates = [
+    const candidates = [
+      homeCandidate,
       'C:\\Program Files\\Eclipse Adoptium\\jdk-21\\bin\\java.exe',
       'C:\\Program Files\\Java\\jdk-21\\bin\\java.exe',
       'C:\\Program Files\\Microsoft\\jdk-21\\bin\\java.exe',
       'C:\\Program Files\\Eclipse Adoptium\\jdk-17\\bin\\java.exe',
-    ]
-
-    const legacyCandidates = [
       'C:\\Program Files\\Eclipse Adoptium\\jdk-8\\bin\\java.exe',
       'C:\\Program Files (x86)\\Java\\jre8\\bin\\java.exe',
       'C:\\Program Files\\Java\\jre8\\bin\\java.exe',
-    ]
+      'java', // resolved via PATH by child_process itself
+    ].filter(Boolean) as string[]
 
-    const ordered = needsModernJava
-      ? [homeCandidate, ...modernCandidates, ...legacyCandidates]
-      : [homeCandidate, ...legacyCandidates, ...modernCandidates]
-
-    for (const candidate of ordered.filter(Boolean) as string[]) {
-      if (fs.existsSync(candidate)) return candidate
+    // Existence alone isn't enough — a stale Java 8 on JAVA_HOME/PATH would
+    // otherwise "win" over actually downloading the version Minecraft needs,
+    // which is exactly the bug that let a Java-8 machine slip through before.
+    for (const candidate of candidates) {
+      if (candidate !== 'java' && !fs.existsSync(candidate)) continue
+      const major = this.getJavaMajorVersion(candidate)
+      if (major !== null && major >= required) return candidate
     }
     return null
   }

@@ -3,6 +3,7 @@ package dev.crystal.client.config;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import dev.crystal.client.CrystalClient;
+import dev.crystal.client.util.CrystalPaths;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -25,7 +26,7 @@ public class ThemeManager {
     private int muted = 0xFF6b7280;
 
     public void load() {
-        Path themeFile = Path.of(System.getProperty("user.home"), ".crystal", "config", "theme.json");
+        Path themeFile = CrystalPaths.root().resolve("config").resolve("theme.json");
         if (!Files.exists(themeFile)) return;
 
         try {

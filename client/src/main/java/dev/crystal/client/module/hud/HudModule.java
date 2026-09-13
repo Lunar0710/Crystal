@@ -30,6 +30,31 @@ public abstract class HudModule extends Module implements HudRenderable {
     private float backgroundOpacity = 50f;
     private float scale = 1f;
 
+    private String cachedText = "";
+    private long cachedTextAt = 0;
+
+    /** ~10 refreshes a second. Text that changes faster than the eye can read it isn't worth the cost. */
+    private static final long TEXT_REFRESH_MS = 100;
+
+    /**
+     * What the HUD actually draws — {@link #getText()} throttled to a few
+     * refreshes per second.
+     *
+     * getText() is called once per module per frame, and several modules build
+     * their line from scratch each time (HypixelBedwars walks every scoreboard
+     * entry and calls getString() on each). At high frame rates on a busy
+     * server that was thousands of throwaway strings per second, which is why
+     * frames got noticeably worse in multiplayer than in singleplayer.
+     */
+    public final String getDisplayText() {
+        long now = System.currentTimeMillis();
+        if (now - cachedTextAt >= TEXT_REFRESH_MS) {
+            cachedTextAt = now;
+            cachedText = getText();
+        }
+        return cachedText;
+    }
+
     protected HudModule(String name, String description, int defaultX, int defaultY) {
         super(name, description, ModuleCategory.HUD);
         this.x = defaultX;

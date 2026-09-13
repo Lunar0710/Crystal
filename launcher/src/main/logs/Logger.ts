@@ -1,11 +1,12 @@
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
+import { crystalPath } from '../paths'
 
 export type LogCategory = 'launcher' | 'client' | 'updater' | 'crash'
 export type LogLevel = 'INFO' | 'WARN' | 'ERROR' | 'DEBUG'
 
-const LOG_ROOT = path.join(os.homedir(), '.crystal', 'logs')
+const LOG_ROOT = () => crystalPath('logs')
 const MAX_BYTES = 2 * 1024 * 1024
 const KEEP_ROTATIONS = 3
 
@@ -29,11 +30,11 @@ class Logger {
   }
 
   fileFor(category: LogCategory): string {
-    return path.join(LOG_ROOT, `${category}.log`)
+    return path.join(LOG_ROOT(), `${category}.log`)
   }
 
   logDir(): string {
-    return LOG_ROOT
+    return LOG_ROOT()
   }
 
   info(category: LogCategory, message: string, detail?: unknown) {
@@ -85,7 +86,7 @@ class Logger {
 
   private write(category: LogCategory, level: LogLevel, message: string, detail?: unknown) {
     try {
-      fs.mkdirSync(LOG_ROOT, { recursive: true })
+      fs.mkdirSync(LOG_ROOT(), { recursive: true })
       const file = this.fileFor(category)
       this.rotateIfNeeded(file)
 

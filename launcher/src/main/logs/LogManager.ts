@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
+import { crystalPath } from '../paths'
 
 export interface LogFile {
   name: string
@@ -18,7 +19,7 @@ export function setInstanceDirResolver(resolver: (instanceId: string) => string 
 }
 
 function instanceDir(instanceId: string): string {
-  return resolveGameDir(instanceId) ?? path.join(os.homedir(), '.crystal', 'instances', instanceId)
+  return resolveGameDir(instanceId) ?? crystalPath('instances', instanceId)
 }
 
 export { instanceDir }

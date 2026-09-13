@@ -4,6 +4,7 @@ import fs from 'fs'
 import path from 'path'
 import os from 'os'
 import { randomUUID } from 'crypto'
+import { crystalPath } from '../paths'
 
 export interface CustomCape {
   id: string
@@ -13,7 +14,7 @@ export interface CustomCape {
 }
 
 function capesDir(): string {
-  return path.join(os.homedir(), '.crystal', 'cosmetics', 'capes')
+  return crystalPath('cosmetics', 'capes')
 }
 
 const MIME: Record<string, string> = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg' }

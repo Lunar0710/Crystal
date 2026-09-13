@@ -17,11 +17,33 @@ contextBridge.exposeInMainWorld('crystal', {
   getProfile:     () => ipcRenderer.invoke('auth:getProfile'),
   logout:         () => ipcRenderer.invoke('auth:logout'),
   getRank:        () => ipcRenderer.invoke('auth:getRank'),
+  listAccounts:   () => ipcRenderer.invoke('auth:listAccounts'),
+  switchAccount:  (uuid: string) => ipcRenderer.invoke('auth:switchAccount', uuid),
+  removeAccount:  (uuid: string) => ipcRenderer.invoke('auth:removeAccount', uuid),
+
+  // Data folder
+  getDataRoot:   () => ipcRenderer.invoke('dataRoot:get'),
+  pickDataRoot:  () => ipcRenderer.invoke('dataRoot:pick'),
+  resetDataRoot: () => ipcRenderer.invoke('dataRoot:reset'),
+
+  // Autofix
+  analyzeFailure: (instanceId: string, log: string) => ipcRenderer.invoke('autofix:analyze', instanceId, log),
+  applyFix:       (instanceId: string, fix: unknown) => ipcRenderer.invoke('autofix:apply', instanceId, fix),
 
   // Rank management (server-side gated to the owner rank, see ipc.ts)
   listRankGrants:  () => ipcRenderer.invoke('ranks:list'),
-  grantRank:       (username: string, rank: string) => ipcRenderer.invoke('ranks:grant', username, rank),
+  grantRank:       (username: string, rank: string, durationMs?: number) => ipcRenderer.invoke('ranks:grant', username, rank, durationMs),
   revokeRankGrant: (username: string) => ipcRenderer.invoke('ranks:revoke', username),
+  hasRankToken:    () => ipcRenderer.invoke('ranks:hasToken'),
+  setRankToken:    (token: string) => ipcRenderer.invoke('ranks:setToken', token),
+  publishRanks:    () => ipcRenderer.invoke('ranks:publishNow'),
+  refreshRemoteRanks: () => ipcRenderer.invoke('ranks:refreshRemote'),
+  getVersionInfo:  () => ipcRenderer.invoke('app:versions'),
+
+  // Discord Rich Presence
+  isDiscordEnabled:   () => ipcRenderer.invoke('discord:isEnabled'),
+  isDiscordConnected: () => ipcRenderer.invoke('discord:isConnected'),
+  setDiscordEnabled:  (enabled: boolean) => ipcRenderer.invoke('discord:setEnabled', enabled),
 
   // Minecraft
   getVersions:      () => ipcRenderer.invoke('minecraft:getVersions'),
@@ -105,10 +127,16 @@ contextBridge.exposeInMainWorld('crystal', {
   openContentFolder:  (instanceId: string, type: string) => ipcRenderer.invoke('content:openFolder', instanceId, type),
 
   // Modrinth
-  searchModrinth:  (query: string, gameVersion: string, loader: string, type: string) =>
-    ipcRenderer.invoke('modrinth:search', query, gameVersion, loader, type),
-  installFromModrinth: (instanceId: string, projectId: string, gameVersion: string, loader: string, type: string) =>
-    ipcRenderer.invoke('modrinth:install', instanceId, projectId, gameVersion, loader, type),
+  searchModrinth:  (query: string, gameVersion: string, loader: string, type: string, offset?: number) =>
+    ipcRenderer.invoke('modrinth:search', query, gameVersion, loader, type, offset),
+  getModVersions: (projectId: string, gameVersion: string, loader: string, type: string) =>
+    ipcRenderer.invoke('modrinth:getVersions', projectId, gameVersion, loader, type),
+  installFromModrinth: (instanceId: string, projectId: string, gameVersion: string, loader: string, type: string, versionId?: string) =>
+    ipcRenderer.invoke('modrinth:install', instanceId, projectId, gameVersion, loader, type, versionId),
+  identifyModFile: (instanceId: string, type: string, fileName: string) =>
+    ipcRenderer.invoke('modrinth:identifyFile', instanceId, type, fileName),
+  switchModVersion: (instanceId: string, type: string, fileName: string, versionId: string) =>
+    ipcRenderer.invoke('modrinth:switchVersion', instanceId, type, fileName, versionId),
 
   // Modpack presets (Create Instance)
   searchModpacks:  (query: string, gameVersion?: string) => ipcRenderer.invoke('modrinth:searchModpacks', query, gameVersion),
@@ -116,15 +144,18 @@ contextBridge.exposeInMainWorld('crystal', {
   pickAndInstallModpackFile: (instanceId: string) => ipcRenderer.invoke('modrinth:pickAndInstallModpackFile', instanceId),
 
   // Events from main
+  // Returns an unsubscribe function. The previous `off(channel, cb)` could
+  // never work: `on` registers a wrapper, not `cb`, so removeListener(cb)
+  // matched nothing and every subscription leaked for the life of the window.
   on: (channel: string, cb: (...args: unknown[]) => void) => {
     const valid = [
-      'launch:progress', 'launch:error', 'launch:started',
+      'launch:progress', 'launch:error', 'launch:started', 'launch:exit',
       'update:available', 'update:progress', 'update:error',
       'tryCrystal:status',
     ]
-    if (valid.includes(channel)) ipcRenderer.on(channel, (_e, ...args) => cb(...args))
-  },
-  off: (channel: string, cb: (...args: unknown[]) => void) => {
-    ipcRenderer.removeListener(channel, cb)
+    if (!valid.includes(channel)) return () => {}
+    const listener = (_e: unknown, ...args: unknown[]) => cb(...args)
+    ipcRenderer.on(channel, listener)
+    return () => ipcRenderer.removeListener(channel, listener)
   },
 })

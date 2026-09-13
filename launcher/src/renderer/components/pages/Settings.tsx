@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import { Settings as SettingsIcon, Save, Check, Lock } from 'lucide-react'
 import { notify } from '../../store/notificationStore'
-import { useThemeStore, CustomThemeColors } from '../../store/themeStore'
+import { useThemeStore } from '../../store/themeStore'
 import { themes } from '../../theme/themes'
-import { RANKS, RankId, RANK_ORDER, meetsRank, lockLabel } from '../../data/ranks'
+import { RANKS, RankId, RANK_ORDER, meetsRank, lockLabel, canUseTheme } from '../../data/ranks'
 import { RankBadge } from '../ui/RankBadge'
 import { LogoMark, LogoVariantId } from '../../theme/logoVariants'
 
@@ -12,7 +12,7 @@ const STAFF_RANKS: RankId[] = ['owner', 'co_owner', 'admin', 'staff', 'developer
 
 export function Settings() {
   const [language, setLanguage] = useState('de')
-  const { theme, setTheme, custom, setCustomColor } = useThemeStore()
+  const { theme, setTheme } = useThemeStore()
   const [animations, setAnimations] = useState(true)
   const [notifications, setNotifications] = useState(true)
   const [closeBehavior, setCloseBehavior] = useState('close')
@@ -22,8 +22,32 @@ export function Settings() {
   const [apiKey, setApiKey] = useState('')
   const [apiKeySaved, setApiKeySaved] = useState(false)
   const [maxRam, setMaxRam] = useState(4096)
+  const [discordEnabled, setDiscordEnabled] = useState(true)
+  const [discordConnected, setDiscordConnected] = useState(false)
+  const [versions, setVersions] = useState<{ launcher?: string; client?: string | null }>({})
+  const [dataRoot, setDataRoot] = useState<{ current?: string; default?: string }>({})
+
+  async function pickDataRoot() {
+    const result = await api?.pickDataRoot()
+    if (!result) return
+    if (!result.ok) {
+      notify({ type: 'error', title: 'Ordner nicht nutzbar', message: result.error || 'Kein Schreibzugriff' })
+      return
+    }
+    setDataRoot(prev => ({ ...prev, current: result.path }))
+    notify({ type: 'success', message: 'Speicherort geändert' })
+  }
+
+  async function resetDataRoot() {
+    const current = await api?.resetDataRoot()
+    setDataRoot(prev => ({ ...prev, current }))
+  }
 
   useEffect(() => {
+    api?.getDataRoot().then((r: { current: string; default: string }) => r && setDataRoot(r))
+    api?.getVersionInfo().then((v: { launcher: string; client: string | null }) => v && setVersions(v))
+    api?.isDiscordEnabled().then((v: boolean) => setDiscordEnabled(!!v))
+    api?.isDiscordConnected().then((v: boolean) => setDiscordConnected(!!v))
     api?.getRank().then(setRankState)
     api?.listIcons().then(setIcons)
     api?.getCurrentIcon().then((id: LogoVariantId) => id && setCurrentIcon(id))
@@ -72,7 +96,7 @@ export function Settings() {
           <span className="text-crystal-muted text-sm block mb-2">Theme</span>
           <div className="grid grid-cols-3 gap-2">
             {themes.map(t => {
-              const locked = !!t.requiredRank && !meetsRank(rank, t.requiredRank)
+              const locked = !canUseTheme(rank, t.requiredRank)
               return (
               <button
                 key={t.id}
@@ -103,55 +127,7 @@ export function Settings() {
                 )}
               </button>
               )})}
-            {(() => {
-              const customLocked = !meetsRank(rank, 'crystal_plus')
-              return (
-                <button
-                  onClick={() => {
-                    if (customLocked) {
-                      notify({ type: 'info', message: '"Custom" ist Crystal+ vorbehalten' })
-                      return
-                    }
-                    setTheme('custom')
-                  }}
-                  className={`relative rounded-lg overflow-hidden border-2 transition-all ${
-                    theme === 'custom' ? 'border-crystal-accent shadow-glow' : 'border-crystal-border hover:border-crystal-accent/40'
-                  } ${customLocked ? 'opacity-55 cursor-not-allowed' : ''}`}
-                >
-                  <div className="h-10" style={{ background: `linear-gradient(135deg, ${custom.accent}, ${custom.accent2})` }} />
-                  <div className="px-2 py-1.5 bg-crystal-panel">
-                    <p className="text-crystal-text text-xs font-medium text-left">Custom</p>
-                    {customLocked && (
-                      <p className="text-crystal-muted text-[10px] flex items-center gap-0.5">
-                        <Lock size={8} /> Crystal+
-                      </p>
-                    )}
-                  </div>
-                  {theme === 'custom' && !customLocked && (
-                    <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-crystal-accent flex items-center justify-center">
-                      <Check size={10} className="text-white" />
-                    </div>
-                  )}
-                </button>
-              )
-            })()}
           </div>
-
-          {theme === 'custom' && meetsRank(rank, 'crystal_plus') && (
-            <div className="mt-3 grid grid-cols-4 gap-2">
-              {(Object.keys(custom) as (keyof CustomThemeColors)[]).map(key => (
-                <label key={key} className="flex flex-col items-center gap-1 cursor-pointer">
-                  <input
-                    type="color"
-                    value={custom[key]}
-                    onChange={e => setCustomColor(key, e.target.value)}
-                    className="w-full h-8 rounded-md border border-crystal-border bg-transparent cursor-pointer"
-                  />
-                  <span className="text-crystal-muted text-[10px] uppercase tracking-wide">{key}</span>
-                </label>
-              ))}
-            </div>
-          )}
         </div>
         {/* RAM is set once here and used by every instance launch. */}
         <div>
@@ -170,6 +146,25 @@ export function Settings() {
             <span>1 GB</span><span>16 GB</span>
           </div>
         </div>
+        <div>
+          <span className="block text-crystal-muted text-sm mb-1.5">Speicherort für Spieldateien</span>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 min-w-0 truncate text-xs px-2 py-1.5 rounded bg-crystal-bg border border-crystal-border text-crystal-text" title={dataRoot.current}>
+              {dataRoot.current || '…'}
+            </code>
+            <button onClick={pickDataRoot} className="crystal-btn-ghost text-xs px-3 py-1.5 border border-crystal-border rounded-lg shrink-0">
+              Ändern
+            </button>
+            {dataRoot.current && dataRoot.current !== dataRoot.default && (
+              <button onClick={resetDataRoot} className="text-xs text-crystal-muted hover:text-crystal-text shrink-0">
+                Standard
+              </button>
+            )}
+          </div>
+          <p className="text-crystal-muted text-xs mt-1">
+            Neue Instanzen, Java und Downloads landen dort. Bestehende Instanzen bleiben, wo sie sind — es wird nichts verschoben oder gelöscht.
+          </p>
+        </div>
         <Row label="Animations">
           <Toggle value={animations} onChange={setAnimations} />
         </Row>
@@ -181,6 +176,16 @@ export function Settings() {
             <option value="close">Close launcher</option>
             <option value="minimize">Minimize to tray</option>
           </select>
+        </Row>
+        <Row label={`Discord Status${discordConnected ? '' : ' (Discord nicht erkannt)'}`}>
+          <Toggle
+            value={discordEnabled}
+            onChange={async v => {
+              const next = await api?.setDiscordEnabled(v)
+              setDiscordEnabled(!!next)
+              api?.isDiscordConnected().then((c: boolean) => setDiscordConnected(!!c))
+            }}
+          />
         </Row>
       </Section>
 
@@ -261,8 +266,8 @@ export function Settings() {
       {/* About */}
       <Section title="About">
         <div className="text-crystal-muted text-xs space-y-1">
-          <p>Crystal Launcher <span className="text-crystal-accent font-mono">v1.0.0</span></p>
-          <p>Crystal Client <span className="text-crystal-accent font-mono">v1.0.0</span></p>
+          <p>Crystal Launcher <span className="text-crystal-accent font-mono">v{versions.launcher || '—'}</span></p>
+          <p>Crystal Client <span className="text-crystal-accent font-mono">v{versions.client || '—'}</span></p>
           <p>Minecraft <span className="text-crystal-accent font-mono">1.21.11</span> · Fabric</p>
         </div>
       </Section>
@@ -278,7 +283,15 @@ interface RankGrant {
   username: string
   rank: RankId
   grantedAt: number
+  expiresAt?: number
 }
+
+const GRANT_DURATIONS: { label: string; ms: number | undefined }[] = [
+  { label: 'Permanent', ms: undefined },
+  { label: '1 Tag', ms: 24 * 60 * 60 * 1000 },
+  { label: '1 Woche', ms: 7 * 24 * 60 * 60 * 1000 },
+  { label: '1 Monat', ms: 30 * 24 * 60 * 60 * 1000 },
+]
 
 /**
  * Owner-only. Every action here re-checks the caller's own rank server-side
@@ -293,18 +306,35 @@ function RankManagementSection() {
   const [grants, setGrants] = useState<RankGrant[]>([])
   const [username, setUsername] = useState('')
   const [pickedRank, setPickedRank] = useState<RankId>('crystal_plus')
+  const [pickedDuration, setPickedDuration] = useState<number | undefined>(undefined)
   const [saving, setSaving] = useState(false)
+  const [hasToken, setHasToken] = useState(false)
+  const [tokenInput, setTokenInput] = useState('')
 
   function refresh() {
     api?.listRankGrants().then((list: RankGrant[]) => setGrants(list || []))
+    api?.hasRankToken().then((v: boolean) => setHasToken(!!v))
   }
 
   useEffect(refresh, [])
 
+  async function saveToken() {
+    const ok = await api?.setRankToken(tokenInput.trim())
+    if (ok) {
+      setTokenInput('')
+      refresh()
+    }
+  }
+
+  async function publishNow() {
+    const result = await api?.publishRanks()
+    alert(result?.ok ? 'Ränge veröffentlicht.' : `Fehlgeschlagen: ${result?.error || 'Unbekannter Fehler'}`)
+  }
+
   async function grant() {
     if (!username.trim()) return
     setSaving(true)
-    const ok = await api?.grantRank(username.trim(), pickedRank)
+    const ok = await api?.grantRank(username.trim(), pickedRank, pickedDuration)
     setSaving(false)
     if (ok) {
       setUsername('')
@@ -321,10 +351,32 @@ function RankManagementSection() {
 
   return (
     <Section title="Ränge verwalten">
-      <p className="text-crystal-muted text-xs">
-        Gilt nur, wenn sich dieser Minecraft-Name auf diesem Gerät anmeldet — es gibt noch keinen
-        Crystal-Server, der einen Rang auf das Gerät eines Freundes überträgt.
-      </p>
+      {hasToken ? (
+        <p className="text-crystal-muted text-xs">
+          Ränge werden nach GitHub veröffentlicht und gelten dadurch auf allen Geräten — der
+          Launcher des Spielers liest sie beim Start. Bis zu ~5 Minuten Verzögerung.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          <p className="text-crystal-muted text-xs">
+            Ohne GitHub-Token gilt ein Rang nur auf diesem Gerät. Trag deinen Token ein, damit
+            vergebene Ränge auch bei anderen Spielern ankommen. Der Token bleibt nur lokal auf
+            diesem PC und ist in keinem Installer enthalten.
+          </p>
+          <div className="flex gap-2">
+            <input
+              type="password"
+              value={tokenInput}
+              onChange={e => setTokenInput(e.target.value)}
+              placeholder="GitHub Token (repo-Rechte)"
+              className="crystal-input flex-1 text-sm"
+            />
+            <button onClick={saveToken} disabled={!tokenInput.trim()} className="crystal-btn-primary text-sm px-3 disabled:opacity-60">
+              Speichern
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="flex gap-2">
         <input
@@ -343,6 +395,15 @@ function RankManagementSection() {
             <option key={r} value={r}>{RANKS[r].label}</option>
           ))}
         </select>
+        <select
+          value={pickedDuration ?? ''}
+          onChange={e => setPickedDuration(e.target.value ? Number(e.target.value) : undefined)}
+          className="crystal-input text-sm"
+        >
+          {GRANT_DURATIONS.map(d => (
+            <option key={d.label} value={d.ms ?? ''}>{d.label}</option>
+          ))}
+        </select>
         <button
           onClick={grant}
           disabled={saving || !username.trim()}
@@ -351,6 +412,12 @@ function RankManagementSection() {
           Vergeben
         </button>
       </div>
+
+      {hasToken && (
+        <button onClick={publishNow} className="crystal-btn-ghost text-xs border border-crystal-border rounded-lg px-3 py-1.5 w-fit">
+          Jetzt neu veröffentlichen
+        </button>
+      )}
 
       {grants.length === 0 ? (
         <p className="text-crystal-muted text-xs">Noch keine Ränge vergeben.</p>
@@ -361,6 +428,11 @@ function RankManagementSection() {
               <div className="flex items-center gap-2 min-w-0">
                 <RankBadge rank={g.rank} size="sm" />
                 <span className="text-crystal-text text-sm truncate">{g.username}</span>
+                {g.expiresAt && (
+                  <span className="text-crystal-muted text-[11px] shrink-0">
+                    bis {new Date(g.expiresAt).toLocaleDateString('de-DE')}
+                  </span>
+                )}
               </div>
               <button
                 onClick={() => revoke(g.username)}

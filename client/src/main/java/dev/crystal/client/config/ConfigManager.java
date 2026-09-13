@@ -31,9 +31,9 @@ public class ConfigManager {
             mObj.addProperty("enabled", module.isEnabled());
             mObj.addProperty("keybind", module.getKeybind());
 
-            if (!module.getSettings().isEmpty()) {
+            if (!module.settings().isEmpty()) {
                 JsonObject settingsObj = new JsonObject();
-                for (Setting<?> setting : module.getSettings()) {
+                for (Setting<?> setting : module.settings()) {
                     settingsObj.add(setting.getName(), setting.toJson());
                 }
                 mObj.add("settings", settingsObj);
@@ -52,14 +52,15 @@ public class ConfigManager {
         }
     }
 
-    public void load() {
-        if (!Files.exists(configFile)) return;
+    /** @return true if a saved config existed and was applied — false means every module is still at its constructor default. */
+    public boolean load() {
+        if (!Files.exists(configFile)) return false;
 
         try {
             String json = Files.readString(configFile);
             JsonObject root = JsonParser.parseString(json).getAsJsonObject();
 
-            if (!root.has("modules")) return;
+            if (!root.has("modules")) return false;
             JsonObject modules = root.getAsJsonObject("modules");
 
             for (Module module : CrystalClient.getInstance().getModuleManager().getModules()) {
@@ -69,7 +70,7 @@ public class ConfigManager {
                 // Settings before enabling: a module's onEnable() may read them immediately.
                 if (mObj.has("settings") && mObj.get("settings").isJsonObject()) {
                     JsonObject settingsObj = mObj.getAsJsonObject("settings");
-                    for (Setting<?> setting : module.getSettings()) {
+                    for (Setting<?> setting : module.settings()) {
                         if (settingsObj.has(setting.getName())) {
                             try {
                                 setting.fromJson(settingsObj.get(setting.getName()));
@@ -86,8 +87,10 @@ public class ConfigManager {
             }
 
             CrystalClient.LOGGER.info("[Crystal] Config loaded.");
+            return true;
         } catch (Exception e) {
             CrystalClient.LOGGER.error("Failed to load config: {}", e.getMessage());
+            return false;
         }
     }
 
@@ -100,13 +103,13 @@ public class ConfigManager {
         for (Module module : CrystalClient.getInstance().getModuleManager().getModules()) {
             module.setEnabled(false);
             module.setKeybind(org.lwjgl.glfw.GLFW.GLFW_KEY_UNKNOWN);
-            module.getSettings().forEach(Setting::resetToDefault);
+            module.settings().forEach(Setting::resetToDefault);
         }
     }
 
     /** Resets a single module's settings and keybind without touching any other module. */
     public void resetModule(Module module) {
         module.setKeybind(org.lwjgl.glfw.GLFW.GLFW_KEY_UNKNOWN);
-        module.getSettings().forEach(Setting::resetToDefault);
+        module.settings().forEach(Setting::resetToDefault);
     }
 }

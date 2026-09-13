@@ -42,8 +42,10 @@ export function Dashboard() {
   const [instanceCount, setInstanceCount] = useState(0)
   const [modCount, setModCount] = useState(0)
   const [username, setUsername] = useState<string | null>(null)
+  const [clientVersion, setClientVersion] = useState<string | null>(null)
 
   useEffect(() => {
+    api?.getVersionInfo().then((v: { client: string | null }) => setClientVersion(v?.client ?? null))
     api?.getInstances().then((list: { id: string }[]) => {
       const instances = list || []
       setInstanceCount(instances.length)
@@ -57,7 +59,7 @@ export function Dashboard() {
   const statCards = [
     { label: 'Instanzen',      value: String(instanceCount),      icon: Globe,    color: 'text-crystal-accent' },
     { label: 'Mods gesamt',    value: String(modCount),           icon: Cpu,      color: 'text-crystal-warning' },
-    { label: 'Client-Version', value: '1.0.0',                    icon: Zap,      color: 'text-crystal-success' },
+    { label: 'Client-Version', value: clientVersion ?? '—',        icon: Zap,      color: 'text-crystal-success' },
     { label: 'Minecraft',      value: '1.21.11',                  icon: Activity, color: 'text-crystal-accent-2' },
   ]
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import {
   Layers, Plus, Trash2, ArrowLeft, Search, Download, FolderInput, Blocks,
-  Package, Image, Sparkles, Upload, FolderOpen, ToggleLeft, ToggleRight
+  Package, Image, Sparkles, Upload, FolderOpen, ToggleLeft, ToggleRight, Check
 } from 'lucide-react'
 import { notify } from '../../store/notificationStore'
 import { ClientInstallPanel } from '../ui/ClientInstallPanel'
@@ -32,6 +32,12 @@ interface ModrinthHit {
   description: string
   icon_url: string | null
   downloads: number
+}
+
+interface ModrinthVersion {
+  id: string
+  version_number: string
+  game_versions: string[]
 }
 
 const api = (window as any).crystal
@@ -415,8 +421,23 @@ function InstanceDetail({ instance, onBack }: { instance: Instance; onBack: () =
   const [files, setFiles] = useState<ContentFile[]>([])
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<ModrinthHit[]>([])
+  const [totalHits, setTotalHits] = useState(0)
   const [searching, setSearching] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [installingId, setInstallingId] = useState<string | null>(null)
+  const [versionsByProject, setVersionsByProject] = useState<Record<string, ModrinthVersion[]>>({})
+  const [pickedVersion, setPickedVersion] = useState<Record<string, string>>({})
+  const [expandedProject, setExpandedProject] = useState<string | null>(null)
+  const [installedPicker, setInstalledPicker] = useState<string | null>(null)
+  const [installedVersions, setInstalledVersions] = useState<Record<string, ModrinthVersion[]>>({})
+  const [installedPicked, setInstalledPicked] = useState<Record<string, string>>({})
+  const [switching, setSwitching] = useState<string | null>(null)
+  const [installedProjectIds, setInstalledProjectIds] = useState<Set<string>>(new Set())
+  const [installedQuery, setInstalledQuery] = useState('')
+
+  const visibleFiles = installedQuery.trim()
+    ? files.filter(f => f.fileName.toLowerCase().includes(installedQuery.trim().toLowerCase()))
+    : files
 
   function refreshFiles() {
     api?.listContent(instance.id, tab).then((list: ContentFile[]) => setFiles(list || []))
@@ -427,16 +448,58 @@ function InstanceDetail({ instance, onBack }: { instance: Instance; onBack: () =
     if (view === 'browse') search('')
   }, [tab, view])
 
+  // Which Modrinth projects are already on disk, so search results can say
+  // "Installiert" instead of offering an install that just downloads the same
+  // file again. Resolved from the files themselves (by hash), since the folder
+  // only holds jars and knows nothing about project ids.
+  useEffect(() => {
+    let cancelled = false
+    if (files.length === 0) {
+      setInstalledProjectIds(new Set())
+      return
+    }
+
+    Promise.all(files.map(f => api?.identifyModFile(instance.id, tab, f.fileName)))
+      .then((identified: ({ projectId: string } | null)[]) => {
+        if (cancelled) return
+        setInstalledProjectIds(new Set(identified.filter(Boolean).map(i => i!.projectId)))
+      })
+
+    return () => { cancelled = true }
+  }, [files, tab])
+
   async function search(q: string) {
     setSearching(true)
-    const hits = await api?.searchModrinth(q, GAME_VERSION, LOADER, tab)
-    setResults(hits || [])
+    const res = await api?.searchModrinth(q, GAME_VERSION, LOADER, tab, 0)
+    setResults(res?.hits || [])
+    setTotalHits(res?.totalHits || 0)
     setSearching(false)
+  }
+
+  async function loadMore() {
+    setLoadingMore(true)
+    const res = await api?.searchModrinth(query, GAME_VERSION, LOADER, tab, results.length)
+    setResults(prev => [...prev, ...(res?.hits || [])])
+    setTotalHits(res?.totalHits || totalHits)
+    setLoadingMore(false)
+  }
+
+  async function toggleVersionPicker(hit: ModrinthHit) {
+    if (expandedProject === hit.project_id) {
+      setExpandedProject(null)
+      return
+    }
+    setExpandedProject(hit.project_id)
+    if (!versionsByProject[hit.project_id]) {
+      const versions = await api?.getModVersions(hit.project_id, GAME_VERSION, LOADER, tab)
+      setVersionsByProject(prev => ({ ...prev, [hit.project_id]: versions || [] }))
+    }
   }
 
   async function install(hit: ModrinthHit) {
     setInstallingId(hit.project_id)
-    const result = await api?.installFromModrinth(instance.id, hit.project_id, GAME_VERSION, LOADER, tab)
+    const versionId = pickedVersion[hit.project_id]
+    const result = await api?.installFromModrinth(instance.id, hit.project_id, GAME_VERSION, LOADER, tab, versionId)
     setInstallingId(null)
     if (result?.success) {
       notify({ type: 'success', title: hit.title, message: `${result.fileName} installiert` })
@@ -463,6 +526,41 @@ function InstanceDetail({ instance, onBack }: { instance: Instance; onBack: () =
     await api?.removeContent(instance.id, tab, fileName)
     refreshFiles()
     notify({ type: 'info', message: `${fileName} entfernt` })
+  }
+
+  // Installed files are just jars on disk — Modrinth is asked which project a
+  // file belongs to (by its SHA-1) before any version list can be shown.
+  async function openInstalledVersions(fileName: string) {
+    if (installedPicker === fileName) {
+      setInstalledPicker(null)
+      return
+    }
+    setInstalledPicker(fileName)
+    if (installedVersions[fileName]) return
+
+    const identified = await api?.identifyModFile(instance.id, tab, fileName)
+    if (!identified) {
+      setInstalledVersions(prev => ({ ...prev, [fileName]: [] }))
+      return
+    }
+    const versions = await api?.getModVersions(identified.projectId, GAME_VERSION, LOADER, tab)
+    setInstalledVersions(prev => ({ ...prev, [fileName]: versions || [] }))
+    setInstalledPicked(prev => ({ ...prev, [fileName]: identified.versionId }))
+  }
+
+  async function applyInstalledVersion(fileName: string) {
+    const versionId = installedPicked[fileName]
+    if (!versionId) return
+    setSwitching(fileName)
+    const result = await api?.switchModVersion(instance.id, tab, fileName, versionId)
+    setSwitching(null)
+    if (result?.success) {
+      notify({ type: 'success', message: `Auf ${result.fileName} gewechselt` })
+      setInstalledPicker(null)
+      refreshFiles()
+    } else {
+      notify({ type: 'error', message: result?.error || 'Wechsel fehlgeschlagen' })
+    }
   }
 
   const uploadLabel = tab === 'mod' ? '.jar hochladen' : '.zip hochladen'
@@ -525,23 +623,72 @@ function InstanceDetail({ instance, onBack }: { instance: Instance; onBack: () =
 
       {view === 'installed' ? (
         <div className="space-y-2">
-          {files.map(file => (
-            <div key={file.fileName} className="crystal-card p-3 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-crystal-panel border border-crystal-border flex items-center justify-center">
-                <Package size={16} className={file.enabled ? 'text-crystal-accent' : 'text-crystal-muted'} />
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-crystal-muted" />
+            <input
+              type="text"
+              value={installedQuery}
+              onChange={e => setInstalledQuery(e.target.value)}
+              className="crystal-input w-full pl-8"
+              placeholder="Installierte durchsuchen..."
+            />
+          </div>
+          {visibleFiles.map(file => (
+            <div key={file.fileName} className="crystal-card p-3 space-y-2">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-crystal-panel border border-crystal-border flex items-center justify-center">
+                  <Package size={16} className={file.enabled ? 'text-crystal-accent' : 'text-crystal-muted'} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className={`font-medium text-sm truncate ${file.enabled ? 'text-crystal-text' : 'text-crystal-muted line-through'}`}>
+                    {file.fileName.replace(/\.disabled$/, '')}
+                  </p>
+                  <p className="text-crystal-muted text-xs">{fmtSize(file.sizeBytes)}</p>
+                </div>
+                <button
+                  onClick={() => openInstalledVersions(file.fileName)}
+                  className="crystal-btn-ghost text-xs px-2 py-1.5 border border-crystal-border rounded-lg shrink-0"
+                >
+                  Version
+                </button>
+                <button onClick={() => toggleFile(file.fileName)} className="text-crystal-muted hover:text-crystal-accent transition-colors">
+                  {file.enabled ? <ToggleRight size={22} className="text-crystal-accent" /> : <ToggleLeft size={22} />}
+                </button>
+                <button onClick={() => removeFile(file.fileName)} className="p-1.5 rounded hover:bg-crystal-border text-crystal-muted hover:text-crystal-danger transition-colors">
+                  <Trash2 size={14} />
+                </button>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className={`font-medium text-sm truncate ${file.enabled ? 'text-crystal-text' : 'text-crystal-muted line-through'}`}>
-                  {file.fileName.replace(/\.disabled$/, '')}
-                </p>
-                <p className="text-crystal-muted text-xs">{fmtSize(file.sizeBytes)}</p>
-              </div>
-              <button onClick={() => toggleFile(file.fileName)} className="text-crystal-muted hover:text-crystal-accent transition-colors">
-                {file.enabled ? <ToggleRight size={22} className="text-crystal-accent" /> : <ToggleLeft size={22} />}
-              </button>
-              <button onClick={() => removeFile(file.fileName)} className="p-1.5 rounded hover:bg-crystal-border text-crystal-muted hover:text-crystal-danger transition-colors">
-                <Trash2 size={14} />
-              </button>
+
+              {installedPicker === file.fileName && (
+                <div className="pl-[48px] flex items-center gap-2">
+                  {!installedVersions[file.fileName] ? (
+                    <p className="text-crystal-muted text-xs">Suche Projekt auf Modrinth...</p>
+                  ) : installedVersions[file.fileName].length === 0 ? (
+                    <p className="text-crystal-muted text-xs">
+                      Nicht auf Modrinth gefunden — Version kann nicht gewechselt werden.
+                    </p>
+                  ) : (
+                    <>
+                      <select
+                        value={installedPicked[file.fileName] || ''}
+                        onChange={e => setInstalledPicked(prev => ({ ...prev, [file.fileName]: e.target.value }))}
+                        className="crystal-input text-xs py-1"
+                      >
+                        {installedVersions[file.fileName].map(v => (
+                          <option key={v.id} value={v.id}>{v.version_number}</option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={() => applyInstalledVersion(file.fileName)}
+                        disabled={switching === file.fileName}
+                        className="crystal-btn-primary text-xs px-3 py-1.5 disabled:opacity-50"
+                      >
+                        {switching === file.fileName ? '...' : 'Wechseln'}
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           ))}
           {files.length === 0 && (
@@ -549,6 +696,11 @@ function InstanceDetail({ instance, onBack }: { instance: Instance; onBack: () =
               <Package size={28} className="mx-auto mb-2 opacity-30" />
               <p className="text-sm">Nichts installiert. Durchsuche Modrinth oder lade eine Datei hoch.</p>
             </div>
+          )}
+          {files.length > 0 && visibleFiles.length === 0 && (
+            <p className="text-crystal-muted text-sm text-center py-4">
+              Nichts gefunden für "{installedQuery}".
+            </p>
           )}
         </div>
       ) : (
@@ -571,29 +723,75 @@ function InstanceDetail({ instance, onBack }: { instance: Instance; onBack: () =
               <p className="text-crystal-muted text-sm text-center py-4">Keine Ergebnisse.</p>
             )}
             {results.map(hit => (
-              <div key={hit.project_id} className="crystal-card p-3 flex items-center gap-3">
-                {hit.icon_url ? (
-                  <img src={hit.icon_url} className="w-10 h-10 rounded-lg object-cover" alt="" />
-                ) : (
-                  <div className="w-10 h-10 rounded-lg bg-crystal-panel border border-crystal-border flex items-center justify-center">
-                    <Package size={18} className="text-crystal-accent" />
+              <div
+                key={hit.project_id}
+                className={`crystal-card p-3 space-y-2 ${installedProjectIds.has(hit.project_id) ? 'opacity-60' : ''}`}
+              >
+                <div className="flex items-center gap-3">
+                  {hit.icon_url ? (
+                    <img src={hit.icon_url} className="w-10 h-10 rounded-lg object-cover" alt="" />
+                  ) : (
+                    <div className="w-10 h-10 rounded-lg bg-crystal-panel border border-crystal-border flex items-center justify-center">
+                      <Package size={18} className="text-crystal-accent" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-crystal-text font-medium text-sm">{hit.title}</p>
+                    <p className="text-crystal-muted text-xs truncate">{hit.description}</p>
+                    <p className="text-crystal-muted text-xs mt-0.5">{fmtDownloads(hit.downloads)} Downloads</p>
+                  </div>
+                  <button
+                    onClick={() => toggleVersionPicker(hit)}
+                    className="crystal-btn-ghost text-xs px-2 py-2 border border-crystal-border rounded-lg shrink-0"
+                  >
+                    {pickedVersion[hit.project_id] ? 'Version ✓' : 'Version wählen'}
+                  </button>
+                  {installedProjectIds.has(hit.project_id) ? (
+                    <span className="text-xs px-3 py-2 rounded-lg border border-crystal-border text-crystal-muted shrink-0 flex items-center gap-1.5">
+                      <Check size={12} /> Installiert
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => install(hit)}
+                      disabled={installingId === hit.project_id}
+                      className="crystal-btn-primary text-xs px-3 py-2 flex items-center gap-1.5 disabled:opacity-50 shrink-0"
+                    >
+                      <Download size={12} />
+                      {installingId === hit.project_id ? '...' : 'Installieren'}
+                    </button>
+                  )}
+                </div>
+
+                {expandedProject === hit.project_id && (
+                  <div className="pl-[52px]">
+                    {!versionsByProject[hit.project_id] ? (
+                      <p className="text-crystal-muted text-xs">Lade Versionen...</p>
+                    ) : versionsByProject[hit.project_id].length === 0 ? (
+                      <p className="text-crystal-muted text-xs">Keine Versionen für {GAME_VERSION} gefunden.</p>
+                    ) : (
+                      <select
+                        value={pickedVersion[hit.project_id] || versionsByProject[hit.project_id][0]?.id || ''}
+                        onChange={e => setPickedVersion(prev => ({ ...prev, [hit.project_id]: e.target.value }))}
+                        className="crystal-input text-xs py-1"
+                      >
+                        {versionsByProject[hit.project_id].map(v => (
+                          <option key={v.id} value={v.id}>{v.version_number}</option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                 )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-crystal-text font-medium text-sm">{hit.title}</p>
-                  <p className="text-crystal-muted text-xs truncate">{hit.description}</p>
-                  <p className="text-crystal-muted text-xs mt-0.5">{fmtDownloads(hit.downloads)} Downloads</p>
-                </div>
-                <button
-                  onClick={() => install(hit)}
-                  disabled={installingId === hit.project_id}
-                  className="crystal-btn-primary text-xs px-3 py-2 flex items-center gap-1.5 disabled:opacity-50 shrink-0"
-                >
-                  <Download size={12} />
-                  {installingId === hit.project_id ? '...' : 'Installieren'}
-                </button>
               </div>
             ))}
+            {!searching && results.length > 0 && results.length < totalHits && (
+              <button
+                onClick={loadMore}
+                disabled={loadingMore}
+                className="crystal-btn-ghost w-full text-sm py-2 border border-crystal-border rounded-lg disabled:opacity-50"
+              >
+                {loadingMore ? 'Lädt...' : `Mehr laden (${results.length}/${totalHits})`}
+              </button>
+            )}
           </div>
         </div>
       )}

@@ -1,4 +1,4 @@
-import { ipcMain, BrowserWindow, dialog, shell } from 'electron'
+import { ipcMain, BrowserWindow, dialog, shell, nativeImage, app } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import os from 'os'
@@ -8,6 +8,8 @@ import { InstanceManager } from './minecraft/InstanceManager'
 import { ContentManager, ContentType } from './minecraft/ContentManager'
 import { UpdateManager } from './updater/UpdateManager'
 import { AuthManager } from './auth/AuthManager'
+import { RankSyncService } from './auth/RankSyncService'
+import { DiscordPresence } from './discord/DiscordPresence'
 import { syncThemeToClient } from './theme/ThemeSync'
 import { ExternalClientManager } from './minecraft/ExternalClientManager'
 import { BrandingManager } from './branding/BrandingManager'
@@ -20,6 +22,8 @@ import { FriendManager } from './friends/FriendManager'
 import { logger, LogCategory } from './logs/Logger'
 import { TryCrystalService } from './minecraft/TryCrystalService'
 import { CustomClientInstaller } from './minecraft/CustomClientInstaller'
+import { CrashDoctor } from './minecraft/CrashDoctor'
+import { crystalPath, crystalRoot, defaultCrystalRoot, setCrystalRoot, canUseAsRoot } from './paths'
 
 export function registerIpcHandlers(store: Store) {
   const minecraft = new MinecraftManager(store)
@@ -27,6 +31,12 @@ export function registerIpcHandlers(store: Store) {
   const content = new ContentManager(instances)
   const updater = new UpdateManager(store)
   const auth = new AuthManager(store)
+  const rankSync = new RankSyncService(store)
+  const discord = new DiscordPresence(store)
+  // Pull the published ranks once at startup so a rank granted elsewhere is
+  // already in place by the time the UI asks for it.
+  rankSync.fetchRemoteGrants()
+  rankSync.startAutoRefresh()
   const externalClients = new ExternalClientManager(store)
   const branding = new BrandingManager(store)
   const modrinth = new ModrinthService(instances)
@@ -38,6 +48,7 @@ export function registerIpcHandlers(store: Store) {
   const friends = new FriendManager(store)
   const tryCrystal = new TryCrystalService(store, instances, minecraft, auth)
   const clientInstaller = new CustomClientInstaller(instances)
+  const crashDoctor = new CrashDoctor(instances)
 
   // A snapshot left over from a previous run means that attempt never finished.
   tryCrystal.recoverInterrupted()
@@ -55,10 +66,7 @@ export function registerIpcHandlers(store: Store) {
   ipcMain.handle('settings:set', (_e, key: string, value: unknown) => {
     store.set(key, value)
     if (key === 'theme' && typeof value === 'string') {
-      syncThemeToClient(value, store.get('customTheme') as any)
-    }
-    if (key === 'customTheme' && store.get('theme') === 'custom') {
-      syncThemeToClient('custom', value as any)
+      syncThemeToClient(value)
     }
   })
 
@@ -72,9 +80,17 @@ export function registerIpcHandlers(store: Store) {
   ipcMain.handle('auth:autoLogin', () => auth.tryAutoLogin())
   ipcMain.handle('auth:getProfile', () => auth.getStoredProfile())
   ipcMain.handle('auth:logout', () => auth.logout())
+  ipcMain.handle('auth:listAccounts', () => auth.listAccounts())
+  ipcMain.handle('auth:switchAccount', (_e, uuid: string) => auth.switchAccount(uuid))
+  ipcMain.handle('auth:removeAccount', (_e, uuid: string) => auth.removeAccount(uuid))
   // Read-only by design: a rank is something the Crystal team grants, so the
   // renderer can look it up but never assign one to itself.
-  ipcMain.handle('auth:getRank', () => auth.getRank())
+  // Awaits the startup rank fetch so a first-ever launch reports the published
+  // rank straight away instead of "member" until the next restart.
+  ipcMain.handle('auth:getRank', async () => {
+    await rankSync.ready()
+    return auth.getRank()
+  })
 
   // Rank management — every handler re-checks the CALLER's own current rank
   // server-side (never trusts a flag the renderer sends), so a compromised
@@ -83,16 +99,110 @@ export function registerIpcHandlers(store: Store) {
     if (auth.getRank() !== 'owner') return []
     return Object.values(auth.getGrants())
   })
-  ipcMain.handle('ranks:grant', (_e, username: string, rank: string) => {
+  ipcMain.handle('ranks:grant', async (_e, username: string, rank: string, durationMs?: number) => {
     if (auth.getRank() !== 'owner') return false
     if (!username?.trim()) return false
-    auth.grantRank(username.trim(), rank as any)
+    auth.grantRank(username.trim(), rank as any, durationMs)
+    // Publishing is what makes the rank visible on the other person's own
+    // machine — without it the grant would only ever apply to this install.
+    await rankSync.publish(auth.getGrants())
     return true
   })
-  ipcMain.handle('ranks:revoke', (_e, username: string) => {
+  ipcMain.handle('ranks:revoke', async (_e, username: string) => {
     if (auth.getRank() !== 'owner') return false
     auth.revokeGrant(username)
+    await rankSync.publish(auth.getGrants())
     return true
+  })
+
+  // GitHub-backed rank sync. The token lives only in this machine's local
+  // store and is never bundled into the installer — a normal user's launcher
+  // has no token and can therefore only ever read the published ranks.
+  ipcMain.handle('ranks:hasToken', () => auth.getRank() === 'owner' && rankSync.hasToken())
+  ipcMain.handle('ranks:setToken', (_e, token: string) => {
+    if (auth.getRank() !== 'owner') return false
+    rankSync.setToken(token)
+    return true
+  })
+  ipcMain.handle('ranks:publishNow', async () => {
+    if (auth.getRank() !== 'owner') return { ok: false, error: 'Nur der Owner kann veröffentlichen.' }
+    return rankSync.publish(auth.getGrants())
+  })
+  ipcMain.handle('ranks:refreshRemote', () => rankSync.fetchRemoteGrants())
+
+  // Discord Rich Presence
+  discord.idle()
+  ipcMain.handle('discord:isEnabled', () => discord.isEnabled())
+  ipcMain.handle('discord:isConnected', () => discord.isConnected())
+  ipcMain.handle('discord:setEnabled', (_e, enabled: boolean) => {
+    discord.setEnabled(enabled)
+    return discord.isEnabled()
+  })
+
+  // Real versions, read from the build rather than typed into the UI — the
+  // hardcoded "1.0.0" strings they replaced were still showing long after
+  // several releases had shipped.
+  ipcMain.handle('app:versions', () => ({
+    launcher: app.getVersion(),
+    client: minecraft.getBundledClientVersion(),
+  }))
+
+  // Data folder location. Existing instances keep their stored absolute path,
+  // so switching never strands or moves anyone's worlds — only new instances,
+  // downloads and caches go to the new folder.
+  ipcMain.handle('dataRoot:get', () => ({ current: crystalRoot(), default: defaultCrystalRoot() }))
+  ipcMain.handle('dataRoot:pick', async () => {
+    const win = BrowserWindow.getFocusedWindow()
+    const result = await dialog.showOpenDialog(win!, {
+      title: 'Speicherort für Crystal-Dateien wählen',
+      properties: ['openDirectory', 'createDirectory'],
+    })
+    if (result.canceled || result.filePaths.length === 0) return null
+
+    const chosen = path.join(result.filePaths[0], 'Crystal')
+    const check = canUseAsRoot(chosen)
+    if (!check.ok) return { ok: false, error: check.error }
+
+    store.set('dataRoot', chosen)
+    setCrystalRoot(chosen)
+    logger.info('launcher', `Datenordner geändert: ${chosen}`)
+    return { ok: true, path: chosen }
+  })
+  ipcMain.handle('dataRoot:reset', () => {
+    store.delete('dataRoot')
+    setCrystalRoot(null)
+    return crystalRoot()
+  })
+
+  // Autofix for a failed launch — analyses the log, then applies the one fix
+  // the user picks. Nothing is changed without an explicit click.
+  ipcMain.handle('autofix:analyze', (_e, instanceId: string, errorMessage: string) => {
+    // The error message only carries the last ~1200 characters; Fabric prints
+    // its dependency/incompatibility report well before that, so the full
+    // launch log is what actually gets analysed.
+    const gameDir = instances.get(instanceId)?.gameDir || crystalPath('instances', instanceId)
+    const logPath = path.join(gameDir, 'crystal-launch.log')
+    let fullLog = ''
+    try {
+      if (fs.existsSync(logPath)) fullLog = fs.readFileSync(logPath, 'utf8')
+    } catch (err) {
+      logger.warn('launcher', 'Launch-Log für Autofix nicht lesbar', String(err))
+    }
+    return crashDoctor.analyze(instanceId, `${fullLog}\n${errorMessage || ''}`, (store.get('maxRam') as number) || 4096)
+  })
+
+  ipcMain.handle('autofix:apply', async (_e, instanceId: string, fix: any) => {
+    if (fix?.kind === 'lower-ram' || fix?.kind === 'raise-ram') {
+      store.set('maxRam', fix.ram)
+      return { ok: true, message: `RAM auf ${fix.ram} MB gesetzt.` }
+    }
+    if (fix?.kind === 'install-fabric-api') {
+      const result = await modrinth.install(instanceId, 'fabric-api', '1.21.11', 'fabric', 'mod')
+      return result.success
+        ? { ok: true, message: `${result.fileName} installiert.` }
+        : { ok: false, message: result.error || 'Installation fehlgeschlagen.' }
+    }
+    return crashDoctor.applyFix(instanceId, fix)
   })
 
   // Minecraft
@@ -109,7 +219,14 @@ export function registerIpcHandlers(store: Store) {
       })
       .catch(err => logger.warn('updater', 'Update-Pruefung vor dem Start fehlgeschlagen', String(err)))
 
-    return minecraft.launch({ ...opts, profile }, (event, data) => win?.webContents.send(event, data))
+    const instanceName = instances.get(opts.instanceId)?.name || 'Minecraft'
+    discord.playing(instanceName, opts.version)
+
+    return minecraft.launch({ ...opts, profile }, (event, data) => {
+      // Back to the idle line once the game is gone, however it ended.
+      if (event === 'launch:exit' || event === 'launch:error') discord.idle()
+      win?.webContents.send(event, data)
+    })
   })
   ipcMain.handle('minecraft:selectDir', async () => {
     const result = await dialog.showOpenDialog({ properties: ['openDirectory'] })
@@ -155,10 +272,18 @@ export function registerIpcHandlers(store: Store) {
   })
 
   // Modrinth (search + one-click install into the right instance folder)
-  ipcMain.handle('modrinth:search', (_e, query: string, gameVersion: string, loader: string, type: ContentType) =>
-    modrinth.search(query, gameVersion, loader, type))
-  ipcMain.handle('modrinth:install', (_e, instanceId: string, projectId: string, gameVersion: string, loader: string, type: ContentType) =>
-    modrinth.install(instanceId, projectId, gameVersion, loader, type))
+  ipcMain.handle('modrinth:search', (_e, query: string, gameVersion: string, loader: string, type: ContentType, offset?: number) =>
+    modrinth.search(query, gameVersion, loader, type, offset))
+  ipcMain.handle('modrinth:getVersions', (_e, projectId: string, gameVersion: string, loader: string, type: ContentType) =>
+    modrinth.getVersions(projectId, gameVersion, loader, type))
+  ipcMain.handle('modrinth:install', (_e, instanceId: string, projectId: string, gameVersion: string, loader: string, type: ContentType, versionId?: string) =>
+    modrinth.install(instanceId, projectId, gameVersion, loader, type, versionId))
+
+  // Version switching for files that are already installed.
+  ipcMain.handle('modrinth:identifyFile', (_e, instanceId: string, type: ContentType, fileName: string) =>
+    modrinth.identifyFile(instanceId, type, fileName))
+  ipcMain.handle('modrinth:switchVersion', (_e, instanceId: string, type: ContentType, fileName: string, versionId: string) =>
+    modrinth.switchVersion(instanceId, type, fileName, versionId))
 
   // Modpack presets for Create Instance — browse finished Modrinth modpacks and install one wholesale.
   ipcMain.handle('modrinth:searchModpacks', (_e, query: string, gameVersion?: string) =>
@@ -216,7 +341,7 @@ export function registerIpcHandlers(store: Store) {
   // canvas data URLs inside the renderer, so this is the one place they
   // become a real file the in-game mod can load.
   ipcMain.handle('cosmetics:syncCape', (_e, dataUrl: string | null) => {
-    const dir = path.join(os.homedir(), '.crystal', 'cosmetics')
+    const dir = crystalPath('cosmetics')
     fs.mkdirSync(dir, { recursive: true })
     const target = path.join(dir, 'equipped_cape.png')
 
@@ -224,8 +349,27 @@ export function registerIpcHandlers(store: Store) {
       fs.rm(target, { force: true }, () => {})
       return true
     }
-    const base64 = dataUrl.replace(/^data:image\/\w+;base64,/, '')
-    fs.writeFileSync(target, Buffer.from(base64, 'base64'))
+
+    // Always re-encode through nativeImage instead of dumping the data URL's
+    // bytes straight to disk: an uploaded .jpg would otherwise land as JPEG
+    // bytes in a .png file, and the Java client's NativeImage.read() only
+    // decodes PNG — the cape then silently never appears. Minecraft also
+    // requires a 64x32 cape texture, so anything else is scaled to fit.
+    const image = nativeImage.createFromDataURL(dataUrl)
+    if (image.isEmpty()) {
+      logger.warn('launcher', 'Cape konnte nicht dekodiert werden — Datei nicht geschrieben')
+      return false
+    }
+
+    const { width, height } = image.getSize()
+    const normalized = (width === 64 && height === 32)
+      ? image
+      : image.resize({ width: 64, height: 32, quality: 'best' })
+
+    fs.writeFileSync(target, normalized.toPNG())
+    if (width !== 64 || height !== 32) {
+      logger.info('launcher', `Cape von ${width}x${height} auf 64x32 skaliert`)
+    }
     return true
   })
 
