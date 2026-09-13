@@ -451,7 +451,7 @@ export class ModrinthService {
     }
 
     const index = pack.readJson<MrpackIndex>('modrinth.index.json')
-    if (!index) return { success: false, error: 'modrinth.index.json fehlt in diesem Modpack — Datei ist beschädigt.' }
+    if (!index) return { success: false, error: 'In diesem Modpack fehlt modrinth.index.json, die Datei ist beschädigt.' }
 
     const gameDir = this.gameDir(instance.id)
     fs.mkdirSync(gameDir, { recursive: true })

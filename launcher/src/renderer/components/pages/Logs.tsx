@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import {
-  Terminal, AlertTriangle, FileText, Sparkles, RefreshCw,
-  FolderOpen, Copy, Trash2, ChevronDown, Rocket,
-} from 'lucide-react'
+import { Sparkles, RefreshCw, FolderOpen, Copy, Trash2, ChevronDown } from 'lucide-react'
+import { Page, PageHeader, EmptyState } from '../ui/Page'
 import { notify } from '../../store/notificationStore'
 
 type Source = 'launcher' | 'client' | 'updater' | 'gameLogs' | 'crashes'
@@ -30,12 +28,12 @@ const api = (window as any).crystal
 
 // Launcher-side categories read one file each; the game-side ones list files
 // from the selected instance.
-const SOURCES: { id: Source; label: string; icon: typeof FileText; perInstance: boolean }[] = [
-  { id: 'launcher',  label: 'Launcher',      icon: Terminal,      perInstance: false },
-  { id: 'client',    label: 'Client-Start',  icon: Rocket,        perInstance: false },
-  { id: 'updater',   label: 'Updater',       icon: RefreshCw,     perInstance: false },
-  { id: 'gameLogs',  label: 'Spiel-Logs',    icon: FileText,      perInstance: true },
-  { id: 'crashes',   label: 'Crash Reports', icon: AlertTriangle, perInstance: true },
+const SOURCES: { id: Source; label: string; perInstance: boolean }[] = [
+  { id: 'launcher', label: 'Launcher',     perInstance: false },
+  { id: 'client',   label: 'Spielstart',   perInstance: false },
+  { id: 'updater',  label: 'Updates',      perInstance: false },
+  { id: 'gameLogs', label: 'Spiel-Logs',   perInstance: true },
+  { id: 'crashes',  label: 'Abstürze',     perInstance: true },
 ]
 
 function fmtSize(bytes: number) {
@@ -119,7 +117,7 @@ export function Logs() {
 
   async function clearLog() {
     if (current.perInstance) {
-      notify({ type: 'info', message: 'Spiel- und Crash-Logs schreibt Minecraft selbst — hier nur im Ordner löschbar.' })
+      notify({ type: 'info', message: 'Spiel-Logs und Crash-Reports schreibt Minecraft selbst. Löschen geht nur im Ordner.' })
       return
     }
     await api?.clearLauncherLog(source)
@@ -130,7 +128,7 @@ export function Logs() {
   async function analyze() {
     if (!selected) return
     if (!hasKey) {
-      notify({ type: 'error', message: 'Erst einen Anthropic API-Key in den Settings hinterlegen.' })
+      notify({ type: 'error', message: 'Hinterlege zuerst einen Anthropic-API-Key in den Einstellungen.' })
       return
     }
     setAnalyzing(true)
@@ -141,120 +139,165 @@ export function Logs() {
   }
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Terminal size={20} className="text-crystal-accent" />
-          <h1 className="text-xl font-bold text-crystal-text">Logs</h1>
+    <Page wide>
+      <PageHeader
+        title="Logs"
+        description="Protokolle des Launchers und deiner Instanzen. Hilfreich, wenn etwas nicht startet."
+        actions={
+          <>
+            <IconButton label="Neu laden" onClick={load}><RefreshCw size={14} strokeWidth={1.75} /></IconButton>
+            <IconButton label="Ordner öffnen" onClick={openFolder}><FolderOpen size={14} strokeWidth={1.75} /></IconButton>
+            <IconButton label="In Zwischenablage kopieren" onClick={copyLog} disabled={!content}><Copy size={14} strokeWidth={1.75} /></IconButton>
+            {!current.perInstance && (
+              <IconButton label="Log leeren" onClick={clearLog} danger><Trash2 size={14} strokeWidth={1.75} /></IconButton>
+            )}
+          </>
+        }
+      />
+
+      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-crystal-border mb-4">
+        <div className="flex gap-5" role="tablist">
+          {SOURCES.map(({ id, label }) => (
+            <button
+              key={id}
+              role="tab"
+              aria-selected={source === id}
+              onClick={() => setSource(id)}
+              className={`pb-2.5 -mb-px text-[13px] border-b-2 whitespace-nowrap transition-colors ${
+                source === id ? 'border-crystal-accent text-crystal-text font-medium' : 'border-transparent text-crystal-muted hover:text-crystal-text'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
-        <div className="flex items-center gap-2">
-          <button onClick={load} title="Neu laden" className="crystal-btn-ghost p-2 border border-crystal-border rounded-lg">
-            <RefreshCw size={14} />
-          </button>
-          <button onClick={openFolder} title="Ordner öffnen" className="crystal-btn-ghost p-2 border border-crystal-border rounded-lg">
-            <FolderOpen size={14} />
-          </button>
-          <button onClick={copyLog} title="Log kopieren" className="crystal-btn-ghost p-2 border border-crystal-border rounded-lg">
-            <Copy size={14} />
-          </button>
-          <button onClick={clearLog} title="Log leeren" className="crystal-btn-ghost p-2 border border-crystal-border rounded-lg hover:!text-crystal-danger">
-            <Trash2 size={14} />
-          </button>
-        </div>
+        {current.perInstance && instances.length > 0 && (
+          <div className="relative mb-2">
+            <select
+              value={instanceId}
+              onChange={e => setInstanceId(e.target.value)}
+              aria-label="Instanz"
+              className="crystal-input appearance-none pr-8 py-1.5 text-xs"
+            >
+              {instances.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+            </select>
+            <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-crystal-muted pointer-events-none" />
+          </div>
+        )}
       </div>
-
-      {/* Source tabs */}
-      <div className="flex gap-1 p-1 bg-crystal-panel rounded-lg w-fit flex-wrap">
-        {SOURCES.map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            onClick={() => setSource(id)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-              source === id ? 'bg-crystal-gradient text-white shadow-glow' : 'text-crystal-muted hover:text-crystal-text'
-            }`}
-          >
-            <Icon size={14} /> {label}
-          </button>
-        ))}
-      </div>
-
-      {/* Instance selector, only where it applies */}
-      {current.perInstance && (
-        <div className="relative max-w-sm">
-          <select
-            value={instanceId}
-            onChange={e => setInstanceId(e.target.value)}
-            className="crystal-input w-full appearance-none pr-8 cursor-pointer text-sm"
-          >
-            {instances.length === 0 && <option value="">Keine Instanz vorhanden</option>}
-            {instances.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
-          </select>
-          <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-crystal-muted pointer-events-none" />
-        </div>
-      )}
 
       {current.perInstance ? (
-        <div className="grid grid-cols-3 gap-3">
-          <div className="crystal-card p-3 space-y-1 max-h-[460px] overflow-y-auto">
-            {files.length === 0 && (
-              <p className="text-crystal-muted text-xs text-center py-4">Keine Dateien gefunden.</p>
-            )}
-            {files.map(f => (
-              <button
-                key={f.name}
-                onClick={() => openFile(f.name)}
-                className={`w-full text-left px-2.5 py-2 rounded-lg text-xs transition-colors ${
-                  selected === f.name ? 'bg-crystal-gradient text-white' : 'text-crystal-muted hover:bg-crystal-panel hover:text-crystal-text'
-                }`}
-              >
-                <p className="truncate font-medium">{f.name}</p>
-                <p className="opacity-70">{fmtSize(f.sizeBytes)} · {new Date(f.modifiedAt).toLocaleString('de-DE')}</p>
-              </button>
-            ))}
-          </div>
+        instances.length === 0 ? (
+          <EmptyState title="Noch keine Instanz">Logs gibt es, sobald eine Instanz einmal gestartet wurde.</EmptyState>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-[260px_minmax(0,1fr)] gap-4 items-start">
+            <div className="crystal-card overflow-hidden max-h-[520px] overflow-y-auto">
+              {files.length === 0 ? (
+                <p className="px-3 py-6 text-center text-xs text-crystal-muted">
+                  {source === 'crashes' ? 'Keine Abstürze. Gut so.' : 'Keine Log-Dateien.'}
+                </p>
+              ) : (
+                <ul className="divide-y divide-crystal-border">
+                  {files.map(f => (
+                    <li key={f.name}>
+                      <button
+                        onClick={() => openFile(f.name)}
+                        aria-current={selected === f.name}
+                        className={`relative w-full text-left px-3 py-2.5 transition-colors ${
+                          selected === f.name ? 'bg-crystal-panel' : 'hover:bg-crystal-panel/60'
+                        }`}
+                      >
+                        {selected === f.name && <span className="absolute left-0 top-2 bottom-2 w-[2px] rounded-full bg-crystal-accent" />}
+                        <span className={`block text-xs truncate font-mono ${selected === f.name ? 'text-crystal-text' : 'text-crystal-muted'}`}>{f.name}</span>
+                        <span className="block text-[11px] text-crystal-muted/80 mt-0.5 tabular">
+                          {new Date(f.modifiedAt).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}, {fmtSize(f.sizeBytes)}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
 
-          <div className="col-span-2 space-y-3">
-            {source === 'crashes' && selected && (
-              <div className="crystal-card p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-1.5 text-crystal-text text-sm font-medium">
-                    <Sparkles size={14} className="text-crystal-accent" /> Claude-Analyse
+            <div className="space-y-3 min-w-0">
+              {source === 'crashes' && selected && (
+                <div className="crystal-card">
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] text-crystal-text">Absturz erklären lassen</p>
+                      <p className="text-xs text-crystal-muted">
+                        {hasKey ? 'Claude liest den Crash-Report und schlägt eine Lösung vor.' : 'Dafür brauchst du einen Anthropic-API-Key in den Einstellungen.'}
+                      </p>
+                    </div>
+                    <button onClick={analyze} disabled={analyzing || !hasKey} className="crystal-btn-primary text-xs py-1.5 disabled:opacity-50">
+                      <Sparkles size={12} /> {analyzing ? 'Analysiere…' : 'Analysieren'}
+                    </button>
                   </div>
-                  <button onClick={analyze} disabled={analyzing} className="crystal-btn-primary text-xs px-3 py-1.5 disabled:opacity-60">
-                    {analyzing ? 'Analysiere...' : 'Crash analysieren'}
-                  </button>
+                  {analysis?.success && (
+                    <dl className="border-t border-crystal-border px-4 py-3 space-y-2.5 text-[13px]">
+                      <div><dt className="crystal-label">Was passiert ist</dt><dd className="text-crystal-text mt-0.5 select-text">{analysis.summary}</dd></div>
+                      <div><dt className="crystal-label">Wahrscheinliche Ursache</dt><dd className="text-crystal-text mt-0.5 select-text">{analysis.likelyCause}</dd></div>
+                      <div><dt className="crystal-label">So behebst du es</dt><dd className="text-crystal-text mt-0.5 whitespace-pre-wrap select-text">{analysis.suggestedFix}</dd></div>
+                    </dl>
+                  )}
                 </div>
-                {!hasKey && <p className="text-crystal-muted text-xs">Kein API-Key hinterlegt — Settings → Crash-Analyse.</p>}
-                {analysis?.success && (
-                  <div className="space-y-2 text-xs">
-                    <div><span className="text-crystal-accent font-medium">Zusammenfassung: </span><span className="text-crystal-text">{analysis.summary}</span></div>
-                    <div><span className="text-crystal-accent font-medium">Ursache: </span><span className="text-crystal-text">{analysis.likelyCause}</span></div>
-                    <div><span className="text-crystal-accent font-medium">Fix: </span><span className="text-crystal-text whitespace-pre-wrap">{analysis.suggestedFix}</span></div>
-                  </div>
-                )}
-              </div>
-            )}
+              )}
 
-            <LogView content={content} placeholder="Wähle links eine Datei aus." />
+              <LogView content={content} placeholder="Wähle links eine Datei aus." />
+            </div>
           </div>
-        </div>
+        )
       ) : (
         <LogView content={content} placeholder="Noch keine Einträge." />
       )}
-    </div>
+    </Page>
   )
 }
 
-function LogView({ content, placeholder }: { content: string; placeholder: string }) {
+function IconButton({ label, onClick, disabled, danger, children }: {
+  label: string
+  onClick: () => void
+  disabled?: boolean
+  danger?: boolean
+  children: React.ReactNode
+}) {
   return (
-    <div className="crystal-card p-4">
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      title={label}
+      className={`p-2 rounded-lg border border-crystal-border text-crystal-muted transition-colors disabled:opacity-40 ${
+        danger ? 'hover:text-crystal-danger hover:border-crystal-danger/40' : 'hover:text-crystal-text hover:bg-crystal-border/40'
+      }`}
+    >
+      {children}
+    </button>
+  )
+}
+
+/**
+ * Log text is selectable (the app otherwise disables selection) and WARN/ERROR
+ * lines are tinted, so the one relevant line is findable in a long log.
+ */
+function LogView({ content, placeholder }: { content: string; placeholder: string }) {
+  const lines = content ? content.split(/\r?\n/) : []
+  return (
+    <div className="crystal-card overflow-hidden">
       {content ? (
-        <pre className="text-crystal-muted text-[11px] leading-relaxed whitespace-pre-wrap max-h-[460px] overflow-y-auto font-mono">
-          {content}
+        <pre className="font-mono text-[11.5px] leading-[1.6] max-h-[520px] overflow-auto py-3 select-text">
+          {lines.map((line, i) => {
+            const tone = /\b(ERROR|FATAL|Exception|Caused by)\b/.test(line)
+              ? 'text-crystal-danger bg-crystal-danger/[0.06]'
+              : /\bWARN\b/.test(line)
+                ? 'text-crystal-warning'
+                : 'text-crystal-muted'
+            return <div key={i} className={`px-4 whitespace-pre-wrap break-all ${tone}`}>{line || ' '}</div>
+          })}
         </pre>
       ) : (
-        <p className="text-crystal-muted text-sm text-center py-8">{placeholder}</p>
+        <p className="text-center text-xs text-crystal-muted py-10">{placeholder}</p>
       )}
     </div>
   )

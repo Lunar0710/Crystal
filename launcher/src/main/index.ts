@@ -112,7 +112,7 @@ app.whenReady().then(async () => {
       message: `Das Update auf Version ${updateCheck.pendingVersion} konnte nicht gestartet werden.`,
       detail: updateCheck.lastGoodVersion
         ? `Version ${updateCheck.lastGoodVersion} wird jetzt wiederhergestellt. Crystal startet danach neu.`
-        : 'Es ist keine vorherige funktionierende Version bekannt — bitte lade Crystal manuell neu herunter.',
+        : 'Es ist keine vorherige funktionierende Version bekannt. Lade Crystal bitte neu herunter.',
     })
     const rolledBack = await updateGuard.rollback(updateCheck.lastGoodVersion)
     if (rolledBack) {

@@ -134,6 +134,7 @@ export function registerIpcHandlers(store: Store) {
   discord.idle()
   ipcMain.handle('discord:isEnabled', () => discord.isEnabled())
   ipcMain.handle('discord:isConnected', () => discord.isConnected())
+  ipcMain.handle('discord:isConfigured', () => discord.isConfigured())
   ipcMain.handle('discord:setEnabled', (_e, enabled: boolean) => {
     discord.setEnabled(enabled)
     return discord.isEnabled()

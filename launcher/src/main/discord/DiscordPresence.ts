@@ -49,6 +49,11 @@ export class DiscordPresence {
     else if (this.lastState) this.update(this.lastState)
   }
 
+  /** False until a Discord application id is compiled in, in which case presence can never connect. */
+  isConfigured(): boolean {
+    return !!APPLICATION_ID
+  }
+
   isConnected(): boolean {
     return this.connected
   }

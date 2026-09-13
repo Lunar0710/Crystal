@@ -140,7 +140,7 @@ export function Launch() {
   async function launchExternal(id: string) {
     const ok = await api?.launchExternalClient(id)
     if (ok) notify({ type: 'success', message: 'Client gestartet' })
-    else notify({ type: 'error', message: 'Konnte Client nicht starten — Datei fehlt?' })
+    else notify({ type: 'error', message: 'Client konnte nicht gestartet werden. Liegt die Datei noch am selben Ort?' })
   }
 
   // One attempt only: the backend reverts the instance itself if it fails,

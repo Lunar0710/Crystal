@@ -64,7 +64,7 @@ export class TryCrystalService {
     // blamed on Crystal, so bail out before touching anything.
     const profile = this.auth.getStoredProfile()
     if (!profile) {
-      const message = 'Nicht angemeldet — bitte zuerst einloggen.'
+      const message = 'Nicht angemeldet. Melde dich zuerst an.'
       logger.warn('client', `Try with Crystal abgebrochen: ${message}`)
       return { success: false, reverted: false, message }
     }

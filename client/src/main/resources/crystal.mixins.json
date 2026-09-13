@@ -19,7 +19,8 @@
     "MixinDrawContext",
     "MixinAtmosphericFogModifier",
     "MixinFogRenderer",
-    "SimpleOptionAccessor"
+    "SimpleOptionAccessor",
+    "MixinPlayerCapeModel"
   ],
   "injectors": {
     "defaultRequire": 1

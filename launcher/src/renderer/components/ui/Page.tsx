@@ -80,11 +80,15 @@ export function Switch({ checked, onChange, label }: { checked: boolean; onChang
       aria-checked={checked}
       aria-label={label}
       onClick={() => onChange(!checked)}
-      className={`relative w-8 h-[18px] rounded-full transition-colors ${checked ? 'bg-crystal-accent' : 'bg-crystal-border'}`}
+      className={`relative w-8 h-[18px] rounded-full transition-colors ring-1 ring-inset ${
+        checked ? 'bg-crystal-accent ring-transparent' : 'bg-crystal-border ring-crystal-muted/30'
+      }`}
     >
+      {/* Knob colours come from theme tokens, not white: on Void the accent
+          itself is white, and a white knob on it simply disappeared. */}
       <span
-        className={`absolute top-[2px] left-[2px] w-[14px] h-[14px] rounded-full bg-white shadow-sm transition-transform ${
-          checked ? 'translate-x-[14px]' : ''
+        className={`absolute top-[2px] left-[2px] w-[14px] h-[14px] rounded-full shadow-sm transition-transform ${
+          checked ? 'translate-x-[14px] bg-crystal-bg' : 'bg-crystal-text/80'
         }`}
       />
     </button>

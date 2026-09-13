@@ -47,6 +47,7 @@ contextBridge.exposeInMainWorld('crystal', {
   // Discord Rich Presence
   isDiscordEnabled:   () => ipcRenderer.invoke('discord:isEnabled'),
   isDiscordConnected: () => ipcRenderer.invoke('discord:isConnected'),
+  isDiscordConfigured: () => ipcRenderer.invoke('discord:isConfigured'),
   setDiscordEnabled:  (enabled: boolean) => ipcRenderer.invoke('discord:setEnabled', enabled),
 
   // Minecraft

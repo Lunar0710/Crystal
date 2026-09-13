@@ -86,7 +86,7 @@ export class CrashDoctor {
         push({
           id: `incompat-${id}`,
           title: `${nameA} und ${nameB} vertragen sich nicht`,
-          detail: `Diese beiden Mods können nicht gleichzeitig laufen. Deaktiviere eine davon — ${name} ist ${file}.`,
+          detail: `Diese beiden Mods laufen nicht gleichzeitig. Deaktiviere eine davon (${name} ist ${file}).`,
           fix: { kind: 'disable-mod', label: `${name} deaktivieren`, modFile: file },
         })
       }
@@ -127,7 +127,7 @@ export class CrashDoctor {
       push({
         id: 'ram-too-high',
         title: 'Zu viel RAM eingestellt',
-        detail: `Java konnte ${currentRam} MB nicht reservieren — mehr, als dein System gerade frei hat.`,
+        detail: `Java konnte ${currentRam} MB nicht reservieren. Das ist mehr, als dein System gerade frei hat.`,
         fix: { kind: 'lower-ram', label: `Auf ${lowered} MB reduzieren`, ram: lowered },
       })
     }
@@ -148,7 +148,7 @@ export class CrashDoctor {
       push({
         id: 'corrupt-jar',
         title: 'Beschädigte Mod-Datei',
-        detail: 'Mindestens eine .jar im mods-Ordner lässt sich nicht öffnen — meist ein abgebrochener Download. '
+        detail: 'Mindestens eine .jar im mods-Ordner lässt sich nicht öffnen, meist nach einem abgebrochenen Download. '
           + 'Lösche sie im Mods-Tab und installiere sie neu.',
         fix: null,
       })

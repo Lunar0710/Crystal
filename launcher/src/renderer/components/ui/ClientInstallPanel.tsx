@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import {
-  Boxes, Upload, Trash2, FolderOpen, RefreshCw, AlertTriangle, CheckCircle2, Loader2,
-} from 'lucide-react'
+import { Upload, Trash2, AlertTriangle, ChevronDown } from 'lucide-react'
 import { notify } from '../../store/notificationStore'
 
 interface InstalledClient {
@@ -28,12 +26,6 @@ interface InstallTarget {
 
 const api = (window as any).crystal
 
-function fmtSize(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
-}
-
 /**
  * Installs a client .jar into one specific instance.
  *
@@ -46,6 +38,7 @@ export function ClientInstallPanel({ instanceId }: { instanceId: string }) {
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [open, setOpen] = useState(false)
 
   async function refresh() {
     setLoading(true)
@@ -93,143 +86,87 @@ export function ClientInstallPanel({ instanceId }: { instanceId: string }) {
   }
 
   if (loading) {
-    return (
-      <div className="crystal-card p-4 flex items-center gap-2 text-crystal-muted text-sm">
-        <Loader2 size={14} className="animate-spin" /> Instanz wird geprüft...
-      </div>
-    )
+    return <div className="h-[58px] mb-5 rounded-[10px] bg-crystal-card animate-pulse" />
   }
 
   if (error || !target) {
     return (
-      <div className="crystal-card p-4 flex items-start gap-2 text-sm">
-        <AlertTriangle size={15} className="text-crystal-danger shrink-0 mt-0.5" />
-        <div>
-          <p className="text-crystal-text font-medium">Client-Installation nicht möglich</p>
-          <p className="text-crystal-muted text-xs whitespace-pre-wrap mt-1">{error}</p>
+      <div className="crystal-card mb-5 flex items-start gap-3 px-4 py-3">
+        <AlertTriangle size={15} strokeWidth={1.75} className="text-crystal-danger shrink-0 mt-0.5" />
+        <div className="min-w-0">
+          <p className="text-[13px] text-crystal-text">Diese Instanz lässt sich gerade nicht lesen</p>
+          <p className="text-xs text-crystal-muted whitespace-pre-wrap mt-0.5">{error}</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="crystal-card p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Boxes size={15} className="text-crystal-accent" />
-          <span className="text-crystal-text text-sm font-medium">Client installieren</span>
+    <div className="crystal-card mb-5">
+      <div className="flex items-center gap-3 px-4 py-3">
+        <div className="flex-1 min-w-0">
+          <p className="text-[13px] text-crystal-text">Eigenen Client installieren</p>
+          <p className="text-xs text-crystal-muted truncate">
+            {target.blocker
+              ? 'Gerade nicht möglich, Details aufklappen.'
+              : `Eine Client-.jar für Minecraft ${target.minecraftVersion} mit ${target.loader === 'fabric' ? 'Fabric' : target.loader} in diese Instanz legen.`}
+          </p>
         </div>
         <button
-          onClick={refresh}
-          title="Status neu einlesen"
-          className="crystal-btn-ghost p-1.5 border border-crystal-border rounded-lg"
+          onClick={() => setOpen(o => !o)}
+          aria-expanded={open}
+          className="inline-flex items-center gap-1 text-xs text-crystal-muted hover:text-crystal-text px-2 py-1 rounded-md hover:bg-crystal-border/50"
         >
-          <RefreshCw size={12} />
+          Details <ChevronDown size={12} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
         </button>
-      </div>
-
-      {/* Exactly what an install would touch */}
-      <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
-        <Detail label="Instanz" value={target.instanceName} />
-        <Detail label="Minecraft" value={target.minecraftVersion} />
-        <Detail label="Loader" value={target.loader} />
-        <Detail
-          label="Fabric Loader"
-          value={target.fabricLoaderVersion ?? 'nicht verfügbar'}
-          warn={!target.fabricAvailable}
-        />
-        <div className="col-span-2">
-          <Detail label="Zielordner" value={target.modsDir} mono />
-        </div>
-      </div>
-
-      {target.blocker ? (
-        <div className="flex items-start gap-2 p-3 rounded-lg bg-crystal-danger/10 border border-crystal-danger/30 text-xs">
-          <AlertTriangle size={14} className="text-crystal-danger shrink-0 mt-0.5" />
-          <span className="text-crystal-text whitespace-pre-wrap">{target.blocker}</span>
-        </div>
-      ) : (
-        <div className="flex gap-2">
-          <button
-            onClick={installJar}
-            disabled={busy}
-            className="crystal-btn-primary flex items-center gap-1.5 text-xs px-3 py-2 disabled:opacity-60"
-          >
-            {busy ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
-            Client-.jar auswählen
+        {!target.blocker && (
+          <button onClick={installJar} disabled={busy} className="crystal-btn-ghost border border-crystal-border text-crystal-text text-xs py-1.5 disabled:opacity-50">
+            <Upload size={12} strokeWidth={1.75} /> {busy ? 'Installiere…' : '.jar auswählen'}
           </button>
-          <button
-            onClick={() => api?.openContentFolder(instanceId, 'mod')}
-            className="crystal-btn-ghost flex items-center gap-1.5 text-xs px-3 py-2 border border-crystal-border rounded-lg"
-          >
-            <FolderOpen size={12} /> Ordner öffnen
-          </button>
-        </div>
-      )}
-
-      {/* Installed status */}
-      <div className="space-y-1.5">
-        <p className="text-crystal-muted text-[11px] font-medium uppercase tracking-wide">
-          Installiert ({target.installed.length})
-        </p>
-
-        {target.installed.length === 0 ? (
-          <p className="text-crystal-muted text-xs">
-            Noch kein Mod in diesem Ordner.
-          </p>
-        ) : (
-          target.installed.map(mod => (
-            <div
-              key={mod.fileName}
-              className="flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg bg-crystal-panel"
-            >
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <CheckCircle2 size={11} className="text-crystal-success shrink-0" />
-                  <span className="text-crystal-text text-xs font-medium truncate">
-                    {mod.name || mod.fileName}
-                  </span>
-                  {mod.version && (
-                    <span className="text-crystal-muted text-[10px] shrink-0">{mod.version}</span>
-                  )}
-                </div>
-                <p className="text-crystal-muted text-[10px] truncate">
-                  {mod.fileName} · {fmtSize(mod.sizeBytes)} ·{' '}
-                  {new Date(mod.installedAt).toLocaleString('de-DE')}
-                </p>
-              </div>
-
-              <button
-                onClick={() => uninstall(mod.fileName)}
-                disabled={busy}
-                title="Entfernen (eine Sicherungskopie bleibt erhalten)"
-                className="p-1.5 rounded-lg text-crystal-muted hover:text-crystal-danger hover:bg-crystal-border transition-colors shrink-0 disabled:opacity-60"
-              >
-                <Trash2 size={12} />
-              </button>
-            </div>
-          ))
         )}
       </div>
-    </div>
-  )
-}
 
-function Detail({ label, value, mono, warn }: {
-  label: string
-  value: string
-  mono?: boolean
-  warn?: boolean
-}) {
-  return (
-    <div className="flex gap-1.5 min-w-0">
-      <span className="text-crystal-muted shrink-0">{label}:</span>
-      <span
-        title={value}
-        className={`truncate ${warn ? 'text-crystal-danger' : 'text-crystal-text'} ${mono ? 'font-mono text-[10px]' : ''}`}
-      >
-        {value}
-      </span>
+      {open && (
+        <div className="border-t border-crystal-border px-4 py-3 space-y-3">
+          {target.blocker && (
+            <div className="flex items-start gap-2 p-2.5 rounded-md bg-crystal-danger/[0.07] border border-crystal-danger/25 text-xs">
+              <AlertTriangle size={13} className="text-crystal-danger shrink-0 mt-px" />
+              <span className="text-crystal-text whitespace-pre-wrap">{target.blocker}</span>
+            </div>
+          )}
+
+          <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-xs">
+            <dt className="text-crystal-muted">Minecraft</dt><dd className="text-crystal-text tabular">{target.minecraftVersion}</dd>
+            <dt className="text-crystal-muted">Fabric Loader</dt>
+            <dd className={target.fabricAvailable ? 'text-crystal-text font-mono' : 'text-crystal-danger'}>{target.fabricLoaderVersion ?? 'nicht verfügbar'}</dd>
+            <dt className="text-crystal-muted">Zielordner</dt>
+            <dd className="text-crystal-text font-mono truncate select-text" title={target.modsDir}>{target.modsDir}</dd>
+          </dl>
+
+          {target.installed.length > 0 && (
+            <div>
+              <p className="crystal-label mb-1.5">Mit Mod-Informationen erkannt</p>
+              <ul className="rounded-md border border-crystal-border divide-y divide-crystal-border">
+                {target.installed.filter(m => m.name || m.version).map(mod => (
+                  <li key={mod.fileName} className="flex items-center gap-2 px-2.5 py-1.5">
+                    <span className="flex-1 min-w-0 text-xs text-crystal-text truncate">{mod.name || mod.fileName}</span>
+                    {mod.version && <span className="text-[11px] text-crystal-muted font-mono shrink-0">{mod.version}</span>}
+                    <button
+                      onClick={() => uninstall(mod.fileName)}
+                      disabled={busy}
+                      aria-label={`${mod.name || mod.fileName} entfernen`}
+                      title="Entfernen, eine Sicherungskopie bleibt erhalten"
+                      className="p-1 rounded text-crystal-muted hover:text-crystal-danger disabled:opacity-50"
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

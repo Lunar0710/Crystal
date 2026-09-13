@@ -40,7 +40,7 @@ export class AuthManager {
   async loginMicrosoft(win: BrowserWindow): Promise<AuthProfile | null> {
     try {
       const xboxToken = await this.auth.launch('electron', {
-        title: 'Crystal Client — Microsoft Login',
+        title: 'Crystal: Mit Microsoft anmelden',
         width: 520,
         height: 650,
         parent: win,

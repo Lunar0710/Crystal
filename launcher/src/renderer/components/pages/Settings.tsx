@@ -21,6 +21,7 @@ export function Settings() {
   const [maxRam, setMaxRam] = useState(4096)
   const [discordEnabled, setDiscordEnabled] = useState(true)
   const [discordConnected, setDiscordConnected] = useState(false)
+  const [discordConfigured, setDiscordConfigured] = useState(true)
   const [versions, setVersions] = useState<{ launcher?: string; client?: string | null }>({})
   const [dataRoot, setDataRoot] = useState<{ current?: string; default?: string }>({})
   const [systemMb, setSystemMb] = useState<number | null>(null)
@@ -30,6 +31,7 @@ export function Settings() {
     api?.getVersionInfo().then((v: { launcher: string; client: string | null }) => v && setVersions(v))
     api?.isDiscordEnabled().then((v: boolean) => setDiscordEnabled(!!v))
     api?.isDiscordConnected().then((v: boolean) => setDiscordConnected(!!v))
+    api?.isDiscordConfigured().then((v: boolean) => setDiscordConfigured(!!v))
     api?.getRank().then(setRankState)
     api?.listIcons().then(setIcons)
     api?.getCurrentIcon().then((id: LogoVariantId) => id && setCurrentIcon(id))
@@ -177,11 +179,13 @@ export function Settings() {
       <Section title="Integrationen">
         <Field
           label="Discord-Status"
-          hint={discordConnected
-            ? 'Zeigt Freunden auf Discord, dass du Crystal benutzt und welche Instanz läuft.'
-            : 'Discord ist gerade nicht geöffnet. Der Status erscheint, sobald Discord läuft.'}
+          hint={!discordConfigured
+            ? 'Noch nicht eingerichtet: Crystal braucht dafür eine eigene Discord-Anwendung. Kommt mit einem der nächsten Updates.'
+            : discordConnected
+              ? 'Zeigt Freunden auf Discord, dass du Crystal benutzt und welche Instanz läuft.'
+              : 'Discord wurde nicht gefunden. Der Status erscheint, sobald Discord läuft.'}
         >
-          <Switch checked={discordEnabled} onChange={toggleDiscord} label="Discord-Status" />
+          {discordConfigured && <Switch checked={discordEnabled} onChange={toggleDiscord} label="Discord-Status" />}
         </Field>
       </Section>
 

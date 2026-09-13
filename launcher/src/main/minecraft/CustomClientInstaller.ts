@@ -119,7 +119,7 @@ export class CustomClientInstaller {
           loader: 'forge',
         }
       }
-      return reject('Die Datei enthält keine fabric.mod.json — das ist kein Fabric-Mod.')
+      return reject('Die Datei enthält keine fabric.mod.json, das ist kein Fabric-Mod.')
     }
 
     let meta: FabricModJson | null
@@ -130,7 +130,7 @@ export class CustomClientInstaller {
     }
 
     if (!meta?.id) {
-      return reject('fabric.mod.json enthält keine Mod-ID — die Datei ist unvollständig.')
+      return reject('fabric.mod.json enthält keine Mod-ID, die Datei ist unvollständig.')
     }
 
     const asText = (value: string | string[] | undefined) =>
@@ -251,7 +251,7 @@ export class CustomClientInstaller {
   async install(instanceId: string, filePath: string): Promise<InstallResult> {
     const instance = this.instances.get(instanceId)
     if (!instance) {
-      return { success: false, message: 'Instanz nicht gefunden — sie wurde vielleicht gerade gelöscht.' }
+      return { success: false, message: 'Instanz nicht gefunden. Wurde sie gerade entfernt?' }
     }
 
     const inspection = this.inspect(filePath)
@@ -287,7 +287,7 @@ export class CustomClientInstaller {
       logger.error('client', 'Backup der vorhandenen Version fehlgeschlagen', err)
       return {
         success: false,
-        message: `Die vorhandene Version konnte nicht gesichert werden — es wurde nichts verändert.\n${err instanceof Error ? err.message : String(err)}`,
+        message: `Die vorhandene Version konnte nicht gesichert werden, deshalb wurde nichts verändert.\n${err instanceof Error ? err.message : String(err)}`,
       }
     }
 
