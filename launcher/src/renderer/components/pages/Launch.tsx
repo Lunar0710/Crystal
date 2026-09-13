@@ -75,7 +75,9 @@ export function Launch() {
     refreshExternalClients()
 
     // RAM lives in Settings now — the launch screen just reads it.
-    api?.getSetting('maxRam').then((v: number | undefined) => setMaxRam(v || DEFAULT_RAM))
+    Promise.all([api?.getSetting('maxRam'), api?.getSystemMemory()]).then(([saved, mem]: [number | undefined, { suggestedMb: number } | undefined]) => {
+      setMaxRam(saved || mem?.suggestedMb || DEFAULT_RAM)
+    })
 
     api?.getProfile().then((p: Profile | null) => {
       if (p) setProfile(p)

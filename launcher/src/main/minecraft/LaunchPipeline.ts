@@ -149,8 +149,13 @@ export class LaunchPipeline {
 
     const classpath = [clientJarPath, ...libPaths, ...extraClasspathJars].join(path.delimiter)
     const jvmArgs = [
-      `-Xmx${opts.maxRam}M`, '-Xms512M',
-      '-XX:+UseG1GC', '-XX:+ParallelRefProcEnabled', '-XX:MaxGCPauseMillis=200',
+      `-Xmx${opts.maxRam}M`, `-Xms${Math.min(opts.maxRam, 1024)}M`,
+      // Tuned for smooth frames rather than raw throughput: the old 200 ms
+      // pause target let the collector freeze the game for visible stutters.
+      // A short target with a larger young generation spreads that work out.
+      '-XX:+UseG1GC', '-XX:+ParallelRefProcEnabled', '-XX:MaxGCPauseMillis=40',
+      '-XX:+UnlockExperimentalVMOptions', '-XX:G1NewSizePercent=20', '-XX:G1ReservePercent=20',
+      '-XX:G1HeapRegionSize=16M', '-XX:+DisableExplicitGC', '-XX:+PerfDisableSharedMem',
       `-Djava.library.path=${nativesDir}`,
       // Tells the in-game client where the launcher keeps cosmetics/theme files,
       // so a moved data folder doesn't silently break cape and theme sync.

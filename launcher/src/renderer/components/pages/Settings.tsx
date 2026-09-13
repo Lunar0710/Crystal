@@ -23,6 +23,7 @@ export function Settings() {
   const [discordConnected, setDiscordConnected] = useState(false)
   const [versions, setVersions] = useState<{ launcher?: string; client?: string | null }>({})
   const [dataRoot, setDataRoot] = useState<{ current?: string; default?: string }>({})
+  const [systemMb, setSystemMb] = useState<number | null>(null)
 
   useEffect(() => {
     api?.getDataRoot().then((r: { current: string; default: string }) => r && setDataRoot(r))
@@ -33,7 +34,11 @@ export function Settings() {
     api?.listIcons().then(setIcons)
     api?.getCurrentIcon().then((id: LogoVariantId) => id && setCurrentIcon(id))
     api?.getClaudeApiKey().then((k: string) => { setApiKey(k || ''); setApiKeySaved(!!k) })
-    api?.getSetting('maxRam').then((v: number | undefined) => v && setMaxRam(v))
+    Promise.all([api?.getSetting('maxRam'), api?.getSystemMemory()]).then(([saved, mem]: [number | undefined, { totalMb: number; suggestedMb: number } | undefined]) => {
+      if (mem) setSystemMb(mem.totalMb)
+      if (saved) setMaxRam(saved)
+      else if (mem) setMaxRam(mem.suggestedMb)
+    })
   }, [])
 
   async function pickDataRoot() {
@@ -120,13 +125,15 @@ export function Settings() {
       <Section title="Spiel">
         <Field
           label="Arbeitsspeicher für Minecraft"
-          hint="Gilt für jede Instanz. Mehr als die Hälfte deines System-RAMs bringt meist nichts."
+          hint={systemMb
+            ? `Gilt für jede Instanz. Dein PC hat ${(systemMb / 1024).toLocaleString('de-DE', { maximumFractionDigits: 0 })} GB. Mehr als die Hälfte davon bringt meist nichts.`
+            : 'Gilt für jede Instanz. Mehr als die Hälfte deines System-RAMs bringt meist nichts.'}
           stacked
         >
           <div className="flex items-center gap-4">
             <input
               type="range"
-              min={1024} max={16384} step={512}
+              min={1024} max={systemMb ? Math.max(2048, Math.floor(systemMb * 0.85 / 512) * 512) : 16384} step={512}
               value={maxRam}
               onChange={e => setMaxRam(Number(e.target.value))}
               onPointerUp={e => api?.setSetting('maxRam', Number((e.target as HTMLInputElement).value))}
@@ -134,7 +141,7 @@ export function Settings() {
               aria-label="Arbeitsspeicher in MB"
               className="flex-1 accent-crystal-accent cursor-pointer"
             />
-            <span className="w-16 text-right text-[13px] text-crystal-text tabular">
+            <span className={`w-16 text-right text-[13px] tabular ${systemMb && maxRam > systemMb * 0.6 ? 'text-crystal-warning' : 'text-crystal-text'}`}>
               {(maxRam / 1024).toLocaleString('de-DE', { maximumFractionDigits: 1 })} GB
             </span>
           </div>

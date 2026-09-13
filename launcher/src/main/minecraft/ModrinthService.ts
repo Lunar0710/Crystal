@@ -72,6 +72,19 @@ const HEADERS = { 'User-Agent': 'crystal-client/1.0.0 (github.com/crystal-client
 
 export type ContentType = 'mod' | 'resourcepack' | 'shader'
 
+/**
+ * Well-established client-side performance mods, each checked to exist for
+ * 1.21.11 on Fabric. None of them change gameplay, so they are safe on any
+ * server. (ModernFix was considered but has no 1.21.11 build.)
+ */
+export const PERFORMANCE_PACK: { slug: string; title: string; purpose: string }[] = [
+  { slug: 'sodium',          title: 'Sodium',          purpose: 'Schnellere Chunk-Darstellung, meist der größte FPS-Gewinn' },
+  { slug: 'lithium',         title: 'Lithium',         purpose: 'Effizientere Spiellogik, weniger Laggs in Einzelspieler-Welten' },
+  { slug: 'ferrite-core',    title: 'FerriteCore',     purpose: 'Deutlich weniger Arbeitsspeicher-Verbrauch' },
+  { slug: 'entityculling',   title: 'EntityCulling',   purpose: 'Unsichtbare Mobs und Blöcke werden nicht gezeichnet' },
+  { slug: 'immediatelyfast', title: 'ImmediatelyFast', purpose: 'Schnelleres HUD, Text und Partikel' },
+]
+
 // Resourcepacks and shaders aren't loader-specific, so the loader facet is
 // only applied to actual mods — adding it elsewhere returns zero results.
 const LOADER_FILTERED: ContentType[] = ['mod']
@@ -201,6 +214,55 @@ export class ModrinthService {
     } catch {
       return null
     }
+  }
+
+  /**
+   * Installs the performance pack into one instance, skipping every project
+   * that is already there (matched by Modrinth project, not by file name, so a
+   * manually installed Sodium isn't downloaded a second time).
+   */
+  async installPerformancePack(instanceId: string, gameVersion: string): Promise<{
+    installed: string[]
+    skipped: string[]
+    failed: { title: string; error: string }[]
+  }> {
+    const present = new Set(Object.values(await this.identifyFolder(instanceId, 'mod')).map(i => i.projectId))
+    const installed: string[] = []
+    const skipped: string[] = []
+    const failed: { title: string; error: string }[] = []
+
+    for (const mod of PERFORMANCE_PACK) {
+      let projectId = mod.slug
+      try {
+        const res = await fetch(`${API_BASE}/project/${mod.slug}`, { headers: HEADERS })
+        if (res.ok) projectId = (await res.json()).id
+      } catch { /* fall back to the slug, which the version endpoint also accepts */ }
+
+      if (present.has(projectId)) {
+        skipped.push(mod.title)
+        continue
+      }
+      const result = await this.install(instanceId, mod.slug, gameVersion, 'fabric', 'mod')
+      if (result.success) installed.push(mod.title)
+      else failed.push({ title: mod.title, error: result.error || 'unbekannter Fehler' })
+    }
+
+    logger.info('client', `Performance-Paket: ${installed.length} installiert, ${skipped.length} vorhanden, ${failed.length} fehlgeschlagen`)
+    return { installed, skipped, failed }
+  }
+
+  /** Which pack members are already in the instance, for the UI. */
+  async performancePackStatus(instanceId: string): Promise<{ slug: string; title: string; purpose: string; installed: boolean }[]> {
+    const present = new Set(Object.values(await this.identifyFolder(instanceId, 'mod')).map(i => i.projectId))
+    const ids = await Promise.all(PERFORMANCE_PACK.map(async mod => {
+      try {
+        const res = await fetch(`${API_BASE}/project/${mod.slug}`, { headers: HEADERS })
+        return res.ok ? (await res.json()).id as string : mod.slug
+      } catch {
+        return mod.slug
+      }
+    }))
+    return PERFORMANCE_PACK.map((mod, i) => ({ ...mod, installed: present.has(ids[i]) }))
   }
 
   /** sha1 per file, keyed by path + size + mtime so unchanged jars are never re-hashed. */

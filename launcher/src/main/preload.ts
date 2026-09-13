@@ -140,6 +140,9 @@ contextBridge.exposeInMainWorld('crystal', {
     ipcRenderer.invoke('modrinth:install', instanceId, projectId, gameVersion, loader, type, versionId),
   identifyModFile: (instanceId: string, type: string, fileName: string) =>
     ipcRenderer.invoke('modrinth:identifyFile', instanceId, type, fileName),
+  performancePackStatus: (instanceId: string) => ipcRenderer.invoke('perfpack:status', instanceId),
+  installPerformancePack: (instanceId: string) => ipcRenderer.invoke('perfpack:install', instanceId),
+  getSystemMemory: () => ipcRenderer.invoke('system:memory'),
   identifyModFolder: (instanceId: string, type: string) =>
     ipcRenderer.invoke('modrinth:identifyFolder', instanceId, type),
   switchModVersion: (instanceId: string, type: string, fileName: string, versionId: string) =>

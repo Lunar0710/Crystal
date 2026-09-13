@@ -66,6 +66,7 @@ public class ModuleManager {
         register(new ColorSaturation());
         register(new Crosshair());
         register(new FogCustomizer());
+        register(new PerformanceMode());
         register(new FOVChanger());
         register(new GlintColorizer());
         register(new Hitbox());
@@ -124,7 +125,8 @@ public class ModuleManager {
 
     private void register(Module module) {
         modules.add(module);
-        byName.put(module.getName().toLowerCase(Locale.ROOT), module);
+        byName.put(module.getName(), module);
+        byName.putIfAbsent(module.getName().toLowerCase(Locale.ROOT), module);
     }
 
     /**
@@ -144,7 +146,10 @@ public class ModuleManager {
     }
 
     public Optional<Module> getModuleByName(String name) {
-        return Optional.ofNullable(byName.get(name.toLowerCase(Locale.ROOT)));
+        // Exact name first: every internal caller uses the canonical spelling, so
+        // the lower-casing (a new String per call, 20+ times a frame) is skipped.
+        Module exact = byName.get(name);
+        return Optional.ofNullable(exact != null ? exact : byName.get(name.toLowerCase(Locale.ROOT)));
     }
 
     public void handleKeybind(int key) {

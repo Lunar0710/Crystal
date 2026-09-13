@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import { Sparkles, Check, Upload, Trash2, Search, X, Lock } from 'lucide-react'
+import { Check, Upload, Trash2, X, Lock } from 'lucide-react'
+import { Page, PageHeader, EmptyState } from '../ui/Page'
 import { notify } from '../../store/notificationStore'
 import { BUILTIN_CAPES, CAPE_CATEGORIES, CapeCategory, capeTextureUrl, capePreviewUrl } from '../../data/capes'
 import {
@@ -121,105 +122,91 @@ export function Cosmetics() {
   }, [equippedCapeUrl])
 
   const visibleCapes = BUILTIN_CAPES.filter(c => c.category === capeCategory)
-  const totalCapes = BUILTIN_CAPES.length + customCapes.length
+
+  function equippedLabel(slotId: CosmeticSlot): string | null {
+    const value = loadout[slotId]
+    if (!value) return null
+    if (slotId === 'cape') {
+      return value.startsWith('custom:')
+        ? customCapes.find(c => `custom:${c.id}` === value)?.name ?? 'Eigenes Cape'
+        : BUILTIN_CAPES.find(c => `builtin:${c.id}` === value)?.name ?? null
+    }
+    return findCosmetic(slotId as NonCapeSlot, value)?.name ?? null
+  }
 
   return (
-    <div className="p-6 space-y-5">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Sparkles size={20} className="text-crystal-accent" />
-          <h1 className="text-xl font-bold text-crystal-text">Cosmetics</h1>
-          <span className="text-xs text-crystal-muted bg-crystal-border px-2 py-0.5 rounded-full">
-            {totalCapes} Capes · alles kostenlos
-          </span>
-        </div>
-      </div>
+    <Page wide>
+      <PageHeader
+        title="Cosmetics"
+        description="Capes siehst du im Spiel. Alle anderen Teile zeigt vorerst nur diese Vorschau."
+      />
 
-      <div className="grid grid-cols-[280px_1fr] gap-4 items-start">
-        {/* Live preview */}
-        <div className="crystal-card p-4 space-y-3 sticky top-0">
-          <h2 className="text-crystal-text font-semibold text-sm">Vorschau</h2>
-
-          <div className="flex justify-center py-2 bg-crystal-panel rounded-xl overflow-hidden">
-            <SkinPreview3D
-              skinDataUrl={skinDataUrl}
-              slim={skinSlim}
-              capeUrl={equippedCapeUrl}
-              hat={findCosmetic('hat', loadout.hat)}
-              bandana={findCosmetic('bandana', loadout.bandana)}
-              mask={findCosmetic('mask', loadout.mask)}
-              wings={findCosmetic('wings', loadout.wings)}
-              backpack={findCosmetic('backpack', loadout.backpack)}
-              aura={findCosmetic('aura', loadout.aura)}
-              width={236}
-              height={300}
-            />
-          </div>
-
-          <div>
-            <label className="text-crystal-muted text-xs block mb-1.5">Skin von Username laden</label>
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-crystal-muted" />
+      <div className="grid grid-cols-1 lg:grid-cols-[272px_minmax(0,1fr)] gap-6 items-start">
+        <aside className="lg:sticky lg:top-4 space-y-3">
+          <div className="crystal-card overflow-hidden">
+            <div className="flex justify-center bg-crystal-panel/60 border-b border-crystal-border">
+              <SkinPreview3D
+                skinDataUrl={skinDataUrl}
+                slim={skinSlim}
+                capeUrl={equippedCapeUrl}
+                hat={findCosmetic('hat', loadout.hat)}
+                bandana={findCosmetic('bandana', loadout.bandana)}
+                mask={findCosmetic('mask', loadout.mask)}
+                wings={findCosmetic('wings', loadout.wings)}
+                backpack={findCosmetic('backpack', loadout.backpack)}
+                aura={findCosmetic('aura', loadout.aura)}
+                width={270}
+                height={300}
+              />
+            </div>
+            <div className="p-3 space-y-1.5">
+              <label htmlFor="skin-user" className="crystal-label">Skin eines Spielers anzeigen</label>
+              <div className="flex gap-2">
                 <input
-                  type="text"
+                  id="skin-user"
                   value={skinUser}
                   onChange={e => setSkinUser(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && loadSkin(skinUser)}
-                  className="crystal-input w-full pl-7 text-sm"
-                  placeholder="z.B. Notch"
+                  maxLength={16}
+                  className="crystal-input flex-1 min-w-0 text-[13px]"
                 />
+                <button onClick={() => loadSkin(skinUser)} disabled={loadingSkin} className="crystal-btn-ghost border border-crystal-border text-crystal-text text-xs disabled:opacity-50">
+                  {loadingSkin ? 'Lädt…' : 'Anzeigen'}
+                </button>
               </div>
-              <button
-                onClick={() => loadSkin(skinUser)}
-                disabled={loadingSkin}
-                className="crystal-btn-primary text-xs px-3 disabled:opacity-60"
-              >
-                {loadingSkin ? '...' : 'Laden'}
-              </button>
             </div>
           </div>
 
-          {/* Equipped summary */}
-          <div className="space-y-1 pt-1 border-t border-crystal-border">
+          <div className="crystal-card divide-y divide-crystal-border">
             {SLOTS.map(s => {
-              const value = loadout[s.id]
-              const label = value
-                ? s.id === 'cape'
-                  ? (value.startsWith('custom:')
-                      ? customCapes.find(c => `custom:${c.id}` === value)?.name ?? 'Eigenes'
-                      : BUILTIN_CAPES.find(c => `builtin:${c.id}` === value)?.name ?? '—')
-                  : findCosmetic(s.id as NonCapeSlot, value)?.name ?? '—'
-                : null
-
+              const label = equippedLabel(s.id)
               return (
-                <div key={s.id} className="flex items-center justify-between text-xs">
+                <div key={s.id} className="flex items-center justify-between gap-2 px-3 py-2 text-xs">
                   <span className="text-crystal-muted">{s.label}</span>
                   {label ? (
-                    <button
-                      onClick={() => equip(s.id, null)}
-                      className="flex items-center gap-1 text-crystal-text hover:text-crystal-danger transition-colors"
-                    >
-                      {label} <X size={10} />
+                    <button onClick={() => equip(s.id, null)} title="Ablegen" className="group inline-flex items-center gap-1 text-crystal-text min-w-0">
+                      <span className="truncate">{label}</span>
+                      <X size={11} className="text-crystal-muted group-hover:text-crystal-danger shrink-0" />
                     </button>
                   ) : (
-                    <span className="text-crystal-muted">—</span>
+                    <span className="text-crystal-muted/60">keins</span>
                   )}
                 </div>
               )
             })}
           </div>
-        </div>
+        </aside>
 
-        {/* Picker */}
-        <div className="space-y-3">
-          <div className="flex gap-1 p-1 bg-crystal-panel rounded-lg w-fit">
+        <div className="min-w-0">
+          <div className="flex gap-5 border-b border-crystal-border mb-4 overflow-x-auto" role="tablist">
             {SLOTS.map(s => (
               <button
                 key={s.id}
+                role="tab"
+                aria-selected={slot === s.id}
                 onClick={() => setSlot(s.id)}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-                  slot === s.id ? 'bg-crystal-gradient text-white shadow-glow' : 'text-crystal-muted hover:text-crystal-text'
+                className={`pb-2.5 -mb-px text-[13px] border-b-2 whitespace-nowrap transition-colors ${
+                  slot === s.id ? 'border-crystal-accent text-crystal-text font-medium' : 'border-transparent text-crystal-muted hover:text-crystal-text'
                 }`}
               >
                 {s.label}
@@ -229,141 +216,152 @@ export function Cosmetics() {
 
           {slot === 'cape' ? (
             <>
-              <div className="flex gap-1 flex-wrap">
+              <div className="flex flex-wrap items-center gap-1.5 mb-3">
                 {CAPE_CATEGORIES.map(c => (
-                  <button
-                    key={c.id}
-                    onClick={() => setCapeCategory(c.id)}
-                    className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
-                      capeCategory === c.id ? 'bg-crystal-accent text-white' : 'bg-crystal-panel text-crystal-muted hover:text-crystal-text'
-                    }`}
-                  >
-                    {c.label}
-                  </button>
+                  <Chip key={c.id} active={capeCategory === c.id} onClick={() => setCapeCategory(c.id)}>{c.label}</Chip>
                 ))}
-                <button
-                  onClick={() => setCapeCategory('mine')}
-                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
-                    capeCategory === 'mine' ? 'bg-crystal-accent text-white' : 'bg-crystal-panel text-crystal-muted hover:text-crystal-text'
-                  }`}
-                >
-                  Meine ({customCapes.length})
-                </button>
+                <Chip active={capeCategory === 'mine'} onClick={() => setCapeCategory('mine')}>
+                  Eigene{customCapes.length > 0 && ` (${customCapes.length})`}
+                </Chip>
                 <button
                   onClick={uploadCape}
                   disabled={uploading}
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs text-crystal-muted border border-dashed border-crystal-border hover:text-crystal-accent hover:border-crystal-accent transition-colors disabled:opacity-60"
+                  className="ml-auto crystal-btn-ghost border border-crystal-border text-crystal-text text-xs py-1.5 disabled:opacity-50"
                 >
-                  <Upload size={11} /> {uploading ? 'Lädt...' : 'Eigenes Cape'}
+                  <Upload size={12} strokeWidth={1.75} /> {uploading ? 'Lädt…' : 'Cape hochladen'}
                 </button>
               </div>
 
-              <div className="crystal-card p-4">
-                {capeCategory === 'mine' ? (
-                  customCapes.length === 0 ? (
-                    <div className="text-center py-8 text-crystal-muted">
-                      <Upload size={26} className="mx-auto mb-2 opacity-30" />
-                      <p className="text-sm">Noch keine eigenen Capes. Lade ein PNG hoch (64x32).</p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-4 gap-3">
-                      {customCapes.map(cape => {
-                        const id = `custom:${cape.id}`
-                        return (
-                          <Tile
-                            key={cape.id}
-                            selected={loadout.cape === id}
-                            onClick={() => equip('cape', id)}
-                            label={cape.name}
-                            background={customThumbs[cape.id] ? `url(${customThumbs[cape.id]}) center/cover` : undefined}
-                            onRemove={e => removeCustom(cape.id, e)}
-                          />
-                        )
-                      })}
-                    </div>
-                  )
+              {capeCategory === 'mine' ? (
+                customCapes.length === 0 ? (
+                  <EmptyState
+                    icon={<Upload size={20} strokeWidth={1.75} />}
+                    title="Noch keine eigenen Capes"
+                    action={<button onClick={uploadCape} className="crystal-btn-primary text-[13px]">Cape hochladen</button>}
+                  >
+                    PNG oder JPG. Crystal wandelt es in das Minecraft-Format 64 × 32 um.
+                  </EmptyState>
                 ) : (
-                  <div className="grid grid-cols-6 gap-3">
-                    {visibleCapes.map(cape => {
-                      const id = `builtin:${cape.id}`
+                  <TileGrid>
+                    {customCapes.map(cape => {
+                      const id = `custom:${cape.id}`
                       return (
                         <Tile
                           key={cape.id}
                           selected={loadout.cape === id}
                           onClick={() => equip('cape', id)}
                           label={cape.name}
-                          background={`url(${capePreviewUrl(cape)}) center/cover`}
-                          glow={cape.glow}
+                          background={customThumbs[cape.id] ? `url(${customThumbs[cape.id]}) center/cover` : undefined}
+                          onRemove={e => removeCustom(cape.id, e)}
                         />
                       )
                     })}
-                  </div>
-                )}
-              </div>
+                  </TileGrid>
+                )
+              ) : (
+                <TileGrid>
+                  {visibleCapes.map(cape => {
+                    const id = `builtin:${cape.id}`
+                    return (
+                      <Tile
+                        key={cape.id}
+                        selected={loadout.cape === id}
+                        onClick={() => equip('cape', id)}
+                        label={cape.name}
+                        background={`url(${capePreviewUrl(cape)}) center/cover`}
+                        pixelated
+                      />
+                    )
+                  })}
+                </TileGrid>
+              )}
             </>
           ) : (
-            <div className="crystal-card p-4">
-              <div className="grid grid-cols-4 gap-3">
-                {COSMETICS_BY_SLOT[slot as NonCapeSlot].map(item => (
-                  <Tile
-                    key={item.id}
-                    selected={loadout[slot] === item.id}
-                    onClick={() => equip(slot, item.id)}
-                    label={item.name}
-                    background={`linear-gradient(135deg, ${item.color}, ${item.secondary ?? item.color})`}
-                    glow={slot === 'aura' ? item.color : undefined}
-                  />
-                ))}
-              </div>
-            </div>
+            <>
+              <p className="text-xs text-crystal-muted mb-3">
+                Nur in der Vorschau sichtbar. Im Spiel wird dieser Slot noch nicht angezeigt.
+              </p>
+              <TileGrid>
+                {COSMETICS_BY_SLOT[slot as NonCapeSlot].map(item => {
+                  const locked = !!item.requiredRank && !meetsRank(rank, item.requiredRank)
+                  return (
+                    <Tile
+                      key={item.id}
+                      selected={loadout[slot] === item.id}
+                      onClick={() => equip(slot, item.id, item.requiredRank)}
+                      label={item.name}
+                      background={`linear-gradient(135deg, ${item.color} 0 50%, ${item.secondary ?? item.color} 50% 100%)`}
+                      lockedLabel={locked ? lockLabel(item.requiredRank!) : undefined}
+                    />
+                  )
+                })}
+              </TileGrid>
+            </>
           )}
 
-          <p className="text-crystal-muted text-xs">
-            Alle Cosmetics sind kostenlos. Themed Capes sind eigene Designs — geschützte Figuren
-            (Anime, Hello Kitty &amp; Co.) darf Crystal nicht mitliefern, die kannst du aber selbst hochladen.
+          <p className="text-xs text-crystal-muted mt-5 max-w-[70ch]">
+            Crystal liefert nur eigene Designs. Motive von geschützten Marken und Figuren kannst du als eigenes Cape hochladen.
           </p>
         </div>
       </div>
-    </div>
+    </Page>
   )
 }
 
+function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-pressed={active}
+      className={`px-2.5 py-1 rounded-md text-xs transition-colors ${
+        active ? 'bg-crystal-card text-crystal-text ring-1 ring-inset ring-crystal-border' : 'text-crystal-muted hover:text-crystal-text'
+      }`}
+    >
+      {children}
+    </button>
+  )
+}
+
+function TileGrid({ children }: { children: React.ReactNode }) {
+  return <div className="grid grid-cols-[repeat(auto-fill,minmax(112px,1fr))] gap-2.5">{children}</div>
+}
+
 function Tile({
-  selected, onClick, label, background, glow, onRemove, lockedLabel,
+  selected, onClick, label, background, onRemove, lockedLabel, pixelated,
 }: {
   selected: boolean
   onClick: () => void
   label: string
   background?: string
-  glow?: string
   onRemove?: (e: React.MouseEvent) => void
   lockedLabel?: string
+  pixelated?: boolean
 }) {
   return (
     <div
+      role="button"
+      tabIndex={0}
+      aria-pressed={selected}
       onClick={onClick}
-      className={`relative rounded-xl overflow-hidden border-2 transition-all cursor-pointer ${
-        selected ? 'border-crystal-accent shadow-glow' : 'border-crystal-border hover:border-crystal-accent/40'
+      onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && onClick()}
+      className={`group relative rounded-lg overflow-hidden border cursor-pointer transition-colors ${
+        selected ? 'border-crystal-accent ring-1 ring-crystal-accent' : 'border-crystal-border hover:border-crystal-muted/60'
       }`}
-      style={glow && !selected ? { boxShadow: `0 0 14px -4px ${glow}` } : undefined}
     >
-      <div className="h-16" style={{ background }} />
-      <div className="p-1.5 bg-crystal-card flex items-center justify-between gap-1">
-        <div className="min-w-0">
-          <p className="text-crystal-text text-[11px] font-medium truncate">{label}</p>
-          {lockedLabel && (
-            <p className="text-crystal-muted text-[9px] flex items-center gap-0.5"><Lock size={7} /> {lockedLabel}</p>
-          )}
-        </div>
+      <div
+        className={`aspect-[4/3] bg-crystal-panel ${lockedLabel ? 'opacity-40' : ''}`}
+        style={{ background, imageRendering: pixelated ? 'pixelated' : undefined }}
+      />
+      <div className="flex items-center gap-1 px-2 py-1.5 bg-crystal-card">
+        <span className={`flex-1 min-w-0 text-[11.5px] truncate ${lockedLabel ? 'text-crystal-muted' : 'text-crystal-text'}`}>{label}</span>
+        {lockedLabel && <span className="inline-flex items-center gap-0.5 text-[10px] text-crystal-muted shrink-0"><Lock size={9} />{lockedLabel}</span>}
+        {selected && !lockedLabel && <Check size={12} className="text-crystal-accent shrink-0" />}
         {onRemove && (
-          <Trash2 size={11} onClick={onRemove} className="text-crystal-muted hover:text-crystal-danger shrink-0" />
+          <button onClick={onRemove} aria-label={`${label} löschen`} className="p-0.5 rounded text-crystal-muted opacity-0 group-hover:opacity-100 hover:text-crystal-danger shrink-0">
+            <Trash2 size={11} />
+          </button>
         )}
       </div>
-      {selected && (
-        <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-crystal-accent flex items-center justify-center">
-          <Check size={9} className="text-white" />
-        </div>
-      )}
     </div>
   )
 }

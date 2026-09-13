@@ -139,6 +139,15 @@ export function registerIpcHandlers(store: Store) {
     return discord.isEnabled()
   })
 
+  // Suggested RAM for this machine: half the physical memory, capped to 8 GB
+  // and never below 2 GB. Used as the default instead of a fixed 4 GB that is
+  // too much for an 8 GB laptop and too little for nothing.
+  ipcMain.handle('system:memory', () => {
+    const totalMb = Math.round(os.totalmem() / 1024 / 1024)
+    const suggested = Math.max(2048, Math.min(8192, Math.floor(totalMb / 2 / 512) * 512))
+    return { totalMb, suggestedMb: suggested }
+  })
+
   // Real versions, read from the build rather than typed into the UI — the
   // hardcoded "1.0.0" strings they replaced were still showing long after
   // several releases had shipped.
@@ -319,6 +328,8 @@ export function registerIpcHandlers(store: Store) {
   // Version switching for files that are already installed.
   ipcMain.handle('modrinth:identifyFile', (_e, instanceId: string, type: ContentType, fileName: string) =>
     modrinth.identifyFile(instanceId, type, fileName))
+  ipcMain.handle('perfpack:status', (_e, instanceId: string) => modrinth.performancePackStatus(instanceId))
+  ipcMain.handle('perfpack:install', (_e, instanceId: string) => modrinth.installPerformancePack(instanceId, '1.21.11'))
   ipcMain.handle('modrinth:identifyFolder', (_e, instanceId: string, type: ContentType) =>
     modrinth.identifyFolder(instanceId, type))
   ipcMain.handle('modrinth:switchVersion', (_e, instanceId: string, type: ContentType, fileName: string, versionId: string) =>

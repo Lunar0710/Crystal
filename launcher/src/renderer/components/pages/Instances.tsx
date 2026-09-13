@@ -245,6 +245,7 @@ function CreateInstance({ onDone, onCancel }: { onDone: (created: Instance | nul
   const [loading, setLoading] = useState(false)
   const [selected, setSelected] = useState<ModrinthHit | null>(null)
   const [working, setWorking] = useState(false)
+  const [withPerfPack, setWithPerfPack] = useState(true)
 
   useEffect(() => { if (mode === 'modpack' && packs.length === 0) searchPacks('') }, [mode])
 
@@ -272,8 +273,16 @@ function CreateInstance({ onDone, onCancel }: { onDone: (created: Instance | nul
     } else if (created) {
       notify({ type: 'success', message: `${created.name} angelegt` })
     }
+    if (created && withPerfPack && mode === 'empty') await installPack(created)
     setWorking(false)
     onDone(created)
+  }
+
+  async function installPack(created: Instance) {
+    const result = await api?.installPerformancePack(created.id)
+    if (!result) return
+    if (result.failed.length) notify({ type: 'warning', title: 'Performance-Paket', message: `Nicht installiert: ${result.failed.map((f: { title: string }) => f.title).join(', ')}` })
+    else if (result.installed.length) notify({ type: 'success', title: 'Performance-Paket', message: `${result.installed.length} Mods installiert` })
   }
 
   async function createFromFile() {
@@ -350,6 +359,16 @@ function CreateInstance({ onDone, onCancel }: { onDone: (created: Instance | nul
           </div>
         </div>
 
+        {mode === 'empty' && (
+          <label className="flex items-start gap-2.5 cursor-pointer">
+            <input type="checkbox" checked={withPerfPack} onChange={e => setWithPerfPack(e.target.checked)} className="mt-0.5 accent-crystal-accent" />
+            <span>
+              <span className="block text-[13px] text-crystal-text">Performance-Paket mitinstallieren</span>
+              <span className="block text-xs text-crystal-muted">Sodium, Lithium, FerriteCore, EntityCulling und ImmediatelyFast. Deutlich mehr FPS, gerade auf schwächeren PCs.</span>
+            </span>
+          </label>
+        )}
+
         {mode === 'modpack' && (
           <div className="space-y-2">
             <div className="flex gap-2">
@@ -402,7 +421,7 @@ function CreateInstance({ onDone, onCancel }: { onDone: (created: Instance | nul
       <div className="flex justify-end gap-2 px-4 py-3 border-t border-crystal-border">
         <button onClick={onCancel} disabled={working} className="crystal-btn-ghost text-[13px] disabled:opacity-50">Abbrechen</button>
         <button onClick={create} disabled={!canCreate} className="crystal-btn-primary text-[13px] disabled:opacity-50">
-          {working ? 'Wird angelegt…' : mode === 'modpack' ? 'Anlegen und installieren' : 'Anlegen'}
+          {working ? (withPerfPack && mode === 'empty' ? 'Lädt Mods…' : 'Wird angelegt…') : mode === 'modpack' ? 'Anlegen und installieren' : 'Anlegen'}
         </button>
       </div>
     </div>
@@ -562,6 +581,8 @@ function InstanceDetail({ instance, onBack }: { instance: Instance; onBack: () =
       />
 
       <ClientInstallPanel instanceId={instance.id} />
+
+      <PerformancePanel instanceId={instance.id} onInstalled={refreshFiles} />
 
       <div className="flex items-end justify-between gap-4 border-b border-crystal-border mb-4 mt-2">
         <div className="flex gap-5" role="tablist">
@@ -801,6 +822,78 @@ function VersionPicker({ versions, value, onChange, action, hint }: {
           {action}
           {hint && <span className="text-xs text-crystal-muted">{hint}</span>}
         </>
+      )}
+    </div>
+  )
+}
+
+interface PackEntry {
+  slug: string
+  title: string
+  purpose: string
+  installed: boolean
+}
+
+/** Shows which performance mods this instance already has and installs the missing ones. */
+function PerformancePanel({ instanceId, onInstalled }: { instanceId: string; onInstalled: () => void }) {
+  const [entries, setEntries] = useState<PackEntry[] | null>(null)
+  const [installing, setInstalling] = useState(false)
+  const [open, setOpen] = useState(false)
+
+  function load() {
+    api?.performancePackStatus(instanceId).then((list: PackEntry[]) => setEntries(list || []))
+  }
+
+  useEffect(load, [instanceId])
+
+  async function install() {
+    setInstalling(true)
+    const result = await api?.installPerformancePack(instanceId)
+    setInstalling(false)
+    if (result?.failed?.length) {
+      notify({ type: 'warning', title: 'Performance-Paket', message: `Nicht installiert: ${result.failed.map((f: { title: string }) => f.title).join(', ')}` })
+    } else if (result?.installed?.length) {
+      notify({ type: 'success', title: 'Performance-Paket', message: `${result.installed.join(', ')} installiert` })
+    }
+    load()
+    onInstalled()
+  }
+
+  if (!entries) return null
+  const missing = entries.filter(e => !e.installed)
+
+  return (
+    <div className="crystal-card mb-5">
+      <div className="flex items-center gap-3 px-4 py-3">
+        <div className="flex-1 min-w-0">
+          <p className="text-[13px] text-crystal-text">Performance-Paket</p>
+          <p className="text-xs text-crystal-muted">
+            {missing.length === 0
+              ? 'Alle Performance-Mods sind installiert.'
+              : `${entries.length - missing.length} von ${entries.length} installiert. Die fehlenden bringen spürbar mehr FPS.`}
+          </p>
+        </div>
+        <button onClick={() => setOpen(o => !o)} aria-expanded={open} className="inline-flex items-center gap-1 text-xs text-crystal-muted hover:text-crystal-text px-2 py-1 rounded-md hover:bg-crystal-border/50">
+          Details <ChevronDown size={12} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+        </button>
+        {missing.length > 0 && (
+          <button onClick={install} disabled={installing} className="crystal-btn-primary text-xs py-1.5 disabled:opacity-50">
+            <Download size={12} /> {installing ? 'Installiere…' : 'Installieren'}
+          </button>
+        )}
+      </div>
+      {open && (
+        <ul className="border-t border-crystal-border divide-y divide-crystal-border">
+          {entries.map(e => (
+            <li key={e.slug} className="flex items-center gap-3 px-4 py-2">
+              <span className="w-28 text-[13px] text-crystal-text shrink-0">{e.title}</span>
+              <span className="flex-1 min-w-0 text-xs text-crystal-muted">{e.purpose}</span>
+              {e.installed
+                ? <span className="inline-flex items-center gap-1 text-xs text-crystal-muted"><Check size={12} className="text-crystal-success" /> installiert</span>
+                : <span className="text-xs text-crystal-muted/70">fehlt</span>}
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   )
