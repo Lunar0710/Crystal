@@ -1,0 +1,361 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ---- Theme definitions (RGB triplets, consumed via rgb(var(--c-x) / alpha)) ---- */
+
+:root,
+[data-theme='crystal-blue'] {
+  --c-bg: 13 15 20;
+  --c-panel: 19 23 32;
+  --c-card: 26 31 46;
+  --c-border: 37 43 58;
+  --c-accent: 91 138 245;
+  --c-accent-2: 124 106 245;
+  --c-text: 228 232 240;
+  --c-muted: 107 114 128;
+  --c-success: 52 211 153;
+  --c-danger: 248 113 113;
+  --c-warning: 251 191 36;
+  /* Free themes stay plain colour — the decorative pattern is a Crystal+/Team perk. */
+  --theme-pattern: none;
+  --theme-pattern-size: auto;
+}
+
+[data-theme='crystal-crimson'] {
+  --c-bg: 18 11 12;
+  --c-panel: 26 15 17;
+  --c-card: 36 19 22;
+  --c-border: 54 26 30;
+  --c-accent: 245 69 91;
+  --c-accent-2: 245 124 61;
+  --c-text: 240 228 229;
+  --c-muted: 138 107 110;
+  --c-success: 52 211 153;
+  --c-danger: 248 113 113;
+  --c-warning: 251 191 36;
+}
+
+[data-theme='crystal-bloom'] {
+  --c-bg: 22 12 18;
+  --c-panel: 30 17 25;
+  --c-card: 41 22 33;
+  --c-border: 61 30 46;
+  --c-accent: 245 107 160;
+  --c-accent-2: 245 163 199;
+  --c-text: 240 229 235;
+  --c-muted: 138 107 122;
+  --c-success: 52 211 153;
+  --c-danger: 248 113 113;
+  --c-warning: 251 191 36;
+}
+
+[data-theme='crystal-amethyst'] {
+  --c-bg: 16 12 22;
+  --c-panel: 22 17 32;
+  --c-card: 30 23 44;
+  --c-border: 45 34 64;
+  --c-accent: 163 91 245;
+  --c-accent-2: 124 61 245;
+  --c-text: 232 228 240;
+  --c-muted: 116 107 138;
+  --c-success: 52 211 153;
+  --c-danger: 248 113 113;
+  --c-warning: 251 191 36;
+}
+
+[data-theme='crystal-emerald'] {
+  --c-bg: 10 18 15;
+  --c-panel: 15 26 21;
+  --c-card: 20 36 29;
+  --c-border: 28 54 44;
+  --c-accent: 52 211 153;
+  --c-accent-2: 91 245 201;
+  --c-text: 228 240 234;
+  --c-muted: 107 138 122;
+  --c-success: 52 211 153;
+  --c-danger: 248 113 113;
+  --c-warning: 251 191 36;
+}
+
+/* ---- Crystal+ themes ---- */
+
+[data-theme='midnight'] {
+  --c-bg: 8 11 24;
+  --c-panel: 13 18 38;
+  --c-card: 19 26 54;
+  --c-border: 30 41 82;
+  --c-accent: 96 133 255;
+  --c-accent-2: 129 108 255;
+  --c-text: 226 232 255;
+  --c-muted: 110 122 160;
+  --c-success: 52 211 153;
+  --c-danger: 248 113 113;
+  --c-warning: 251 191 36;
+  /* Faint, cool-toned stars — sparser than Void, since Midnight is meant to read as dusk, not deep space. */
+  --theme-pattern:
+    radial-gradient(1px 1px at 15% 20%, rgba(180,200,255,0.55), transparent),
+    radial-gradient(1px 1px at 75% 65%, rgba(180,200,255,0.4), transparent),
+    radial-gradient(1.5px 1.5px at 40% 80%, rgba(180,200,255,0.5), transparent),
+    radial-gradient(1px 1px at 90% 15%, rgba(180,200,255,0.35), transparent);
+  --theme-pattern-size: 320px 260px;
+}
+
+[data-theme='sunset'] {
+  --c-bg: 24 12 10;
+  --c-panel: 35 17 14;
+  --c-card: 48 23 19;
+  --c-border: 71 35 27;
+  --c-accent: 249 115 22;
+  --c-accent-2: 225 29 72;
+  --c-text: 253 235 228;
+  --c-muted: 150 112 96;
+  --c-success: 52 211 153;
+  --c-danger: 248 113 113;
+  --c-warning: 251 191 36;
+  /* Drifting embers — warm, soft-edged specks rather than hard dots. */
+  --theme-pattern:
+    radial-gradient(2px 2px at 20% 30%, rgba(251,146,60,0.5), transparent 70%),
+    radial-gradient(1.5px 1.5px at 70% 70%, rgba(244,63,94,0.45), transparent 70%),
+    radial-gradient(2px 2px at 85% 25%, rgba(251,191,36,0.4), transparent 70%),
+    radial-gradient(1.5px 1.5px at 40% 85%, rgba(251,146,60,0.35), transparent 70%);
+  --theme-pattern-size: 260px 220px;
+}
+
+[data-theme='ocean'] {
+  --c-bg: 6 18 24;
+  --c-panel: 9 27 36;
+  --c-card: 13 38 50;
+  --c-border: 20 56 72;
+  --c-accent: 14 165 233;
+  --c-accent-2: 20 184 166;
+  --c-text: 224 244 250;
+  --c-muted: 100 132 146;
+  --c-success: 52 211 153;
+  --c-danger: 248 113 113;
+  --c-warning: 251 191 36;
+  /* Rising bubbles — varied sizes, teal-tinted, softer edges than stars. */
+  --theme-pattern:
+    radial-gradient(2.5px 2.5px at 25% 75%, rgba(103,232,249,0.35), transparent 75%),
+    radial-gradient(1.5px 1.5px at 60% 40%, rgba(103,232,249,0.3), transparent 75%),
+    radial-gradient(2px 2px at 80% 80%, rgba(45,212,191,0.3), transparent 75%),
+    radial-gradient(1.5px 1.5px at 10% 20%, rgba(103,232,249,0.25), transparent 75%);
+  --theme-pattern-size: 240px 260px;
+}
+
+[data-theme='rose'] {
+  --c-bg: 26 13 18;
+  --c-panel: 38 19 27;
+  --c-card: 52 26 37;
+  --c-border: 78 39 55;
+  --c-accent: 251 113 133;
+  --c-accent-2: 249 168 212;
+  --c-text: 253 232 240;
+  --c-muted: 158 114 133;
+  --c-success: 52 211 153;
+  --c-danger: 248 113 113;
+  --c-warning: 251 191 36;
+  /* Soft petal-pink specks, blurrier and warmer than Void's sharp stars. */
+  --theme-pattern:
+    radial-gradient(2px 2px at 20% 25%, rgba(249,168,212,0.4), transparent 75%),
+    radial-gradient(1.5px 1.5px at 65% 60%, rgba(251,113,133,0.35), transparent 75%),
+    radial-gradient(2px 2px at 85% 30%, rgba(249,168,212,0.3), transparent 75%),
+    radial-gradient(1.5px 1.5px at 35% 85%, rgba(251,113,133,0.3), transparent 75%);
+  --theme-pattern-size: 250px 240px;
+}
+
+[data-theme='carbon'] {
+  --c-bg: 10 10 11;
+  --c-panel: 18 18 20;
+  --c-card: 26 26 29;
+  --c-border: 45 45 50;
+  --c-accent: 161 161 170;
+  --c-accent-2: 82 82 91;
+  --c-text: 244 244 245;
+  --c-muted: 113 113 122;
+  --c-success: 52 211 153;
+  --c-danger: 248 113 113;
+  --c-warning: 251 191 36;
+  /* An actual woven carbon-fibre crosshatch instead of dots — matches the material, not just the name. */
+  --theme-pattern:
+    repeating-linear-gradient(45deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 1px, transparent 1px, transparent 6px),
+    repeating-linear-gradient(-45deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 1px, transparent 1px, transparent 6px);
+  --theme-pattern-size: 12px 12px;
+}
+
+[data-theme='matcha'] {
+  --c-bg: 12 18 10;
+  --c-panel: 18 27 15;
+  --c-card: 25 37 20;
+  --c-border: 38 56 30;
+  --c-accent: 132 204 22;
+  --c-accent-2: 77 124 15;
+  --c-text: 235 245 224;
+  --c-muted: 118 138 100;
+  --c-success: 52 211 153;
+  --c-danger: 248 113 113;
+  --c-warning: 251 191 36;
+  /* Fine speckle, like whisked matcha powder — small and dense rather than star-spaced. */
+  --theme-pattern:
+    radial-gradient(1px 1px at 10% 10%, rgba(190,242,100,0.3), transparent 70%),
+    radial-gradient(1px 1px at 30% 60%, rgba(190,242,100,0.25), transparent 70%),
+    radial-gradient(1px 1px at 55% 25%, rgba(190,242,100,0.3), transparent 70%),
+    radial-gradient(1px 1px at 75% 70%, rgba(190,242,100,0.25), transparent 70%),
+    radial-gradient(1px 1px at 90% 40%, rgba(190,242,100,0.3), transparent 70%);
+  --theme-pattern-size: 140px 130px;
+}
+
+/* ---- Team-only themes ---- */
+
+[data-theme='prism'] {
+  --c-bg: 9 10 20;
+  --c-panel: 15 17 32;
+  --c-card: 21 24 45;
+  --c-border: 34 39 70;
+  --c-accent: 34 211 238;
+  --c-accent-2: 168 85 247;
+  --c-text: 230 236 252;
+  --c-muted: 116 126 160;
+  --c-success: 52 211 153;
+  --c-danger: 248 113 113;
+  --c-warning: 251 191 36;
+  /* Diagonal rainbow-shard streaks — a prism splitting light, not a dot field. */
+  --theme-pattern: repeating-linear-gradient(
+    115deg,
+    rgba(34,211,238,0.10) 0px, rgba(34,211,238,0.10) 2px,
+    rgba(168,85,247,0.10) 2px, rgba(168,85,247,0.10) 4px,
+    rgba(244,114,182,0.10) 4px, rgba(244,114,182,0.10) 6px,
+    transparent 6px, transparent 40px
+  );
+  --theme-pattern-size: 220px 220px;
+}
+
+[data-theme='obsidian'] {
+  --c-bg: 10 9 7;
+  --c-panel: 17 15 11;
+  --c-card: 25 22 16;
+  --c-border: 46 40 27;
+  --c-accent: 251 191 36;
+  --c-accent-2: 180 83 9;
+  --c-text: 248 244 232;
+  --c-muted: 130 119 93;
+  --c-success: 52 211 153;
+  --c-danger: 248 113 113;
+  --c-warning: 251 191 36;
+  /* Gold flecks in dark volcanic glass. */
+  --theme-pattern:
+    radial-gradient(1.5px 1.5px at 20% 30%, rgba(251,191,36,0.5), transparent 70%),
+    radial-gradient(1px 1px at 70% 60%, rgba(251,191,36,0.4), transparent 70%),
+    radial-gradient(1.5px 1.5px at 85% 20%, rgba(180,83,9,0.5), transparent 70%),
+    radial-gradient(1px 1px at 40% 80%, rgba(251,191,36,0.35), transparent 70%);
+  --theme-pattern-size: 260px 220px;
+}
+
+[data-theme='void'] {
+  --c-bg: 3 3 6;
+  --c-panel: 8 8 14;
+  --c-card: 13 13 22;
+  --c-border: 24 24 38;
+  --c-accent: 255 255 255;
+  --c-accent-2: 180 180 210;
+  --c-text: 240 240 250;
+  --c-muted: 120 120 140;
+  --c-success: 52 211 153;
+  --c-danger: 248 113 113;
+  --c-warning: 251 191 36;
+  /* A scattered starfield, layered from several small dots at different sizes/positions so it doesn't look like an obvious repeating tile. */
+  --theme-pattern:
+    radial-gradient(1.5px 1.5px at 20px 30px, rgba(255,255,255,0.9), transparent),
+    radial-gradient(1px 1px at 90px 80px, rgba(255,255,255,0.7), transparent),
+    radial-gradient(1.5px 1.5px at 150px 20px, rgba(255,255,255,0.8), transparent),
+    radial-gradient(1px 1px at 60px 120px, rgba(255,255,255,0.5), transparent),
+    radial-gradient(2px 2px at 200px 150px, rgba(255,255,255,0.9), transparent),
+    radial-gradient(1px 1px at 250px 60px, rgba(255,255,255,0.6), transparent),
+    radial-gradient(1.5px 1.5px at 30px 180px, rgba(255,255,255,0.7), transparent),
+    radial-gradient(1px 1px at 180px 200px, rgba(255,255,255,0.5), transparent);
+  --theme-pattern-size: 280px 220px;
+}
+
+/* Every theme's pattern (none for free themes) is applied consistently across
+   the whole app — the base page and every card/panel surface — rather than
+   only the empty space behind them, so premium themes feel woven through the
+   UI instead of just visible in the gaps. */
+body,
+.crystal-card,
+.bg-crystal-panel {
+  background-image: var(--theme-pattern);
+  background-repeat: repeat;
+  background-size: var(--theme-pattern-size);
+}
+
+[data-theme='crystal-light'] {
+  --c-bg: 245 247 250;
+  --c-panel: 255 255 255;
+  --c-card: 255 255 255;
+  --c-border: 226 231 238;
+  --c-accent: 91 138 245;
+  --c-accent-2: 124 106 245;
+  --c-text: 22 27 38;
+  --c-muted: 107 114 128;
+  --c-success: 16 163 111;
+  --c-danger: 220 38 38;
+  --c-warning: 217 119 6;
+}
+
+body {
+  background-color: rgb(var(--c-bg));
+  color: rgb(var(--c-text));
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgb(var(--c-panel));
+}
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--c-border));
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--c-accent));
+}
+
+@layer components {
+  .crystal-card {
+    @apply bg-crystal-card border border-crystal-border rounded-xl shadow-card;
+  }
+
+  .crystal-btn {
+    @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 cursor-pointer;
+  }
+
+  .crystal-btn-primary {
+    @apply crystal-btn bg-crystal-gradient text-white hover:opacity-90 hover:shadow-glow active:scale-95;
+  }
+
+  .crystal-btn-ghost {
+    @apply crystal-btn bg-transparent text-crystal-muted hover:text-crystal-text hover:bg-crystal-border;
+  }
+
+  .crystal-input {
+    @apply bg-crystal-panel border border-crystal-border rounded-lg px-3 py-2 text-crystal-text placeholder-crystal-muted focus:outline-none focus:border-crystal-accent transition-colors;
+  }
+}

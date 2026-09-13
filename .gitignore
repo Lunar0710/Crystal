@@ -1,0 +1,27 @@
+# Node / Electron
+node_modules/
+launcher/dist/
+launcher/release/
+launcher/out/
+*.log
+npm-debug.log*
+
+# Gradle / Java
+client/build/
+client/.gradle/
+client/.kotlin/
+.gradle/
+*.class
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env / local config
+.env
+.env.local

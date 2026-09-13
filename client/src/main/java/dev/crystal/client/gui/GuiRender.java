@@ -1,0 +1,114 @@
+package dev.crystal.client.gui;
+
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.font.TextRenderer;
+
+/**
+ * Drawing primitives the Crystal menu is built from.
+ *
+ * Minecraft only gives us axis-aligned rectangles and text, so rounded corners
+ * are faked by notching the corner pixels — at GUI scale that reads as a 2px
+ * radius, which is all the Lunar-style card look needs.
+ */
+public final class GuiRender {
+
+    private GuiRender() {}
+
+    /** Rectangle with 2px-radius corners, built from three bars plus four corner pixels. */
+    public static void roundedRect(DrawContext ctx, int x1, int y1, int x2, int y2, int color) {
+        if (x2 - x1 < 4 || y2 - y1 < 4) {
+            ctx.fill(x1, y1, x2, y2, color);
+            return;
+        }
+        ctx.fill(x1 + 2, y1, x2 - 2, y2, color);
+        ctx.fill(x1, y1 + 2, x1 + 2, y2 - 2, color);
+        ctx.fill(x2 - 2, y1 + 2, x2, y2 - 2, color);
+        ctx.fill(x1 + 1, y1 + 1, x1 + 2, y1 + 2, color);
+        ctx.fill(x2 - 2, y1 + 1, x2 - 1, y1 + 2, color);
+        ctx.fill(x1 + 1, y2 - 2, x1 + 2, y2 - 1, color);
+        ctx.fill(x2 - 2, y2 - 2, x2 - 1, y2 - 1, color);
+    }
+
+    /** 1px outline following the same rounded shape. */
+    public static void roundedOutline(DrawContext ctx, int x1, int y1, int x2, int y2, int color) {
+        ctx.fill(x1 + 2, y1, x2 - 2, y1 + 1, color);
+        ctx.fill(x1 + 2, y2 - 1, x2 - 2, y2, color);
+        ctx.fill(x1, y1 + 2, x1 + 1, y2 - 2, color);
+        ctx.fill(x2 - 1, y1 + 2, x2, y2 - 2, color);
+        ctx.fill(x1 + 1, y1 + 1, x1 + 2, y1 + 2, color);
+        ctx.fill(x2 - 2, y1 + 1, x2 - 1, y1 + 2, color);
+        ctx.fill(x1 + 1, y2 - 2, x1 + 2, y2 - 1, color);
+        ctx.fill(x2 - 2, y2 - 2, x2 - 1, y2 - 1, color);
+    }
+
+    /** Lunar-style pill toggle. Returns nothing — hit testing uses {@link #TOGGLE_W}/{@link #TOGGLE_H}. */
+    public static final int TOGGLE_W = 18;
+    public static final int TOGGLE_H = 10;
+
+    public static void toggle(DrawContext ctx, int x, int y, boolean on, int accent, int offTrack, int knobColor) {
+        roundedRect(ctx, x, y, x + TOGGLE_W, y + TOGGLE_H, on ? accent : offTrack);
+        int knobX = on ? x + TOGGLE_W - 8 : x + 2;
+        roundedRect(ctx, knobX, y + 2, knobX + 6, y + TOGGLE_H - 2, knobColor);
+    }
+
+    /** Horizontal slider track with a filled portion and a knob at the current value. */
+    public static void slider(DrawContext ctx, int x, int y, int width, float fraction, int trackColor, int fillColor, int knobColor) {
+        int centerY = y + 3;
+        roundedRect(ctx, x, centerY, x + width, centerY + 3, trackColor);
+
+        int filled = Math.round(width * Math.max(0f, Math.min(1f, fraction)));
+        if (filled > 0) roundedRect(ctx, x, centerY, x + filled, centerY + 3, fillColor);
+
+        int knobX = x + filled;
+        roundedRect(ctx, knobX - 2, centerY - 2, knobX + 3, centerY + 5, knobColor);
+    }
+
+    /** Draws text shrunk to the given scale, used for the small muted descriptions. */
+    public static void scaledText(DrawContext ctx, String text, int x, int y, float scale, int color) {
+        TextRenderer font = MinecraftClient.getInstance().textRenderer;
+        ctx.getMatrices().pushMatrix();
+        ctx.getMatrices().translate(x, y);
+        ctx.getMatrices().scale(scale, scale);
+        ctx.drawText(font, text, 0, 0, color, false);
+        ctx.getMatrices().popMatrix();
+    }
+
+    public static int scaledWidth(String text, float scale) {
+        return Math.round(MinecraftClient.getInstance().textRenderer.getWidth(text) * scale);
+    }
+
+    /** Trims text to fit a pixel width, adding an ellipsis when it had to cut. */
+    public static String trimToWidth(String text, int maxWidth) {
+        TextRenderer font = MinecraftClient.getInstance().textRenderer;
+        if (font.getWidth(text) <= maxWidth) return text;
+
+        String ellipsis = "...";
+        int available = maxWidth - font.getWidth(ellipsis);
+        StringBuilder sb = new StringBuilder();
+        for (char c : text.toCharArray()) {
+            if (font.getWidth(sb.toString() + c) > available) break;
+            sb.append(c);
+        }
+        return sb + ellipsis;
+    }
+
+    /** Blends a colour toward another by the given amount (0–1), used for hover/tint states. */
+    public static int blend(int from, int to, float amount) {
+        float t = Math.max(0f, Math.min(1f, amount));
+        int a = channel(from, 24), r = channel(from, 16), g = channel(from, 8), b = channel(from, 0);
+        int a2 = channel(to, 24), r2 = channel(to, 16), g2 = channel(to, 8), b2 = channel(to, 0);
+        return (Math.round(a + (a2 - a) * t) << 24)
+                | (Math.round(r + (r2 - r) * t) << 16)
+                | (Math.round(g + (g2 - g) * t) << 8)
+                | Math.round(b + (b2 - b) * t);
+    }
+
+    public static int withAlpha(int color, int alpha) {
+        return (alpha << 24) | (color & 0x00FFFFFF);
+    }
+
+    private static int channel(int color, int shift) {
+        return (color >> shift) & 0xFF;
+    }
+}

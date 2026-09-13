@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<title>Crystal Launcher</title>
+<style>
+  @font-face { font-family: 'Inter'; src: local('Segoe UI'); }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; user-select: none; }
+  body {
+    background: #0d0f14; color: #e4e8f0;
+    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    height: 100vh; -webkit-app-region: drag;
+  }
+  .logo { margin-bottom: 20px; animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .6; } }
+  h1 { font-size: 16px; font-weight: 600; letter-spacing: .02em; margin-bottom: 22px; }
+  h1 .c { color: #a35bf5; }
+  .bar-track { width: 220px; height: 4px; background: #252b3a; border-radius: 999px; overflow: hidden; }
+  .bar-fill { height: 100%; width: 0%; background: linear-gradient(135deg, #5b8af5, #7c6af5); border-radius: 999px; transition: width .25s ease; }
+  .status { margin-top: 12px; font-size: 12px; color: #6b7280; }
+</style>
+</head>
+<body>
+  <svg class="logo" width="56" height="56" viewBox="0 0 100 100">
+    <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5b8af5"/><stop offset="1" stop-color="#7c6af5"/></linearGradient></defs>
+    <polygon points="50,6 88,28 88,72 50,94 12,72 12,28" fill="none" stroke="url(#g)" stroke-width="4"/>
+    <polygon points="50,6 88,28 50,50" fill="url(#g)" opacity=".85"/>
+    <polygon points="50,50 88,72 50,94" fill="url(#g)" opacity=".45"/>
+    <polygon points="50,50 50,94 12,72" fill="url(#g)" opacity=".65"/>
+    <polygon points="12,28 50,6 50,50" fill="url(#g)" opacity=".3"/>
+  </svg>
+  <h1><span class="c">C</span>rystal Launcher</h1>
+  <div class="bar-track"><div class="bar-fill" id="bar"></div></div>
+  <div class="status" id="status">Starting...</div>
+
+  <script>
+    const { ipcRenderer } = require('electron')
+    ipcRenderer.on('splash:status', (_e, { text, percent }) => {
+      document.getElementById('status').textContent = text
+      if (typeof percent === 'number') document.getElementById('bar').style.width = percent + '%'
+    })
+  </script>
+</body>
+</html>

@@ -1,0 +1,86 @@
+{
+  "name": "crystal-launcher",
+  "version": "1.1.0",
+  "description": "Crystal Client Launcher",
+  "main": "dist/main/index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:main\" \"npm run dev:renderer\"",
+    "dev:main": "tsc -p tsconfig.main.json --watch",
+    "dev:renderer": "vite",
+    "build": "npm run build:renderer && npm run build:main",
+    "build:renderer": "vite build",
+    "build:main": "tsc -p tsconfig.main.json",
+    "predist": "node -e \"require('fs').rmSync('release',{recursive:true,force:true})\"",
+    "dist": "npm run build && electron-builder",
+    "start": "electron ."
+  },
+  "dependencies": {
+    "electron-store": "^8.1.0",
+    "electron-updater": "^6.8.9",
+    "extract-zip": "^2.0.1",
+    "msmc": "^5.0.5",
+    "node-fetch": "^3.3.2",
+    "progress-stream": "^2.0.0",
+    "skinview3d": "^3.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "autoprefixer": "^10.4.20",
+    "concurrently": "^8.2.0",
+    "electron": "^31.0.0",
+    "electron-builder": "^24.0.0",
+    "framer-motion": "^11.3.0",
+    "lucide-react": "^0.414.0",
+    "postcss": "^8.4.40",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "react-router-dom": "^6.26.0",
+    "tailwindcss": "^3.4.7",
+    "typescript": "^5.5.0",
+    "vite": "^5.4.0",
+    "zustand": "^4.5.0"
+  },
+  "build": {
+    "appId": "dev.crystal.launcher",
+    "productName": "Crystal Launcher",
+    "win": {
+      "target": "nsis",
+      "icon": "src/renderer/assets/icons/crystal.ico"
+    },
+    "extraResources": [
+      {
+        "from": "src/renderer/assets/icons",
+        "to": "icons",
+        "filter": [
+          "*.ico"
+        ]
+      },
+      {
+        "from": "../client/build/libs",
+        "to": "crystal-mod",
+        "filter": [
+          "crystal-client-*.jar",
+          "!crystal-client-*-sources.jar"
+        ]
+      },
+      {
+        "from": "src/main/splash.html",
+        "to": "splash.html"
+      }
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "REPLACE_WITH_GITHUB_OWNER",
+      "repo": "REPLACE_WITH_GITHUB_REPO"
+    },
+    "nsis": {
+      "artifactName": "Crystal-Launcher-Setup-${version}.exe"
+    }
+  }
+}
