@@ -161,7 +161,7 @@ export function Cosmetics() {
     <Page wide>
       <PageHeader
         title="Cosmetics"
-        description="Capes siehst du im Spiel. Alle anderen Teile zeigt vorerst nur diese Vorschau."
+        description="Alles, was du hier ausrüstest, siehst du genau so auch im Spiel. Andere Spieler sehen es nicht."
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-[272px_minmax(0,1fr)] gap-6 items-start">
