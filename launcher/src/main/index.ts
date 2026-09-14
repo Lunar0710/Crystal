@@ -66,6 +66,15 @@ function createMainWindow() {
     show: false,
   })
 
+  // The window only ever shows the launcher's own page. A link dropped onto it
+  // or a stray window.open would otherwise load a foreign site with the
+  // preload bridge (window.crystal) attached.
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    const ownPage = isDev ? url.startsWith('http://localhost:5173') : url.startsWith('file://')
+    if (!ownPage) event.preventDefault()
+  })
+
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173')
     mainWindow.webContents.openDevTools()
