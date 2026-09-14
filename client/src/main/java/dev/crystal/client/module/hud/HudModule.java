@@ -7,6 +7,7 @@ import dev.crystal.client.module.Module;
 import dev.crystal.client.module.ModuleCategory;
 import dev.crystal.client.module.Setting;
 import dev.crystal.client.module.SliderSetting;
+import dev.crystal.client.util.CrystalProfile;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -92,12 +93,27 @@ public abstract class HudModule extends Module implements HudRenderable {
 
     public static final String STYLE_FLAT = "Flat";
     public static final String STYLE_GLASS = "Glass (Crystal+)";
+    public static final String STYLE_NEON = "Neon (Crystal+)";
+    public static final String STYLE_PILL = "Pill (Crystal+)";
 
     private String backgroundStyle = STYLE_FLAT;
+    private boolean chroma = false;
 
-    /** Glass only applies while the player actually has Crystal+; otherwise it quietly draws flat. */
-    public boolean usesGlassStyle() {
-        return STYLE_GLASS.equals(backgroundStyle) && dev.crystal.client.util.CrystalProfile.hasPerks();
+    /** The style actually drawn. Crystal+ styles quietly fall back to flat without the rank. */
+    public String getEffectiveStyle() {
+        if (STYLE_FLAT.equals(backgroundStyle) || !CrystalProfile.hasPerks()) return STYLE_FLAT;
+        return backgroundStyle;
+    }
+
+    /**
+     * Text colour for this frame. Crystal+ chroma cycles the hue, offset by the
+     * module's position so a column of HUD lines reads as a gradient, not a blink.
+     */
+    public int getEffectiveTextColor() {
+        if (!chroma || !CrystalProfile.hasPerks()) return textColor;
+        long period = 4000;
+        float hue = ((System.currentTimeMillis() + (long) (y * 12 + x * 4)) % period) / (float) period;
+        return 0xFF000000 | (java.awt.Color.HSBtoRGB(hue, 0.55f, 1f) & 0x00FFFFFF);
     }
 
     /** Settings unique to this module — merged after the shared ones. Empty by default. */
@@ -116,7 +132,8 @@ public abstract class HudModule extends Module implements HudRenderable {
         all.add(new BooleanSetting("Background", () -> background, v -> background = v, false));
         all.add(new ColorSetting("BG Color", () -> backgroundColor, v -> backgroundColor = v, 0xFF000000));
         all.add(new SliderSetting("BG Opacity", () -> backgroundOpacity, v -> backgroundOpacity = v, 0f, 100f, 5f, 0));
-        all.add(new EnumSetting("BG Style", () -> backgroundStyle, v -> backgroundStyle = v, List.of(STYLE_FLAT, STYLE_GLASS)));
+        all.add(new EnumSetting("BG Style", () -> backgroundStyle, v -> backgroundStyle = v, List.of(STYLE_FLAT, STYLE_GLASS, STYLE_NEON, STYLE_PILL)));
+        all.add(new BooleanSetting("Chroma Text (Crystal+)", () -> chroma, v -> chroma = v, false));
         return all;
     }
 }

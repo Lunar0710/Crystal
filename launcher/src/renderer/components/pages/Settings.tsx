@@ -3,7 +3,9 @@ import { Check, Lock } from 'lucide-react'
 import { notify } from '../../store/notificationStore'
 import { useThemeStore } from '../../store/themeStore'
 import { themes } from '../../theme/themes'
-import { RANKS, RankId, RANK_ORDER, lockLabel, canUseTheme } from '../../data/ranks'
+import { RANKS, RankId, RANK_ORDER, lockLabel, canUseTheme, hasPerks } from '../../data/ranks'
+import { BUILTIN_CAPES } from '../../data/capes'
+import { COSMETICS_BY_SLOT } from '../../data/cosmetics'
 import { RankBadge } from '../ui/RankBadge'
 import { LogoMark, LogoVariantId } from '../../theme/logoVariants'
 import { Page, PageHeader, Section, Field, Switch } from '../ui/Page'
@@ -210,6 +212,8 @@ export function Settings() {
         </Field>
       </Section>
 
+      <CrystalPlusSection unlocked={hasPerks(rank)} />
+
       {rank === 'owner' && <RankManagementSection />}
 
       {canEditIcon && (
@@ -277,6 +281,46 @@ const GRANT_DURATIONS: { label: string; ms: number | undefined }[] = [
   { label: '1 Woche', ms: 7 * 24 * 60 * 60 * 1000 },
   { label: '1 Monat', ms: 30 * 24 * 60 * 60 * 1000 },
 ]
+
+/** What Crystal+ actually unlocks. Counts come from the real data, so the list can't drift from what ships. */
+function CrystalPlusSection({ unlocked }: { unlocked: boolean }) {
+  const plusThemes = themes.filter(t => t.requiredRank === 'crystal_plus').length
+  const plusCapes = BUILTIN_CAPES.filter(c => c.requiredRank === 'crystal_plus').length
+  const plusCosmetics = Object.values(COSMETICS_BY_SLOT).flat().filter(c => c.requiredRank === 'crystal_plus').length
+
+  const perks: { title: string; detail: string }[] = [
+    { title: `${plusThemes} Themes`, detail: 'Für Launcher und Client-Menü.' },
+    { title: `${plusCapes} Capes`, detail: 'Handgezeichnet, im Spiel sichtbar.' },
+    { title: `${plusCosmetics} Cosmetics`, detail: 'Hüte, Masken, Flügel und mehr. Derzeit nur in der Vorschau.' },
+    { title: 'HUD-Stile', detail: 'Glass, Neon und Pill als Hintergrund für jedes HUD-Modul.' },
+    { title: 'Chroma-Text', detail: 'Farbverlauf für HUD-Module, der langsam durchläuft.' },
+    { title: 'Crosshair-Formen', detail: 'Gap Cross, Kreis, X und Klammern, auf Wunsch in Chroma.' },
+    { title: 'Hauptmenü', detail: 'Crystal+-Abzeichen neben deinem Namen und ein Logo mit wechselnder Farbe.' },
+  ]
+
+  return (
+    <Section
+      title="Crystal+"
+      description={unlocked
+        ? 'Alles hier ist für dich freigeschaltet. Die Extras im Spiel stellst du in den Modul-Einstellungen ein (Rechts-Shift).'
+        : 'Crystal+ ist rein kosmetisch. Es gibt keine Vorteile im Spiel gegenüber anderen Spielern.'}
+    >
+      <ul className="divide-y divide-crystal-border">
+        {perks.map(p => (
+          <li key={p.title} className="flex items-start gap-3 px-4 py-2.5">
+            {unlocked
+              ? <Check size={14} className="mt-0.5 shrink-0 text-crystal-accent" />
+              : <Lock size={13} className="mt-0.5 shrink-0 text-crystal-muted" />}
+            <span className="min-w-0">
+              <span className="block text-[13px] text-crystal-text">{p.title}</span>
+              <span className="block text-xs text-crystal-muted">{p.detail}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </Section>
+  )
+}
 
 /**
  * Owner-only. Every action here is re-checked in the main process (see

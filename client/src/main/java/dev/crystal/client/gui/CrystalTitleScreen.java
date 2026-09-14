@@ -2,6 +2,8 @@ package dev.crystal.client.gui;
 
 import dev.crystal.client.CrystalClient;
 import dev.crystal.client.config.ThemeManager;
+import dev.crystal.client.util.ColorUtil;
+import dev.crystal.client.util.CrystalProfile;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
@@ -110,6 +112,14 @@ public class CrystalTitleScreen extends Screen {
 
         String account = client.getSession() != null ? client.getSession().getUsername() : "";
         context.drawText(textRenderer, Text.literal(account), 6, height - 12, GuiRender.withAlpha(0xFFB8BFCC, alpha), true);
+        if (CrystalProfile.hasPerks()) {
+            // Small Crystal+ tag after the name, in the accent colour.
+            String tag = "Crystal+";
+            int tx = 6 + textRenderer.getWidth(account) + 6;
+            int tw = textRenderer.getWidth(tag);
+            GuiRender.roundedRect(context, tx - 3, height - 14, tx + tw + 3, height - 2, GuiRender.withAlpha(accent, Math.round(0x40 * appear)));
+            context.drawText(textRenderer, tag, tx, height - 12, GuiRender.withAlpha(accent, alpha), false);
+        }
         String version = "Crystal " + CrystalClient.VERSION + "  Minecraft 1.21.11";
         context.drawText(textRenderer, Text.literal(version), width - textRenderer.getWidth(version) - 6, height - 12,
                 GuiRender.withAlpha(0xFF8A93A3, alpha), true);
@@ -126,7 +136,9 @@ public class CrystalTitleScreen extends Screen {
         context.getMatrices().translate(lx, ly);
         context.getMatrices().scale(scale, scale);
         // Offset copy in the theme accent gives the logo depth without a texture.
-        context.drawText(textRenderer, logo, 1, 1, GuiRender.withAlpha(accent, Math.round(alpha * 0.85f)), false);
+        // Crystal+ gets a slowly drifting hue instead of the fixed accent.
+        int depth = CrystalProfile.hasPerks() ? ColorUtil.rainbow(0.6f) : accent;
+        context.drawText(textRenderer, logo, 1, 1, GuiRender.withAlpha(depth, Math.round(alpha * 0.85f)), false);
         context.drawText(textRenderer, logo, 0, 0, GuiRender.withAlpha(0xFFFFFFFF, alpha), false);
         context.getMatrices().popMatrix();
 

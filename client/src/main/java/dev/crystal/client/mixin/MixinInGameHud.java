@@ -144,8 +144,50 @@ public class MixinInGameHud {
             return;
         }
 
-        context.fill(cx - size, cy - thickness, cx + size, cy + thickness, color);
-        context.fill(cx - thickness, cy - size, cx + thickness, cy + size, color);
+        switch (module.getShape()) {
+            case Crosshair.SHAPE_GAP -> {
+                int gap = thickness + 2;
+                context.fill(cx - size - gap, cy - thickness, cx - gap, cy + thickness, color);
+                context.fill(cx + gap, cy - thickness, cx + size + gap, cy + thickness, color);
+                context.fill(cx - thickness, cy - size - gap, cx + thickness, cy - gap, color);
+                context.fill(cx - thickness, cy + gap, cx + thickness, cy + size + gap, color);
+            }
+            case Crosshair.SHAPE_CIRCLE -> {
+                // Ring stamped at pixel steps; 1px dot in the middle for aiming.
+                int steps = Math.max(24, size * 8);
+                for (int i = 0; i < steps; i++) {
+                    double a = Math.PI * 2 * i / steps;
+                    int px = cx + (int) Math.round(Math.cos(a) * size);
+                    int py = cy + (int) Math.round(Math.sin(a) * size);
+                    context.fill(px, py, px + thickness, py + thickness, color);
+                }
+                context.fill(cx, cy, cx + 1, cy + 1, color);
+            }
+            case Crosshair.SHAPE_X -> {
+                for (int i = -size; i <= size; i++) {
+                    if (i == 0) continue;
+                    context.fill(cx + i, cy + i, cx + i + thickness, cy + i + thickness, color);
+                    context.fill(cx + i, cy - i, cx + i + thickness, cy - i + thickness, color);
+                }
+            }
+            case Crosshair.SHAPE_BRACKETS -> {
+                int half = Math.max(2, size / 2 + 1);
+                int arm = Math.max(2, size / 2);
+                // [ on the left
+                context.fill(cx - size - thickness, cy - half, cx - size, cy + half, color);
+                context.fill(cx - size, cy - half, cx - size + arm, cy - half + thickness, color);
+                context.fill(cx - size, cy + half - thickness, cx - size + arm, cy + half, color);
+                // ] on the right
+                context.fill(cx + size, cy - half, cx + size + thickness, cy + half, color);
+                context.fill(cx + size - arm, cy - half, cx + size, cy - half + thickness, color);
+                context.fill(cx + size - arm, cy + half - thickness, cx + size, cy + half, color);
+                context.fill(cx, cy, cx + 1, cy + 1, color);
+            }
+            default -> {
+                context.fill(cx - size, cy - thickness, cx + size, cy + thickness, color);
+                context.fill(cx - thickness, cy - size, cx + thickness, cy + size, color);
+            }
+        }
     }
 
     @Inject(

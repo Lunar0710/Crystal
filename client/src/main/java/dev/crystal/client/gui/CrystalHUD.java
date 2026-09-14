@@ -50,18 +50,44 @@ public class CrystalHUD {
         context.getMatrices().scale(scale, scale);
 
         if (module.hasBackground()) {
-            if (module.usesGlassStyle()) {
-                drawGlass(context, -4, -3, textWidth + 4, 11, module.getBackgroundColor());
-            } else {
-                context.fill(-3, -2, textWidth + 3, 10, module.getBackgroundColor());
+            int fill = module.getBackgroundColor();
+            switch (module.getEffectiveStyle()) {
+                case HudModule.STYLE_GLASS -> drawGlass(context, -4, -3, textWidth + 4, 11, fill);
+                case HudModule.STYLE_NEON -> drawNeon(context, -4, -3, textWidth + 4, 11, fill);
+                case HudModule.STYLE_PILL -> drawPill(context, -6, -3, textWidth + 6, 11, fill);
+                default -> context.fill(-3, -2, textWidth + 3, 10, fill);
             }
         }
         if (module.hasShadow()) {
             context.drawText(mc.textRenderer, text, 1, 1, 0x90000000, false);
         }
-        context.drawText(mc.textRenderer, text, 0, 0, module.getTextColor(), false);
+        context.drawText(mc.textRenderer, text, 0, 0, module.getEffectiveTextColor(), false);
 
         context.getMatrices().popMatrix();
+    }
+
+    /** Crystal+ "neon": dark panel, accent outline and a soft accent bloom one pixel outside it. */
+    private void drawNeon(DrawContext context, int x1, int y1, int x2, int y2, int fill) {
+        int accent = dev.crystal.client.CrystalClient.getInstance().getThemeManager().getAccent();
+        GuiRender.roundedOutline(context, x1 - 1, y1 - 1, x2 + 1, y2 + 1, GuiRender.withAlpha(accent, 0x30));
+        GuiRender.roundedRect(context, x1, y1, x2, y2, fill);
+        GuiRender.roundedOutline(context, x1, y1, x2, y2, GuiRender.withAlpha(accent, 0xE0));
+        // Short accent underline, like a lit edge.
+        context.fill(x1 + 3, y2 - 1, x1 + 3 + Math.max(4, (x2 - x1) / 3), y2, GuiRender.withAlpha(accent, 0xFF));
+    }
+
+    /**
+     * Crystal+ "pill": fully rounded ends. roundedRect only cuts single corner
+     * pixels, so the ends are stepped by hand for a height of 14.
+     */
+    private void drawPill(DrawContext context, int x1, int y1, int x2, int y2, int fill) {
+        int h = y2 - y1;
+        int[] inset = {3, 2, 1, 1};
+        for (int row = 0; row < h; row++) {
+            int fromEdge = Math.min(row, h - 1 - row);
+            int in = fromEdge < inset.length ? inset[fromEdge] : 0;
+            context.fill(x1 + in, y1 + row, x2 - in, y1 + row + 1, fill);
+        }
     }
 
     /**
