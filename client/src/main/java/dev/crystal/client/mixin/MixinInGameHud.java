@@ -15,6 +15,7 @@ import net.minecraft.scoreboard.ScoreboardObjective;
 import net.minecraft.text.Text;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -34,6 +35,13 @@ public class MixinInGameHud {
     @Shadow private int titleFadeInTicks;
     @Shadow private int titleStayTicks;
     @Shadow private int titleFadeOutTicks;
+
+    @Unique private List<ScoreboardEntry> crystal$sidebarEntries = List.of();
+    @Unique private String crystal$sidebarTitle = "";
+    @Unique private int crystal$sidebarWidth;
+    @Unique private ScoreboardObjective crystal$sidebarObjective;
+    @Unique private boolean crystal$sidebarShowScores;
+    @Unique private long crystal$sidebarBuiltAt;
 
     @Inject(method = "renderOverlayMessage", at = @At("HEAD"), cancellable = true)
     private void onRenderOverlayMessage(DrawContext context, RenderTickCounter tickCounter, CallbackInfo ci) {
@@ -158,19 +166,37 @@ public class MixinInGameHud {
         InGameHud self = (InGameHud) (Object) this;
         TextRenderer textRenderer = self.getTextRenderer();
 
-        List<ScoreboardEntry> entries = new ArrayList<>(objective.getScoreboard().getScoreboardEntries(objective));
-        entries.removeIf(ScoreboardEntry::hidden);
-        entries.sort(Comparator.comparingInt(ScoreboardEntry::value).reversed());
-        if (entries.size() > 15) entries = entries.subList(0, 15);
+        // Copy, filter, sort and measure the sidebar at most every 50 ms (one
+        // server tick) instead of every frame. On servers with a full
+        // scoreboard that was noticeable garbage at high frame rates.
+        long now = System.currentTimeMillis();
+        boolean showScores = module.isShowScores();
+        if (objective != crystal$sidebarObjective || showScores != crystal$sidebarShowScores || now - crystal$sidebarBuiltAt >= 50) {
+            List<ScoreboardEntry> built = new ArrayList<>(objective.getScoreboard().getScoreboardEntries(objective));
+            built.removeIf(ScoreboardEntry::hidden);
+            built.sort(Comparator.comparingInt(ScoreboardEntry::value).reversed());
+            if (built.size() > 15) built = new ArrayList<>(built.subList(0, 15));
 
-        String title = objective.getDisplayName().getString();
-        int lineHeight = 9;
-        int width = textRenderer.getWidth(title) + 8;
-        for (ScoreboardEntry entry : entries) {
-            int lineWidth = textRenderer.getWidth(entry.name());
-            if (module.isShowScores()) lineWidth += textRenderer.getWidth(" " + entry.value()) + 4;
-            width = Math.max(width, lineWidth + 8);
+            String builtTitle = objective.getDisplayName().getString();
+            int builtWidth = textRenderer.getWidth(builtTitle) + 8;
+            for (ScoreboardEntry entry : built) {
+                int lineWidth = textRenderer.getWidth(entry.name());
+                if (showScores) lineWidth += textRenderer.getWidth(" " + entry.value()) + 4;
+                builtWidth = Math.max(builtWidth, lineWidth + 8);
+            }
+
+            crystal$sidebarEntries = built;
+            crystal$sidebarTitle = builtTitle;
+            crystal$sidebarWidth = builtWidth;
+            crystal$sidebarObjective = objective;
+            crystal$sidebarShowScores = showScores;
+            crystal$sidebarBuiltAt = now;
         }
+
+        List<ScoreboardEntry> entries = crystal$sidebarEntries;
+        String title = crystal$sidebarTitle;
+        int width = crystal$sidebarWidth;
+        int lineHeight = 9;
 
         int screenHeight = context.getScaledWindowHeight();
         int panelHeight = lineHeight * (entries.size() + 1) + 4;

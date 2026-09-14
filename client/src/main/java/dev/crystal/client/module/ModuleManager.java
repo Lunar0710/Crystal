@@ -97,6 +97,7 @@ public class ModuleManager {
         register(new PackDisplay());
         register(new ReplayMod());
         register(new TimeChanger());
+        register(new CustomMainMenu());
 
         // HUD
         register(new FPSDisplay());
@@ -132,7 +133,7 @@ public class ModuleManager {
 
     /**
      * The live list, wrapped once. Wrapping on every call allocated a new
-     * unmodifiable view each frame — the HUD iterates this every frame.
+     * unmodifiable view each frame - the HUD iterates this every frame.
      */
     private final List<Module> modulesView = Collections.unmodifiableList(modules);
 
@@ -155,7 +156,7 @@ public class ModuleManager {
 
     public void handleKeybind(int key) {
         // An unbound module's keybind IS GLFW_KEY_UNKNOWN (-1), and GLFW reports
-        // that same -1 for keys it can't map — which Alt+Tab produces. Without
+        // that same -1 for keys it can't map - which Alt+Tab produces. Without
         // this guard every single unbound module got toggled on the way out of
         // the window and toggled back on the way in.
         if (key == GLFW.GLFW_KEY_UNKNOWN) return;
