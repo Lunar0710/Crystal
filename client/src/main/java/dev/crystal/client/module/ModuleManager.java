@@ -67,6 +67,7 @@ public class ModuleManager {
         register(new Crosshair());
         register(new FogCustomizer());
         register(new PerformanceMode());
+        register(new BackgroundFps());
         register(new CapeFlutter());
         register(new FOVChanger());
         register(new GlintColorizer());

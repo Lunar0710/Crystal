@@ -20,7 +20,8 @@
     "MixinAtmosphericFogModifier",
     "MixinFogRenderer",
     "SimpleOptionAccessor",
-    "MixinPlayerCapeModel"
+    "MixinPlayerCapeModel",
+    "MixinInactivityFpsLimiter"
   ],
   "injectors": {
     "defaultRequire": 1

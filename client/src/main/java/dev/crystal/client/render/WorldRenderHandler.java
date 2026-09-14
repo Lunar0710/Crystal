@@ -26,6 +26,8 @@ import net.minecraft.util.shape.VoxelShape;
 import net.minecraft.util.shape.VoxelShapes;
 import org.joml.Quaternionf;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -100,10 +102,29 @@ public final class WorldRenderHandler {
 
             Box box = entity.getBoundingBox();
             VertexRendering.drawOutline(
-                    context.matrices(), consumer, VoxelShapes.cuboid(box.offset(-box.minX, -box.minY, -box.minZ)),
+                    context.matrices(), consumer, hitboxShape(box.getLengthX(), box.getLengthY(), box.getLengthZ()),
                     box.minX - camera.x, box.minY - camera.y, box.minZ - camera.z,
                     module.colorFor(entity), module.getLineWidth());
         }
+    }
+
+    /**
+     * Hitbox outlines by size. Nearly every entity shares one of a few box sizes,
+     * so reusing the shape avoids building a VoxelShape per entity per frame,
+     * which added up on busy servers. Sizes are keyed at 1/1000 block.
+     */
+    private static final Map<Long, VoxelShape> HITBOX_SHAPES = new HashMap<>();
+
+    private static VoxelShape hitboxShape(double x, double y, double z) {
+        long key = (Math.round(x * 1000) << 42) ^ (Math.round(y * 1000) << 21) ^ Math.round(z * 1000);
+        VoxelShape shape = HITBOX_SHAPES.get(key);
+        if (shape == null) {
+            // Sizes change continuously for a few entities (e.g. growing slimes); keep the cache bounded.
+            if (HITBOX_SHAPES.size() > 256) HITBOX_SHAPES.clear();
+            shape = VoxelShapes.cuboid(0, 0, 0, x, y, z);
+            HITBOX_SHAPES.put(key, shape);
+        }
+        return shape;
     }
 
     private static void drawChunkBorders(WorldRenderContext context, ChunkBorders module) {
@@ -146,7 +167,9 @@ public final class WorldRenderHandler {
         for (Entity entity : mc.world.getEntities()) {
             if (!(entity instanceof TntEntity tnt)) continue;
 
-            String label = String.format("%.1fs", tnt.getFuse() / 20f);
+            // Tenths of a second; String.format per TNT per frame was needlessly heavy.
+            int tenths = tnt.getFuse() / 2;
+            String label = (tenths / 10) + "." + (tenths % 10) + "s";
             int textWidth = textRenderer.getWidth(label);
 
             MatrixStack matrices = context.matrices();
