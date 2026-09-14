@@ -21,6 +21,8 @@
     "MixinFogRenderer",
     "SimpleOptionAccessor",
     "MixinPlayerCapeModel",
+    "MixinPostEffectPass",
+    "GameRendererAccessor",
     "MixinInactivityFpsLimiter"
   ],
   "injectors": {
