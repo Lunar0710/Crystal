@@ -27,31 +27,34 @@ public class MixinClientWorld {
         if (CrystalClient.getInstance() == null) return;
         if (!(((Object) this) instanceof ClientWorld)) return;
 
-        CrystalClient.getInstance().getModuleManager().getModuleByName("TimeChanger")
-                .filter(m -> m.isEnabled())
-                .map(m -> (TimeChanger) m)
-                .ifPresent(module -> cir.setReturnValue(module.getOverrideTicks()));
+        TimeChanger module = CrystalClient.getInstance().getModuleManager().getEnabled(TimeChanger.class);
+        if (module != null) cir.setReturnValue(module.getOverrideTicks());
     }
 
+    // These three are queried constantly (rain rendering, sky, lighting), so
+    // they stay allocation-free: one map probe, no Optional or lambdas.
     @Inject(method = "isRaining", at = @At("RETURN"), cancellable = true)
     private void onIsRaining(CallbackInfoReturnable<Boolean> cir) {
-        weatherOverride().ifPresent(w -> cir.setReturnValue(!w.equals(WeatherChanger.CLEAR)));
+        String w = weatherOverride();
+        if (w != null) cir.setReturnValue(!w.equals(WeatherChanger.CLEAR));
     }
 
     @Inject(method = "isThundering", at = @At("RETURN"), cancellable = true)
     private void onIsThundering(CallbackInfoReturnable<Boolean> cir) {
-        weatherOverride().ifPresent(w -> cir.setReturnValue(w.equals(WeatherChanger.THUNDER)));
+        String w = weatherOverride();
+        if (w != null) cir.setReturnValue(w.equals(WeatherChanger.THUNDER));
     }
 
     @Inject(method = "getRainGradient", at = @At("RETURN"), cancellable = true)
     private void onGetRainGradient(float tickDelta, CallbackInfoReturnable<Float> cir) {
-        weatherOverride().ifPresent(w -> cir.setReturnValue(w.equals(WeatherChanger.CLEAR) ? 0f : 1f));
+        String w = weatherOverride();
+        if (w != null) cir.setReturnValue(w.equals(WeatherChanger.CLEAR) ? 0f : 1f);
     }
 
-    private java.util.Optional<String> weatherOverride() {
-        if (CrystalClient.getInstance() == null || !(((Object) this) instanceof ClientWorld)) return java.util.Optional.empty();
-        return CrystalClient.getInstance().getModuleManager().getModuleByName("WeatherChanger")
-                .filter(m -> m.isEnabled())
-                .map(m -> ((WeatherChanger) m).getWeather());
+    /** The forced weather, or null when WeatherChanger is off or this isn't the client world. */
+    private String weatherOverride() {
+        if (CrystalClient.getInstance() == null || !(((Object) this) instanceof ClientWorld)) return null;
+        WeatherChanger module = CrystalClient.getInstance().getModuleManager().getEnabled(WeatherChanger.class);
+        return module != null ? module.getWeather() : null;
     }
 }

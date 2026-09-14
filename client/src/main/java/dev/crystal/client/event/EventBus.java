@@ -10,7 +10,10 @@ public class EventBus {
 
     @SuppressWarnings("unchecked")
     public <T> void subscribe(Class<T> eventType, Consumer<T> listener) {
-        listeners.computeIfAbsent(eventType, k -> new ArrayList<>())
+        // Copy-on-write: a listener that toggles a module mid-tick (and so
+        // subscribes or unsubscribes) would otherwise throw
+        // ConcurrentModificationException out of post().
+        listeners.computeIfAbsent(eventType, k -> new java.util.concurrent.CopyOnWriteArrayList<>())
                  .add((Consumer<Object>) listener);
     }
 

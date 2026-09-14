@@ -2,6 +2,7 @@ package dev.crystal.client.mixin;
 
 import dev.crystal.client.CrystalClient;
 import dev.crystal.client.module.render.FOVChanger;
+import dev.crystal.client.module.render.NoHurtCam;
 import dev.crystal.client.module.render.Zoom;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.GameRenderer;
@@ -23,10 +24,7 @@ public class MixinGameRenderer {
     private void onTiltViewWhenHurt(MatrixStack matrices, float tickDelta, CallbackInfo ci) {
         if (CrystalClient.getInstance() == null) return;
 
-        boolean enabled = CrystalClient.getInstance().getModuleManager().getModuleByName("NoHurtCam")
-                .filter(m -> m.isEnabled())
-                .isPresent();
-        if (enabled) ci.cancel();
+        if (CrystalClient.getInstance().getModuleManager().getEnabled(NoHurtCam.class) != null) ci.cancel();
     }
 
     @Inject(method = "getFov", at = @At("RETURN"), cancellable = true)
@@ -35,15 +33,10 @@ public class MixinGameRenderer {
 
         float base = cir.getReturnValue();
 
-        FOVChanger fovChanger = CrystalClient.getInstance().getModuleManager().getModuleByName("FOVChanger")
-                .filter(m -> m.isEnabled())
-                .map(m -> (FOVChanger) m)
-                .orElse(null);
+        FOVChanger fovChanger = CrystalClient.getInstance().getModuleManager().getEnabled(FOVChanger.class);
         if (fovChanger != null) base = fovChanger.getFov();
 
-        Zoom zoom = CrystalClient.getInstance().getModuleManager().getModuleByName("Zoom")
-                .map(m -> (Zoom) m)
-                .orElse(null);
+        Zoom zoom = CrystalClient.getInstance().getModuleManager().get(Zoom.class);
         if (zoom != null) {
             float target = zoom.isEnabled() ? (float) (1.0 / zoom.getFactor()) : 1f;
             crystal$zoomMultiplier = zoom.isSmooth()

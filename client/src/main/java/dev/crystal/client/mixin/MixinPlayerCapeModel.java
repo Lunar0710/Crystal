@@ -22,10 +22,7 @@ public class MixinPlayerCapeModel {
     @Inject(method = "setAngles(Lnet/minecraft/client/render/entity/state/PlayerEntityRenderState;)V", at = @At("HEAD"))
     private void crystal$flutter(PlayerEntityRenderState state, CallbackInfo ci) {
         if (CrystalClient.getInstance() == null) return;
-        CapeFlutter flutter = CrystalClient.getInstance().getModuleManager().getModuleByName("CapeFlutter")
-                .filter(m -> m.isEnabled())
-                .map(m -> (CapeFlutter) m)
-                .orElse(null);
+        CapeFlutter flutter = CrystalClient.getInstance().getModuleManager().getEnabled(CapeFlutter.class);
         if (flutter == null || flutter.getStrength() <= 0f) return;
 
         float movement = MathHelper.clamp(state.limbSwingAmplitude, 0f, 1f);

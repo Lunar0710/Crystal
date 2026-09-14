@@ -19,10 +19,7 @@ public class MixinFogRenderer {
     private void onApplyFog(Camera camera, int viewDistance, RenderTickCounter tickCounter, float skyDarkness, ClientWorld world, CallbackInfoReturnable<Vector4f> cir) {
         if (CrystalClient.getInstance() == null) return;
 
-        FogCustomizer module = CrystalClient.getInstance().getModuleManager().getModuleByName("FogCustomizer")
-                .filter(m -> m.isEnabled())
-                .map(m -> (FogCustomizer) m)
-                .orElse(null);
+        FogCustomizer module = CrystalClient.getInstance().getModuleManager().getEnabled(FogCustomizer.class);
         if (module == null || !module.isCustomColor()) return;
 
         int argb = module.getColor();

@@ -57,6 +57,19 @@ public abstract class HudModule extends Module implements HudRenderable {
         return cachedText;
     }
 
+    private String widthFor = null;
+    private int cachedWidth = 0;
+
+    /** Pixel width of the current display text, measured only when the text actually changed. */
+    public final int getDisplayWidth(net.minecraft.client.font.TextRenderer renderer) {
+        String text = cachedText;
+        if (!text.equals(widthFor)) {
+            widthFor = text;
+            cachedWidth = renderer.getWidth(text);
+        }
+        return cachedWidth;
+    }
+
     protected HudModule(String name, String description, int defaultX, int defaultY) {
         super(name, description, ModuleCategory.HUD);
         this.x = defaultX;

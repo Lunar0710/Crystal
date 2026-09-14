@@ -69,8 +69,7 @@ public final class WorldRenderHandler {
     /** The enabled instance of a module, or null when it's off — every draw path starts here. */
     private static <T extends Module> T module(String name, Class<T> type) {
         if (CrystalClient.getInstance() == null) return null;
-        Optional<Module> found = CrystalClient.getInstance().getModuleManager().getModuleByName(name);
-        return found.filter(Module::isEnabled).filter(type::isInstance).map(type::cast).orElse(null);
+        return CrystalClient.getInstance().getModuleManager().getEnabled(type);
     }
 
     private static void drawBlockOutline(WorldRenderContext context, OutlineRenderState state, BlockOutline module) {

@@ -20,10 +20,7 @@ public class MixinAtmosphericFogModifier {
     private void onApplyStartEndModifier(FogData fogData, Camera camera, ClientWorld world, float viewDistance, RenderTickCounter tickCounter, CallbackInfo ci) {
         if (CrystalClient.getInstance() == null) return;
 
-        FogCustomizer module = CrystalClient.getInstance().getModuleManager().getModuleByName("FogCustomizer")
-                .filter(m -> m.isEnabled())
-                .map(m -> (FogCustomizer) m)
-                .orElse(null);
+        FogCustomizer module = CrystalClient.getInstance().getModuleManager().getEnabled(FogCustomizer.class);
         if (module == null) return;
 
         if (module.isDisableFog()) {

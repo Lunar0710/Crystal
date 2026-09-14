@@ -126,8 +126,30 @@ public class ModuleManager {
         register(new ServerAddressDisplay());
     }
 
+    /** Module by its class, for hot paths. Filled once at registration; modules are never replaced. */
+    private final Map<Class<?>, Module> byType = new HashMap<>();
+
+    /**
+     * The module of this type if it is enabled, otherwise null. Allocation-free,
+     * unlike getModuleByName(..).filter(..).map(..), which render and world hooks
+     * called many times per frame (weather and time of day are queried per
+     * rain column and per light update).
+     */
+    @SuppressWarnings("unchecked")
+    public <T extends Module> T getEnabled(Class<T> type) {
+        Module module = byType.get(type);
+        return module != null && module.isEnabled() ? (T) module : null;
+    }
+
+    /** The module of this type whether or not it is enabled. */
+    @SuppressWarnings("unchecked")
+    public <T extends Module> T get(Class<T> type) {
+        return (T) byType.get(type);
+    }
+
     private void register(Module module) {
         modules.add(module);
+        byType.put(module.getClass(), module);
         byName.put(module.getName(), module);
         byName.putIfAbsent(module.getName().toLowerCase(Locale.ROOT), module);
     }

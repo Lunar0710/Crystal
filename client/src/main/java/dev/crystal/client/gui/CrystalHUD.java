@@ -43,7 +43,7 @@ public class CrystalHUD {
         float scale = module.getScale();
         int x = module.getX();
         int y = module.getY();
-        int textWidth = mc.textRenderer.getWidth(text);
+        int textWidth = module.getDisplayWidth(mc.textRenderer);
 
         context.getMatrices().pushMatrix();
         context.getMatrices().translate(x, y);
