@@ -20,6 +20,16 @@ interface StoredAccount {
   xboxCache?: string
 }
 
+/** Expiry (ms) read from a Minecraft access token, which is a JWT; null when it can't be read. */
+function tokenExpiry(token: string): number | null {
+  try {
+    const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8'))
+    return typeof payload.exp === 'number' ? payload.exp * 1000 : null
+  } catch {
+    return null
+  }
+}
+
 export interface RankGrant {
   username: string
   rank: RankId
@@ -179,6 +189,56 @@ export class AuthManager {
     } catch (err) {
       logger.warn('launcher', 'Auto-Login nicht moeglich, Sitzung abgelaufen?', String(err))
       return null
+    }
+  }
+
+  /**
+   * The active profile with a Minecraft token that is still valid, refreshing
+   * it first when needed. Called right before every launch.
+   *
+   * A Minecraft access token lives about 24 hours. The launcher used to pass
+   * the token saved at login straight to the game, so a day later every
+   * multiplayer server rejected the join with "Invalid session" (singleplayer
+   * never checks it, which hid the problem).
+   *
+   * Returns an error string instead when a Microsoft account can't be
+   * refreshed, so the launch stops with a clear message rather than failing
+   * later on the server.
+   */
+  async ensureFreshProfile(): Promise<{ profile: AuthProfile | null; error?: string }> {
+    const profile = this.getStoredProfile()
+    if (!profile || profile.type !== 'microsoft') return { profile }
+
+    // Keep a token with more than 30 minutes left; anything shorter is renewed
+    // so joins early in the session don't hit the expiry.
+    const expiresAt = tokenExpiry(profile.accessToken)
+    if (expiresAt !== null && expiresAt - Date.now() > 30 * 60 * 1000) return { profile }
+
+    const cached = this.store.get('auth.xboxCache') as string | undefined
+    if (!cached) {
+      return { profile: null, error: 'Deine Microsoft-Anmeldung ist abgelaufen. Bitte melde dich neu an.' }
+    }
+
+    try {
+      const xboxToken = await this.auth.refresh(cached)
+      const minecraft = await xboxToken.getMinecraft()
+      if (!minecraft.profile) throw new Error('No Minecraft profile found on this account')
+
+      const fresh: AuthProfile = {
+        username: minecraft.profile.name,
+        uuid: minecraft.profile.id,
+        accessToken: minecraft.mcToken,
+        type: 'microsoft',
+      }
+      this.setActive(fresh, xboxToken.save())
+      logger.info('launcher', `Microsoft-Sitzung für ${fresh.username} erneuert`)
+      return { profile: fresh }
+    } catch (err) {
+      logger.warn('launcher', 'Microsoft-Sitzung konnte nicht erneuert werden', String(err))
+      return {
+        profile: null,
+        error: 'Deine Microsoft-Anmeldung konnte nicht erneuert werden. Prüfe deine Internetverbindung oder melde dich neu an.',
+      }
     }
   }
 
