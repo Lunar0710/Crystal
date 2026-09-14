@@ -9,7 +9,7 @@ import Store from 'electron-store'
 import { AuthProfile } from '../auth/AuthManager'
 import { LaunchPipeline } from './LaunchPipeline'
 import { logger } from '../logs/Logger'
-import { crystalPath } from '../paths'
+import { crystalPath, isPlainFileName } from '../paths'
 import { adoptiumJdk, extractTarGz, javaCandidates, javaInJdk } from './platform'
 
 // Electron/Node 18+ ships a global fetch; not covered by this tsconfig's
@@ -262,8 +262,8 @@ export class MinecraftManager {
       }
 
       const file = versions[0].files.find(f => f.primary) || versions[0].files[0]
-      if (!file) {
-        logger.error('client', 'Fabric-API-Version enthält keine herunterladbare Datei')
+      if (!file || !isPlainFileName(file.filename)) {
+        logger.error('client', 'Fabric-API-Version enthält keine gültige herunterladbare Datei')
         return false
       }
 

@@ -5,7 +5,7 @@ import { createHash } from 'crypto'
 import { InstanceManager, Instance } from './InstanceManager'
 import { JarReader } from '../util/jarReader'
 import { logger } from '../logs/Logger'
-import { crystalPath } from '../paths'
+import { crystalPath, isPlainFileName, resolveInside } from '../paths'
 
 // Electron 31 ships a Node runtime with a native global fetch (Node 18+),
 // but this tsconfig's "lib" is ES2020-only (no DOM), so it isn't typed —
@@ -169,6 +169,7 @@ export class ModrinthService {
     const version = (versionId && versions.find(v => v.id === versionId)) || versions[0]
     const file = version.files.find(f => f.primary) || version.files[0]
     if (!file) return { success: false, error: 'Keine Datei zum Download gefunden' }
+    if (!isPlainFileName(file.filename)) return { success: false, error: 'Ungültiger Dateiname in der Modrinth-Antwort' }
 
     try {
       const res = await fetch(file.url)
@@ -197,6 +198,7 @@ export class ModrinthService {
     versionId: string
     versionNumber: string
   } | null> {
+    if (!isPlainFileName(fileName)) return null
     const filePath = path.join(this.gameDir(instanceId), TARGET_FOLDER[type], fileName)
     if (!fs.existsSync(filePath)) return null
 
@@ -336,6 +338,9 @@ export class ModrinthService {
       const version = await res.json() as ModrinthVersion
       const file = version.files.find(f => f.primary) || version.files[0]
       if (!file) return { success: false, error: 'Diese Version hat keine herunterladbare Datei' }
+      if (!isPlainFileName(file.filename) || !isPlainFileName(fileName)) {
+        return { success: false, error: 'Ungültiger Dateiname' }
+      }
 
       const download = await fetch(file.url)
       if (!download.ok) return { success: false, error: `Download fehlgeschlagen (HTTP ${download.status})` }
@@ -476,7 +481,11 @@ export class ModrinthService {
     for (const entry of index.files) {
       if (entry.env?.client === 'unsupported') continue
 
-      const destination = path.join(gameDir, entry.path)
+      const destination = resolveInside(gameDir, entry.path)
+      if (!destination) {
+        logger.warn('client', `Modpack-Eintrag außerhalb der Instanz übersprungen: ${entry.path}`)
+        continue
+      }
       fs.mkdirSync(path.dirname(destination), { recursive: true })
 
       const downloaded = await this.downloadFirstWorking(entry.downloads)
@@ -526,7 +535,11 @@ export class ModrinthService {
       const relative = name.slice(prefix.length)
       if (!relative) continue
 
-      const destination = path.join(gameDir, relative)
+      const destination = resolveInside(gameDir, relative)
+      if (!destination) {
+        logger.warn('client', `Modpack-Datei außerhalb der Instanz übersprungen: ${name}`)
+        continue
+      }
       const data = pack.read(name)
       if (!data) continue
 
