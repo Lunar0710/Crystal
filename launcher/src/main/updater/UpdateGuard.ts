@@ -97,6 +97,13 @@ export class UpdateGuard {
       return false
     }
 
+    // The automatic rollback reinstalls via the silent NSIS installer, which
+    // only exists on Windows. Elsewhere the user gets the dialog and a normal start.
+    if (process.platform !== 'win32') {
+      logger.warn('updater', `Automatischer Rollback gibt es nur unter Windows (${process.platform})`)
+      return false
+    }
+
     const repoConfig = this.getRepoConfig()
     if (!repoConfig) {
       logger.error('updater', 'Rollback nicht möglich — GitHub-Repo nicht konfiguriert')

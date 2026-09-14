@@ -53,12 +53,35 @@
       "target": "nsis",
       "icon": "src/renderer/assets/icons/crystal.ico"
     },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "category": "public.app-category.games",
+      "artifactName": "Crystal-Launcher-${version}-mac-${arch}.${ext}"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "icon": "build/icon.png",
+      "category": "Game",
+      "artifactName": "Crystal-Launcher-${version}-linux-${arch}.${ext}"
+    },
     "extraResources": [
       {
         "from": "src/renderer/assets/icons",
         "to": "icons",
         "filter": [
-          "*.ico"
+          "*.ico",
+          "*.png"
         ]
       },
       {

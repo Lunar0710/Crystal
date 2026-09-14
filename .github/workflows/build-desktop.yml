@@ -1,0 +1,61 @@
+# Builds the launcher for macOS and Linux. Those installers can't be made on
+# Windows (a .dmg needs macOS), so GitHub's own macOS and Ubuntu machines do it.
+#
+# Started by hand only (Actions tab > "Build macOS + Linux" > Run workflow).
+# The result is attached to the run as downloadable artifacts; nothing is
+# published to a release from here.
+name: Build macOS + Linux
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: --mac
+          - os: ubuntu-latest
+            target: --linux
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Build client mod
+        working-directory: client
+        run: |
+          chmod +x gradlew
+          ./gradlew build --no-daemon
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: launcher/package-lock.json
+
+      - name: Build launcher
+        working-directory: launcher
+        env:
+          # Unsigned macOS build; no Apple Developer certificate is configured.
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: |
+          npm ci
+          npm run build
+          npx electron-builder ${{ matrix.target }} --publish never
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: crystal-launcher-${{ runner.os }}
+          path: |
+            launcher/release/*.dmg
+            launcher/release/*.AppImage
+            launcher/release/*.yml
+          if-no-files-found: error

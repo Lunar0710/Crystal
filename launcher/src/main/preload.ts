@@ -1,6 +1,9 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
 contextBridge.exposeInMainWorld('crystal', {
+  // 'win32' | 'darwin' | 'linux' — the title bar draws macOS traffic-light spacing instead of caption buttons.
+  platform: process.platform,
+
   // Window controls
   minimize:  () => ipcRenderer.invoke('window:minimize'),
   maximize:  () => ipcRenderer.invoke('window:maximize'),

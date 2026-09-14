@@ -50,7 +50,11 @@ function createMainWindow() {
     height: 800,
     minWidth: 1100,
     minHeight: 700,
-    frame: false,
+    // macOS keeps its native traffic lights, inset into our own title bar;
+    // Windows and Linux get a frameless window with the custom caption buttons.
+    ...(process.platform === 'darwin'
+      ? { titleBarStyle: 'hiddenInset' as const, trafficLightPosition: { x: 14, y: 11 } }
+      : { frame: false }),
     transparent: false,
     backgroundColor: '#0d0f14',
     webPreferences: {

@@ -44,7 +44,9 @@ export class BrandingManager {
 
   getIconPath(id?: string): string {
     const variant = ICON_VARIANTS.find(v => v.id === (id || this.getCurrentId())) || ICON_VARIANTS[0]
-    return path.join(iconsDir(), variant.file)
+    // Only Windows reads .ico; macOS and Linux need the PNG twin shipped next to it.
+    const file = process.platform === 'win32' ? variant.file : variant.file.replace(/\.ico$/, '.png')
+    return path.join(iconsDir(), file)
   }
 
   apply(win: BrowserWindow | null, id?: string) {

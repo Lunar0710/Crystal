@@ -7,6 +7,7 @@ import extract from 'extract-zip'
 import { AuthProfile } from '../auth/AuthManager'
 import { logger } from '../logs/Logger'
 import { crystalRoot } from '../paths'
+import { nativesSuffix, platformJvmArgs, rulesAllow, OsRule } from './platform'
 
 // Electron/Node 18+ ships a global fetch; not covered by this tsconfig's
 // ES2020-only lib, so declared locally instead of pulling in a DOM lib.
@@ -32,7 +33,7 @@ export interface LaunchPipelineOptions {
   profile: AuthProfile
 }
 
-interface Rule { action: 'allow' | 'disallow'; os?: { name?: string } }
+type Rule = OsRule
 interface LibraryDownload { path: string; url: string; sha1?: string }
 interface LibraryArtifact {
   downloads?: { artifact?: LibraryDownload; classifiers?: Record<string, LibraryDownload> }
@@ -158,6 +159,7 @@ export class LaunchPipeline {
       '-XX:+UseG1GC', '-XX:+ParallelRefProcEnabled', '-XX:MaxGCPauseMillis=40',
       '-XX:+UnlockExperimentalVMOptions', '-XX:G1NewSizePercent=20', '-XX:G1ReservePercent=20',
       '-XX:G1HeapRegionSize=16M', '-XX:+DisableExplicitGC', '-XX:+PerfDisableSharedMem',
+      ...platformJvmArgs(),
       `-Djava.library.path=${nativesDir}`,
       // Tells the in-game client where the launcher keeps cosmetics/theme files,
       // so a moved data folder doesn't silently break cape and theme sync.
@@ -326,9 +328,10 @@ export class LaunchPipeline {
 
     for (const lib of applicable) {
       // Modern versions ship natives as their own library entries
-      // (name ending in ":natives-windows"); older ones use a classifiers map.
-      const isNative = lib.name?.includes('natives-windows')
-      const classifier = lib.downloads?.classifiers?.['natives-windows']
+      // (name ending in ":natives-windows", ":natives-macos-arm64", ...);
+      // older ones use a classifiers map keyed the same way.
+      const isNative = lib.name?.includes(nativesSuffix())
+      const classifier = lib.downloads?.classifiers?.[nativesSuffix()]
 
       const artifact = lib.downloads?.artifact
       if (artifact?.url && artifact.path) {
@@ -372,14 +375,7 @@ export class LaunchPipeline {
   }
 
   private rulesAllow(rules?: Rule[]): boolean {
-    if (!rules || rules.length === 0) return true
-    let allowed = false
-    for (const rule of rules) {
-      const osMatches = !rule.os?.name || rule.os.name === 'windows'
-      if (rule.action === 'allow' && osMatches) allowed = true
-      if (rule.action === 'disallow' && osMatches) allowed = false
-    }
-    return allowed
+    return rulesAllow(rules)
   }
 
   private async downloadAssets(assetIndexRef: { id: string; url: string }, onProgress: (done: number, total: number) => void) {

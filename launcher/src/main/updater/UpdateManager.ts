@@ -1,5 +1,5 @@
 import { autoUpdater, UpdateDownloadedEvent } from 'electron-updater'
-import { app } from 'electron'
+import { app, shell } from 'electron'
 import Store from 'electron-store'
 import { logger } from '../logs/Logger'
 import { UpdateGuard } from './UpdateGuard'
@@ -46,6 +46,18 @@ export class UpdateManager {
   }
 
   async install(emit: (event: string, data: unknown) => void): Promise<boolean> {
+    // macOS only installs updates into apps signed with an Apple Developer ID,
+    // which Crystal isn't. Rather than fail midway, send the user to the release
+    // page to download the new .dmg themselves.
+    if (process.platform === 'darwin') {
+      const version = this.store.get('updater.candidateVersion') as string | undefined
+      await shell.openExternal(version
+        ? `https://github.com/Lunar0710/Crystal/releases/tag/v${version}`
+        : 'https://github.com/Lunar0710/Crystal/releases/latest')
+      emit('update:error', 'Auf dem Mac wird das Update von Hand installiert. Die Download-Seite ist jetzt offen.')
+      return false
+    }
+
     return new Promise(resolve => {
       autoUpdater.on('download-progress', p => {
         emit('update:progress', { step: 'Downloading update...', percent: Math.round(p.percent) })
