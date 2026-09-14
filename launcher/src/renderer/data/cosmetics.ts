@@ -108,3 +108,18 @@ export function findCosmetic(slot: NonCapeSlot, id: string | null): CosmeticDef 
   if (!id) return null
   return COSMETICS_BY_SLOT[slot].find(c => c.id === id) ?? null
 }
+
+/**
+ * Sends hats, masks, wings… to the in-game client (cosmetics/loadout.json).
+ * Rank-locked items are flagged so the client hides them if the rank runs out.
+ * Called at launcher start and whenever the loadout changes, so equipped items
+ * show in-game without having to open the Cosmetics page first.
+ */
+export function syncLoadoutToGame(loadout: Partial<EquippedCosmetics>) {
+  const items: Record<string, { color: string; secondary?: string; variant?: string; plusOnly: boolean } | null> = {}
+  for (const slot of Object.keys(COSMETICS_BY_SLOT) as NonCapeSlot[]) {
+    const def = findCosmetic(slot, loadout[slot] ?? null)
+    items[slot] = def ? { color: def.color, secondary: def.secondary, variant: def.variant, plusOnly: !!def.requiredRank } : null
+  }
+  ;(window as any).crystal?.syncLoadout(items)
+}

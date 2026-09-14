@@ -11,8 +11,6 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.text.ClickEvent;
 import net.minecraft.text.Text;
 
-import java.awt.*;
-import java.awt.datatransfer.StringSelection;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
@@ -48,8 +46,9 @@ public class ScreenshotUploader extends Module {
     private final Consumer<TickEvent> tickListener = this::onTick;
 
     public ScreenshotUploader() {
-        super("ScreenshotUploader", "Uploads screenshots and copies a shareable link to your clipboard", ModuleCategory.MISC);
-        setEnabled(true);
+        // Off by default: when on, every F2 screenshot goes to a public file host,
+        // which nobody should get without switching it on themselves.
+        super("ScreenshotUploader", "Uploads each screenshot publicly to catbox.moe and copies the link", ModuleCategory.MISC);
     }
 
     @Override
@@ -112,18 +111,21 @@ public class ScreenshotUploader extends Module {
                 String url = response.body().trim();
 
                 if (response.statusCode() == 200 && url.startsWith("https://")) {
-                    if (copyLinkToClipboard) {
-                        Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(url), null);
-                    }
-                    String suffix = copyLinkToClipboard ? " — link copied: " : ": ";
-                    mc.execute(() -> notify(mc, "Screenshot uploaded" + suffix + url));
+                    mc.execute(() -> {
+                        // GLFW's clipboard on the render thread. The AWT clipboard used
+                        // before throws in headless mode (always the case on macOS),
+                        // and that exception was swallowed, so nothing ever showed up.
+                        if (copyLinkToClipboard) mc.keyboard.setClipboard(url);
+                        notify(mc, "Screenshot uploaded" + (copyLinkToClipboard ? ", link copied: " : ": ") + url);
+                    });
                 } else {
                     mc.execute(() -> notify(mc, "Upload failed: " + url));
                 }
-            } catch (IOException | InterruptedException e) {
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } catch (Exception e) {
                 CrystalClient.LOGGER.error("Screenshot upload failed: {}", e.getMessage());
                 mc.execute(() -> notify(mc, "Upload failed: " + e.getMessage()));
-                if (e instanceof InterruptedException) Thread.currentThread().interrupt();
             }
         });
     }

@@ -5,7 +5,7 @@ import { notify } from '../../store/notificationStore'
 import { BUILTIN_CAPES, CAPE_CATEGORIES, CapeCategory, capeTextureUrl, capePreviewUrl } from '../../data/capes'
 import {
   SLOTS, CosmeticSlot, NonCapeSlot, COSMETICS_BY_SLOT, EMPTY_LOADOUT,
-  EquippedCosmetics, findCosmetic,
+  EquippedCosmetics, findCosmetic, syncLoadoutToGame,
 } from '../../data/cosmetics'
 import { SkinPreview3D } from '../ui/SkinPreview3D'
 import { RankId, meetsRank, lockLabel } from '../../data/ranks'
@@ -22,6 +22,7 @@ export function Cosmetics() {
   const [slot, setSlot] = useState<CosmeticSlot>('cape')
   const [capeCategory, setCapeCategory] = useState<CapeCategory | 'mine'>('plus')
   const [loadout, setLoadout] = useState<EquippedCosmetics>(EMPTY_LOADOUT)
+  const [loadoutLoaded, setLoadoutLoaded] = useState(false)
 
   const [customCapes, setCustomCapes] = useState<CustomCape[]>([])
   const [customThumbs, setCustomThumbs] = useState<Record<string, string>>({})
@@ -36,7 +37,10 @@ export function Cosmetics() {
 
   useEffect(() => {
     api?.getRank().then((r: RankId) => { setRank(r); setRankLoaded(true) })
-    api?.getLoadout().then((l: EquippedCosmetics) => l && setLoadout({ ...EMPTY_LOADOUT, ...l }))
+    api?.getLoadout().then((l: EquippedCosmetics) => {
+      if (l) setLoadout({ ...EMPTY_LOADOUT, ...l })
+      setLoadoutLoaded(true)
+    })
     refreshCustom()
 
     // Start on the logged-in player's own skin so the preview isn't empty.
@@ -127,13 +131,10 @@ export function Cosmetics() {
   // the client hides them again if the rank runs out.
   const nonCapeKey = `${loadout.hat}|${loadout.bandana}|${loadout.mask}|${loadout.wings}|${loadout.backpack}|${loadout.aura}`
   useEffect(() => {
-    const items: Record<string, { color: string; secondary?: string; variant?: string; plusOnly: boolean } | null> = {}
-    for (const slot of ['hat', 'bandana', 'mask', 'wings', 'backpack', 'aura'] as const) {
-      const def = findCosmetic(slot, loadout[slot])
-      items[slot] = def ? { color: def.color, secondary: def.secondary, variant: def.variant, plusOnly: !!def.requiredRank } : null
-    }
-    api?.syncLoadout(items)
-  }, [nonCapeKey])
+    // Not before the saved loadout has arrived: syncing the empty initial state
+    // briefly took everything off in a running game each time the page opened.
+    if (loadoutLoaded) syncLoadoutToGame(loadout)
+  }, [nonCapeKey, loadoutLoaded])
 
   // A timed rank can run out while a perk cape is still equipped; take it off
   // then, but only once the real rank has arrived, never on the initial default.

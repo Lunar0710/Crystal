@@ -16,6 +16,14 @@ public class MixinMinecraftClient {
     @Inject(method = "close", at = @At("HEAD"))
     private void onClose(CallbackInfo ci) {
         if (CrystalClient.getInstance() != null) {
+            // Quitting while zoomed must not leave the lowered mouse sensitivity
+            // in options.txt, or come back zoomed on the next start.
+            var zoom = CrystalClient.getInstance().getModuleManager().get(dev.crystal.client.module.render.Zoom.class);
+            if (zoom != null && zoom.isEnabled()) {
+                zoom.setEnabled(false);
+                MinecraftClient mc = (MinecraftClient) (Object) this;
+                if (mc.options != null) mc.options.write();
+            }
             CrystalClient.getInstance().getConfigManager().save();
         }
     }

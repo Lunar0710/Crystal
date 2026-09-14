@@ -33,6 +33,8 @@ public class Zoom extends Module {
     /** Zoom in effect right now; starts at {@link #factor} and follows the wheel. */
     private double currentFactor = factor;
     private double previousSensitivity;
+    /** Whether this zoom lowered the sensitivity, so only a real saved value is ever restored. */
+    private boolean sensitivityLowered = false;
 
     public Zoom() {
         super("Zoom", "Reduces your FOV like a spyglass while enabled; scroll to zoom further", ModuleCategory.RENDER);
@@ -53,23 +55,39 @@ public class Zoom extends Module {
     @Override
     public void onEnable() {
         currentFactor = factor;
-        var options = MinecraftClient.getInstance().options;
-        if (!lowerSensitivity || options == null) return;
-        previousSensitivity = options.getMouseSensitivity().getValue();
         applySensitivity();
     }
 
     @Override
     public void onDisable() {
-        var options = MinecraftClient.getInstance().options;
-        if (!lowerSensitivity || options == null) return;
-        options.getMouseSensitivity().setValue(previousSensitivity);
+        restoreSensitivity();
     }
 
-    /** Aim slows down in step with the zoom, so a far zoom stays controllable. */
+    /** Puts back the sensitivity from before the zoom, if this zoom changed it. */
+    public void restoreSensitivity() {
+        var options = MinecraftClient.getInstance().options;
+        if (!sensitivityLowered || options == null) return;
+        options.getMouseSensitivity().setValue(previousSensitivity);
+        sensitivityLowered = false;
+    }
+
+    /**
+     * Aim slows down in step with the zoom, so a far zoom stays controllable.
+     * The original value is captured the first time only; switching "Lower
+     * Sensitivity" on mid-zoom used to "restore" an uncaptured 0 afterwards and
+     * left the mouse unable to turn.
+     */
     private void applySensitivity() {
         var options = MinecraftClient.getInstance().options;
-        if (!lowerSensitivity || options == null || !isEnabled()) return;
+        if (options == null || !isEnabled()) return;
+        if (!lowerSensitivity) {
+            restoreSensitivity();
+            return;
+        }
+        if (!sensitivityLowered) {
+            previousSensitivity = options.getMouseSensitivity().getValue();
+            sensitivityLowered = true;
+        }
         options.getMouseSensitivity().setValue(Math.max(0.0, previousSensitivity / currentFactor));
     }
 
@@ -82,7 +100,7 @@ public class Zoom extends Module {
         return List.of(
                 new SliderSetting("Factor", () -> (float) factor, v -> factor = v, 1.5f, 10f, 0.5f),
                 new BooleanSetting("Smooth Zoom", () -> smooth, v -> smooth = v, true),
-                new BooleanSetting("Lower Sensitivity", () -> lowerSensitivity, v -> lowerSensitivity = v, true),
+                new BooleanSetting("Lower Sensitivity", () -> lowerSensitivity, v -> { lowerSensitivity = v; applySensitivity(); }, true),
                 new BooleanSetting("Scroll To Zoom", () -> scrollToZoom, v -> scrollToZoom = v, true)
         );
     }
