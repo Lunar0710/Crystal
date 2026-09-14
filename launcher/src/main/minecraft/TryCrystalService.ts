@@ -62,9 +62,10 @@ export class TryCrystalService {
 
     // Without a profile the launch would fail for an unrelated reason and get
     // blamed on Crystal, so bail out before touching anything.
-    const profile = this.auth.getStoredProfile()
+    // Fresh token, same as a normal launch: a stale one breaks multiplayer joins.
+    const { profile, error: sessionError } = await this.auth.ensureFreshProfile()
     if (!profile) {
-      const message = 'Nicht angemeldet. Melde dich zuerst an.'
+      const message = sessionError || 'Nicht angemeldet. Melde dich zuerst an.'
       logger.warn('client', `Try with Crystal abgebrochen: ${message}`)
       return { success: false, reverted: false, message }
     }
