@@ -264,7 +264,13 @@ export function registerIpcHandlers(store: Store) {
   ipcMain.handle('minecraft:getVersions', () => minecraft.fetchAllVersions())
   ipcMain.handle('minecraft:launch', async (_e, opts) => {
     const win = BrowserWindow.getFocusedWindow()
-    const profile = auth.getStoredProfile()
+    // Renews an expired Microsoft token first; a stale one gets every
+    // multiplayer join rejected with "Invalid session".
+    const { profile, error: sessionError } = await auth.ensureFreshProfile()
+    if (sessionError) {
+      win?.webContents.send('launch:error', sessionError)
+      return false
+    }
 
     // A launch never waits on this — an update becomes a dismissible banner
     // (see UpdateBanner.tsx), never a blocker standing between the user and Play.
