@@ -36,7 +36,7 @@ public class ArmorDisplay extends HudModule {
     private boolean colorByDurability = true;
 
     public ArmorDisplay() {
-        super("ArmorDisplay", "Shows your armor and its durability", 4, 64);
+        super("ArmorDisplay", "Shows your armor and its durability", 4, 80);
         setEnabled(true);
     }
 

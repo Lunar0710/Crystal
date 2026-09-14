@@ -5,7 +5,7 @@ import net.minecraft.client.MinecraftClient;
 public class Coordinates extends HudModule {
 
         public Coordinates() {
-        super("Coordinates", "Displays player XYZ position", 4, 28);
+        super("Coordinates", "Displays player XYZ position", 4, 40);
         setEnabled(true);
     }
 

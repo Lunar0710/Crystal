@@ -6,7 +6,7 @@ import net.minecraft.client.network.PlayerListEntry;
 public class PingDisplay extends HudModule {
 
         public PingDisplay() {
-        super("Ping", "Displays current server ping", 4, 40);
+        super("Ping", "Displays current server ping", 4, 52);
         setEnabled(true);
     }
 

@@ -8,7 +8,7 @@ public class CPSDisplay extends HudModule {
 
     private final Deque<Long> clicks = new ArrayDeque<>();
         public CPSDisplay() {
-        super("CPS", "Displays clicks per second", 4, 16);
+        super("CPS", "Displays clicks per second", 4, 28);
         setEnabled(true);
     }
 

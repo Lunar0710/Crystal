@@ -62,6 +62,8 @@ public class CrystalClient implements ClientModInitializer {
         // and re-applying DEFAULT here would stomp right back over it.
         if (!hadSavedConfig) {
             hudPresetManager.apply(HudPreset.DEFAULT);
+        } else {
+            hudPresetManager.moveOffOldDefaults();
         }
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {

@@ -15,7 +15,7 @@ public class DirectionHUD extends HudModule {
         private boolean showDegrees = true;
 
     public DirectionHUD() {
-        super("DirectionHUD", "Displays a compass showing the direction you're facing", 4, 76);
+        super("DirectionHUD", "Displays a compass showing the direction you're facing", 4, 64);
         setEnabled(true);
     }
 
