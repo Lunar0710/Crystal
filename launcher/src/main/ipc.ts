@@ -10,7 +10,7 @@ import { UpdateManager } from './updater/UpdateManager'
 import { AuthManager } from './auth/AuthManager'
 import { RankSyncService } from './auth/RankSyncService'
 import { DiscordPresence } from './discord/DiscordPresence'
-import { syncThemeToClient } from './theme/ThemeSync'
+import { syncThemeToClient, syncProfileToClient } from './theme/ThemeSync'
 import { ExternalClientManager } from './minecraft/ExternalClientManager'
 import { BrandingManager } from './branding/BrandingManager'
 import { ModrinthService } from './minecraft/ModrinthService'
@@ -37,6 +37,11 @@ export function registerIpcHandlers(store: Store) {
   // already in place by the time the UI asks for it.
   rankSync.fetchRemoteGrants()
   rankSync.startAutoRefresh()
+  const syncProfile = () => {
+    try { syncProfileToClient(auth.getRank()) } catch (err) { logger.warn('launcher', 'Rang konnte nicht an den Client übergeben werden', String(err)) }
+  }
+  rankSync.ready().then(syncProfile)
+  setInterval(syncProfile, 3 * 60 * 1000).unref?.()
   const externalClients = new ExternalClientManager(store)
   const branding = new BrandingManager(store)
   const modrinth = new ModrinthService(instances)
@@ -81,14 +86,22 @@ export function registerIpcHandlers(store: Store) {
   ipcMain.handle('auth:getProfile', () => auth.getStoredProfile())
   ipcMain.handle('auth:logout', () => auth.logout())
   ipcMain.handle('auth:listAccounts', () => auth.listAccounts())
-  ipcMain.handle('auth:switchAccount', (_e, uuid: string) => auth.switchAccount(uuid))
-  ipcMain.handle('auth:removeAccount', (_e, uuid: string) => auth.removeAccount(uuid))
+  ipcMain.handle('auth:switchAccount', async (_e, uuid: string) => {
+    const result = await auth.switchAccount(uuid)
+    syncProfile()
+    return result
+  })
+  ipcMain.handle('auth:removeAccount', (_e, uuid: string) => {
+    auth.removeAccount(uuid)
+    syncProfile()
+  })
   // Read-only by design: a rank is something the Crystal team grants, so the
   // renderer can look it up but never assign one to itself.
   // Awaits the startup rank fetch so a first-ever launch reports the published
   // rank straight away instead of "member" until the next restart.
   ipcMain.handle('auth:getRank', async () => {
     await rankSync.ready()
+    syncProfile()
     return auth.getRank()
   })
 

@@ -48,3 +48,20 @@ export function syncThemeToClient(themeId: string) {
   fs.mkdirSync(configDir, { recursive: true })
   fs.writeFileSync(path.join(configDir, 'theme.json'), JSON.stringify(payload, null, 2))
 }
+
+const PERK_RANKS = ['owner', 'co_owner', 'admin', 'staff', 'developer', 'media', 'crystal_plus']
+
+/**
+ * Tells the in-game client which rank the logged-in player has, so Crystal+
+ * perks can unlock there too. Like ranks in general this is cosmetic, not a
+ * security boundary: it only decides which visual extras are offered.
+ */
+export function syncProfileToClient(rank: string) {
+  const configDir = crystalPath('config')
+  fs.mkdirSync(configDir, { recursive: true })
+  const next = JSON.stringify({ rank, perks: PERK_RANKS.includes(rank) }, null, 2)
+  const file = path.join(configDir, 'profile.json')
+  // Only rewrite on change: the client watches the file's timestamp.
+  if (fs.existsSync(file) && fs.readFileSync(file, 'utf8') === next) return
+  fs.writeFileSync(file, next)
+}

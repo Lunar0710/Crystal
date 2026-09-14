@@ -2,11 +2,14 @@ package dev.crystal.client.module.movement;
 
 import dev.crystal.client.CrystalClient;
 import dev.crystal.client.event.events.TickEvent;
+import dev.crystal.client.module.BooleanSetting;
+import dev.crystal.client.module.EnumSetting;
 import dev.crystal.client.module.KeybindSetting;
 import dev.crystal.client.module.Module;
 import dev.crystal.client.module.ModuleCategory;
 import dev.crystal.client.module.Setting;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.option.Perspective;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.util.math.MathHelper;
 import org.lwjgl.glfw.GLFW;
@@ -15,25 +18,36 @@ import java.util.List;
 import java.util.function.Consumer;
 
 /**
- * The actual decoupling happens in {@link dev.crystal.client.mixin.MixinEntity}
- * (redirects mouse deltas here instead of the player's real yaw/pitch while
- * held) and {@link dev.crystal.client.mixin.MixinCamera} (renders from this
- * module's rotation instead of the entity's). This class just holds that
- * rotation and the key that activates it.
+ * Look around your character while it keeps walking where it was facing.
+ *
+ * While active the view switches to third person (like F5) and the mouse
+ * orbits the camera instead of turning the body; releasing the key puts the
+ * perspective back to whatever it was. The mouse redirect lives in
+ * {@link dev.crystal.client.mixin.MixinEntity}, the camera angle in
+ * {@link dev.crystal.client.mixin.MixinCamera}.
  */
 public class Freelook extends Module {
+
+    private static final String VIEW_BACK = "Third Person Back";
+    private static final String VIEW_FRONT = "Third Person Front";
+    private static final String VIEW_FIRST = "First Person";
 
     // Left Alt out of the box, like most clients: an unbound key made the
     // module look broken to anyone who just switched it on.
     private int key = GLFW.GLFW_KEY_LEFT_ALT;
+    private String view = VIEW_BACK;
+    private boolean toggleMode = false;
+
     private boolean active = false;
+    private boolean wasKeyDown = false;
+    private Perspective previousPerspective = null;
     private float cameraYaw;
     private float cameraPitch;
 
     private final Consumer<TickEvent> tickListener = this::onTick;
 
     public Freelook() {
-        super("Freelook", "Hold a key to look around without turning your body", ModuleCategory.MOVEMENT);
+        super("Freelook", "Hold a key to look around your character without turning it", ModuleCategory.MOVEMENT);
         setEnabled(true);
     }
 
@@ -45,23 +59,54 @@ public class Freelook extends Module {
     @Override
     public void onDisable() {
         CrystalClient.getInstance().getEventBus().unsubscribe(TickEvent.class, tickListener);
-        active = false;
+        stop(MinecraftClient.getInstance());
     }
 
     private void onTick(TickEvent event) {
         MinecraftClient mc = event.getClient();
-        if (key == GLFW.GLFW_KEY_UNKNOWN || mc.player == null || mc.currentScreen != null) {
-            active = false;
+        if (key == GLFW.GLFW_KEY_UNKNOWN || mc.player == null || mc.options == null) {
+            stop(mc);
             return;
         }
 
-        boolean held = InputUtil.isKeyPressed(mc.getWindow(), key);
-        if (held && !active) {
-            // Start exactly where the real view currently is, so the switch is invisible.
-            cameraYaw = mc.player.getYaw();
-            cameraPitch = mc.player.getPitch();
+        // Opening a menu mid-freelook ends it, so a key released inside the
+        // menu can't leave the camera stuck in third person.
+        if (mc.currentScreen != null) {
+            stop(mc);
+            wasKeyDown = false;
+            return;
         }
-        active = held;
+
+        boolean down = InputUtil.isKeyPressed(mc.getWindow(), key);
+        boolean shouldBeActive = toggleMode
+                ? (down && !wasKeyDown ? !active : active)
+                : down;
+        wasKeyDown = down;
+
+        if (shouldBeActive && !active) start(mc);
+        else if (!shouldBeActive && active) stop(mc);
+    }
+
+    private void start(MinecraftClient mc) {
+        // Start exactly where the real view is, so the switch doesn't jump.
+        cameraYaw = mc.player.getYaw();
+        cameraPitch = mc.player.getPitch();
+        previousPerspective = mc.options.getPerspective();
+        mc.options.setPerspective(switch (view) {
+            case VIEW_FRONT -> Perspective.THIRD_PERSON_FRONT;
+            case VIEW_FIRST -> Perspective.FIRST_PERSON;
+            default -> Perspective.THIRD_PERSON_BACK;
+        });
+        active = true;
+    }
+
+    private void stop(MinecraftClient mc) {
+        if (!active) return;
+        active = false;
+        if (previousPerspective != null && mc.options != null) {
+            mc.options.setPerspective(previousPerspective);
+        }
+        previousPerspective = null;
     }
 
     public boolean isActive() { return active; }
@@ -69,7 +114,7 @@ public class Freelook extends Module {
     /** Called from {@link dev.crystal.client.mixin.MixinEntity} with the same deltas that would otherwise turn the player's body. */
     public void accumulate(double deltaX, double deltaY) {
         // Same 0.15 factor vanilla applies in Entity.changeLookDirection, so
-        // freelook turns at your normal sensitivity instead of ~6.7x faster.
+        // freelook turns at your normal sensitivity.
         cameraYaw += (float) deltaX * 0.15f;
         cameraPitch = MathHelper.clamp(cameraPitch + (float) deltaY * 0.15f, -90f, 90f);
     }
@@ -79,6 +124,10 @@ public class Freelook extends Module {
 
     @Override
     public List<Setting<?>> getSettings() {
-        return List.of(new KeybindSetting("Freelook Key", () -> key, v -> key = v, GLFW.GLFW_KEY_LEFT_ALT));
+        return List.of(
+                new KeybindSetting("Freelook Key", () -> key, v -> key = v, GLFW.GLFW_KEY_LEFT_ALT),
+                new EnumSetting("View", () -> view, v -> view = v, List.of(VIEW_BACK, VIEW_FRONT, VIEW_FIRST)),
+                new BooleanSetting("Toggle Instead Of Hold", () -> toggleMode, v -> { toggleMode = v; stop(MinecraftClient.getInstance()); }, false)
+        );
     }
 }
