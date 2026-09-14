@@ -50,7 +50,11 @@ public class CrystalHUD {
         context.getMatrices().scale(scale, scale);
 
         if (module.hasBackground()) {
-            context.fill(-3, -2, textWidth + 3, 10, module.getBackgroundColor());
+            if (module.usesGlassStyle()) {
+                drawGlass(context, -4, -3, textWidth + 4, 11, module.getBackgroundColor());
+            } else {
+                context.fill(-3, -2, textWidth + 3, 10, module.getBackgroundColor());
+            }
         }
         if (module.hasShadow()) {
             context.drawText(mc.textRenderer, text, 1, 1, 0x90000000, false);
@@ -58,6 +62,17 @@ public class CrystalHUD {
         context.drawText(mc.textRenderer, text, 0, 0, module.getTextColor(), false);
 
         context.getMatrices().popMatrix();
+    }
+
+    /**
+     * Crystal+ "glass" panel: rounded, a lighter band along the top edge, and
+     * a thin outline in the launcher theme's accent colour.
+     */
+    private void drawGlass(DrawContext context, int x1, int y1, int x2, int y2, int fill) {
+        int accent = dev.crystal.client.CrystalClient.getInstance().getThemeManager().getAccent();
+        GuiRender.roundedRect(context, x1, y1, x2, y2, fill);
+        context.fill(x1 + 2, y1 + 1, x2 - 2, y1 + 2, 0x22FFFFFF);
+        GuiRender.roundedOutline(context, x1, y1, x2, y2, GuiRender.withAlpha(accent, 0x70));
     }
 
     private void drawPlainText(DrawContext context, String text, int x, int y) {

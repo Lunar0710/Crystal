@@ -2,6 +2,7 @@ package dev.crystal.client.module.hud;
 
 import dev.crystal.client.module.BooleanSetting;
 import dev.crystal.client.module.ColorSetting;
+import dev.crystal.client.module.EnumSetting;
 import dev.crystal.client.module.Module;
 import dev.crystal.client.module.ModuleCategory;
 import dev.crystal.client.module.Setting;
@@ -89,6 +90,16 @@ public abstract class HudModule extends Module implements HudRenderable {
         return (alpha << 24) | (backgroundColor & 0x00FFFFFF);
     }
 
+    public static final String STYLE_FLAT = "Flat";
+    public static final String STYLE_GLASS = "Glass (Crystal+)";
+
+    private String backgroundStyle = STYLE_FLAT;
+
+    /** Glass only applies while the player actually has Crystal+; otherwise it quietly draws flat. */
+    public boolean usesGlassStyle() {
+        return STYLE_GLASS.equals(backgroundStyle) && dev.crystal.client.util.CrystalProfile.hasPerks();
+    }
+
     /** Settings unique to this module — merged after the shared ones. Empty by default. */
     protected List<Setting<?>> getExtraSettings() {
         return Collections.emptyList();
@@ -105,6 +116,7 @@ public abstract class HudModule extends Module implements HudRenderable {
         all.add(new BooleanSetting("Background", () -> background, v -> background = v, false));
         all.add(new ColorSetting("BG Color", () -> backgroundColor, v -> backgroundColor = v, 0xFF000000));
         all.add(new SliderSetting("BG Opacity", () -> backgroundOpacity, v -> backgroundOpacity = v, 0f, 100f, 5f, 0));
+        all.add(new EnumSetting("BG Style", () -> backgroundStyle, v -> backgroundStyle = v, List.of(STYLE_FLAT, STYLE_GLASS)));
         return all;
     }
 }

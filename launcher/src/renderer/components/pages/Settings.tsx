@@ -180,7 +180,7 @@ export function Settings() {
         <Field
           label="Discord-Status"
           hint={!discordConfigured
-            ? 'Noch nicht eingerichtet: Crystal braucht dafür eine eigene Discord-Anwendung. Kommt mit einem der nächsten Updates.'
+            ? 'Funktioniert derzeit nicht.'
             : discordConnected
               ? 'Zeigt Freunden auf Discord, dass du Crystal benutzt und welche Instanz läuft.'
               : 'Discord wurde nicht gefunden. Der Status erscheint, sobald Discord läuft.'}
