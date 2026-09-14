@@ -1,11 +1,17 @@
 {
-  "updatedAt": 1789393936439,
+  "updatedAt": 1789393968197,
   "grants": {
     "benstpro": {
       "username": "benstpro",
       "rank": "co_owner",
       "grantedAt": 1789393936134,
       "expiresAt": 1791985936134
+    },
+    "_bnja": {
+      "username": "_BNJA",
+      "rank": "co_owner",
+      "grantedAt": 1789393967898,
+      "expiresAt": 1791985967898
     }
   }
 }
