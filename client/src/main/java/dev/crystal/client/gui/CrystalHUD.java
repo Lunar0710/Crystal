@@ -24,13 +24,17 @@ public class CrystalHUD {
     }
 
     public void render(DrawContext context, float tickDelta) {
-        moduleManager.getModules().forEach(module -> {
-            if (!module.isEnabled()) return;
+        for (dev.crystal.client.module.Module module : moduleManager.getModules()) {
+            if (module.isEnabled()) drawModule(context, module);
+        }
+    }
 
-            // Keystrokes draws a key grid rather than a text line, so it's
-            // special-cased; everything else styled through HudModule gets the
-            // same treatment automatically, so adding a HUD module never
-            // requires touching this class.
+    /**
+     * Draws one module at its own position. Keystrokes, the icon Armor HUD and
+     * the warnings have their own drawing; everything else styled through
+     * HudModule gets the same treatment, so a new HUD module needs nothing here.
+     */
+    public void drawModule(DrawContext context, dev.crystal.client.module.Module module) {
             if (module instanceof Keystrokes keys) {
                 drawKeystrokes(context, keys);
             } else if (module instanceof ArmorDisplay armor && armor.isIconStyle()) {
@@ -44,7 +48,65 @@ public class CrystalHUD {
             } else if (module instanceof HudRenderable renderable) {
                 drawPlainText(context, renderable.getText(), renderable.getX(), renderable.getY());
             }
-        });
+    }
+
+    /**
+     * Screen rectangle {x1, y1, x2, y2} a HUD module occupies, including its
+     * background padding and scale. Used by the HUD editor for hit testing and
+     * outlines. Elements that currently show nothing get a small stand-in box
+     * so they can still be grabbed.
+     */
+    public int[] bounds(HudModule module) {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        int x = module.getX(), y = module.getY();
+        if (module instanceof Keystrokes keys) {
+            int size = keys.getKeySize(), gap = 2;
+            int w = 3 * size + 2 * gap;
+            int h = 2 * size + gap;
+            if (keys.isShowClicks()) {
+                w = Math.max(w, 3 * (size + 10) + 2 * gap);
+                h += size + gap;
+            }
+            return new int[]{x, y, x + w, y + h};
+        }
+        float s = module.getScale();
+        if (module instanceof ArmorDisplay armor && armor.isIconStyle()) {
+            int[] size = armorSize(armor);
+            return new int[]{x - Math.round(3 * s), y - Math.round(3 * s), x + Math.round((size[0] + 3) * s), y + Math.round((size[1] + 3) * s)};
+        }
+        String text = module.getDisplayText();
+        int w = text == null || text.isEmpty() ? 40 : module.getDisplayWidth(mc.textRenderer);
+        return new int[]{x - Math.round(4 * s), y - Math.round(3 * s), x + Math.round((w + 4) * s), y + Math.round(11 * s)};
+    }
+
+    /** Unscaled {width, height} of the icon Armor HUD; a stand-in size when nothing is worn. */
+    private int[] armorSize(ArmorDisplay module) {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        List<ItemStack> stacks = module.getShownStacks();
+        int count = Math.max(1, stacks.size());
+        int labelWidth = stacks.isEmpty() ? 24 : 0;
+        for (ItemStack stack : stacks) labelWidth = Math.max(labelWidth, mc.textRenderer.getWidth(module.labelFor(stack)));
+        int cellW = 16 + (labelWidth > 0 ? 3 + labelWidth : 0);
+        int w = module.isHorizontal() ? count * cellW + (count - 1) * 6 : cellW;
+        int h = module.isHorizontal() ? 16 : count * 16 + (count - 1) * 2;
+        return new int[]{w, h};
+    }
+
+    /**
+     * Draws a HUD module centred in a box (the menu's live preview), by moving it
+     * there for this one draw and putting it straight back.
+     */
+    public void drawCentered(DrawContext context, HudModule module, int boxX1, int boxY1, int boxX2, int boxY2) {
+        int oldX = module.getX(), oldY = module.getY();
+        module.setPosition(0, 0);
+        int[] b = bounds(module);
+        int w = b[2] - b[0], h = b[3] - b[1];
+        module.setPosition((boxX1 + boxX2) / 2 - w / 2 - b[0], (boxY1 + boxY2) / 2 - h / 2 - b[1]);
+        try {
+            drawModule(context, module);
+        } finally {
+            module.setPosition(oldX, oldY);
+        }
     }
 
     /**

@@ -97,6 +97,8 @@ public abstract class HudModule extends Module implements HudRenderable {
     public boolean hasShadow() { return shadow; }
     public boolean hasBackground() { return background; }
     public float getScale() { return scale; }
+    /** Same range as the Scale slider (0.5 - 2). */
+    public void setScale(float value) { this.scale = Math.max(0.5f, Math.min(2f, Math.round(value * 10f) / 10f)); }
 
     /** Background colour with the opacity slider already applied. */
     public int getBackgroundColor() {

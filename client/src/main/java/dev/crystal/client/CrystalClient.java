@@ -149,6 +149,10 @@ public class CrystalClient implements ClientModInitializer {
         return hudPresetManager;
     }
 
+    public CrystalHUD getHud() {
+        return hud;
+    }
+
     public EventBus getEventBus() {
         return eventBus;
     }
