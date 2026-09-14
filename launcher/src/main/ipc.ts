@@ -277,10 +277,22 @@ export function registerIpcHandlers(store: Store) {
     const instanceName = instances.get(opts.instanceId)?.name || 'Minecraft'
     discord.playing(instanceName, opts.version)
 
+    // Minimised windows are throttled by Chromium, which leaves more CPU/GPU for
+    // the game. Only a window we minimised gets brought back afterwards.
+    let minimizedByLaunch = false
     return minecraft.launch({ ...opts, profile }, (event, data) => {
+      if (event === 'launch:started' && win && store.get('minimizeOnLaunch') !== false && !win.isMinimized()) {
+        win.minimize()
+        minimizedByLaunch = true
+      }
       // Back to the idle line once the game is gone, however it ended.
-      if (event === 'launch:exit' || event === 'launch:error') discord.idle()
-      win?.webContents.send(event, data)
+      if (event === 'launch:exit' || event === 'launch:error') {
+        discord.idle()
+        // After a crash this also puts the auto-fix panel in front of the user.
+        if (minimizedByLaunch && win && !win.isDestroyed() && win.isMinimized()) win.restore()
+        minimizedByLaunch = false
+      }
+      if (win && !win.isDestroyed()) win.webContents.send(event, data)
     })
   })
   ipcMain.handle('minecraft:selectDir', async () => {

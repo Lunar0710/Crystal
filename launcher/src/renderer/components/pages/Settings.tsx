@@ -25,8 +25,10 @@ export function Settings() {
   const [versions, setVersions] = useState<{ launcher?: string; client?: string | null }>({})
   const [dataRoot, setDataRoot] = useState<{ current?: string; default?: string }>({})
   const [systemMb, setSystemMb] = useState<number | null>(null)
+  const [minimizeOnLaunch, setMinimizeOnLaunch] = useState(true)
 
   useEffect(() => {
+    api?.getSetting('minimizeOnLaunch').then((v: boolean | undefined) => setMinimizeOnLaunch(v !== false))
     api?.getDataRoot().then((r: { current: string; default: string }) => r && setDataRoot(r))
     api?.getVersionInfo().then((v: { launcher: string; client: string | null }) => v && setVersions(v))
     api?.isDiscordEnabled().then((v: boolean) => setDiscordEnabled(!!v))
@@ -147,6 +149,17 @@ export function Settings() {
               {(maxRam / 1024).toLocaleString('de-DE', { maximumFractionDigits: 1 })} GB
             </span>
           </div>
+        </Field>
+
+        <Field
+          label="Launcher beim Spielstart minimieren"
+          hint="Der Launcher braucht im Hintergrund kaum Leistung. Das hilft vor allem auf schwächeren PCs. Nach dem Spiel kommt er wieder nach vorne."
+        >
+          <Switch
+            checked={minimizeOnLaunch}
+            onChange={v => { setMinimizeOnLaunch(v); api?.setSetting('minimizeOnLaunch', v) }}
+            label="Launcher beim Spielstart minimieren"
+          />
         </Field>
 
         <Field
