@@ -93,6 +93,7 @@ contextBridge.exposeInMainWorld('crystal', {
   getLoadout:  () => ipcRenderer.invoke('cosmetics:getLoadout'),
   setLoadout:  (loadout: unknown) => ipcRenderer.invoke('cosmetics:setLoadout', loadout),
   syncEquippedCape: (dataUrl: string | null) => ipcRenderer.invoke('cosmetics:syncCape', dataUrl),
+  syncLoadout: (items: unknown) => ipcRenderer.invoke('cosmetics:syncLoadout', items),
 
   // Cosmetics / capes
   listCustomCapes: () => ipcRenderer.invoke('capes:listCustom'),

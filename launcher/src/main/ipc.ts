@@ -414,6 +414,35 @@ export function registerIpcHandlers(store: Store) {
   ipcMain.handle('capes:getSelected', () => capes.getSelected())
   ipcMain.handle('capes:setSelected', (_e, id: string) => capes.setSelected(id))
 
+  // Hats, masks, wings… for the in-game client (CosmeticLoadout.java). Only the
+  // fields the Java renderer needs, and only content-changing writes, since the
+  // client re-reads the file whenever its modification time changes.
+  ipcMain.handle('cosmetics:syncLoadout', (_e, items: Record<string, { color: string; secondary?: string; variant?: string; plusOnly?: boolean } | null>) => {
+    const dir = crystalPath('cosmetics')
+    fs.mkdirSync(dir, { recursive: true })
+    const target = path.join(dir, 'loadout.json')
+    const clean: Record<string, unknown> = {}
+    for (const slot of ['hat', 'bandana', 'mask', 'wings', 'backpack', 'aura']) {
+      const item = items?.[slot]
+      if (!item || !/^#[0-9a-fA-F]{6}$/.test(item.color)) continue
+      clean[slot] = {
+        color: item.color,
+        secondary: item.secondary && /^#[0-9a-fA-F]{6}$/.test(item.secondary) ? item.secondary : null,
+        variant: typeof item.variant === 'string' ? item.variant : null,
+        plusOnly: !!item.plusOnly,
+      }
+    }
+    const json = JSON.stringify(clean, null, 2)
+    try {
+      if (fs.existsSync(target) && fs.readFileSync(target, 'utf8') === json) return true
+      fs.writeFileSync(target, json)
+      return true
+    } catch (err) {
+      logger.warn('launcher', 'Cosmetics-Loadout konnte nicht geschrieben werden', String(err))
+      return false
+    }
+  })
+
   // Pushes whichever cape is actually equipped (as a real PNG) to a fixed path
   // the Java client reads — capes.ts's built-in designs only ever exist as
   // canvas data URLs inside the renderer, so this is the one place they

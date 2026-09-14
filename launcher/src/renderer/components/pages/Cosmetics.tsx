@@ -122,6 +122,19 @@ export function Cosmetics() {
     api?.syncEquippedCape(equippedCapeUrl)
   }, [equippedCapeUrl])
 
+  // Hats, masks, wings… reach the game the same way: the resolved colours and
+  // shapes go to a file the Java client reads. Rank-locked items are flagged so
+  // the client hides them again if the rank runs out.
+  const nonCapeKey = `${loadout.hat}|${loadout.bandana}|${loadout.mask}|${loadout.wings}|${loadout.backpack}|${loadout.aura}`
+  useEffect(() => {
+    const items: Record<string, { color: string; secondary?: string; variant?: string; plusOnly: boolean } | null> = {}
+    for (const slot of ['hat', 'bandana', 'mask', 'wings', 'backpack', 'aura'] as const) {
+      const def = findCosmetic(slot, loadout[slot])
+      items[slot] = def ? { color: def.color, secondary: def.secondary, variant: def.variant, plusOnly: !!def.requiredRank } : null
+    }
+    api?.syncLoadout(items)
+  }, [nonCapeKey])
+
   // A timed rank can run out while a perk cape is still equipped; take it off
   // then, but only once the real rank has arrived, never on the initial default.
   useEffect(() => {
@@ -290,7 +303,7 @@ export function Cosmetics() {
           ) : (
             <>
               <p className="text-xs text-crystal-muted mb-3">
-                Nur in der Vorschau sichtbar. Im Spiel wird dieser Slot noch nicht angezeigt.
+                Wird im Spiel an deinem Spieler angezeigt, in vereinfachter Block-Form. Wie beim Cape siehst nur du es.
               </p>
               <TileGrid>
                 {COSMETICS_BY_SLOT[slot as NonCapeSlot].map(item => {

@@ -75,6 +75,9 @@ public class CrystalClient implements ClientModInitializer {
         // Block outline, hitboxes and chunk borders draw in world space.
         dev.crystal.client.render.WorldRenderHandler.register();
 
+        // Hats, masks, wings etc. from the launcher's Cosmetics page, on the player model.
+        registerCosmeticsRenderer();
+
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
             dispatcher.register(ClientCommandManager.literal("crystalskin")
                     .then(ClientCommandManager.argument("username", word())
@@ -108,6 +111,17 @@ public class CrystalClient implements ClientModInitializer {
         });
 
         LOGGER.info("[{}] {} loaded successfully!", MOD_ID, NAME);
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static void registerCosmeticsRenderer() {
+        net.fabricmc.fabric.api.client.rendering.v1.LivingEntityFeatureRendererRegistrationCallback.EVENT.register(
+                (entityType, renderer, helper, context) -> {
+                    if (renderer instanceof net.minecraft.client.render.entity.PlayerEntityRenderer<?> player) {
+                        helper.register(new dev.crystal.client.render.CosmeticsFeatureRenderer(
+                                (net.minecraft.client.render.entity.feature.FeatureRendererContext) player));
+                    }
+                });
     }
 
     public static CrystalClient getInstance() {

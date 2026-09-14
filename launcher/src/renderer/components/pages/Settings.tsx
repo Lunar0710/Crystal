@@ -291,7 +291,7 @@ function CrystalPlusSection({ unlocked }: { unlocked: boolean }) {
   const perks: { title: string; detail: string }[] = [
     { title: `${plusThemes} Themes`, detail: 'Für Launcher und Client-Menü.' },
     { title: `${plusCapes} Capes`, detail: 'Handgezeichnet, im Spiel sichtbar.' },
-    { title: `${plusCosmetics} Cosmetics`, detail: 'Hüte, Masken, Flügel und mehr. Derzeit nur in der Vorschau.' },
+    { title: `${plusCosmetics} Cosmetics`, detail: 'Hüte, Masken, Flügel und mehr, auch im Spiel.' },
     { title: 'HUD-Stile', detail: 'Glass, Neon und Pill als Hintergrund für jedes HUD-Modul.' },
     { title: 'Chroma-Text', detail: 'Farbverlauf für HUD-Module, der langsam durchläuft.' },
     { title: 'Crosshair-Formen', detail: 'Gap Cross, Kreis, X und Klammern, auf Wunsch in Chroma.' },
