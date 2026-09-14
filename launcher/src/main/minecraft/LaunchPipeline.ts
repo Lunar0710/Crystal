@@ -31,6 +31,9 @@ export interface LaunchPipelineOptions {
   javaPath: string
   maxRam: number
   profile: AuthProfile
+  /** Test runs only (scripts/smoke-world.cjs); a normal launch never sets these. */
+  extraJvmArgs?: string[]
+  extraGameArgs?: string[]
 }
 
 type Rule = OsRule
@@ -164,10 +167,11 @@ export class LaunchPipeline {
       // Tells the in-game client where the launcher keeps cosmetics/theme files,
       // so a moved data folder doesn't silently break cape and theme sync.
       `-Dcrystal.root=${crystalRoot()}`,
+      ...(opts.extraJvmArgs ?? []),
       '-cp', classpath,
     ]
 
-    const gameArgs = this.buildGameArgs(versionJson, opts)
+    const gameArgs = [...this.buildGameArgs(versionJson, opts), ...(opts.extraGameArgs ?? [])]
 
     const logPath = path.join(opts.gameDir, 'crystal-launch.log')
     const logStream = fs.createWriteStream(logPath, { flags: 'w' })

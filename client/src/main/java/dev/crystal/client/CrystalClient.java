@@ -78,6 +78,9 @@ public class CrystalClient implements ClientModInitializer {
         // Hats, masks, wings etc. from the launcher's Cosmetics page, on the player model.
         registerCosmeticsRenderer();
 
+        // No-op unless started by the launcher's automated world test.
+        dev.crystal.client.util.SmokeTest.registerIfRequested();
+
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
             dispatcher.register(ClientCommandManager.literal("crystalskin")
                     .then(ClientCommandManager.argument("username", word())

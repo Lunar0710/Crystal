@@ -63,6 +63,30 @@ jobs:
             node scripts/smoke-launch.cjs
           fi
 
+      # Joins a generated test world with Crystal's test settings (colour
+      # grading, armor HUD, cosmetics) and saves a screenshot to look at.
+      - name: Play a test world and take a screenshot
+        working-directory: launcher
+        env:
+          CRYSTAL_SMOKE_ROOT: ${{ runner.temp }}/crystal-world
+        run: |
+          mkdir -p "$CRYSTAL_SMOKE_ROOT"
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            xvfb-run -a -s "-screen 0 1280x720x24" node scripts/smoke-world.cjs
+          else
+            node scripts/smoke-world.cjs
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: world-test-${{ matrix.os }}
+          path: |
+            ${{ runner.temp }}/crystal-world/instances/smoke-world/screenshots/
+            ${{ runner.temp }}/crystal-world/instances/smoke-world/crystal-launch.log
+            ${{ runner.temp }}/crystal-world/instances/smoke-world/crash-reports/
+          if-no-files-found: ignore
+
   build:
     strategy:
       fail-fast: false

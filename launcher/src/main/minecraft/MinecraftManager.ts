@@ -37,6 +37,9 @@ export interface LaunchOptions {
   // instance's mods folder before launching. false = plain "Vanilla + Mods"
   // launch using only whatever the user installed themselves (Modrinth/manual).
   injectCrystal?: boolean
+  /** Test runs only, see LaunchPipelineOptions. */
+  extraJvmArgs?: string[]
+  extraGameArgs?: string[]
 }
 
 export interface VersionInfo {
@@ -167,6 +170,8 @@ export class MinecraftManager {
         javaPath,
         maxRam: opts.maxRam,
         profile: opts.profile,
+        extraJvmArgs: opts.extraJvmArgs,
+        extraGameArgs: opts.extraGameArgs,
       }, emit)
     } catch (err) {
       emit('launch:error', err instanceof Error ? err.message : 'Unbekannter Fehler beim Starten')
