@@ -182,7 +182,9 @@ export class LaunchPipeline {
       `# loader:    ${opts.loader}\n` +
       `# mainClass: ${mainClass}\n` +
       `# gameDir:   ${opts.gameDir}\n` +
-      `# jvmArgs:   ${jvmArgs.filter(a => a !== '-cp' && !a.includes(path.delimiter)).join(' ')}\n` +
+      // Everything except the long classpath. Filtering by path.delimiter instead
+      // hid every "-XX:..." flag on macOS/Linux, where the delimiter is ':'.
+      `# jvmArgs:   ${jvmArgs.filter(a => a !== '-cp' && a !== classpath).join(' ')}\n` +
       `# classpath: ${libPaths.length + 1} entries\n\n`
     logStream.write(header)
 

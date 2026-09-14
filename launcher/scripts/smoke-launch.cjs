@@ -35,16 +35,21 @@ const { MinecraftManager } = require(path.join(launcherRoot, 'dist/main/minecraf
 
 const SUCCESS = [/Created: \d+x\d+x\d+ minecraft:textures\/atlas\/blocks/]
 const FAILURE = [/MixinApplyError/, /InvalidInjectionException/, /Mixin transformation of .* failed/, /Exception in thread "main"/, /Crash report saved/, /Incompatible mods found/]
-const TIMEOUT_MS = 12 * 60 * 1000
+// Counted from the game process start; asset downloads before that can take minutes on CI.
+const GAME_TIMEOUT_MS = 8 * 60 * 1000
+const TOTAL_TIMEOUT_MS = 30 * 60 * 1000
+const { prepareOptions, threadDump } = require('./smoke-common.cjs')
 
 const gameDir = path.join(dataRoot, 'instances', 'smoke')
 fs.mkdirSync(path.join(gameDir, 'mods'), { recursive: true })
+prepareOptions(gameDir)
 
 const store = new Store({ cwd: dataRoot, name: 'smoke-store' })
 const manager = new MinecraftManager(store)
 const profile = { username: 'CrystalSmoke', uuid: '00196142-0019-3019-8001-00196142c1a5', accessToken: 'offline', type: 'offline' }
 
 let pid = null
+let gameStartedAt = null
 let lastProgress = ''
 const finish = (code, message) => {
   console.log(message)
@@ -56,7 +61,7 @@ console.log(`platform=${process.platform} arch=${process.arch} dataRoot=${dataRo
 manager.launch(
   { version: '1.21.11', instanceId: 'smoke', gameDir, username: profile.username, profile, maxRam: 2048, loader: 'fabric', injectCrystal: true },
   (event, data) => {
-    if (event === 'launch:started') { pid = data.pid; console.log('[started] pid', pid) }
+    if (event === 'launch:started') { pid = data.pid; gameStartedAt = Date.now(); console.log('[started] pid', pid) }
     else if (event === 'launch:progress' && data.step !== lastProgress) { lastProgress = data.step; console.log('[progress]', data.step) }
     else if (event === 'launch:error') console.log('[launch:error]', String(data).slice(0, 3000))
   },
@@ -77,8 +82,8 @@ const timer = setInterval(() => {
     const header = text.split('\n').filter(l => l.startsWith('#')).join('\n')
     return finish(0, `PASS: Minecraft + Crystal loaded on ${process.platform}/${process.arch}\n${header}\nCrystal loaded: ${/Crystal Client loaded successfully/.test(text)}`)
   }
-  if (Date.now() - started > TIMEOUT_MS) {
+  if ((gameStartedAt && Date.now() - gameStartedAt > GAME_TIMEOUT_MS) || Date.now() - started > TOTAL_TIMEOUT_MS) {
     clearInterval(timer)
-    finish(1, `FAIL: timeout\n${text.slice(-4000)}`)
+    finish(1, `FAIL: timeout\n${text.slice(-4000)}\n--- thread dump ---\n${threadDump(gameDir, pid)}`)
   }
 }, 2000)

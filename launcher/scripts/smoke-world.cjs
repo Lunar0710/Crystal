@@ -36,6 +36,7 @@ const Store = require(path.join(launcherRoot, 'node_modules/electron-store'))
 const { MinecraftManager } = require(path.join(launcherRoot, 'dist/main/minecraft/MinecraftManager.js'))
 
 const log = (...a) => console.log('[smoke-world]', ...a)
+const { prepareOptions, threadDump } = require('./smoke-common.cjs')
 
 function findJava21() {
   for (const candidate of platform.javaCandidates()) {
@@ -108,6 +109,7 @@ function writeTestSettings(gameDir) {
   fs.mkdirSync(path.dirname(saveDir), { recursive: true })
   fs.cpSync(worldDir, saveDir, { recursive: true })
   writeTestSettings(gameDir)
+  prepareOptions(gameDir)
 
   const shotName = 'crystal-smoke.png'
   fs.rmSync(path.join(gameDir, 'screenshots', shotName), { force: true })
@@ -133,7 +135,12 @@ function writeTestSettings(gameDir) {
     const timer = setInterval(() => {
       const text = fs.existsSync(logPath) ? fs.readFileSync(logPath, 'utf8') : ''
       if (/CRYSTAL_SMOKE_WORLD_DONE/.test(text) || /Crash report saved/.test(text)) { clearInterval(timer); resolve() }
-      else if (Date.now() - started > 8 * 60 * 1000) { clearInterval(timer); reject(new Error('timeout waiting for world test')) }
+      else if (Date.now() - started > 8 * 60 * 1000) {
+        clearInterval(timer)
+        const dump = threadDump(gameDir, pid)
+        if (pid) { try { process.kill(pid) } catch {} }
+        reject(new Error(`timeout waiting for world test\n${text.slice(-3000)}\n--- thread dump ---\n${dump}`))
+      }
     }, 2000)
   })
   await new Promise(r => setTimeout(r, 4000))
