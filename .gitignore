@@ -25,3 +25,7 @@ Thumbs.db
 # Env / local config
 .env
 .env.local
+
+# Installers belong on GitHub Releases, not in the repo
+*.exe
+*.blockmap
