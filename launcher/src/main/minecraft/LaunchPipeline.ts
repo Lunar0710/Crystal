@@ -149,7 +149,9 @@ export class LaunchPipeline {
 
     const classpath = [clientJarPath, ...libPaths, ...extraClasspathJars].join(path.delimiter)
     const jvmArgs = [
-      `-Xmx${opts.maxRam}M`, `-Xms${Math.min(opts.maxRam, 1024)}M`,
+      // Start with half the heap (1-4 GB). High render distances load chunks
+      // faster than a small heap can grow, and every resize step is a GC pause.
+      `-Xmx${opts.maxRam}M`, `-Xms${Math.min(opts.maxRam, Math.max(1024, Math.min(4096, Math.floor(opts.maxRam / 2))))}M`,
       // Tuned for smooth frames rather than raw throughput: the old 200 ms
       // pause target let the collector freeze the game for visible stutters.
       // A short target with a larger young generation spreads that work out.
