@@ -1,7 +1,12 @@
 package dev.crystal.client.gui;
 
 import dev.crystal.client.module.ModuleManager;
+import dev.crystal.client.module.hud.ArmorDisplay;
 import dev.crystal.client.module.hud.HudModule;
+import dev.crystal.client.util.ColorUtil;
+import net.minecraft.item.ItemStack;
+
+import java.util.List;
 import dev.crystal.client.module.hud.HudRenderable;
 import dev.crystal.client.module.hud.Keystrokes;
 import dev.crystal.client.module.hud.Watermark;
@@ -26,6 +31,8 @@ public class CrystalHUD {
             // requires touching this class.
             if (module instanceof Keystrokes keys) {
                 drawKeystrokes(context, keys);
+            } else if (module instanceof ArmorDisplay armor && armor.isIconStyle()) {
+                drawArmor(context, armor);
             } else if (module instanceof HudModule hud) {
                 drawStyledText(context, hud);
             } else if (module instanceof HudRenderable renderable) {
@@ -99,6 +106,67 @@ public class CrystalHUD {
         GuiRender.roundedRect(context, x1, y1, x2, y2, fill);
         context.fill(x1 + 2, y1 + 1, x2 - 2, y1 + 2, 0x22FFFFFF);
         GuiRender.roundedOutline(context, x1, y1, x2, y2, GuiRender.withAlpha(accent, 0x70));
+    }
+
+    /**
+     * Armor status: a 16px item icon per piece with its durability beside it.
+     * Uses the module's scale, shadow, background and text colour settings;
+     * the label turns from green to red as the piece wears down.
+     */
+    private void drawArmor(DrawContext context, ArmorDisplay module) {
+        List<ItemStack> stacks = module.getShownStacks();
+        if (stacks.isEmpty()) return;
+
+        MinecraftClient mc = MinecraftClient.getInstance();
+        boolean horizontal = module.isHorizontal();
+        int icon = 16;
+        int gap = 2;
+
+        // Widest label decides the row width, so the background doesn't jitter.
+        int labelWidth = 0;
+        String[] labels = new String[stacks.size()];
+        for (int i = 0; i < stacks.size(); i++) {
+            labels[i] = module.labelFor(stacks.get(i));
+            labelWidth = Math.max(labelWidth, mc.textRenderer.getWidth(labels[i]));
+        }
+        int cellW = icon + (labelWidth > 0 ? 3 + labelWidth : 0);
+        int cellH = icon;
+        int totalW = horizontal ? stacks.size() * cellW + (stacks.size() - 1) * (gap + 4) : cellW;
+        int totalH = horizontal ? cellH : stacks.size() * cellH + (stacks.size() - 1) * gap;
+
+        context.getMatrices().pushMatrix();
+        context.getMatrices().translate(module.getX(), module.getY());
+        context.getMatrices().scale(module.getScale(), module.getScale());
+
+        if (module.hasBackground()) {
+            int fill = module.getBackgroundColor();
+            switch (module.getEffectiveStyle()) {
+                case HudModule.STYLE_GLASS -> drawGlass(context, -3, -3, totalW + 3, totalH + 3, fill);
+                case HudModule.STYLE_NEON -> drawNeon(context, -3, -3, totalW + 3, totalH + 3, fill);
+                case HudModule.STYLE_PILL -> drawPill(context, -5, -3, totalW + 5, totalH + 3, fill);
+                default -> context.fill(-2, -2, totalW + 2, totalH + 2, fill);
+            }
+        }
+
+        for (int i = 0; i < stacks.size(); i++) {
+            ItemStack stack = stacks.get(i);
+            int cx = horizontal ? i * (cellW + gap + 4) : 0;
+            int cy = horizontal ? 0 : i * (cellH + gap);
+
+            context.drawItem(stack, cx, cy);
+            if (labels[i].isEmpty()) continue;
+
+            int color = module.getEffectiveTextColor();
+            if (module.isColorByDurability() && stack.isDamageable()) {
+                color = ColorUtil.healthGradient(module.durabilityFraction(stack));
+            }
+            int tx = cx + icon + 3;
+            int ty = cy + (icon - 8) / 2;
+            if (module.hasShadow()) context.drawText(mc.textRenderer, labels[i], tx + 1, ty + 1, 0x90000000, false);
+            context.drawText(mc.textRenderer, labels[i], tx, ty, color, false);
+        }
+
+        context.getMatrices().popMatrix();
     }
 
     private void drawPlainText(DrawContext context, String text, int x, int y) {
