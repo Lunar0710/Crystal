@@ -271,8 +271,14 @@ export class LaunchPipeline {
     fs.mkdirSync(nativesDir, { recursive: true })
 
     for (const jar of nativeJars) {
+      // Each jar is unpacked once. Re-extracting over files a running game has
+      // loaded (a second launch while playing) hung the launch at this step on
+      // Windows, and it was wasted work on every start anyway.
+      const marker = path.join(nativesDir, `.extracted-${path.basename(jar)}`)
+      if (fs.existsSync(marker)) continue
       try {
         await extract(jar, { dir: nativesDir })
+        fs.writeFileSync(marker, '')
       } catch (err) {
         // A single unreadable natives jar shouldn't abort the whole launch —
         // the game will report a clearer error if something is genuinely missing.

@@ -25,7 +25,8 @@ Module._load = function (request, ...rest) {
   return originalLoad.call(this, request, ...rest)
 }
 
-const dataRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'crystal-smoke-'))
+// CRYSTAL_SMOKE_ROOT reuses an existing data folder (already downloaded assets) for local runs.
+const dataRoot = process.env.CRYSTAL_SMOKE_ROOT || fs.mkdtempSync(path.join(os.tmpdir(), 'crystal-smoke-'))
 const { setCrystalRoot } = require(path.join(launcherRoot, 'dist/main/paths.js'))
 setCrystalRoot(dataRoot)
 
