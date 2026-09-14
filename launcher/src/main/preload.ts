@@ -151,7 +151,8 @@ contextBridge.exposeInMainWorld('crystal', {
 
   // Modpack presets (Create Instance)
   searchModpacks:  (query: string, gameVersion?: string) => ipcRenderer.invoke('modrinth:searchModpacks', query, gameVersion),
-  installModpack:  (instanceId: string, projectId: string) => ipcRenderer.invoke('modrinth:installModpack', instanceId, projectId),
+  getModpackVersions: (projectId: string, gameVersion: string) => ipcRenderer.invoke('modrinth:getModpackVersions', projectId, gameVersion),
+  installModpack:  (instanceId: string, projectId: string, versionId?: string) => ipcRenderer.invoke('modrinth:installModpack', instanceId, projectId, versionId),
   pickAndInstallModpackFile: (instanceId: string) => ipcRenderer.invoke('modrinth:pickAndInstallModpackFile', instanceId),
 
   // Events from main

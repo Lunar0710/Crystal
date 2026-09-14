@@ -381,7 +381,19 @@ export class ModrinthService {
    * The instance must already exist and be otherwise empty-ish — this adds
    * files, it never removes what's already in the mods folder.
    */
-  async installModpack(instanceId: string, projectId: string): Promise<ModpackInstallResult> {
+  /** Versions of a modpack that target this Minecraft version, newest first. */
+  async getModpackVersions(projectId: string, gameVersion: string): Promise<ModrinthVersion[]> {
+    const url = `${API_BASE}/project/${projectId}/version?game_versions=${encodeURIComponent(JSON.stringify([gameVersion]))}`
+      + `&loaders=${encodeURIComponent(JSON.stringify(['fabric']))}`
+    try {
+      const res = await fetch(url, { headers: HEADERS })
+      return res.ok ? await res.json() : []
+    } catch {
+      return []
+    }
+  }
+
+  async installModpack(instanceId: string, projectId: string, versionId?: string): Promise<ModpackInstallResult> {
     const instance = this.instances?.get(instanceId)
     if (!instance) return { success: false, error: 'Instanz nicht gefunden.' }
 
@@ -396,7 +408,11 @@ export class ModrinthService {
 
     if (versions.length === 0) return { success: false, error: 'Dieses Modpack hat keine veröffentlichten Versionen.' }
 
-    const version = versions[0]
+    // The picked version, else the newest one for the instance's Minecraft
+    // version. Blindly taking versions[0] could install a pack for another release.
+    const version = (versionId && versions.find(v => v.id === versionId))
+      || versions.find(v => v.game_versions?.includes(instance.version))
+      || versions[0]
     const file = version.files.find(f => f.primary) || version.files[0]
     if (!file) return { success: false, error: 'Keine .mrpack-Datei in dieser Version gefunden.' }
 

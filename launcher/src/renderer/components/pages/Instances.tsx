@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import {
   Plus, Trash2, ChevronLeft, Search, Download, FolderInput, Boxes,
   Upload, FolderOpen, Check, X, ChevronDown,
@@ -246,8 +246,24 @@ function CreateInstance({ onDone, onCancel }: { onDone: (created: Instance | nul
   const [selected, setSelected] = useState<ModrinthHit | null>(null)
   const [working, setWorking] = useState(false)
   const [withPerfPack, setWithPerfPack] = useState(true)
+  const [packVersions, setPackVersions] = useState<ModrinthVersion[] | undefined>()
+  const [packVersionId, setPackVersionId] = useState<string | undefined>()
+  const selectedIdRef = useRef<string | null>(null)
 
   useEffect(() => { if (mode === 'modpack' && packs.length === 0) searchPacks('') }, [mode])
+
+  async function selectPack(hit: ModrinthHit) {
+    setSelected(hit)
+    selectedIdRef.current = hit.project_id
+    if (!name.trim()) setName(hit.title)
+    setPackVersions(undefined)
+    setPackVersionId(undefined)
+    const list: ModrinthVersion[] = (await api?.getModpackVersions(hit.project_id, GAME_VERSION)) || []
+    // Ignore a late answer for a pack the user has already clicked away from.
+    if (selectedIdRef.current !== hit.project_id) return
+    setPackVersions(list)
+    setPackVersionId(list[0]?.id)
+  }
 
   async function searchPacks(q: string) {
     setLoading(true)
@@ -267,7 +283,7 @@ function CreateInstance({ onDone, onCancel }: { onDone: (created: Instance | nul
     setWorking(true)
     const created = await createBase()
     if (created && mode === 'modpack' && selected) {
-      const result = await api?.installModpack(created.id, selected.project_id)
+      const result = await api?.installModpack(created.id, selected.project_id, packVersionId)
       if (result?.success) notify({ type: 'success', title: result.name, message: `${result.filesInstalled} Dateien installiert` })
       else notify({ type: 'error', title: selected.title, message: result?.error || 'Modpack-Installation fehlgeschlagen' })
     } else if (created) {
@@ -399,7 +415,7 @@ function CreateInstance({ onDone, onCancel }: { onDone: (created: Instance | nul
               {!loading && packs.map(hit => (
                 <button
                   key={hit.project_id}
-                  onClick={() => { setSelected(hit); if (!name.trim()) setName(hit.title) }}
+                  onClick={() => selectPack(hit)}
                   aria-pressed={selected?.project_id === hit.project_id}
                   className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors ${
                     selected?.project_id === hit.project_id ? 'bg-crystal-accent/[0.08]' : 'hover:bg-crystal-panel/60'
@@ -414,6 +430,15 @@ function CreateInstance({ onDone, onCancel }: { onDone: (created: Instance | nul
                 </button>
               ))}
             </div>
+
+            {selected && (
+              <div className="rounded-lg border border-crystal-border pt-2.5">
+                <p className="px-4 pb-2 text-xs text-crystal-muted">
+                  Version von <span className="text-crystal-text">{selected.title}</span>
+                </p>
+                <VersionPicker versions={packVersions} value={packVersionId} onChange={setPackVersionId} />
+              </div>
+            )}
           </div>
         )}
       </div>

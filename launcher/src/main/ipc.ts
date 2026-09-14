@@ -352,8 +352,10 @@ export function registerIpcHandlers(store: Store) {
   // Modpack presets for Create Instance — browse finished Modrinth modpacks and install one wholesale.
   ipcMain.handle('modrinth:searchModpacks', (_e, query: string, gameVersion?: string) =>
     modrinth.searchModpacks(query, gameVersion))
-  ipcMain.handle('modrinth:installModpack', (_e, instanceId: string, projectId: string) =>
-    modrinth.installModpack(instanceId, projectId))
+  ipcMain.handle('modrinth:getModpackVersions', (_e, projectId: string, gameVersion: string) =>
+    modrinth.getModpackVersions(projectId, gameVersion))
+  ipcMain.handle('modrinth:installModpack', (_e, instanceId: string, projectId: string, versionId?: string) =>
+    modrinth.installModpack(instanceId, projectId, versionId))
   ipcMain.handle('modrinth:pickAndInstallModpackFile', async (_e, instanceId: string) => {
     const win = BrowserWindow.getFocusedWindow()
     const result = await dialog.showOpenDialog(win!, {

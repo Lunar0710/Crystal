@@ -908,6 +908,156 @@ const PLUS_CAPES: { name: string; rows: string[]; palette: Record<string, string
   },
 ]
 
+// Pixel characters and meme symbols. Characters are Crystal's own designs and
+// the meme motifs are generic (Moai, skull, "GG"): no licensed characters or
+// meme artwork. Rows shorter than 16 are padded with background.
+type PixelArt = { name: string; rows: string[]; palette: Record<string, string>; glow?: string }
+const art = (a: PixelArt): Painter =>
+  pixelMap([...a.rows, ...Array(Math.max(0, CAPE_H - a.rows.length)).fill('..........')], a.palette)
+
+const ANIME_CHARACTERS: PixelArt[] = [
+  {
+    name: 'Neko-chan',
+    rows: [
+      'h........h', 'hh......hh', 'hhhhhhhhhh', 'hhhhhhhhhh',
+      'hhsssssshh', 'hsEesseEsh', 'hseesseesh', 'hbssssssbh',
+      'hsssmmsssh', 'h.ssssss.h', '...ssss...', '..pppppp..',
+      '.pppppppp.', '.ppwppwpp.', '.pppppppp.',
+    ],
+    palette: { '.': '#fce7f3', h: '#3b2a4a', s: '#ffe4d1', e: '#1e1b4b', E: '#ffffff', b: '#fb7185', m: '#7f1d1d', p: '#a78bfa', w: '#ffffff' },
+  },
+  {
+    name: 'Kitsune',
+    rows: [
+      'w........w', 'ww......ww', 'wrw....wrw', 'wrrwwwwrrw',
+      'wwwwwwwwww', 'wrrwwwwrrw', 'wkrwwwwrkw', 'wwwwwwwwww',
+      '.wwwwwwww.', '.wwwrrwww.', '..wwwwww..', '...wkkw...',
+      '....ww....',
+    ],
+    palette: { '.': '#1c1917', w: '#f5f5f4', r: '#dc2626', k: '#0c0a09' },
+  },
+  {
+    name: 'Oni',
+    rows: [
+      '.y......y.', '.yy....yy.', '..yrrrry..', '.rrrrrrrr.',
+      'rRkkrrkkRr', 'rRrwrrwrRr', 'rrrrrrrrrr', 'rrrRrrRrrr',
+      'rkkkkkkkkr', 'rkwkwwkwkr', 'rkkkkkkkkr', '.rrrrrrrr.',
+      '..rrrrrr..',
+    ],
+    palette: { '.': '#0f0f14', y: '#fde68a', r: '#b91c1c', R: '#ef4444', k: '#000000', w: '#ffffff' },
+    glow: '#ef4444',
+  },
+  {
+    name: 'Onigiri',
+    rows: [
+      '..........', '..........', '....ww....', '...wwww...',
+      '..wwwwww..', '..wewwew..', '.wbwwwwbw.', '.wwwwwwww.',
+      'wwwnnnnwww', 'wwnnnnnnww', 'wwnnnnnnww', 'WWnnnnnnWW',
+    ],
+    palette: { '.': '#bae6fd', w: '#ffffff', W: '#e5e7eb', n: '#14532d', e: '#111111', b: '#fda4af' },
+  },
+  {
+    name: 'Mahou Stern',
+    rows: [
+      's........s', '....y.....', '...yyy....', 'yyyyYyyyy.',
+      '.yyYYYyy..', '..yyyyy...', '..yy.yy...', '.y.....y..',
+      '....p.....', '....p...s.', '....p.....', '.s..p.....',
+      '....p.....', '...ppp....', '....p....s',
+    ],
+    palette: { '.': '#312e81', y: '#fde047', Y: '#fef9c3', p: '#f9a8d4', s: '#e0e7ff' },
+    glow: '#fde047',
+  },
+  {
+    name: 'Schweißtropfen',
+    rows: [
+      '..........', '.......d..', '......dDd.', '......ddd.',
+      '..........', '.ee....ee.', '..e....e..', '..........',
+      '..........', '...mmmm...',
+    ],
+    palette: { '.': '#fef3c7', e: '#111111', d: '#38bdf8', D: '#e0f2fe', m: '#111111' },
+  },
+]
+
+const MEME_CAPES: PixelArt[] = [
+  {
+    name: 'Moai',
+    rows: [
+      '..........', '...gggg...', '..gGGGGg..', '..gGGGGg..',
+      '..kkkkkg..', '..gGkGGg..', '..gGkGGg..', '..gGGkGg..',
+      '..gGGGGg..', '..gkkkkg..', '..gGGGGg..', '..gggggg..',
+      '..gGGGGg..', '..gGGGGg..', 'llllllllll', 'llllllllll',
+    ],
+    palette: { '.': '#7dd3fc', g: '#57534e', G: '#78716c', k: '#292524', l: '#4d7c0f' },
+  },
+  {
+    name: 'Skull',
+    rows: [
+      '..........', '..........', '..wwwwww..', '.wwwwwwww.',
+      '.wwwwwwww.', '.wkkwwkkw.', '.wkkwwkkw.', '.wwwwwwww.',
+      '.wwwkkwww.', '..wwwwww..', '..wkwkwk..', '..wwwwww..',
+    ],
+    palette: { '.': '#0a0a0a', w: '#f5f5f4', k: '#0a0a0a' },
+  },
+  {
+    name: 'Stonks',
+    rows: [
+      '..........', '......gggg', '........gg', '.......g.g',
+      '......g..g', '.....g....', '....g.....', '...g......',
+      '..g.......', '.g........', 'g.........', '..........',
+      '..........', '..........', 'llllllllll',
+    ],
+    palette: { '.': '#0b1220', g: '#22c55e', l: '#334155' },
+    glow: '#22c55e',
+  },
+  {
+    name: 'GG',
+    rows: [
+      '..........', '..........', '..........', '..........',
+      '..........', '.www..www.', '.w....w...', '.w.w..w.w.',
+      '.w.w..w.w.', '.www..www.', '..........', '.wwwwwwww.',
+    ],
+    palette: { '.': '#111827', w: '#facc15' },
+    glow: '#facc15',
+  },
+  {
+    name: 'W',
+    rows: [
+      '..........', '..........', '..........', '..........',
+      'g........g', 'g........g', 'g...gg...g', '.g.g..g.g.',
+      '.gg....gg.', '.g......g.',
+    ],
+    palette: { '.': '#052e16', g: '#4ade80' },
+    glow: '#4ade80',
+  },
+  {
+    name: 'L',
+    rows: [
+      '..........', '..........', '..........', '..rr......',
+      '..rr......', '..rr......', '..rr......', '..rr......',
+      '..rr......', '..rrrrrr..', '..rrrrrr..',
+    ],
+    palette: { '.': '#1f0a0a', r: '#ef4444' },
+  },
+  {
+    name: 'UwU',
+    rows: [
+      '..........', '..........', '..........', '.k.k..k.k.',
+      '.k.k..k.k.', '..k....k..', '..........', '..k.kk.k..',
+      '...k..k...', '..........', '.b......b.',
+    ],
+    palette: { '.': '#f5d0fe', k: '#3b0764', b: '#f472b6' },
+  },
+  {
+    name: 'Cool Shades',
+    rows: [
+      '..........', '..yyyyyy..', '.yyyyyyyy.', 'yyyyyyyyyy',
+      'kkkkkkkkkk', 'ykwkyykwky', 'yykkyykkyy', 'yyyyyyyyyy',
+      'yykyyyykyy', 'yyykkkkyyy', '.yyyyyyyy.', '..yyyyyy..',
+    ],
+    palette: { '.': '#18181b', y: '#facc15', k: '#000000', w: '#ffffff' },
+  },
+]
+
 export const BUILTIN_CAPES: CapeDef[] = [
   ...PLUS_CAPES.map((c, i): CapeDef => ({
     id: `plus-${i}`, name: c.name, category: 'plus', paint: pixelMap(c.rows, c.palette), requiredRank: 'crystal_plus',
@@ -922,8 +1072,15 @@ export const BUILTIN_CAPES: CapeDef[] = [
   ...ANIME.map((a, i): CapeDef => ({
     id: `anime-${i}`, name: a.name, category: 'anime', paint: a.paint, glow: a.glow,
   })),
+  // Appended after the existing ids so equipped capes keep their index.
+  ...ANIME_CHARACTERS.map((a, i): CapeDef => ({
+    id: `anime-${ANIME.length + i}`, name: a.name, category: 'anime', paint: art(a), glow: a.glow,
+  })),
   ...INTERNET.map((n, i): CapeDef => ({
     id: `internet-${i}`, name: n.name, category: 'internet', paint: n.paint, glow: n.glow,
+  })),
+  ...MEME_CAPES.map((m, i): CapeDef => ({
+    id: `internet-${INTERNET.length + i}`, name: m.name, category: 'internet', paint: art(m), glow: m.glow,
   })),
   ...THEMED.map((t, i): CapeDef => ({
     id: `themed-${i}`, name: t.name, category: 'themed', paint: t.paint, glow: t.glow,
