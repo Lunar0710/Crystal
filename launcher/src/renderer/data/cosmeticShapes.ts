@@ -194,7 +194,7 @@ function wing(variant: string | undefined, c: string, a: string, b: B): ShapeBox
     })
   switch (variant) {
     case 'bat': return [
-      ...fan([15, 13, 10, 7], 0.8, 0.55, 0.42),
+      ...fan([15, 13.5, 11, 8], 0.8, 0.5, 0.28),
       b(6, -1.5, 0.1, 11, 7, 0.3, c, { rz: 0.1 }),
     ]
     case 'insect':
@@ -206,8 +206,8 @@ function wing(variant: string | undefined, c: string, a: string, b: B): ShapeBox
       b(5.5, 1, 0, 11, 3.4, 1.2, c, { rz: 0.25 }), b(4.5, -3, 0, 8, 2.6, 1, c, { rz: -0.2 }),
       b(5, 1, 0.7, 9, 0.7, 0.3, a, { rz: 0.25, glow: true }), b(4.5, -3, 0.6, 6.5, 0.6, 0.3, a, { rz: -0.2, glow: true }),
     ]
-    case 'flame': return fan([15, 13.5, 12, 10, 8], 2.4, 0.9, 0.38, true)
-    case 'shard': return fan([15, 12, 9], 1.8, 0.7, 0.55, true)
-    default: return fan([16, 14.5, 13, 11, 9, 7], 2.2, 0.95, 0.34)
+    case 'flame': return fan([15, 14, 12.5, 10.5, 8.5], 2.4, 0.55, 0.2, true)
+    case 'shard': return fan([15, 12.5, 10], 1.8, 0.5, 0.3, true)
+    default: return fan([16, 15, 13.5, 11.5, 9.5, 7.5], 2.2, 0.6, 0.17)
   }
 }

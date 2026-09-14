@@ -68,7 +68,7 @@ export function SkinPreview3D({
 
       if (wingRefs.current) {
         // Swept back (-z is behind the player here), flapping like in-game.
-        const sweep = 0.55 + Math.sin(t * 2) * 0.22
+        const sweep = 0.8 + Math.sin(t * 2) * 0.22
         wingRefs.current.right.rotation.y = sweep
         wingRefs.current.left.rotation.y = -sweep
       }

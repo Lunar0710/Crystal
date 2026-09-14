@@ -88,7 +88,7 @@ public class CosmeticsFeatureRenderer extends FeatureRenderer<PlayerEntityRender
             matrices.translate(side * 1.5f, 2.5f, 2.6f);
             // Positive x swings toward -z (front) for a positive angle, so the
             // right wing takes a negative one to sweep back, the left a positive one.
-            matrices.multiply(RotationAxis.POSITIVE_Y.rotation(-side * (0.55f + flap)));
+            matrices.multiply(RotationAxis.POSITIVE_Y.rotation(-side * (0.8f + flap)));
             submit(matrices, queue, layer, light, wings.boxes(), side);
             matrices.pop();
         }
