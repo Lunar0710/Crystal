@@ -82,6 +82,20 @@ const timer = setInterval(() => {
     const header = text.split('\n').filter(l => l.startsWith('#')).join('\n')
     return finish(0, `PASS: Minecraft + Crystal loaded on ${process.platform}/${process.arch}\n${header}\nCrystal loaded: ${/Crystal Client loaded successfully/.test(text)}`)
   }
+  // GitHub's macOS machines are VMs without a GPU: Minecraft gets through
+  // Java, libraries, natives, Fabric and Crystal, then GLFW can't create an
+  // OpenGL window and the game sits in an error dialog. With
+  // CRYSTAL_SMOKE_NO_GPU=1 that exact state counts as a (partial) pass, so
+  // everything up to the window is still checked on every run.
+  if (process.env.CRYSTAL_SMOKE_NO_GPU === '1' && gameStartedAt && Date.now() - gameStartedAt > 90 * 1000
+      && /Crystal Client loaded successfully/.test(text) && /Backend library/.test(text)) {
+    const dump = threadDump(gameDir, pid)
+    if (/glfwCreateWindow/.test(dump)) {
+      clearInterval(timer)
+      const header = text.split('\n').filter(l => l.startsWith('#')).join('\n')
+      return finish(0, `PARTIAL PASS (no GPU on this machine): Crystal loaded on ${process.platform}/${process.arch}, stopped at OpenGL window creation\n${header}`)
+    }
+  }
   if ((gameStartedAt && Date.now() - gameStartedAt > GAME_TIMEOUT_MS) || Date.now() - started > TOTAL_TIMEOUT_MS) {
     clearInterval(timer)
     finish(1, `FAIL: timeout\n${text.slice(-4000)}\n--- thread dump ---\n${threadDump(gameDir, pid)}`)

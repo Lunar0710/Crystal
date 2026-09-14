@@ -60,12 +60,15 @@ jobs:
           if [ "$RUNNER_OS" = "Linux" ]; then
             xvfb-run -a -s "-screen 0 1280x720x24" node scripts/smoke-launch.cjs
           else
-            node scripts/smoke-launch.cjs
+            # macOS runners have no GPU, so the game can't open its window there.
+            CRYSTAL_SMOKE_NO_GPU=1 node scripts/smoke-launch.cjs
           fi
 
       # Joins a generated test world with Crystal's test settings (colour
       # grading, armor HUD, cosmetics) and saves a screenshot to look at.
+      # Linux only: it needs a real OpenGL window (Mesa under Xvfb).
       - name: Play a test world and take a screenshot
+        if: runner.os == 'Linux'
         working-directory: launcher
         env:
           CRYSTAL_SMOKE_ROOT: ${{ runner.temp }}/crystal-world
