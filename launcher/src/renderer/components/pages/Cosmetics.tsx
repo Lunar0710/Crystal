@@ -20,7 +20,7 @@ const api = (window as any).crystal
 
 export function Cosmetics() {
   const [slot, setSlot] = useState<CosmeticSlot>('cape')
-  const [capeCategory, setCapeCategory] = useState<CapeCategory | 'mine'>('emblem')
+  const [capeCategory, setCapeCategory] = useState<CapeCategory | 'mine'>('plus')
   const [loadout, setLoadout] = useState<EquippedCosmetics>(EMPTY_LOADOUT)
 
   const [customCapes, setCustomCapes] = useState<CustomCape[]>([])
@@ -32,9 +32,10 @@ export function Cosmetics() {
   const [skinSlim, setSkinSlim] = useState(false)
   const [loadingSkin, setLoadingSkin] = useState(false)
   const [rank, setRank] = useState<RankId>('member')
+  const [rankLoaded, setRankLoaded] = useState(false)
 
   useEffect(() => {
-    api?.getRank().then(setRank)
+    api?.getRank().then((r: RankId) => { setRank(r); setRankLoaded(true) })
     api?.getLoadout().then((l: EquippedCosmetics) => l && setLoadout({ ...EMPTY_LOADOUT, ...l }))
     refreshCustom()
 
@@ -120,6 +121,14 @@ export function Cosmetics() {
     if (loadout.cape?.startsWith('custom:') && !equippedCapeUrl) return
     api?.syncEquippedCape(equippedCapeUrl)
   }, [equippedCapeUrl])
+
+  // A timed rank can run out while a perk cape is still equipped; take it off
+  // then, but only once the real rank has arrived, never on the initial default.
+  useEffect(() => {
+    if (!rankLoaded || !loadout.cape?.startsWith('builtin:')) return
+    const def = BUILTIN_CAPES.find(c => `builtin:${c.id}` === loadout.cape)
+    if (def?.requiredRank && !meetsRank(rank, def.requiredRank)) equip('cape', null)
+  }, [rankLoaded, rank, loadout.cape])
 
   const visibleCapes = BUILTIN_CAPES.filter(c => c.category === capeCategory)
 
@@ -262,13 +271,15 @@ export function Cosmetics() {
                 <TileGrid>
                   {visibleCapes.map(cape => {
                     const id = `builtin:${cape.id}`
+                    const locked = !!cape.requiredRank && !meetsRank(rank, cape.requiredRank)
                     return (
                       <Tile
                         key={cape.id}
                         selected={loadout.cape === id}
-                        onClick={() => equip('cape', id)}
+                        onClick={() => equip('cape', id, cape.requiredRank)}
                         label={cape.name}
                         background={`url(${capePreviewUrl(cape)}) center/cover`}
+                        lockedLabel={locked ? lockLabel(cape.requiredRank!) : undefined}
                         pixelated
                       />
                     )

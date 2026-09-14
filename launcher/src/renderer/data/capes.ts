@@ -1,4 +1,6 @@
-export type CapeCategory = 'emblem' | 'anime' | 'internet' | 'themed' | 'solid' | 'gradient' | 'pattern' | 'pixel' | 'neon'
+import type { RankId } from './ranks'
+
+export type CapeCategory = 'plus' | 'emblem' | 'anime' | 'internet' | 'themed' | 'solid' | 'gradient' | 'pattern' | 'pixel' | 'neon'
 
 type Painter = (ctx: CanvasRenderingContext2D, w: number, h: number) => void
 
@@ -8,6 +10,8 @@ export interface CapeDef {
   category: CapeCategory
   paint: Painter
   glow?: string
+  /** Omitted = free for everyone. */
+  requiredRank?: RankId
 }
 
 // A Minecraft cape texture is 64x32, but only the 10x16 block at (1,1) is the
@@ -807,7 +811,107 @@ const EMBLEMS: { name: string; sprite: keyof typeof SPRITES; bg: Painter; trim?:
 
 const PIXEL_PALETTE = ['#e11d48', '#f59e0b', '#10b981', '#0ea5e9', '#8b5cf6', '#ec4899']
 
+// ---- Crystal+ collection ----------------------------------------------------
+// Hand-placed 10x16 pixel art. At this size smooth gradients turn to mush, so
+// every pixel is set explicitly: each string is one row, each character a
+// palette key.
+
+const pixelMap = (rows: string[], palette: Record<string, string>): Painter => (ctx) => {
+  rows.forEach((row, y) => {
+    for (let x = 0; x < row.length; x++) {
+      ctx.fillStyle = palette[row[x]] ?? palette['.']
+      ctx.fillRect(x, y, 1, 1)
+    }
+  })
+}
+
+const PLUS_CAPES: { name: string; rows: string[]; palette: Record<string, string> }[] = [
+  {
+    name: 'Kristallsplitter',
+    rows: [
+      'tttttttttt', 't........t', 't...wb...t', 't..wabb..t',
+      't..aabbc.t', 't.waabbcct', 't.aaabbcct', 't.aaabbcct',
+      't..aabbc.t', 't..aabbc.t', 't...abc..t', 't...abc..t',
+      't....b...t', 't........t', 't........t', 'tttttttttt',
+    ],
+    palette: { '.': '#0b1020', t: '#5b8af5', w: '#ffffff', a: '#bfe3ff', b: '#6fb6ff', c: '#2f6fd6' },
+  },
+  {
+    name: 'Void',
+    rows: [
+      '..........', '.w.....g..', '......mm..', '.....mm...',
+      '.g...mm...', '......mm.w', '..........', '..w.......',
+      '......g...', '.g........', '....w.....', '........g.',
+      '.w........', '......w...', '..g.......', '........w.',
+    ],
+    palette: { '.': '#05050a', w: '#ffffff', g: '#8a8aa8', m: '#e6e6f0' },
+  },
+  {
+    name: 'Obsidian Gold',
+    rows: [
+      'yyyyyyyyyy', 'y........y', 'y........y', 'y...oo...y',
+      'y..oyyo..y', 'y.oyYYyo.y', 'y.oyYYyo.y', 'y..oyyo..y',
+      'y...oo...y', 'y........y', 'y........y', 'y.yyyyyy.y',
+      'y........y', 'y.yyyyyy.y', 'y........y', 'yyyyyyyyyy',
+    ],
+    palette: { '.': '#0f0d0a', y: '#d4a02a', o: '#8a5a12', Y: '#ffe08a' },
+  },
+  {
+    name: 'Polarlicht',
+    rows: [
+      '..........', '..g.......', '.gg....v..', '.gG...vv..',
+      'gGG..vVv..', 'gGg..vVv..', '.gG.vVvv..', '.gGgvVv...',
+      '..gGVv....', '..gGv.....', '...gg.....', '....g.....',
+      '..........', 'ssssssssss', 'sSsssSssss', 'ssssssssss',
+    ],
+    palette: { '.': '#07121a', g: '#1f9e6e', G: '#5ef0b0', v: '#5b52c7', V: '#a79bff', s: '#c9d6e3', S: '#ffffff' },
+  },
+  {
+    name: 'Terminal',
+    rows: [
+      ',,,,,,,,,,', '..........', ',G,,,,,,,,', '..G.......',
+      ',G,,GGG,,,', '..........', ',,,,,,,,,,', '.gggg.....',
+      ',,,,,,,,,,', '.ggggggg..', ',,,,,,,,,,', '.ggg......',
+      ',,,,,,,,,,', '.G........', ',G,,,,,,,,', '..........',
+    ],
+    palette: { '.': '#020805', ',': '#062012', G: '#4ade80', g: '#15803d' },
+  },
+  {
+    name: 'Sakura',
+    rows: [
+      '..........', '..pP......', '.pPp..bb..', '..p..bb...',
+      '....bb.pP.', '...bb.pPp.', '..bb...p..', '.bb.......',
+      'bb..pP....', 'b..pPp....', '....p.....', '........p.',
+      '.......pPp', '........p.', '..p.......', '.pPp......',
+    ],
+    palette: { '.': '#2a0f28', p: '#f472b6', P: '#ffd1e8', b: '#6b3a2a' },
+  },
+  {
+    name: 'Blaupause',
+    rows: [
+      'L..L..L..L', 'L..L..L..L', 'LLLLwwLLLL', 'L..w..w..L',
+      'L.w.L..w.L', 'Lw..L...wL', 'w.LLLLLL.w', 'Lw..L...wL',
+      'L.w.L..w.L', 'L..w..w..L', 'LLLLwwLLLL', 'L..L..L..L',
+      'L..L..L..L', 'LLLLLLLLLL', 'L..L..L..L', 'L..L..L..L',
+    ],
+    palette: { '.': '#0a2344', L: '#1d4f86', w: '#e0f2ff' },
+  },
+  {
+    name: 'Nebel',
+    rows: [
+      '....w.....', '.pp.......', 'pPPp...c..', 'pPPPp.cCc.',
+      '.pPPp.cCCc', '..pp..cCc.', '......c..w', '.w..pp....',
+      '...pPPp...', '..pPMPPp..', '..pPPPPp..', '...pPPp...',
+      '....pp..c.', '.c......cC', 'cCc....w.c', '.c........',
+    ],
+    palette: { '.': '#0a0716', p: '#5b2a8c', P: '#b57cff', M: '#ffffff', c: '#0e6b7a', C: '#5ee7f5', w: '#ffffff' },
+  },
+]
+
 export const BUILTIN_CAPES: CapeDef[] = [
+  ...PLUS_CAPES.map((c, i): CapeDef => ({
+    id: `plus-${i}`, name: c.name, category: 'plus', paint: pixelMap(c.rows, c.palette), requiredRank: 'crystal_plus',
+  })),
   ...EMBLEMS.map((e, i): CapeDef => ({
     id: `emblem-${i}`,
     name: e.name,
@@ -843,6 +947,7 @@ export const BUILTIN_CAPES: CapeDef[] = [
 ]
 
 export const CAPE_CATEGORIES: { id: CapeCategory; label: string }[] = [
+  { id: 'plus', label: 'Crystal+' },
   { id: 'emblem', label: 'Embleme' },
   { id: 'anime', label: 'Anime-Stil' },
   { id: 'internet', label: 'Internet' },
