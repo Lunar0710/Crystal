@@ -61,7 +61,22 @@ public final class SmokeTest {
                     msg -> CrystalClient.LOGGER.info("[Crystal] Smoke screenshot: {}", msg.getString()));
         }
 
-        if (worldTicks == 220) {
+        // The Right Shift menu: module grid, then a settings page.
+        String base = screenshotName.endsWith(".png") ? screenshotName.substring(0, screenshotName.length() - 4) : screenshotName;
+        if (worldTicks == 175) mc.setScreen(new dev.crystal.client.gui.CrystalClientScreen());
+        if (worldTicks == 200) {
+            ScreenshotRecorder.saveScreenshot(mc.runDirectory, base + "-menu.png", mc.getFramebuffer(), 1,
+                    msg -> CrystalClient.LOGGER.info("[Crystal] Smoke screenshot: {}", msg.getString()));
+        }
+        if (worldTicks == 205 && mc.currentScreen instanceof dev.crystal.client.gui.CrystalClientScreen menu) {
+            menu.openSettingsForTest("ArmorDisplay");
+        }
+        if (worldTicks == 230) {
+            ScreenshotRecorder.saveScreenshot(mc.runDirectory, base + "-settings.png", mc.getFramebuffer(), 1,
+                    msg -> CrystalClient.LOGGER.info("[Crystal] Smoke screenshot: {}", msg.getString()));
+        }
+
+        if (worldTicks == 260) {
             CrystalClient.LOGGER.info("CRYSTAL_SMOKE_WORLD_DONE");
             mc.scheduleStop();
         }

@@ -11,6 +11,7 @@ import dev.crystal.client.module.ModuleCategory;
 import dev.crystal.client.module.Setting;
 import dev.crystal.client.module.SliderSetting;
 import dev.crystal.client.module.TextSetting;
+import dev.crystal.client.util.CrystalProfile;
 import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
@@ -20,66 +21,92 @@ import net.minecraft.text.Text;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Locale;
+import java.util.Map;
 
 /**
- * Crystal's in-game menu.
+ * Crystal's in-game menu (Right Shift).
  *
- * Layout is computed once per frame into {@link CardLayout} entries and reused
- * for both drawing and hit testing, so a click can never land somewhere the
- * renderer didn't actually draw.
+ * Two views share one panel: a grid of module tiles per category, and a
+ * settings page for a single module. Everything is laid out once per frame
+ * into hit boxes that both drawing and click handling use, so a click can never
+ * land somewhere the renderer didn't draw.
+ *
+ * Minecraft only offers rectangles and its bitmap font, so icons are small
+ * pixel sprites and the rounded look comes from {@link GuiRender}.
  */
 public class CrystalClientScreen extends Screen {
 
-    // ---- layout ----
-    private static final int HEADER_H = 28;
-    private static final int SIDEBAR_W = 92;
-    private static final int PADDING = 8;
-    private static final int CARD_H = 40;
-    private static final int CARD_GAP = 6;
-    private static final int SETTING_ROW_H = 15;
-    private static final int SCROLLBAR_W = 3;
+    // ---- layout (GUI pixels) ----
+    private static final int SIDEBAR_W = 112;
+    private static final int HEADER_H = 40;
+    private static final int PAD = 10;
+    private static final int TILE_H = 62;
+    private static final int TILE_GAP = 6;
+    private static final int TILE_MIN_W = 132;
+    private static final int ROW_H = 24;
+    private static final int OPEN_ANIM_MS = 170;
 
     // ---- palette ----
-    private final int colScrim = 0xD90A0B0F;
     private final int colPanel;
+    private final int colSidebar;
     private final int colSurface;
-    private final int colCard;
-    private final int colCardHover;
+    private final int colTile;
     private final int colBorder;
     private final int colAccent;
     private final int colText;
     private final int colMuted;
     private static final int COL_ON = 0xFF34D399;
     private static final int COL_DANGER = 0xFFF87171;
+    private static final int COL_PLUS = 0xFF8B7CF6;
 
     // ---- state ----
-    private ModuleCategory selectedCategory = ModuleCategory.PLAYER;
-    private Module expandedModule = null;
-    private final StringBuilder searchQuery = new StringBuilder();
+    /** null = the "Aktiv" view listing every enabled module. */
+    private ModuleCategory category = ModuleCategory.RENDER;
+    private Module openModule = null;
+    private final StringBuilder search = new StringBuilder();
     private boolean searchFocused = false;
-    private int scrollOffset = 0;
+    private float scroll = 0f;
+    private float scrollTarget = 0f;
     private int contentHeight = 0;
 
-    private Module keybindModuleTarget = null;
-    private KeybindSetting keybindSettingTarget = null;
+    private boolean capturingModuleKey = false;
+    private KeybindSetting capturingSetting = null;
     private TextSetting editingText = null;
-    private StringBuilder textEditBuffer = null;
+    private StringBuilder textBuffer = null;
     private SliderSetting draggingSlider = null;
-    private int draggingSliderX = 0;
-    private int draggingSliderWidth = 0;
+    private int dragX, dragW;
 
-    private final List<CardLayout> layout = new ArrayList<>();
+    private final long openedAt = System.currentTimeMillis();
+    private long lastFrame = System.currentTimeMillis();
+    private final Map<Object, Float> hoverAnim = new HashMap<>();
+    private final Map<Object, Float> toggleAnim = new HashMap<>();
+
+    // ---- hit boxes, rebuilt every frame ----
+    private record Box(int x1, int y1, int x2, int y2) {
+        boolean contains(double mx, double my) { return mx >= x1 && mx < x2 && my >= y1 && my < y2; }
+    }
+    private record CategoryHit(ModuleCategory category, Box box) {}
+    private record TileHit(Module module, Box box, Box toggle, Box gear, Box key) {}
+    private record RowHit(Setting<?> setting, Box box, Box control, boolean locked) {}
+    private record Chip(Runnable action, Box box) {}
+
+    private final List<CategoryHit> categoryHits = new ArrayList<>();
+    private final List<TileHit> tileHits = new ArrayList<>();
+    private final List<RowHit> rowHits = new ArrayList<>();
+    private final List<Chip> chips = new ArrayList<>();
+    private Box searchBox, closeBox, backBox, bigToggleBox, resetBox, moduleKeyBox, contentBox;
 
     public CrystalClientScreen() {
         super(Text.literal("Crystal Client"));
         var theme = CrystalClient.getInstance().getThemeManager();
         colAccent = theme.getAccent();
-        colPanel = GuiRender.withAlpha(theme.getBg(), 0xFF);
+        colPanel = GuiRender.withAlpha(theme.getBg(), 0xF2);
+        colSidebar = GuiRender.withAlpha(GuiRender.blend(theme.getBg(), 0xFF000000, 0.25f), 0xF2);
         colSurface = GuiRender.withAlpha(theme.getPanel(), 0xFF);
-        colCard = GuiRender.withAlpha(theme.getCard(), 0xFF);
-        colCardHover = GuiRender.blend(colCard, 0xFFFFFFFF, 0.06f);
+        colTile = GuiRender.withAlpha(theme.getCard(), 0xFF);
         colBorder = GuiRender.withAlpha(theme.getBorder(), 0xFF);
         colText = theme.getText();
         colMuted = theme.getMuted();
@@ -92,534 +119,733 @@ public class CrystalClientScreen extends Screen {
 
     @Override
     public void close() {
+        if (editingText != null) commitText();
         CrystalClient.getInstance().getConfigManager().save();
         super.close();
     }
 
-    // ------------------------------------------------------------- layout
+    // ================================================================ geometry
 
-    /** One module card, plus the rows its settings occupy while expanded. */
-    private static final class CardLayout {
-        Module module;
-        int x, y, width, height;
-        final List<SettingRow> settings = new ArrayList<>();
-        int toggleX, toggleY;
-        int gearX, gearY;
-        int keybindX, keybindY, keybindWidth;
-    }
+    private int panelW() { return Math.min(640, width - 24); }
+    private int panelH() { return Math.min(360, height - 24); }
+    private int panelX() { return (width - panelW()) / 2; }
+    private int panelY() { return (height - panelH()) / 2; }
 
-    private static final class SettingRow {
-        Setting<?> setting;
-        int x, y, width, height;
-        int controlX, controlWidth;
-    }
-
-    private int panelX() { return (width - panelWidth()) / 2; }
-    private int panelY() { return (height - panelHeight()) / 2; }
-    private int panelWidth() { return Math.min(460, width - 40); }
-    private int panelHeight() { return Math.min(300, height - 40); }
-
-    private int contentX() { return panelX() + SIDEBAR_W; }
-    private int contentY() { return panelY() + HEADER_H; }
-    private int contentWidth() { return panelWidth() - SIDEBAR_W; }
-    private int contentHeightVisible() { return panelHeight() - HEADER_H; }
-
-    private List<Module> visibleModules() {
-        String query = searchQuery.toString().trim().toLowerCase();
-        var manager = CrystalClient.getInstance().getModuleManager();
-
-        if (query.isEmpty()) return manager.getModulesByCategory(selectedCategory);
-        return manager.getModules().stream()
-                .filter(m -> m.getName().toLowerCase().contains(query)
-                        || m.getDescription().toLowerCase().contains(query))
-                .collect(Collectors.toList());
-    }
-
-    private boolean searching() {
-        return searchQuery.length() > 0;
-    }
-
-    /** Rebuilds the card/setting rectangles. Called from render and from every click. */
-    private void buildLayout() {
-        layout.clear();
-
-        int innerX = contentX() + PADDING;
-        int innerWidth = contentWidth() - PADDING * 2 - SCROLLBAR_W;
-        int columns = innerWidth >= 260 ? 2 : 1;
-        int columnWidth = (innerWidth - (columns - 1) * CARD_GAP) / columns;
-
-        int cursorY = contentY() + PADDING - scrollOffset;
-
-        // HUD presets get a row of chips above the cards.
-        if (!searching() && selectedCategory == ModuleCategory.HUD) {
-            cursorY += 18;
-        }
-
-        List<Module> modules = visibleModules();
-        int column = 0;
-        int rowTop = cursorY;
-
-        for (Module module : modules) {
-            boolean expanded = module == expandedModule && !module.settings().isEmpty();
-
-            CardLayout card = new CardLayout();
-            card.module = module;
-
-            if (expanded) {
-                // An expanded card takes the full row so its settings have room.
-                if (column != 0) {
-                    column = 0;
-                    rowTop += CARD_H + CARD_GAP;
-                }
-                card.x = innerX;
-                card.width = innerWidth;
-                card.y = rowTop;
-
-                int settingsTop = rowTop + CARD_H;
-                for (Setting<?> setting : module.settings()) {
-                    SettingRow row = new SettingRow();
-                    row.setting = setting;
-                    row.x = card.x;
-                    row.y = settingsTop;
-                    row.width = card.width;
-                    row.height = SETTING_ROW_H;
-                    row.controlWidth = 74;
-                    row.controlX = card.x + card.width - row.controlWidth - 8;
-                    card.settings.add(row);
-                    settingsTop += SETTING_ROW_H;
-                }
-                card.height = CARD_H + module.settings().size() * SETTING_ROW_H + 6;
-                rowTop += card.height + CARD_GAP;
-            } else {
-                card.x = innerX + column * (columnWidth + CARD_GAP);
-                card.y = rowTop;
-                card.width = columnWidth;
-                card.height = CARD_H;
-
-                column++;
-                if (column >= columns) {
-                    column = 0;
-                    rowTop += CARD_H + CARD_GAP;
-                }
-            }
-
-            card.toggleX = card.x + card.width - GuiRender.TOGGLE_W - 8;
-            card.toggleY = card.y + 7;
-            card.gearX = card.x + card.width - 16;
-            card.gearY = card.y + CARD_H - 14;
-            card.keybindWidth = 30;
-            card.keybindX = card.gearX - card.keybindWidth - 6;
-            card.keybindY = card.gearY;
-
-            layout.add(card);
-        }
-
-        if (column != 0) rowTop += CARD_H + CARD_GAP;
-        contentHeight = rowTop + scrollOffset - contentY();
-    }
-
-    // ------------------------------------------------------------- render
+    // ================================================================ render
 
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        context.fill(0, 0, width, height, colScrim);
+    public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
+        long now = System.currentTimeMillis();
+        float dt = Math.min(0.1f, (now - lastFrame) / 1000f);
+        lastFrame = now;
 
-        int px = panelX(), py = panelY();
-        int pw = panelWidth(), ph = panelHeight();
+        float open = ease(Math.min(1f, (now - openedAt) / (float) OPEN_ANIM_MS));
+        ctx.fill(0, 0, width, height, GuiRender.withAlpha(0xFF05060A, Math.round(0xB0 * open)));
 
-        GuiRender.roundedRect(context, px, py, px + pw, py + ph, colPanel);
-        GuiRender.roundedOutline(context, px, py, px + pw, py + ph, colBorder);
+        int px = panelX(), py = panelY(), pw = panelW(), ph = panelH();
 
-        buildLayout();
-        renderHeader(context, px, py, pw, mouseX, mouseY);
-        renderSidebar(context, px, py, ph, mouseX, mouseY);
-        renderContent(context, mouseX, mouseY);
+        // Open animation: grow from 96 % around the centre.
+        float scale = 0.96f + 0.04f * open;
+        ctx.getMatrices().pushMatrix();
+        ctx.getMatrices().translate(width / 2f, height / 2f);
+        ctx.getMatrices().scale(scale, scale);
+        ctx.getMatrices().translate(-width / 2f, -height / 2f);
 
-        super.render(context, mouseX, mouseY, delta);
+        // Mouse in panel space, matching the scale above, so hover follows the grow-in.
+        int mx = Math.round((mouseX - width / 2f) / scale + width / 2f);
+        int my = Math.round((mouseY - height / 2f) / scale + height / 2f);
+
+        GuiRender.roundedRect(ctx, px - 1, py - 1, px + pw + 1, py + ph + 1, GuiRender.withAlpha(0xFF000000, 0x60));
+        GuiRender.roundedRect(ctx, px, py, px + pw, py + ph, colPanel);
+        GuiRender.roundedRect(ctx, px, py, px + SIDEBAR_W, py + ph, colSidebar);
+        ctx.fill(px + SIDEBAR_W, py + 2, px + SIDEBAR_W + 1, py + ph - 2, GuiRender.withAlpha(colBorder, 0xAA));
+        GuiRender.roundedOutline(ctx, px, py, px + pw, py + ph, GuiRender.withAlpha(colBorder, 0xCC));
+
+        scroll += (scrollTarget - scroll) * Math.min(1f, dt * 16f);
+
+        renderSidebar(ctx, px, py, ph, mx, my, dt);
+        if (openModule != null) renderSettingsPage(ctx, px + SIDEBAR_W + 1, py, pw - SIDEBAR_W - 1, ph, mx, my, dt);
+        else renderGrid(ctx, px + SIDEBAR_W + 1, py, pw - SIDEBAR_W - 1, ph, mx, my, dt);
+
+        ctx.getMatrices().popMatrix();
     }
 
-    private void renderHeader(DrawContext context, int px, int py, int pw, int mouseX, int mouseY) {
-        context.fill(px + 1, py + HEADER_H - 1, px + pw - 1, py + HEADER_H, colBorder);
-        context.drawText(textRenderer, "CRYSTAL", px + 10, py + 10, colAccent, false);
+    // ---------------------------------------------------------------- sidebar
 
-        // Search field
-        int searchX = px + SIDEBAR_W;
-        int searchW = pw - SIDEBAR_W - 34;
-        int searchY = py + 6;
-        int searchH = 16;
-        GuiRender.roundedRect(context, searchX, searchY, searchX + searchW, searchY + searchH, colSurface);
-        if (searchFocused) GuiRender.roundedOutline(context, searchX, searchY, searchX + searchW, searchY + searchH, colAccent);
+    private void renderSidebar(DrawContext ctx, int px, int py, int ph, int mx, int my, float dt) {
+        categoryHits.clear();
 
-        String shown = searchQuery.length() > 0 ? searchQuery.toString() : "Search modules";
-        int searchColor = searchQuery.length() > 0 ? colText : colMuted;
-        context.drawText(textRenderer, GuiRender.trimToWidth(shown, searchW - 14) + (searchFocused ? "_" : ""),
-                searchX + 6, searchY + 4, searchColor, false);
+        // Logo
+        drawIcon(ctx, ICON_GEM, px + 12, py + 13, colAccent);
+        ctx.drawText(textRenderer, "CRYSTAL", px + 26, py + 11, colText, false);
+        GuiRender.scaledText(ctx, "Client", px + 26, py + 21, 0.75f, colMuted);
 
-        // Close
-        int closeX = px + pw - 20;
-        boolean closeHover = mouseX >= closeX - 4 && mouseX <= closeX + 10 && mouseY >= py + 8 && mouseY <= py + 20;
-        context.drawText(textRenderer, "✕", closeX, py + 10, closeHover ? COL_DANGER : colMuted, false);
-    }
+        int rowY = py + 40;
+        List<ModuleCategory> entries = new ArrayList<>(List.of(ModuleCategory.values()));
+        entries.add(null);
+        for (ModuleCategory cat : entries) {
+            if (cat == null) {
+                rowY += 6;
+                ctx.fill(px + 12, rowY - 4, px + SIDEBAR_W - 12, rowY - 3, GuiRender.withAlpha(colBorder, 0x88));
+            }
+            Box box = new Box(px + 8, rowY, px + SIDEBAR_W - 8, rowY + 20);
+            categoryHits.add(new CategoryHit(cat, box));
 
-    private void renderSidebar(DrawContext context, int px, int py, int ph, int mouseX, int mouseY) {
-        context.fill(px + SIDEBAR_W - 1, py + HEADER_H, px + SIDEBAR_W, py + ph - 1, colBorder);
-
-        int rowY = py + HEADER_H + PADDING;
-        for (ModuleCategory category : ModuleCategory.values()) {
-            boolean active = !searching() && category == selectedCategory;
-            boolean hover = mouseX >= px + 6 && mouseX <= px + SIDEBAR_W - 6
-                    && mouseY >= rowY && mouseY <= rowY + 18;
+            boolean active = search.length() == 0 && openModule == null && cat == category
+                    || search.length() == 0 && openModule != null && openModule.getCategory() == cat && category != null
+                    || search.length() == 0 && openModule != null && cat == null && category == null;
+            float hover = animate(hoverAnim, "cat" + cat, box.contains(mx, my) ? 1f : 0f, dt);
 
             if (active) {
-                GuiRender.roundedRect(context, px + 6, rowY, px + SIDEBAR_W - 8, rowY + 18,
-                        GuiRender.withAlpha(colAccent, 0x22));
-                context.fill(px + 6, rowY + 3, px + 8, rowY + 15, colAccent);
-            } else if (hover) {
-                GuiRender.roundedRect(context, px + 6, rowY, px + SIDEBAR_W - 8, rowY + 18, colCard);
+                GuiRender.roundedRect(ctx, box.x1, box.y1, box.x2, box.y2, GuiRender.withAlpha(colAccent, 0x2C));
+                ctx.fill(box.x1, box.y1 + 5, box.x1 + 2, box.y2 - 5, colAccent);
+            } else if (hover > 0.01f) {
+                GuiRender.roundedRect(ctx, box.x1, box.y1, box.x2, box.y2, GuiRender.withAlpha(0xFFFFFFFF, Math.round(0x0E * hover)));
             }
 
-            int enabledCount = (int) CrystalClient.getInstance().getModuleManager()
-                    .getModulesByCategory(category).stream().filter(Module::isEnabled).count();
+            int iconColor = active ? colAccent : GuiRender.blend(colMuted, colText, hover * 0.6f);
+            drawIcon(ctx, iconFor(cat), box.x1 + 8, box.y1 + 6, iconColor);
+            String label = cat == null ? "Aktiv" : cat.getDisplayName();
+            ctx.drawText(textRenderer, label, box.x1 + 22, box.y1 + 6, active ? colText : GuiRender.blend(colMuted, colText, hover * 0.7f), false);
 
-            context.drawText(textRenderer, category.getDisplayName(), px + 13, rowY + 5,
-                    active ? colText : colMuted, false);
-            if (enabledCount > 0) {
-                String badge = String.valueOf(enabledCount);
-                context.drawText(textRenderer, badge, px + SIDEBAR_W - 16 - textRenderer.getWidth(badge), rowY + 5,
-                        active ? colAccent : GuiRender.withAlpha(colMuted, 0x99), false);
+            int count = countEnabled(cat);
+            if (count > 0) {
+                String badge = String.valueOf(count);
+                int bw = GuiRender.scaledWidth(badge, 0.75f) + 7;
+                int bx = box.x2 - bw - 5;
+                GuiRender.roundedRect(ctx, bx, box.y1 + 5, bx + bw, box.y1 + 15,
+                        active ? GuiRender.withAlpha(colAccent, 0x55) : GuiRender.withAlpha(0xFFFFFFFF, 0x12));
+                GuiRender.scaledText(ctx, badge, bx + 4, box.y1 + 8, 0.75f, active ? colText : colMuted);
             }
-            rowY += 20;
+            rowY += 22;
         }
 
-        // Footer: how much is on right now, so the sidebar ends on information.
-        long totalOn = CrystalClient.getInstance().getModuleManager().getModules().stream()
-                .filter(Module::isEnabled).count();
-        GuiRender.scaledText(context, totalOn + " active", px + 13, py + ph - 14, 0.75f, colMuted);
+        // Footer: who is playing and which build.
+        String name = client != null && client.getSession() != null ? client.getSession().getUsername() : "";
+        int fy = py + ph - 26;
+        ctx.fill(px + 12, fy - 6, px + SIDEBAR_W - 12, fy - 5, GuiRender.withAlpha(colBorder, 0x88));
+        ctx.drawText(textRenderer, GuiRender.trimToWidth(name, SIDEBAR_W - 24), px + 12, fy, colText, false);
+        String sub = CrystalProfile.hasPerks() ? "Crystal+  v" + CrystalClient.VERSION : "v" + CrystalClient.VERSION;
+        GuiRender.scaledText(ctx, sub, px + 12, fy + 11, 0.75f, CrystalProfile.hasPerks() ? COL_PLUS : colMuted);
     }
 
-    private void renderContent(DrawContext context, int mouseX, int mouseY) {
-        int cx = contentX(), cy = contentY();
-        int cw = contentWidth(), ch = contentHeightVisible();
+    // ---------------------------------------------------------------- grid view
 
-        context.enableScissor(cx, cy, cx + cw, cy + ch - 1);
+    private void renderGrid(DrawContext ctx, int x, int y, int w, int h, int mx, int my, float dt) {
+        tileHits.clear();
+        chips.clear();
+        rowHits.clear();
+        backBox = bigToggleBox = resetBox = moduleKeyBox = null;
 
-        if (!searching() && selectedCategory == ModuleCategory.HUD) {
-            renderHudPresets(context, cx + PADDING, cy + PADDING - scrollOffset, mouseX, mouseY);
+        List<Module> modules = visibleModules();
+        long on = modules.stream().filter(Module::isEnabled).count();
+
+        String title = search.length() > 0 ? "Suche" : category == null ? "Aktive Module" : category.getDisplayName();
+        GuiRender.scaledText(ctx, title, x + PAD + 2, y + 10, 1.25f, colText);
+        GuiRender.scaledText(ctx, modules.size() + " Module  ·  " + on + " an", x + PAD + 2, y + 25, 0.75f, colMuted);
+        renderSearchAndClose(ctx, x, y, w, mx, my);
+
+        contentBox = new Box(x, y + HEADER_H, x + w, y + h);
+        ctx.enableScissor(contentBox.x1, contentBox.y1, contentBox.x2, contentBox.y2 - 1);
+
+        int top = y + HEADER_H + 2 - Math.round(scroll);
+        int innerX = x + PAD;
+        int innerW = w - PAD * 2 - 4;
+
+        if (search.length() == 0 && category == ModuleCategory.HUD) {
+            top = renderPresetChips(ctx, innerX, top, mx, my) + 8;
         }
 
-        if (layout.isEmpty()) {
-            context.drawText(textRenderer, "No modules match that search.", cx + PADDING, cy + PADDING + 4, colMuted, false);
+        if (modules.isEmpty()) {
+            String empty = search.length() > 0 ? "Keine Module gefunden." : category == null ? "Noch kein Modul an." : "Keine Module.";
+            ctx.drawText(textRenderer, empty, innerX + 2, top + 6, colMuted, false);
         }
 
-        for (CardLayout card : layout) {
-            if (card.y + card.height < cy || card.y > cy + ch) continue;
-            renderCard(context, card, mouseX, mouseY);
+        int columns = Math.max(1, Math.min(4, (innerW + TILE_GAP) / (TILE_MIN_W + TILE_GAP)));
+        int tileW = (innerW - (columns - 1) * TILE_GAP) / columns;
+        for (int i = 0; i < modules.size(); i++) {
+            int col = i % columns;
+            int row = i / columns;
+            int tx = innerX + col * (tileW + TILE_GAP);
+            int ty = top + row * (TILE_H + TILE_GAP);
+            renderTile(ctx, modules.get(i), tx, ty, tileW, mx, my, dt);
         }
+        int rows = (modules.size() + columns - 1) / columns;
+        contentHeight = (top + Math.round(scroll)) - (y + HEADER_H) + rows * (TILE_H + TILE_GAP) + PAD;
 
-        context.disableScissor();
-        renderScrollbar(context, cx, cy, cw, ch);
+        ctx.disableScissor();
+        renderScrollbar(ctx, x + w - 5, y + HEADER_H + 4, h - HEADER_H - 8);
     }
 
-    private void renderHudPresets(DrawContext context, int x, int y, int mouseX, int mouseY) {
-        HudPreset active = CrystalClient.getInstance().getHudPresetManager().getCurrent();
-        int chipX = x;
+    private int renderPresetChips(DrawContext ctx, int x, int y, int mx, int my) {
+        HudPreset current = CrystalClient.getInstance().getHudPresetManager().getCurrent();
+        GuiRender.scaledText(ctx, "Layout", x + 2, y + 5, 0.75f, colMuted);
+        int cx = x + 34;
         for (HudPreset preset : HudPreset.values()) {
-            int w = textRenderer.getWidth(preset.getLabel()) + 12;
-            boolean isActive = preset == active;
-            GuiRender.roundedRect(context, chipX, y, chipX + w, y + 14,
-                    isActive ? GuiRender.withAlpha(colAccent, 0x33) : colCard);
-            if (isActive) GuiRender.roundedOutline(context, chipX, y, chipX + w, y + 14, colAccent);
-            context.drawText(textRenderer, preset.getLabel(), chipX + 6, y + 3, isActive ? colText : colMuted, false);
-            chipX += w + 5;
+            int cw = textRenderer.getWidth(preset.getLabel()) + 14;
+            Box box = new Box(cx, y, cx + cw, y + 16);
+            boolean active = preset == current;
+            boolean hover = box.contains(mx, my);
+            GuiRender.roundedRect(ctx, box.x1, box.y1, box.x2, box.y2,
+                    active ? GuiRender.withAlpha(colAccent, 0x40) : hover ? GuiRender.blend(colTile, 0xFFFFFFFF, 0.06f) : colTile);
+            if (active) GuiRender.roundedOutline(ctx, box.x1, box.y1, box.x2, box.y2, colAccent);
+            ctx.drawText(textRenderer, preset.getLabel(), cx + 7, y + 4, active ? colText : colMuted, false);
+            chips.add(new Chip(() -> CrystalClient.getInstance().getHudPresetManager().apply(preset), box));
+            cx += cw + 5;
         }
+        return y + 16;
     }
 
-    private void renderCard(DrawContext context, CardLayout card, int mouseX, int mouseY) {
-        Module module = card.module;
+    private void renderTile(DrawContext ctx, Module module, int x, int y, int w, int mx, int my, float dt) {
+        Box box = new Box(x, y, x + w, y + TILE_H);
+        boolean visible = box.y2 > contentBox.y1 && box.y1 < contentBox.y2;
         boolean enabled = module.isEnabled();
         boolean hasSettings = !module.settings().isEmpty();
-        boolean expanded = module == expandedModule && hasSettings;
-        boolean hover = mouseX >= card.x && mouseX <= card.x + card.width
-                && mouseY >= card.y && mouseY <= card.y + CARD_H;
 
-        int background = enabled
-                ? GuiRender.blend(colCard, colAccent, 0.14f)
-                : (hover ? colCardHover : colCard);
-        GuiRender.roundedRect(context, card.x, card.y, card.x + card.width, card.y + card.height, background);
+        Box strip = new Box(x + 6, y + TILE_H - 19, x + w - (hasSettings ? 26 : 6), y + TILE_H - 6);
+        Box gear = hasSettings ? new Box(x + w - 22, y + TILE_H - 19, x + w - 6, y + TILE_H - 6) : null;
+        Box key = new Box(x + w - 40, y + 6, x + w - 6, y + 17);
+        tileHits.add(new TileHit(module, box, strip, gear, key));
+        if (!visible) return;
 
-        // The enabled state is the loudest signal on the card.
-        if (enabled) context.fill(card.x, card.y + 3, card.x + 2, card.y + CARD_H - 3, colAccent);
-        if (expanded) GuiRender.roundedOutline(context, card.x, card.y, card.x + card.width, card.y + card.height, colBorder);
+        boolean hovered = box.contains(mx, my) && contentBox.contains(mx, my);
+        float hover = animate(hoverAnim, module, hovered ? 1f : 0f, dt);
+        float on = animate(toggleAnim, module, enabled ? 1f : 0f, dt);
 
-        int textLeft = card.x + 9;
-        int nameWidth = card.toggleX - textLeft - 6;
-        context.drawText(textRenderer, GuiRender.trimToWidth(module.getName(), nameWidth),
-                textLeft, card.y + 8, enabled ? colText : GuiRender.blend(colText, colMuted, 0.35f), false);
+        int bg = GuiRender.blend(colTile, 0xFFFFFFFF, 0.035f * hover);
+        GuiRender.roundedRect(ctx, box.x1, box.y1, box.x2, box.y2, bg);
+        int outline = GuiRender.blend(GuiRender.withAlpha(colBorder, 0x99), colAccent, Math.max(hover * 0.55f, on * 0.35f));
+        GuiRender.roundedOutline(ctx, box.x1, box.y1, box.x2, box.y2, outline);
 
-        String description = GuiRender.trimToWidth(module.getDescription(), Math.round(nameWidth / 0.75f));
-        GuiRender.scaledText(context, description, textLeft, card.y + 20, 0.75f, colMuted);
+        // Name and description
+        int nameW = w - 14 - (module.getKeybind() != GLFW.GLFW_KEY_UNKNOWN || hovered ? 40 : 0);
+        ctx.drawText(textRenderer, GuiRender.trimToWidth(pretty(module.getName()), nameW), x + 8, y + 8, colText, false);
+        List<String> desc = wrap(module.getDescription(), Math.round((w - 16) / 0.75f), 2);
+        for (int i = 0; i < desc.size(); i++) {
+            GuiRender.scaledText(ctx, desc.get(i), x + 8, y + 20 + i * 8, 0.75f, colMuted);
+        }
 
-        GuiRender.toggle(context, card.toggleX, card.toggleY, enabled, colAccent, colBorder,
-                enabled ? 0xFFFFFFFF : GuiRender.blend(colMuted, 0xFF000000, 0.2f));
-
-        // Keybind chip
-        boolean capturing = module == keybindModuleTarget;
-        String keyLabel = capturing ? "..." : keybindLabel(module.getKeybind());
+        // Keybind chip: shown when bound, or on hover as an invitation to bind.
         boolean bound = module.getKeybind() != GLFW.GLFW_KEY_UNKNOWN;
-        if (bound || capturing || hover) {
-            GuiRender.roundedRect(context, card.keybindX, card.keybindY - 2,
-                    card.keybindX + card.keybindWidth, card.keybindY + 9, colSurface);
-            GuiRender.scaledText(context, GuiRender.trimToWidth(keyLabel, Math.round(card.keybindWidth / 0.75f) - 4),
-                    card.keybindX + 4, card.keybindY + 1, 0.75f, capturing ? colAccent : (bound ? colText : colMuted));
+        boolean capturing = capturingModuleKey && openModule == null && module == captureTileModule;
+        if (bound || hovered || capturing) {
+            String label = capturing ? "Taste..." : bound ? keyName(module.getKeybind()) : "+ Taste";
+            int lw = GuiRender.scaledWidth(label, 0.75f) + 8;
+            Box chip = new Box(key.x2 - lw, key.y1, key.x2, key.y2);
+            tileHits.set(tileHits.size() - 1, new TileHit(module, box, strip, gear, chip));
+            GuiRender.roundedRect(ctx, chip.x1, chip.y1, chip.x2, chip.y2, GuiRender.withAlpha(0xFF000000, 0x40));
+            GuiRender.scaledText(ctx, label, chip.x1 + 4, chip.y1 + 3, 0.75f, capturing ? colAccent : bound ? colText : colMuted);
         }
 
-        if (hasSettings) {
-            context.drawText(textRenderer, "⚙", card.gearX, card.gearY - 1,
-                    expanded ? colAccent : colMuted, false);
-        }
+        // Status strip: green when on, a quiet grey when off, sliding between them.
+        int stripColor = GuiRender.blend(GuiRender.withAlpha(0xFFFFFFFF, 0x10), GuiRender.withAlpha(COL_ON, 0x33), on);
+        boolean stripHover = strip.contains(mx, my) && contentBox.contains(mx, my);
+        if (stripHover) stripColor = GuiRender.blend(stripColor, 0xFFFFFFFF, 0.08f);
+        GuiRender.roundedRect(ctx, strip.x1, strip.y1, strip.x2, strip.y2, stripColor);
+        String status = enabled ? "AN" : "AUS";
+        int statusColor = GuiRender.blend(colMuted, COL_ON, on);
+        int sw = textRenderer.getWidth(status);
+        ctx.drawText(textRenderer, status, strip.x1 + (strip.x2 - strip.x1 - sw) / 2, strip.y1 + 3, statusColor, false);
 
-        if (expanded) {
-            for (SettingRow row : card.settings) renderSetting(context, row, mouseX, mouseY);
+        if (gear != null) {
+            boolean gearHover = gear.contains(mx, my) && contentBox.contains(mx, my);
+            GuiRender.roundedRect(ctx, gear.x1, gear.y1, gear.x2, gear.y2, gearHover ? GuiRender.withAlpha(colAccent, 0x40) : GuiRender.withAlpha(0xFFFFFFFF, 0x10));
+            drawIcon(ctx, ICON_GEAR, gear.x1 + 4, gear.y1 + 3, gearHover ? colText : colMuted);
         }
     }
 
-    private void renderSetting(DrawContext context, SettingRow row, int mouseX, int mouseY) {
-        Setting<?> setting = row.setting;
-        int textY = row.y + 4;
-        context.fill(row.x + 8, row.y, row.x + row.width - 8, row.y + 1, GuiRender.withAlpha(colBorder, 0x44));
-        GuiRender.scaledText(context, setting.getName(), row.x + 12, textY + 1, 0.85f, colMuted);
+    // ---------------------------------------------------------------- settings page
+
+    private void renderSettingsPage(DrawContext ctx, int x, int y, int w, int h, int mx, int my, float dt) {
+        tileHits.clear();
+        chips.clear();
+        rowHits.clear();
+        Module module = openModule;
+
+        backBox = new Box(x + PAD, y + 10, x + PAD + 18, y + 28);
+        boolean backHover = backBox.contains(mx, my);
+        GuiRender.roundedRect(ctx, backBox.x1, backBox.y1, backBox.x2, backBox.y2, backHover ? GuiRender.withAlpha(colAccent, 0x40) : GuiRender.withAlpha(0xFFFFFFFF, 0x10));
+        drawIcon(ctx, ICON_BACK, backBox.x1 + 5, backBox.y1 + 5, backHover ? colText : colMuted);
+
+        GuiRender.scaledText(ctx, pretty(module.getName()), x + PAD + 26, y + 10, 1.25f, colText);
+        GuiRender.scaledText(ctx, GuiRender.trimToWidth(module.getDescription(), Math.round((w - 150) / 0.75f)), x + PAD + 26, y + 25, 0.75f, colMuted);
+
+        // Big toggle and reset, top right.
+        closeBox = new Box(x + w - PAD - 16, y + 11, x + w - PAD, y + 27);
+        drawClose(ctx, mx, my);
+        bigToggleBox = new Box(closeBox.x1 - 42, y + 13, closeBox.x1 - 12, y + 25);
+        float on = animate(toggleAnim, module, module.isEnabled() ? 1f : 0f, dt);
+        drawSwitch(ctx, bigToggleBox, on);
+        searchBox = null;
+
+        contentBox = new Box(x, y + HEADER_H, x + w, y + h);
+        ctx.enableScissor(contentBox.x1, contentBox.y1, contentBox.x2, contentBox.y2 - 1);
+
+        int rowX = x + PAD;
+        int rowW = w - PAD * 2 - 6;
+        int top = y + HEADER_H + 2 - Math.round(scroll);
+
+        // Keybind for the module itself, then its settings.
+        moduleKeyBox = drawKeyRow(ctx, "Tastenbelegung", module.getKeybind(), capturingModuleKey && captureTileModule == null, rowX, top, rowW, mx, my);
+        top += ROW_H + 2;
+
+        List<Setting<?>> settings = module.settings();
+        if (!settings.isEmpty()) {
+            GuiRender.roundedRect(ctx, rowX, top, rowX + rowW, top + settings.size() * ROW_H, GuiRender.withAlpha(colTile, 0xFF));
+            GuiRender.roundedOutline(ctx, rowX, top, rowX + rowW, top + settings.size() * ROW_H, GuiRender.withAlpha(colBorder, 0x88));
+        }
+        for (int i = 0; i < settings.size(); i++) {
+            renderSettingRow(ctx, settings.get(i), rowX, top + i * ROW_H, rowW, i > 0, mx, my, dt);
+        }
+        top += settings.size() * ROW_H + 8;
+
+        resetBox = new Box(rowX, top, rowX + textRenderer.getWidth("Zurücksetzen") + 16, top + 16);
+        boolean resetHover = resetBox.contains(mx, my) && contentBox.contains(mx, my);
+        GuiRender.roundedRect(ctx, resetBox.x1, resetBox.y1, resetBox.x2, resetBox.y2, resetHover ? GuiRender.withAlpha(COL_DANGER, 0x30) : GuiRender.withAlpha(0xFFFFFFFF, 0x0C));
+        ctx.drawText(textRenderer, "Zurücksetzen", resetBox.x1 + 8, resetBox.y1 + 4, resetHover ? COL_DANGER : colMuted, false);
+        top += 24;
+
+        contentHeight = (top + Math.round(scroll)) - (y + HEADER_H);
+        ctx.disableScissor();
+        renderScrollbar(ctx, x + w - 5, y + HEADER_H + 4, h - HEADER_H - 8);
+    }
+
+    private Box drawKeyRow(DrawContext ctx, String label, int key, boolean capturing, int x, int y, int w, int mx, int my) {
+        GuiRender.roundedRect(ctx, x, y, x + w, y + ROW_H, colTile);
+        GuiRender.roundedOutline(ctx, x, y, x + w, y + ROW_H, GuiRender.withAlpha(colBorder, 0x88));
+        ctx.drawText(textRenderer, label, x + 10, y + 8, colText, false);
+        String value = capturing ? "Taste drücken..." : key == GLFW.GLFW_KEY_UNKNOWN ? "Keine" : keyName(key);
+        int vw = textRenderer.getWidth(value) + 14;
+        Box chip = new Box(x + w - vw - 8, y + 5, x + w - 8, y + ROW_H - 5);
+        boolean hover = chip.contains(mx, my) && contentBox.contains(mx, my);
+        GuiRender.roundedRect(ctx, chip.x1, chip.y1, chip.x2, chip.y2, capturing ? GuiRender.withAlpha(colAccent, 0x40) : hover ? GuiRender.withAlpha(0xFFFFFFFF, 0x18) : GuiRender.withAlpha(0xFF000000, 0x40));
+        if (capturing) GuiRender.roundedOutline(ctx, chip.x1, chip.y1, chip.x2, chip.y2, colAccent);
+        ctx.drawText(textRenderer, value, chip.x1 + 7, chip.y1 + 4, capturing ? colText : key == GLFW.GLFW_KEY_UNKNOWN ? colMuted : colText, false);
+        return chip;
+    }
+
+    private void renderSettingRow(DrawContext ctx, Setting<?> setting, int x, int y, int w, boolean divider, int mx, int my, float dt) {
+        if (divider) ctx.fill(x + 8, y, x + w - 8, y + 1, GuiRender.withAlpha(colBorder, 0x55));
+
+        String name = setting.getName();
+        boolean plusOnly = name.endsWith("(Crystal+)");
+        if (plusOnly) name = name.substring(0, name.length() - "(Crystal+)".length()).trim();
+        boolean locked = plusOnly && !CrystalProfile.hasPerks();
+
+        ctx.drawText(textRenderer, name, x + 10, y + 8, locked ? colMuted : colText, false);
+        if (plusOnly) {
+            int tx = x + 16 + textRenderer.getWidth(name);
+            GuiRender.roundedRect(ctx, tx, y + 7, tx + 38, y + 17, GuiRender.withAlpha(COL_PLUS, 0x30));
+            if (locked) drawIcon(ctx, ICON_LOCK, tx + 3, y + 8, COL_PLUS);
+            GuiRender.scaledText(ctx, "Crystal+", tx + (locked ? 11 : 5), y + 10, 0.75f, COL_PLUS);
+        }
+
+        int controlW = Math.min(170, w / 2);
+        Box control = new Box(x + w - controlW - 10, y + 4, x + w - 10, y + ROW_H - 4);
+        rowHits.add(new RowHit(setting, new Box(x, y, x + w, y + ROW_H), control, locked));
+        boolean hover = control.contains(mx, my) && contentBox.contains(mx, my);
+        int alpha = locked ? 0x70 : 0xFF;
 
         switch (setting.getType()) {
             case BOOLEAN -> {
-                BooleanSetting b = (BooleanSetting) setting;
-                GuiRender.toggle(context, row.x + row.width - 30, row.y + 2, b.getValue(), colAccent, colBorder,
-                        b.getValue() ? 0xFFFFFFFF : colMuted);
+                float on = animate(toggleAnim, setting, ((BooleanSetting) setting).getValue() ? 1f : 0f, dt);
+                drawSwitch(ctx, new Box(control.x2 - 30, y + 6, control.x2, y + ROW_H - 6), on);
             }
             case SLIDER -> {
                 SliderSetting s = (SliderSetting) setting;
+                String value = s.getDisplayValue();
+                int valueW = Math.max(28, textRenderer.getWidth(value) + 10);
+                int trackX1 = control.x1;
+                int trackX2 = control.x2 - valueW - 6;
                 float fraction = (s.getValue() - s.getMin()) / Math.max(0.0001f, s.getMax() - s.getMin());
-                GuiRender.slider(context, row.controlX, row.y + 3, row.controlWidth - 26, fraction,
-                        colBorder, colAccent, 0xFFFFFFFF);
-                GuiRender.scaledText(context, s.getDisplayValue(),
-                        row.x + row.width - 22, textY + 1, 0.85f, colText);
-            }
-            case ENUM -> {
-                GuiRender.scaledText(context, "<", row.controlX, textY + 1, 0.85f, colAccent);
-                String value = GuiRender.trimToWidth(setting.getDisplayValue(), row.controlWidth - 24);
-                int valueX = row.controlX + (row.controlWidth - GuiRender.scaledWidth(value, 0.85f)) / 2;
-                GuiRender.scaledText(context, value, valueX, textY + 1, 0.85f, colText);
-                GuiRender.scaledText(context, ">", row.x + row.width - 14, textY + 1, 0.85f, colAccent);
-            }
-            case COLOR -> {
-                ColorSetting c = (ColorSetting) setting;
-                int swatchX = row.x + row.width - 44;
-                GuiRender.roundedRect(context, swatchX, row.y + 3, swatchX + 14, row.y + 11, c.getValue());
-                GuiRender.roundedOutline(context, swatchX, row.y + 3, swatchX + 14, row.y + 11, colBorder);
-                GuiRender.scaledText(context, c.getDisplayValue(), row.x + row.width - 28, textY + 1, 0.75f, colMuted);
-            }
-            case KEYBIND -> {
-                boolean capturing = setting == keybindSettingTarget;
-                String label = capturing ? "..." : setting.getDisplayValue();
-                int labelW = GuiRender.scaledWidth(label, 0.85f);
-                GuiRender.roundedRect(context, row.x + row.width - labelW - 18, row.y + 2,
-                        row.x + row.width - 8, row.y + 12, colSurface);
-                GuiRender.scaledText(context, label, row.x + row.width - labelW - 13, textY + 1, 0.85f,
-                        capturing ? colAccent : colText);
-            }
-            case TEXT -> {
-                boolean editing = setting == editingText;
-                String shown = editing ? textEditBuffer + "_" : setting.getDisplayValue();
-                String trimmed = GuiRender.trimToWidth(shown, Math.round(row.controlWidth / 0.85f));
-                int w = GuiRender.scaledWidth(trimmed, 0.85f);
-                GuiRender.roundedRect(context, row.x + row.width - w - 18, row.y + 2,
-                        row.x + row.width - 8, row.y + 12, colSurface);
-                if (editing) GuiRender.roundedOutline(context, row.x + row.width - w - 18, row.y + 2,
-                        row.x + row.width - 8, row.y + 12, colAccent);
-                GuiRender.scaledText(context, trimmed, row.x + row.width - w - 13, textY + 1, 0.85f,
-                        editing ? colAccent : colText);
-            }
-        }
-    }
-
-    private void renderScrollbar(DrawContext context, int cx, int cy, int cw, int ch) {
-        int maxScroll = maxScroll();
-        if (maxScroll <= 0) return;
-
-        int trackX = cx + cw - SCROLLBAR_W - 2;
-        int trackHeight = ch - PADDING * 2;
-        int thumbHeight = Math.max(16, trackHeight * ch / Math.max(1, contentHeight));
-        int thumbY = cy + PADDING + Math.round((trackHeight - thumbHeight) * (scrollOffset / (float) maxScroll));
-
-        GuiRender.roundedRect(context, trackX, cy + PADDING, trackX + SCROLLBAR_W, cy + PADDING + trackHeight,
-                GuiRender.withAlpha(colBorder, 0x55));
-        GuiRender.roundedRect(context, trackX, thumbY, trackX + SCROLLBAR_W, thumbY + thumbHeight, colMuted);
-    }
-
-    private int maxScroll() {
-        return Math.max(0, contentHeight - contentHeightVisible() + PADDING * 2);
-    }
-
-    private String keybindLabel(int key) {
-        if (key == GLFW.GLFW_KEY_UNKNOWN) return "Bind";
-        String name = GLFW.glfwGetKeyName(key, 0);
-        if (name != null) return name.toUpperCase();
-        return switch (key) {
-            case GLFW.GLFW_KEY_RIGHT_SHIFT -> "RSHIFT";
-            case GLFW.GLFW_KEY_LEFT_SHIFT -> "LSHIFT";
-            case GLFW.GLFW_KEY_LEFT_CONTROL -> "LCTRL";
-            case GLFW.GLFW_KEY_SPACE -> "SPACE";
-            case GLFW.GLFW_KEY_TAB -> "TAB";
-            default -> "K" + key;
-        };
-    }
-
-    // -------------------------------------------------------------- input
-
-    @Override
-    public boolean mouseClicked(Click click, boolean doubled) {
-        double mouseX = click.x();
-        double mouseY = click.y();
-        boolean rightClick = click.button() == 1;
-
-        int px = panelX(), py = panelY(), pw = panelWidth(), ph = panelHeight();
-
-        // Clicking outside the panel closes it, like Lunar's overlay.
-        if (mouseX < px || mouseX > px + pw || mouseY < py || mouseY > py + ph) {
-            close();
-            return true;
-        }
-
-        int searchX = px + SIDEBAR_W;
-        int searchW = pw - SIDEBAR_W - 34;
-        boolean clickedSearch = mouseX >= searchX && mouseX <= searchX + searchW
-                && mouseY >= py + 6 && mouseY <= py + 22;
-
-        if (editingText != null && !clickedSearch) commitTextEdit();
-        searchFocused = clickedSearch;
-        if (clickedSearch) return true;
-
-        // Close button
-        int closeX = px + pw - 20;
-        if (mouseX >= closeX - 4 && mouseX <= closeX + 10 && mouseY >= py + 8 && mouseY <= py + 20) {
-            close();
-            return true;
-        }
-
-        // Sidebar categories
-        if (mouseX < px + SIDEBAR_W) {
-            int rowY = py + HEADER_H + PADDING;
-            for (ModuleCategory category : ModuleCategory.values()) {
-                if (mouseY >= rowY && mouseY <= rowY + 18) {
-                    selectedCategory = category;
-                    searchQuery.setLength(0);
-                    expandedModule = null;
-                    scrollOffset = 0;
-                    return true;
-                }
-                rowY += 20;
-            }
-            return true;
-        }
-
-        // HUD preset chips
-        if (!searching() && selectedCategory == ModuleCategory.HUD) {
-            int chipX = contentX() + PADDING;
-            int chipY = contentY() + PADDING - scrollOffset;
-            for (HudPreset preset : HudPreset.values()) {
-                int w = textRenderer.getWidth(preset.getLabel()) + 12;
-                if (mouseX >= chipX && mouseX <= chipX + w && mouseY >= chipY && mouseY <= chipY + 14) {
-                    CrystalClient.getInstance().getHudPresetManager().apply(preset);
-                    return true;
-                }
-                chipX += w + 5;
-            }
-        }
-
-        buildLayout();
-        for (CardLayout card : layout) {
-            // Settings rows first — they sit inside the card's bounds.
-            for (SettingRow row : card.settings) {
-                if (mouseY >= row.y && mouseY <= row.y + row.height && mouseX >= row.x && mouseX <= row.x + row.width) {
-                    handleSettingClick(row, mouseX, rightClick);
-                    return true;
-                }
-            }
-
-            boolean inHeader = mouseY >= card.y && mouseY <= card.y + CARD_H
-                    && mouseX >= card.x && mouseX <= card.x + card.width;
-            if (!inHeader) continue;
-
-            if (mouseX >= card.toggleX - 2 && mouseX <= card.toggleX + GuiRender.TOGGLE_W + 2
-                    && mouseY >= card.toggleY - 3 && mouseY <= card.toggleY + GuiRender.TOGGLE_H + 3) {
-                card.module.toggle();
-                return true;
-            }
-            if (!card.module.settings().isEmpty()
-                    && mouseX >= card.gearX - 4 && mouseX <= card.gearX + 12
-                    && mouseY >= card.gearY - 4 && mouseY <= card.gearY + 10) {
-                expandedModule = expandedModule == card.module ? null : card.module;
-                return true;
-            }
-            if (mouseX >= card.keybindX && mouseX <= card.keybindX + card.keybindWidth
-                    && mouseY >= card.keybindY - 3 && mouseY <= card.keybindY + 10) {
-                keybindModuleTarget = card.module;
-                keybindSettingTarget = null;
-                editingText = null;
-                return true;
-            }
-
-            // Anywhere else on the card: left-click toggles, right-click opens settings.
-            if (rightClick && !card.module.settings().isEmpty()) {
-                expandedModule = expandedModule == card.module ? null : card.module;
-            } else if (!rightClick) {
-                card.module.toggle();
-            }
-            return true;
-        }
-
-        return super.mouseClicked(click, doubled);
-    }
-
-    private void handleSettingClick(SettingRow row, double mouseX, boolean rightClick) {
-        Setting<?> setting = row.setting;
-        switch (setting.getType()) {
-            case BOOLEAN -> ((BooleanSetting) setting).toggle();
-            case SLIDER -> {
-                SliderSetting s = (SliderSetting) setting;
-                draggingSlider = s;
-                draggingSliderX = row.controlX;
-                draggingSliderWidth = row.controlWidth - 26;
-                applySliderDrag(mouseX);
+                int cy = y + ROW_H / 2;
+                GuiRender.roundedRect(ctx, trackX1, cy - 2, trackX2, cy + 2, GuiRender.withAlpha(colBorder, alpha));
+                int fill = trackX1 + Math.round((trackX2 - trackX1) * Math.max(0f, Math.min(1f, fraction)));
+                if (fill > trackX1 + 1) GuiRender.roundedRect(ctx, trackX1, cy - 2, fill, cy + 2, GuiRender.withAlpha(colAccent, alpha));
+                int knob = draggingSlider == s || hover ? 4 : 3;
+                GuiRender.roundedRect(ctx, fill - knob, cy - knob, fill + knob, cy + knob, GuiRender.withAlpha(0xFFFFFFFF, alpha));
+                GuiRender.roundedRect(ctx, trackX2 + 6, y + 5, control.x2, y + ROW_H - 5, GuiRender.withAlpha(0xFF000000, 0x40));
+                ctx.drawText(textRenderer, value, trackX2 + 6 + (valueW - textRenderer.getWidth(value)) / 2, y + 8, GuiRender.withAlpha(colText, alpha), false);
             }
             case ENUM -> {
                 EnumSetting e = (EnumSetting) setting;
-                if (mouseX <= row.controlX + 10) e.previous(); else e.next();
+                String value = GuiRender.trimToWidth(stripPlus(e.getValue()), controlW - 34);
+                GuiRender.roundedRect(ctx, control.x1, control.y1, control.x2, control.y2, hover ? GuiRender.withAlpha(0xFFFFFFFF, 0x14) : GuiRender.withAlpha(0xFF000000, 0x40));
+                drawIcon(ctx, ICON_LEFT, control.x1 + 5, control.y1 + 4, GuiRender.withAlpha(colAccent, alpha));
+                drawIcon(ctx, ICON_RIGHT, control.x2 - 10, control.y1 + 4, GuiRender.withAlpha(colAccent, alpha));
+                int vw = textRenderer.getWidth(value);
+                ctx.drawText(textRenderer, value, control.x1 + (controlW - vw) / 2, y + 8, GuiRender.withAlpha(colText, alpha), false);
             }
             case COLOR -> {
                 ColorSetting c = (ColorSetting) setting;
-                if (rightClick) c.cyclePrevious(); else c.cycleNext();
+                int[] palette = ColorSetting.PALETTE;
+                int size = 10;
+                int gap = 3;
+                int count = Math.min(palette.length, (controlW + gap) / (size + gap));
+                int sx = control.x2 - count * (size + gap) + gap;
+                for (int i = 0; i < count; i++) {
+                    int bx = sx + i * (size + gap);
+                    boolean selected = (palette[i] & 0xFFFFFF) == (c.getValue() & 0xFFFFFF);
+                    GuiRender.roundedRect(ctx, bx, y + 7, bx + size, y + 7 + size, GuiRender.withAlpha(palette[i], alpha));
+                    if (selected) GuiRender.roundedOutline(ctx, bx - 2, y + 5, bx + size + 2, y + 9 + size, 0xFFFFFFFF);
+                }
             }
             case KEYBIND -> {
-                keybindSettingTarget = (KeybindSetting) setting;
-                keybindModuleTarget = null;
-                editingText = null;
+                boolean capturing = setting == capturingSetting;
+                String value = capturing ? "Taste drücken..." : setting.getDisplayValue();
+                int vw = textRenderer.getWidth(value) + 14;
+                Box chip = new Box(control.x2 - vw, control.y1, control.x2, control.y2);
+                GuiRender.roundedRect(ctx, chip.x1, chip.y1, chip.x2, chip.y2, capturing ? GuiRender.withAlpha(colAccent, 0x40) : GuiRender.withAlpha(0xFF000000, 0x40));
+                if (capturing) GuiRender.roundedOutline(ctx, chip.x1, chip.y1, chip.x2, chip.y2, colAccent);
+                ctx.drawText(textRenderer, value, chip.x1 + 7, y + 8, colText, false);
             }
             case TEXT -> {
-                TextSetting t = (TextSetting) setting;
-                if (editingText != t) {
-                    editingText = t;
-                    textEditBuffer = new StringBuilder(t.getValue());
+                boolean editing = setting == editingText;
+                String shown = editing ? textBuffer + (System.currentTimeMillis() / 500 % 2 == 0 ? "_" : "") : setting.getDisplayValue();
+                GuiRender.roundedRect(ctx, control.x1, control.y1, control.x2, control.y2, GuiRender.withAlpha(0xFF000000, 0x50));
+                GuiRender.roundedOutline(ctx, control.x1, control.y1, control.x2, control.y2, editing ? colAccent : GuiRender.withAlpha(colBorder, 0xAA));
+                String trimmed = shown.isEmpty() && !editing ? "Klicken zum Schreiben" : GuiRender.trimToWidth(shown, controlW - 12);
+                ctx.drawText(textRenderer, trimmed, control.x1 + 6, y + 8, shown.isEmpty() && !editing ? colMuted : colText, false);
+            }
+        }
+    }
+
+    // ---------------------------------------------------------------- shared bits
+
+    private void renderSearchAndClose(DrawContext ctx, int x, int y, int w, int mx, int my) {
+        closeBox = new Box(x + w - PAD - 16, y + 11, x + w - PAD, y + 27);
+        drawClose(ctx, mx, my);
+
+        int sw = Math.min(150, w / 2 - 20);
+        searchBox = new Box(closeBox.x1 - 8 - sw, y + 10, closeBox.x1 - 8, y + 28);
+        boolean hover = searchBox.contains(mx, my);
+        GuiRender.roundedRect(ctx, searchBox.x1, searchBox.y1, searchBox.x2, searchBox.y2,
+                searchFocused ? GuiRender.withAlpha(0xFF000000, 0x60) : hover ? GuiRender.withAlpha(0xFFFFFFFF, 0x12) : GuiRender.withAlpha(0xFF000000, 0x40));
+        GuiRender.roundedOutline(ctx, searchBox.x1, searchBox.y1, searchBox.x2, searchBox.y2,
+                searchFocused ? colAccent : GuiRender.withAlpha(colBorder, 0xAA));
+        drawIcon(ctx, ICON_SEARCH, searchBox.x1 + 6, searchBox.y1 + 5, searchFocused ? colAccent : colMuted);
+
+        boolean empty = search.length() == 0;
+        String shown = empty ? "Module suchen" : search.toString();
+        String caret = searchFocused && System.currentTimeMillis() / 500 % 2 == 0 ? "_" : "";
+        ctx.drawText(textRenderer, GuiRender.trimToWidth(shown, sw - 28) + (empty ? "" : caret),
+                searchBox.x1 + 18, searchBox.y1 + 5, empty ? GuiRender.withAlpha(colMuted, 0xCC) : colText, false);
+    }
+
+    private void drawClose(DrawContext ctx, int mx, int my) {
+        boolean hover = closeBox.contains(mx, my);
+        GuiRender.roundedRect(ctx, closeBox.x1, closeBox.y1, closeBox.x2, closeBox.y2,
+                hover ? GuiRender.withAlpha(COL_DANGER, 0x40) : GuiRender.withAlpha(0xFFFFFFFF, 0x10));
+        drawIcon(ctx, ICON_CLOSE, closeBox.x1 + 4, closeBox.y1 + 4, hover ? COL_DANGER : colMuted);
+    }
+
+    private void drawSwitch(DrawContext ctx, Box box, float on) {
+        int h = box.y2 - box.y1;
+        int track = GuiRender.blend(GuiRender.withAlpha(0xFFFFFFFF, 0x22), colAccent, on);
+        GuiRender.roundedRect(ctx, box.x1, box.y1, box.x2, box.y2, track);
+        int knobSize = h - 4;
+        int knobX = box.x1 + 2 + Math.round((box.x2 - box.x1 - 4 - knobSize) * on);
+        GuiRender.roundedRect(ctx, knobX, box.y1 + 2, knobX + knobSize, box.y2 - 2, 0xFFFFFFFF);
+    }
+
+    private void renderScrollbar(DrawContext ctx, int x, int y, int h) {
+        int max = maxScroll();
+        if (max <= 0) return;
+        int visible = contentBox.y2 - contentBox.y1;
+        int thumb = Math.max(18, h * visible / Math.max(1, contentHeight));
+        int ty = y + Math.round((h - thumb) * (scroll / max));
+        GuiRender.roundedRect(ctx, x, ty, x + 3, ty + thumb, GuiRender.withAlpha(colMuted, 0x99));
+    }
+
+    private int maxScroll() {
+        if (contentBox == null) return 0;
+        return Math.max(0, contentHeight - (contentBox.y2 - contentBox.y1));
+    }
+
+    // ================================================================ data
+
+    private List<Module> visibleModules() {
+        var manager = CrystalClient.getInstance().getModuleManager();
+        String query = search.toString().trim().toLowerCase(Locale.ROOT);
+        List<Module> result = new ArrayList<>();
+        for (Module m : manager.getModules()) {
+            if (!query.isEmpty()) {
+                if (m.getName().toLowerCase(Locale.ROOT).contains(query)
+                        || pretty(m.getName()).toLowerCase(Locale.ROOT).contains(query)
+                        || m.getDescription().toLowerCase(Locale.ROOT).contains(query)) result.add(m);
+            } else if (category == null ? m.isEnabled() : m.getCategory() == category) {
+                result.add(m);
+            }
+        }
+        result.sort((a, b) -> pretty(a.getName()).compareToIgnoreCase(pretty(b.getName())));
+        return result;
+    }
+
+    private int countEnabled(ModuleCategory cat) {
+        int n = 0;
+        for (Module m : CrystalClient.getInstance().getModuleManager().getModules()) {
+            if (m.isEnabled() && (cat == null || m.getCategory() == cat)) n++;
+        }
+        return n;
+    }
+
+    /** "CustomMainMenu" -> "Custom Main Menu", "FPS" and "HUD" stay as they are. */
+    private static String pretty(String name) {
+        StringBuilder out = new StringBuilder();
+        for (int i = 0; i < name.length(); i++) {
+            char c = name.charAt(i);
+            boolean boundary = i > 0 && Character.isUpperCase(c)
+                    && (Character.isLowerCase(name.charAt(i - 1))
+                        || (i + 1 < name.length() && Character.isLowerCase(name.charAt(i + 1)) && Character.isUpperCase(name.charAt(i - 1))));
+            if (boundary) out.append(' ');
+            out.append(c);
+        }
+        return out.toString();
+    }
+
+    private static String stripPlus(String value) {
+        return value.endsWith("(Crystal+)") ? value.substring(0, value.length() - 10).trim() + " +" : value;
+    }
+
+    private List<String> wrap(String text, int maxWidth, int maxLines) {
+        List<String> lines = new ArrayList<>();
+        StringBuilder line = new StringBuilder();
+        for (String word : text.split(" ")) {
+            String candidate = line.length() == 0 ? word : line + " " + word;
+            if (textRenderer.getWidth(candidate) <= maxWidth) {
+                line.setLength(0);
+                line.append(candidate);
+            } else {
+                if (line.length() > 0) lines.add(line.toString());
+                line.setLength(0);
+                line.append(word);
+                if (lines.size() == maxLines) break;
+            }
+        }
+        if (lines.size() < maxLines && line.length() > 0) lines.add(line.toString());
+        if (lines.size() == maxLines) {
+            String last = lines.get(maxLines - 1);
+            if (textRenderer.getWidth(text) > textRenderer.getWidth(String.join(" ", lines))) {
+                lines.set(maxLines - 1, GuiRender.trimToWidth(last + "...", maxWidth));
+            }
+        }
+        return lines;
+    }
+
+    private String keyName(int key) {
+        if (key == GLFW.GLFW_KEY_UNKNOWN) return "Keine";
+        String name = GLFW.glfwGetKeyName(key, 0);
+        if (name != null) return name.toUpperCase(Locale.ROOT);
+        return switch (key) {
+            case GLFW.GLFW_KEY_RIGHT_SHIFT -> "R-SHIFT";
+            case GLFW.GLFW_KEY_LEFT_SHIFT -> "L-SHIFT";
+            case GLFW.GLFW_KEY_LEFT_CONTROL -> "L-STRG";
+            case GLFW.GLFW_KEY_RIGHT_CONTROL -> "R-STRG";
+            case GLFW.GLFW_KEY_LEFT_ALT -> "L-ALT";
+            case GLFW.GLFW_KEY_RIGHT_ALT -> "R-ALT";
+            case GLFW.GLFW_KEY_SPACE -> "LEER";
+            case GLFW.GLFW_KEY_TAB -> "TAB";
+            case GLFW.GLFW_KEY_CAPS_LOCK -> "CAPS";
+            default -> key >= GLFW.GLFW_KEY_F1 && key <= GLFW.GLFW_KEY_F25 ? "F" + (key - GLFW.GLFW_KEY_F1 + 1) : "#" + key;
+        };
+    }
+
+    private static float ease(float t) {
+        float inv = 1f - t;
+        return 1f - inv * inv * inv;
+    }
+
+    /** Moves a stored 0..1 value toward target at a fixed speed per second. */
+    private static float animate(Map<Object, Float> store, Object key, float target, float dt) {
+        float current = store.getOrDefault(key, target);
+        float next = current + (target - current) * Math.min(1f, dt * 14f);
+        if (Math.abs(next - target) < 0.01f) next = target;
+        store.put(key, next);
+        return next;
+    }
+
+    // ================================================================ icons
+
+    private static final String[] ICON_GEM = { "..###..", ".#####.", "#######", ".#####.", "..###..", "...#..." };
+    private static final String[] ICON_PLAYER = { "..##..", "..##..", "......", ".####.", "#.##.#", "..##..", ".#..#." };
+    private static final String[] ICON_MOVEMENT = { "...#...", "....#..", "######.", "....#..", "...#...", "......." };
+    private static final String[] ICON_RENDER = { "..###..", ".#...#.", "#..#..#", ".#...#.", "..###.." };
+    private static final String[] ICON_HUD = { "###.###", "#.#.#.#", "###.###", ".......", "###.###", "#.#.#.#", "###.###" };
+    private static final String[] ICON_MISC = { ".......", ".......", "#..#..#", ".......", "......." };
+    private static final String[] ICON_ACTIVE = { "......#", ".....#.", "#...#..", ".#.#...", "..#...." };
+    private static final String[] ICON_SEARCH = { ".###..", "#...#.", "#...#.", ".###..", "....#.", ".....#" };
+    private static final String[] ICON_GEAR = { "..#.#..", ".#####.", "##...##", ".#...#.", "##...##", ".#####.", "..#.#.." };
+    private static final String[] ICON_BACK = { "...#...", "..#....", ".######", "..#....", "...#..." };
+    private static final String[] ICON_CLOSE = { "#.....#", ".#...#.", "..#.#..", "...#...", "..#.#..", ".#...#.", "#.....#" };
+    private static final String[] ICON_LEFT = { "..#", ".#.", "#..", ".#.", "..#" };
+    private static final String[] ICON_RIGHT = { "#..", ".#.", "..#", ".#.", "#.." };
+    private static final String[] ICON_LOCK = { ".##.", "#..#", "####", "####" };
+
+    private static String[] iconFor(ModuleCategory cat) {
+        if (cat == null) return ICON_ACTIVE;
+        return switch (cat) {
+            case PLAYER -> ICON_PLAYER;
+            case MOVEMENT -> ICON_MOVEMENT;
+            case RENDER -> ICON_RENDER;
+            case HUD -> ICON_HUD;
+            case MISC -> ICON_MISC;
+        };
+    }
+
+    private static void drawIcon(DrawContext ctx, String[] rows, int x, int y, int color) {
+        for (int r = 0; r < rows.length; r++) {
+            String row = rows[r];
+            int start = -1;
+            for (int c = 0; c <= row.length(); c++) {
+                boolean filled = c < row.length() && row.charAt(c) == '#';
+                if (filled && start < 0) start = c;
+                if (!filled && start >= 0) {
+                    ctx.fill(x + start, y + r, x + c, y + r + 1, color);
+                    start = -1;
                 }
             }
         }
     }
 
-    private void applySliderDrag(double mouseX) {
-        if (draggingSlider == null || draggingSliderWidth <= 0) return;
+    // ================================================================ input
 
-        float fraction = (float) ((mouseX - draggingSliderX) / draggingSliderWidth);
-        fraction = Math.max(0f, Math.min(1f, fraction));
+    /** Which tile's key chip is capturing; null while capturing from the settings page. */
+    private Module captureTileModule = null;
 
+    private double[] toPanel(double mouseX, double mouseY) {
+        float open = ease(Math.min(1f, (System.currentTimeMillis() - openedAt) / (float) OPEN_ANIM_MS));
+        float scale = 0.96f + 0.04f * open;
+        return new double[] { (mouseX - width / 2.0) / scale + width / 2.0, (mouseY - height / 2.0) / scale + height / 2.0 };
+    }
+
+    @Override
+    public boolean mouseClicked(Click click, boolean doubled) {
+        double[] p = toPanel(click.x(), click.y());
+        double mx = p[0], my = p[1];
+        boolean right = click.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT;
+
+        int px = panelX(), py = panelY();
+        if (mx < px || mx > px + panelW() || my < py || my > py + panelH()) {
+            close();
+            return true;
+        }
+
+        if (editingText != null) commitText();
+        capturingModuleKey = false;
+        capturingSetting = null;
+        captureTileModule = null;
+
+        if (closeBox != null && closeBox.contains(mx, my)) { close(); return true; }
+
+        boolean inSearch = searchBox != null && searchBox.contains(mx, my);
+        searchFocused = inSearch;
+        if (inSearch) return true;
+
+        for (CategoryHit hit : categoryHits) {
+            if (hit.box.contains(mx, my)) {
+                category = hit.category;
+                openModule = null;
+                search.setLength(0);
+                scroll = scrollTarget = 0;
+                return true;
+            }
+        }
+
+        if (openModule != null) return clickSettingsPage(mx, my, right);
+
+        if (contentBox == null || !contentBox.contains(mx, my)) return true;
+
+        for (Chip chip : chips) {
+            if (chip.box.contains(mx, my)) { chip.action.run(); return true; }
+        }
+
+        for (TileHit tile : tileHits) {
+            if (!tile.box.contains(mx, my)) continue;
+            if (tile.gear != null && tile.gear.contains(mx, my) || right && !tile.module.settings().isEmpty()) {
+                openSettings(tile.module);
+            } else if (tile.key != null && tile.key.contains(mx, my)) {
+                capturingModuleKey = true;
+                captureTileModule = tile.module;
+            } else {
+                tile.module.toggle();
+            }
+            return true;
+        }
+        return true;
+    }
+
+    private void openSettings(Module module) {
+        openModule = module;
+        searchFocused = false;
+        scroll = scrollTarget = 0;
+    }
+
+    private boolean clickSettingsPage(double mx, double my, boolean right) {
+        Module module = openModule;
+        if (backBox != null && backBox.contains(mx, my)) {
+            openModule = null;
+            scroll = scrollTarget = 0;
+            return true;
+        }
+        if (bigToggleBox != null && bigToggleBox.contains(mx, my)) { module.toggle(); return true; }
+        if (contentBox == null || !contentBox.contains(mx, my)) return true;
+
+        if (moduleKeyBox != null && moduleKeyBox.contains(mx, my)) {
+            capturingModuleKey = true;
+            captureTileModule = null;
+            return true;
+        }
+        if (resetBox != null && resetBox.contains(mx, my)) {
+            CrystalClient.getInstance().getConfigManager().resetModule(module);
+            return true;
+        }
+
+        for (RowHit row : rowHits) {
+            if (!row.box.contains(mx, my)) continue;
+            if (row.locked) return true;
+            Setting<?> setting = row.setting;
+            Box c = row.control;
+            switch (setting.getType()) {
+                case BOOLEAN -> ((BooleanSetting) setting).toggle();
+                case SLIDER -> {
+                    if (!c.contains(mx, my)) return true;
+                    SliderSetting s = (SliderSetting) setting;
+                    int valueW = Math.max(28, textRenderer.getWidth(s.getDisplayValue()) + 10);
+                    dragX = c.x1;
+                    dragW = c.x2 - valueW - 6 - c.x1;
+                    draggingSlider = s;
+                    applySlider(mx);
+                }
+                case ENUM -> {
+                    EnumSetting e = (EnumSetting) setting;
+                    if (right || mx < c.x1 + (c.x2 - c.x1) / 3.0) e.previous(); else e.next();
+                }
+                case COLOR -> {
+                    ColorSetting color = (ColorSetting) setting;
+                    int[] palette = ColorSetting.PALETTE;
+                    int size = 10, gap = 3;
+                    int controlW = c.x2 - c.x1;
+                    int count = Math.min(palette.length, (controlW + gap) / (size + gap));
+                    int sx = c.x2 - count * (size + gap) + gap;
+                    int index = (int) Math.floor((mx - sx) / (size + gap));
+                    if (index >= 0 && index < count) color.setValue(palette[index]);
+                    else if (right) color.cyclePrevious();
+                    else color.cycleNext();
+                }
+                case KEYBIND -> capturingSetting = (KeybindSetting) setting;
+                case TEXT -> {
+                    editingText = (TextSetting) setting;
+                    textBuffer = new StringBuilder(editingText.getValue());
+                }
+            }
+            return true;
+        }
+        return true;
+    }
+
+    private void applySlider(double mx) {
+        if (draggingSlider == null || dragW <= 0) return;
+        float fraction = (float) Math.max(0, Math.min(1, (mx - dragX) / dragW));
         float raw = draggingSlider.getMin() + fraction * (draggingSlider.getMax() - draggingSlider.getMin());
         float step = draggingSlider.getStep();
         draggingSlider.setValue(Math.round(raw / step) * step);
@@ -628,7 +854,7 @@ public class CrystalClientScreen extends Screen {
     @Override
     public boolean mouseDragged(Click click, double deltaX, double deltaY) {
         if (draggingSlider != null) {
-            applySliderDrag(click.x());
+            applySlider(toPanel(click.x(), click.y())[0]);
             return true;
         }
         return super.mouseDragged(click, deltaX, deltaY);
@@ -642,39 +868,35 @@ public class CrystalClientScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
-        if (mouseX >= contentX() && mouseX <= contentX() + contentWidth()) {
-            scrollOffset = Math.max(0, Math.min(maxScroll(), scrollOffset - (int) (verticalAmount * 16)));
+        double[] p = toPanel(mouseX, mouseY);
+        if (contentBox != null && contentBox.contains(p[0], p[1])) {
+            scrollTarget = Math.max(0, Math.min(maxScroll(), scrollTarget - (float) verticalAmount * 24f));
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
     }
 
-    private void commitTextEdit() {
+    private void commitText() {
         if (editingText == null) return;
-        editingText.setValue(textEditBuffer.toString());
+        editingText.setValue(textBuffer.toString());
         editingText = null;
-        textEditBuffer = null;
-    }
-
-    private void cancelTextEdit() {
-        editingText = null;
-        textEditBuffer = null;
+        textBuffer = null;
     }
 
     @Override
     public boolean charTyped(CharInput input) {
         if (!input.isValidChar()) return super.charTyped(input);
         char chr = (char) input.codepoint();
+        if (chr < 32) return true;
 
         if (editingText != null) {
-            if (textEditBuffer.length() < editingText.getMaxLength() && chr >= 32) textEditBuffer.append(chr);
+            if (textBuffer.length() < editingText.getMaxLength()) textBuffer.append(chr);
             return true;
         }
         if (searchFocused) {
-            if (chr >= 32) {
-                searchQuery.append(chr);
-                scrollOffset = 0;
-            }
+            search.append(chr);
+            openModule = null;
+            scroll = scrollTarget = 0;
             return true;
         }
         return super.charTyped(input);
@@ -684,42 +906,58 @@ public class CrystalClientScreen extends Screen {
     public boolean keyPressed(KeyInput input) {
         int key = input.key();
 
-        // While binding, the next key pressed wins — Escape clears the bind
-        // rather than closing the menu.
-        if (keybindModuleTarget != null) {
-            keybindModuleTarget.setKeybind(key == GLFW.GLFW_KEY_ESCAPE ? GLFW.GLFW_KEY_UNKNOWN : key);
-            keybindModuleTarget = null;
+        // While binding, the next key wins; Escape clears the bind instead of closing.
+        if (capturingModuleKey) {
+            Module target = captureTileModule != null ? captureTileModule : openModule;
+            if (target != null) target.setKeybind(key == GLFW.GLFW_KEY_ESCAPE ? GLFW.GLFW_KEY_UNKNOWN : key);
+            capturingModuleKey = false;
+            captureTileModule = null;
             return true;
         }
-        if (keybindSettingTarget != null) {
-            keybindSettingTarget.setValue(key == GLFW.GLFW_KEY_ESCAPE ? GLFW.GLFW_KEY_UNKNOWN : key);
-            keybindSettingTarget = null;
+        if (capturingSetting != null) {
+            capturingSetting.setValue(key == GLFW.GLFW_KEY_ESCAPE ? GLFW.GLFW_KEY_UNKNOWN : key);
+            capturingSetting = null;
             return true;
         }
 
         if (editingText != null) {
-            if (key == GLFW.GLFW_KEY_ENTER || key == GLFW.GLFW_KEY_KP_ENTER) commitTextEdit();
-            else if (key == GLFW.GLFW_KEY_ESCAPE) cancelTextEdit();
-            else if (key == GLFW.GLFW_KEY_BACKSPACE && textEditBuffer.length() > 0) {
-                textEditBuffer.deleteCharAt(textEditBuffer.length() - 1);
-            }
+            if (key == GLFW.GLFW_KEY_ENTER || key == GLFW.GLFW_KEY_KP_ENTER) commitText();
+            else if (key == GLFW.GLFW_KEY_ESCAPE) { editingText = null; textBuffer = null; }
+            else if (key == GLFW.GLFW_KEY_BACKSPACE && textBuffer.length() > 0) textBuffer.deleteCharAt(textBuffer.length() - 1);
             return true;
         }
 
         if (searchFocused) {
-            if (key == GLFW.GLFW_KEY_BACKSPACE && searchQuery.length() > 0) {
-                searchQuery.deleteCharAt(searchQuery.length() - 1);
-                scrollOffset = 0;
+            if (key == GLFW.GLFW_KEY_BACKSPACE && search.length() > 0) {
+                search.deleteCharAt(search.length() - 1);
+                scroll = scrollTarget = 0;
             } else if (key == GLFW.GLFW_KEY_ESCAPE || key == GLFW.GLFW_KEY_ENTER) {
                 searchFocused = false;
             }
             return true;
         }
 
+        // Ctrl+F jumps to the search field.
+        if (key == GLFW.GLFW_KEY_F && input.hasCtrlOrCmd()) {
+            searchFocused = true;
+            openModule = null;
+            return true;
+        }
+
+        if (key == GLFW.GLFW_KEY_ESCAPE && openModule != null) {
+            openModule = null;
+            scroll = scrollTarget = 0;
+            return true;
+        }
         if (key == GLFW.GLFW_KEY_RIGHT_SHIFT || key == GLFW.GLFW_KEY_ESCAPE) {
-            this.close();
+            close();
             return true;
         }
         return super.keyPressed(input);
+    }
+
+    /** Test hook for the automated screenshot run: opens a module's settings page. */
+    public void openSettingsForTest(String moduleName) {
+        CrystalClient.getInstance().getModuleManager().getModuleByName(moduleName).ifPresent(this::openSettings);
     }
 }
