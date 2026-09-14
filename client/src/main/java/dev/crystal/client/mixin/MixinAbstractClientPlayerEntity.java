@@ -34,7 +34,9 @@ public class MixinAbstractClientPlayerEntity {
         if (module != null && !module.getTargetUsername().isEmpty()) {
             SkinTextures replacement = SkinFetcher.getOrFetch(module.getTargetUsername());
             if (replacement != null) {
-                current = replacement;
+                // Swap the skin and arm model only; the player's own cape and
+                // elytra texture used to vanish along with the old skin.
+                current = SkinTextures.create(replacement.body(), current.cape(), current.elytra(), replacement.model());
                 changed = true;
             }
         }
