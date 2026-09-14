@@ -58,6 +58,12 @@ export class UpdateManager {
       return false
     }
 
+    // A retry after a failed download must not stack a second set of listeners
+    // on top of the first; each event would then fire twice.
+    autoUpdater.removeAllListeners('download-progress')
+    autoUpdater.removeAllListeners('update-downloaded')
+    autoUpdater.removeAllListeners('error')
+
     return new Promise(resolve => {
       autoUpdater.on('download-progress', p => {
         emit('update:progress', { step: 'Downloading update...', percent: Math.round(p.percent) })
@@ -85,7 +91,9 @@ export class UpdateManager {
         emit('update:error', err?.message || 'Update failed')
         resolve(false)
       })
-      autoUpdater.downloadUpdate()
+      // Failures also arrive through the 'error' event above; this only keeps the
+      // rejected promise from being reported as unhandled.
+      autoUpdater.downloadUpdate().catch(() => {})
     })
   }
 }
