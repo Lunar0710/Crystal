@@ -6,9 +6,13 @@ import { CosmeticDef } from '../../data/cosmetics'
 
 const COSMETIC_GROUP = 'crystal-cosmetics'
 
-// skinview3d's player space, read off its own geometry: the head is centred at
-// y=0 (spanning -4..4), the body at y=-6, legs reach y=-18, and the cape hangs
-// at z=-2 — so negative z is *behind* the player.
+// Cosmetics hang off skinview3d's SkinObject (playerObject.skin), whose space
+// is (skinview3d 3.4 model.js): head 0..8, body -12..0, legs down to -24,
+// negative z is behind the player. Head pieces are authored around the head's
+// centre and placed in a group raised to y=4; see HEAD_CENTER_Y below.
+// Attaching to playerObject instead (as before) put everything one head too
+// low, because the skin itself sits at y=8 inside the player object.
+const HEAD_CENTER_Y = 4
 const HEAD_TOP = 4
 const BODY_BACK_Z = -2
 const FACE_Z = 4
@@ -156,7 +160,7 @@ export function SkinPreview3D({
     const viewer = viewerRef.current
     if (!viewer) return
 
-    const player = viewer.playerObject as unknown as THREE.Object3D
+    const player = viewer.playerObject.skin as unknown as THREE.Object3D
     const previous = player.getObjectByName(COSMETIC_GROUP)
     if (previous) {
       previous.removeFromParent()
@@ -173,6 +177,10 @@ export function SkinPreview3D({
 
     const group = new THREE.Group()
     group.name = COSMETIC_GROUP
+    // Hat, bandana and mask coordinates are relative to the head's centre.
+    const head = new THREE.Group()
+    head.position.y = HEAD_CENTER_Y
+    group.add(head)
 
     const box = (w: number, h: number, d: number, color: string, opacity = 1) =>
       new THREE.Mesh(
@@ -187,11 +195,11 @@ export function SkinPreview3D({
     if (bandana) {
       const band = box(8.7, 1.8, 8.7, bandana.color)
       band.position.set(0, -1.4, 0)
-      group.add(band)
+      head.add(band)
 
       const knot = box(1.4, 1.4, 2.2, bandana.secondary ?? bandana.color)
       knot.position.set(0, -1.4, BODY_BACK_Z - 3)
-      group.add(knot)
+      head.add(knot)
     }
 
     if (hat) {
@@ -200,7 +208,7 @@ export function SkinPreview3D({
         case 'crown': {
           const base = box(8.8, 1.6, 8.8, hat.color)
           base.position.set(0, HEAD_TOP + 0.8, 0)
-          group.add(base)
+          head.add(base)
           for (let i = 0; i < 6; i++) {
             const angle = (i / 6) * Math.PI * 2
             const spike = new THREE.Mesh(
@@ -208,11 +216,11 @@ export function SkinPreview3D({
               new THREE.MeshLambertMaterial({ color: new THREE.Color(hat.color) })
             )
             spike.position.set(Math.cos(angle) * 3.4, HEAD_TOP + 2.8, Math.sin(angle) * 3.4)
-            group.add(spike)
+            head.add(spike)
           }
           const gem = box(1.2, 1.2, 1.2, accent)
           gem.position.set(0, HEAD_TOP + 1, FACE_Z)
-          group.add(gem)
+          head.add(gem)
           break
         }
         case 'tophat': {
@@ -222,7 +230,7 @@ export function SkinPreview3D({
           top.position.set(0, HEAD_TOP + 3.8, 0)
           const ribbon = box(7.6, 1.2, 7.6, accent)
           ribbon.position.set(0, HEAD_TOP + 1.4, 0)
-          group.add(brim, top, ribbon)
+          head.add(brim, top, ribbon)
           break
         }
         case 'straw': {
@@ -230,7 +238,7 @@ export function SkinPreview3D({
           brim.position.set(0, HEAD_TOP + 0.4, 0)
           const dome = box(8, 2.8, 8, accent)
           dome.position.set(0, HEAD_TOP + 2.1, 0)
-          group.add(brim, dome)
+          head.add(brim, dome)
           break
         }
         case 'cap': {
@@ -238,7 +246,7 @@ export function SkinPreview3D({
           dome.position.set(0, HEAD_TOP + 1.6, 0)
           const visor = box(8, 0.6, 4.5, accent)
           visor.position.set(0, HEAD_TOP + 0.3, FACE_Z + 1.4)
-          group.add(dome, visor)
+          head.add(dome, visor)
           break
         }
         case 'halo': {
@@ -248,7 +256,7 @@ export function SkinPreview3D({
           )
           ring.rotation.x = Math.PI / 2
           ring.position.set(0, HEAD_TOP + 4, 0)
-          group.add(ring)
+          head.add(ring)
           break
         }
         case 'horns': {
@@ -259,7 +267,7 @@ export function SkinPreview3D({
             )
             horn.position.set(side * 3, HEAD_TOP + 2, 0)
             horn.rotation.z = side * -0.4
-            group.add(horn)
+            head.add(horn)
           }
           break
         }
@@ -271,7 +279,7 @@ export function SkinPreview3D({
             new THREE.MeshBasicMaterial({ color: new THREE.Color(hat.color) })
           )
           bulb.position.set(0, HEAD_TOP + 5, 0)
-          group.add(stalk, bulb)
+          head.add(stalk, bulb)
           break
         }
         default: {
@@ -279,7 +287,7 @@ export function SkinPreview3D({
           beanie.position.set(0, HEAD_TOP + 1.6, 0)
           const cuff = box(9, 1.4, 9, accent)
           cuff.position.set(0, HEAD_TOP - 0.6, 0)
-          group.add(beanie, cuff)
+          head.add(beanie, cuff)
         }
       }
     }
@@ -287,7 +295,7 @@ export function SkinPreview3D({
     if (mask) {
       const plate = box(8.2, 3.2, 0.6, mask.color, 0.96)
       plate.position.set(0, -0.6, FACE_Z + 0.2)
-      group.add(plate)
+      head.add(plate)
 
       const accent = box(8.2, 0.6, 0.3, mask.secondary ?? mask.color)
       plate.add(accent)
@@ -530,6 +538,8 @@ export function SkinPreview3D({
       )
       points.userData.phases = phases
       points.userData.variant = aura.variant ?? 'orbit'
+      // Particle layouts were tuned for a 22-unit-tall figure; centre them on the real one.
+      points.position.y = -4
       group.add(points)
       auraRef.current = points
     }
