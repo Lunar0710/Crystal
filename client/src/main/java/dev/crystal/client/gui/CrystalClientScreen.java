@@ -45,7 +45,7 @@ public class CrystalClientScreen extends Screen {
     private static final int PAD = 10;
     private static final int TILE_H = 62;
     private static final int TILE_GAP = 6;
-    private static final int TILE_MIN_W = 132;
+    private static final int TILE_MIN_W = 116;
     private static final int ROW_H = 24;
     private static final int OPEN_ANIM_MS = 170;
 
@@ -191,9 +191,8 @@ public class CrystalClientScreen extends Screen {
             Box box = new Box(px + 8, rowY, px + SIDEBAR_W - 8, rowY + 20);
             categoryHits.add(new CategoryHit(cat, box));
 
-            boolean active = search.length() == 0 && openModule == null && cat == category
-                    || search.length() == 0 && openModule != null && openModule.getCategory() == cat && category != null
-                    || search.length() == 0 && openModule != null && cat == null && category == null;
+            // The category you came from stays highlighted on its modules' settings pages.
+            boolean active = search.length() == 0 && cat == category;
             float hover = animate(hoverAnim, "cat" + cat, box.contains(mx, my) ? 1f : 0f, dt);
 
             if (active) {

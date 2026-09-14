@@ -90,11 +90,32 @@ function writeTestSettings(gameDir) {
 
   const cosmeticsDir = path.join(dataRoot, 'cosmetics')
   fs.mkdirSync(cosmeticsDir, { recursive: true })
-  fs.writeFileSync(path.join(cosmeticsDir, 'loadout.json'), JSON.stringify({
-    hat: { color: '#18181b', secondary: '#e11d48', variant: 'tophat', plusOnly: false },
-    wings: { color: '#ef4444', secondary: '#f59e0b', variant: 'flame', plusOnly: false },
-    aura: { color: '#a855f7', variant: 'ring', plusOnly: false },
-  }, null, 2))
+  // The launcher's real cosmetic data and shapes, compiled on the fly, so the
+  // test renders exactly what a player would have equipped.
+  const esbuild = require(path.join(launcherRoot, 'node_modules/esbuild'))
+  const out = esbuild.buildSync({
+    stdin: {
+      contents: "export { COSMETICS_BY_SLOT } from './cosmetics'; export { shapeFor } from './cosmeticShapes'",
+      resolveDir: path.join(launcherRoot, 'src/renderer/data'),
+      loader: 'ts',
+    },
+    bundle: true, format: 'cjs', platform: 'node', write: false,
+  })
+  const mod = { exports: {} }
+  new Function('module', 'exports', 'require', out.outputFiles[0].text)(mod, mod.exports, require)
+  const { COSMETICS_BY_SLOT, shapeFor } = mod.exports
+
+  const pick = { hat: 'ht-propeller', mask: 'mk-glasses', wings: 'wg-angel', backpack: 'bp-guitar', aura: 'au-hearts' }
+  const loadout = {}
+  for (const [slot, id] of Object.entries(pick)) {
+    const def = COSMETICS_BY_SLOT[slot].find(d => d.id === id)
+    const shape = shapeFor(def)
+    loadout[slot] = {
+      color: def.color, secondary: def.secondary ?? null, variant: def.variant ?? null, plusOnly: !!def.requiredRank,
+      anchor: shape ? shape.anchor : null, boxes: shape ? shape.boxes : [],
+    }
+  }
+  fs.writeFileSync(path.join(cosmeticsDir, 'loadout.json'), JSON.stringify(loadout, null, 2))
 }
 
 ;(async () => {

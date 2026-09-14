@@ -47,7 +47,7 @@ public final class SmokeTest {
                     ServerPlayerEntity sp = server.getPlayerManager().getPlayer(uuid);
                     if (sp == null) return;
                     sp.getEntityWorld().setTimeOfDay(6000);
-                    equip(sp, EquipmentSlot.HEAD, new ItemStack(Items.DIAMOND_HELMET), 0.1f);
+                    // No helmet, so hat and mask cosmetics stay visible in the screenshot.
                     equip(sp, EquipmentSlot.CHEST, new ItemStack(Items.DIAMOND_CHESTPLATE), 0.5f);
                     equip(sp, EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS), 0.8f);
                     equip(sp, EquipmentSlot.FEET, new ItemStack(Items.GOLDEN_BOOTS), 0.3f);
@@ -76,7 +76,17 @@ public final class SmokeTest {
                     msg -> CrystalClient.LOGGER.info("[Crystal] Smoke screenshot: {}", msg.getString()));
         }
 
-        if (worldTicks == 260) {
+        // Back view for wings and backpack.
+        if (worldTicks == 240) {
+            mc.setScreen(null);
+            mc.options.setPerspective(Perspective.THIRD_PERSON_BACK);
+        }
+        if (worldTicks == 265) {
+            ScreenshotRecorder.saveScreenshot(mc.runDirectory, base + "-back.png", mc.getFramebuffer(), 1,
+                    msg -> CrystalClient.LOGGER.info("[Crystal] Smoke screenshot: {}", msg.getString()));
+        }
+
+        if (worldTicks == 290) {
             CrystalClient.LOGGER.info("CRYSTAL_SMOKE_WORLD_DONE");
             mc.scheduleStop();
         }

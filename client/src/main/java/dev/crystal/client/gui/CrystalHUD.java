@@ -3,6 +3,8 @@ package dev.crystal.client.gui;
 import dev.crystal.client.module.ModuleManager;
 import dev.crystal.client.module.hud.ArmorDisplay;
 import dev.crystal.client.module.hud.HudModule;
+import dev.crystal.client.module.player.DurabilityWarning;
+import dev.crystal.client.module.player.LowHealthWarning;
 import dev.crystal.client.util.ColorUtil;
 import net.minecraft.item.ItemStack;
 
@@ -33,12 +35,66 @@ public class CrystalHUD {
                 drawKeystrokes(context, keys);
             } else if (module instanceof ArmorDisplay armor && armor.isIconStyle()) {
                 drawArmor(context, armor);
+            } else if (module instanceof LowHealthWarning warning) {
+                drawLowHealth(context, warning);
+            } else if (module instanceof DurabilityWarning warning) {
+                drawDurabilityWarning(context, warning);
             } else if (module instanceof HudModule hud) {
                 drawStyledText(context, hud);
             } else if (module instanceof HudRenderable renderable) {
                 drawPlainText(context, renderable.getText(), renderable.getX(), renderable.getY());
             }
         });
+    }
+
+    /**
+     * Red edge that pulses while health is low, stronger the lower it gets.
+     * Built from bands because DrawContext only has vertical gradients.
+     */
+    private void drawLowHealth(DrawContext context, LowHealthWarning module) {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc.player == null || mc.player.isCreative() || mc.player.isSpectator()) return;
+        float health = mc.player.getHealth();
+        if (health <= 0 || health > module.getThreshold()) return;
+
+        float severity = 1f - (health - 1f) / Math.max(1f, module.getThreshold());
+        float pulse = 0.7f + 0.3f * (float) Math.sin(System.currentTimeMillis() / (severity > 0.7f ? 140.0 : 260.0));
+        int maxAlpha = Math.round(170 * module.getIntensity() * Math.max(0.35f, severity) * pulse);
+
+        int w = context.getScaledWindowWidth();
+        int h = context.getScaledWindowHeight();
+        int depth = Math.max(12, Math.min(w, h) / 6);
+        int bands = 10;
+        for (int i = 0; i < bands; i++) {
+            float t = 1f - i / (float) bands;
+            int color = GuiRender.withAlpha(module.getColor(), Math.round(maxAlpha * t * t / 2.2f));
+            int inset = depth * i / bands;
+            int next = depth * (i + 1) / bands;
+            context.fill(0, inset, w, next, color);                 // top
+            context.fill(0, h - next, w, h - inset, color);         // bottom
+            context.fill(inset, next, next, h - next, color);       // left
+            context.fill(w - next, next, w - inset, h - next, color); // right
+        }
+    }
+
+    /** "Chestplate at 7%" above the hotbar, with the item icon, blinking gently. */
+    private void drawDurabilityWarning(DrawContext context, DurabilityWarning module) {
+        ItemStack stack = module.findWornItem();
+        if (stack == null) return;
+        MinecraftClient mc = MinecraftClient.getInstance();
+
+        int percent = Math.round((1f - (float) stack.getDamage() / stack.getMaxDamage()) * 100);
+        String text = stack.getName().getString() + " " + percent + "%";
+        int textW = mc.textRenderer.getWidth(text);
+        int totalW = 16 + 4 + textW;
+        int x = (context.getScaledWindowWidth() - totalW) / 2;
+        int y = context.getScaledWindowHeight() - 72;
+
+        boolean blinkOn = System.currentTimeMillis() / 450 % 2 == 0;
+        GuiRender.roundedRect(context, x - 5, y - 3, x + totalW + 5, y + 19, 0x99000000);
+        GuiRender.roundedOutline(context, x - 5, y - 3, x + totalW + 5, y + 19, blinkOn ? 0xFFEF4444 : 0x66EF4444);
+        context.drawItem(stack, x, y);
+        context.drawText(mc.textRenderer, text, x + 20, y + 4, blinkOn ? 0xFFFCA5A5 : 0xFFEF4444, true);
     }
 
     /** Draws a HUD module using its own position, colour, scale, shadow and background settings. */

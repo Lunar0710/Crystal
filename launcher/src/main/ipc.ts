@@ -423,19 +423,32 @@ export function registerIpcHandlers(store: Store) {
   // Hats, masks, wings… for the in-game client (CosmeticLoadout.java). Only the
   // fields the Java renderer needs, and only content-changing writes, since the
   // client re-reads the file whenever its modification time changes.
-  ipcMain.handle('cosmetics:syncLoadout', (_e, items: Record<string, { color: string; secondary?: string; variant?: string; plusOnly?: boolean } | null>) => {
+  ipcMain.handle('cosmetics:syncLoadout', (_e, items: Record<string, { color: string; secondary?: string; variant?: string; plusOnly?: boolean; anchor?: string; boxes?: unknown[] } | null>) => {
     const dir = crystalPath('cosmetics')
     fs.mkdirSync(dir, { recursive: true })
     const target = path.join(dir, 'loadout.json')
+    const isHex = (v: unknown): v is string => typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v)
+    const num = (v: unknown, limit: number) => typeof v === 'number' && Number.isFinite(v) ? Math.max(-limit, Math.min(limit, v)) : 0
     const clean: Record<string, unknown> = {}
     for (const slot of ['hat', 'bandana', 'mask', 'wings', 'backpack', 'aura']) {
       const item = items?.[slot]
-      if (!item || !/^#[0-9a-fA-F]{6}$/.test(item.color)) continue
+      if (!item || !isHex(item.color)) continue
+      // Shape boxes, bounded: a few dozen boxes of sane size around the player.
+      const boxes = (Array.isArray(item.boxes) ? item.boxes : []).slice(0, 64).flatMap((raw: any) => {
+        if (!raw || !isHex(raw.color)) return []
+        return [{
+          x: num(raw.x, 32), y: num(raw.y, 32), z: num(raw.z, 32),
+          w: Math.abs(num(raw.w, 32)), h: Math.abs(num(raw.h, 32)), d: Math.abs(num(raw.d, 32)),
+          rz: num(raw.rz, 7), color: raw.color, glow: !!raw.glow,
+        }]
+      })
       clean[slot] = {
         color: item.color,
-        secondary: item.secondary && /^#[0-9a-fA-F]{6}$/.test(item.secondary) ? item.secondary : null,
+        secondary: isHex(item.secondary) ? item.secondary : null,
         variant: typeof item.variant === 'string' ? item.variant : null,
         plusOnly: !!item.plusOnly,
+        anchor: ['head', 'body', 'wing'].includes(item.anchor as string) ? item.anchor : null,
+        boxes,
       }
     }
     const json = JSON.stringify(clean, null, 2)

@@ -8,6 +8,7 @@ import dev.crystal.client.CrystalClient;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -22,8 +23,15 @@ import java.util.concurrent.Executors;
  */
 public final class CosmeticLoadout {
 
-    /** One equipped item. Colours are ARGB; variant picks the shape, as in the launcher preview. */
-    public record Item(int color, int secondary, String variant, boolean plusOnly) {}
+    /**
+     * One equipped item. Colours are ARGB. {@code anchor} ("head", "body",
+     * "wing") and {@code boxes} are the shape exactly as the launcher preview
+     * draws it (cosmeticShapes.ts), in skin pixels with y up.
+     */
+    public record Item(int color, int secondary, String variant, boolean plusOnly, String anchor, List<Box> boxes) {}
+
+    /** Centre, size, rotation around z (radians), ARGB colour, full-bright flag. */
+    public record Box(float x, float y, float z, float w, float h, float d, float rz, int color, boolean glow) {}
 
     public static final String HAT = "hat";
     public static final String BANDANA = "bandana";
@@ -92,7 +100,18 @@ public final class CosmeticLoadout {
                         ? parseColor(o.get("secondary").getAsString()) : color;
                 String variant = o.has("variant") && !o.get("variant").isJsonNull() ? o.get("variant").getAsString() : "";
                 boolean plus = o.has("plusOnly") && o.get("plusOnly").getAsBoolean();
-                parsed.put(slot, new Item(color, secondary, variant, plus));
+                String anchor = o.has("anchor") && !o.get("anchor").isJsonNull() ? o.get("anchor").getAsString() : "";
+                java.util.ArrayList<Box> boxes = new java.util.ArrayList<>();
+                if (o.has("boxes") && o.get("boxes").isJsonArray()) {
+                    for (JsonElement be : o.getAsJsonArray("boxes")) {
+                        if (!be.isJsonObject() || boxes.size() >= 64) continue;
+                        JsonObject b = be.getAsJsonObject();
+                        boxes.add(new Box(f(b, "x"), f(b, "y"), f(b, "z"), f(b, "w"), f(b, "h"), f(b, "d"), f(b, "rz"),
+                                parseColor(b.has("color") ? b.get("color").getAsString() : "#ffffff"),
+                                b.has("glow") && b.get("glow").getAsBoolean()));
+                    }
+                }
+                parsed.put(slot, new Item(color, secondary, variant, plus, anchor, List.copyOf(boxes)));
             }
             items = Map.copyOf(parsed);
             lastMtime = mtime;
@@ -101,6 +120,10 @@ public final class CosmeticLoadout {
         } finally {
             inFlight = false;
         }
+    }
+
+    private static float f(JsonObject o, String key) {
+        return o.has(key) && o.get(key).isJsonPrimitive() ? o.get(key).getAsFloat() : 0f;
     }
 
     /** "#rrggbb" to opaque ARGB. */

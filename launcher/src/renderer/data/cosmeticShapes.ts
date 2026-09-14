@@ -1,0 +1,213 @@
+import { CosmeticDef } from './cosmetics'
+
+/**
+ * The one shape definition for every hat, bandana, mask, backpack and wing.
+ * The launcher's 3D preview and the in-game client both draw exactly these
+ * boxes, so what you see on the Cosmetics page is what you get in-game.
+ * (Before, both sides had their own hand-written geometry and drifted apart:
+ * every mask looked the same in-game, wings were barely visible.)
+ *
+ * Coordinates are skin pixels:
+ *  - head anchor: origin at the centre of the head, y up, +z towards the face.
+ *    The head spans -4..4 on every axis.
+ *  - body anchor: origin at the neck, y up (the body spans 0..-12), +z = front,
+ *    so the back of the body is at z = -2.
+ *  - wing anchor: one wing in its own hinge space, x pointing away from the body.
+ *    The renderer mirrors it for the other side and animates the flap.
+ */
+
+export type ShapeAnchor = 'head' | 'body' | 'wing'
+
+export interface ShapeBox {
+  /** centre */
+  x: number; y: number; z: number
+  /** size */
+  w: number; h: number; d: number
+  color: string
+  /** Rendered at full brightness in-game (halos, neon, flames). */
+  glow?: boolean
+  /** Rotation around z in radians, applied at the box centre (wing feathers). */
+  rz?: number
+}
+
+export interface CosmeticShape {
+  anchor: ShapeAnchor
+  boxes: ShapeBox[]
+}
+
+const HEAD_TOP = 4
+const FACE = 4
+const BACK = -2
+
+export function shapeFor(def: CosmeticDef): CosmeticShape | null {
+  const c = def.color
+  const a = def.secondary ?? def.color
+  const b = (x: number, y: number, z: number, w: number, h: number, d: number, color = c, extra: Partial<ShapeBox> = {}): ShapeBox =>
+    ({ x, y, z, w, h, d, color, ...extra })
+
+  switch (def.slot) {
+    case 'hat': return { anchor: 'head', boxes: hat(def.variant, c, a, b) }
+    case 'mask': return { anchor: 'head', boxes: mask(def.variant, c, a, b) }
+    case 'bandana': return {
+      anchor: 'head',
+      boxes: [b(0, -1.4 + 4.6, 0, 8.7, 1.8, 8.7), b(0, 3.2, -5, 1.4, 1.4, 2.2, a), b(0.8, 2.2, -5.6, 1, 2.4, 0.6, a)],
+    }
+    case 'backpack': return { anchor: 'body', boxes: backpack(def.variant, c, a, b) }
+    case 'wings': return { anchor: 'wing', boxes: wing(def.variant, c, a, b) }
+    default: return null
+  }
+}
+
+type B = (x: number, y: number, z: number, w: number, h: number, d: number, color?: string, extra?: Partial<ShapeBox>) => ShapeBox
+
+function hat(variant: string | undefined, c: string, a: string, b: B): ShapeBox[] {
+  const T = HEAD_TOP
+  switch (variant) {
+    case 'crown': {
+      const boxes = [b(0, T + 0.8, 0, 8.8, 1.6, 8.8)]
+      for (const [x, z] of [[-3.6, -3.6], [0, -3.6], [3.6, -3.6], [-3.6, 0], [3.6, 0], [-3.6, 3.6], [0, 3.6], [3.6, 3.6]]) {
+        boxes.push(b(x, T + 2.4, z, 1.4, 1.8, 1.4))
+      }
+      boxes.push(b(0, T + 1, FACE + 0.5, 1.4, 1.4, 0.6, a, { glow: true }))
+      return boxes
+    }
+    case 'tophat': return [b(0, T + 0.4, 0, 11.5, 0.8, 11.5), b(0, T + 3.8, 0, 7.4, 6, 7.4), b(0, T + 1.4, 0, 7.6, 1.2, 7.6, a)]
+    case 'straw': return [b(0, T + 0.4, 0, 13, 0.7, 13), b(0, T + 2.1, 0, 8, 2.8, 8, a), b(0, T + 1.1, 0, 8.2, 0.7, 8.2, '#b45309')]
+    case 'cap': return [b(0, T + 1.6, 0, 8.7, 3.2, 8.7), b(0, T + 0.3, FACE + 1.8, 8, 0.6, 3.8, a), b(0, T + 3.3, 0, 1.2, 0.5, 1.2, a)]
+    case 'halo': {
+      const boxes: ShapeBox[] = []
+      for (let i = 0; i < 16; i++) {
+        const t = (i / 16) * Math.PI * 2
+        boxes.push(b(Math.cos(t) * 3.8, T + 4, Math.sin(t) * 3.8, 1.2, 0.8, 1.2, c, { glow: true }))
+      }
+      return boxes
+    }
+    case 'horns': return [1, -1].flatMap(s => [
+      b(s * 3, T + 1, 0, 2.2, 2, 2.2), b(s * 3.6, T + 2.8, 0, 1.6, 1.8, 1.6), b(s * 4.2, T + 4.3, 0, 0.9, 1.4, 0.9, a),
+    ])
+    case 'antenna': return [b(0, T + 2.2, 0, 0.6, 4.5, 0.6, a), b(0, T + 5, 0, 2, 2, 2, c, { glow: true })]
+    case 'ears': return [1, -1].flatMap(s => [
+      b(s * 2.8, T + 1.5, 0, 2.6, 3, 1.2), b(s * 2.8, T + 1.3, 0.35, 1.4, 1.8, 0.6, a),
+    ])
+    case 'bunny': return [1, -1].flatMap(s => [
+      b(s * 1.9, T + 3.5, -0.5, 1.8, 7, 1.2), b(s * 1.9, T + 3.8, -0.05, 0.9, 5, 0.5, a),
+    ])
+    case 'headphones': return [
+      b(0, T + 0.6, 0, 9.4, 1, 2),
+      ...[1, -1].flatMap(s => [b(s * 4.6, T - 1.4, 0, 0.8, 3.4, 1.4), b(s * 4.9, -0.2, 0, 1.6, 3.4, 3.4), b(s * 5.75, -0.2, 0, 0.2, 2.2, 2.2, a, { glow: true })]),
+    ]
+    case 'wizard': return [
+      b(0, T + 0.3, 0, 11, 0.6, 11), b(0, T + 1.9, 0, 7, 2.6, 7), b(0, T + 4.3, -0.4, 5.4, 2.4, 5.4),
+      b(0, T + 6.5, -1, 3.8, 2.2, 3.8), b(0, T + 8.4, -1.8, 2.2, 2, 2.2), b(0, T + 9.9, -2.6, 1, 1.4, 1),
+      b(0, T + 2.2, 3.55, 1.4, 1.4, 0.2, a, { glow: true }), b(0, T + 0.9, 0, 7.2, 0.6, 7.2, a),
+    ]
+    case 'flowers': {
+      const boxes: ShapeBox[] = []
+      for (let i = 0; i < 10; i++) {
+        const t = (i / 10) * Math.PI * 2
+        boxes.push(b(Math.cos(t) * 4.4, T + 0.3, Math.sin(t) * 4.4, 1.6, 1.4, 1.6, i % 2 ? a : c))
+        boxes.push(b(Math.cos(t + 0.3) * 4.5, T - 0.2, Math.sin(t + 0.3) * 4.5, 1, 0.6, 1, '#16a34a'))
+      }
+      return boxes
+    }
+    case 'propeller': return [
+      b(0, T + 1, 0, 8.7, 2, 8.7), b(0, T + 0.2, FACE + 1.4, 7.5, 0.5, 3, a),
+      b(0, T + 2.8, 0, 0.5, 1.6, 0.5, '#e5e7eb'),
+      b(0, T + 3.7, 0, 7, 0.3, 1, '#ef4444'), b(0, T + 3.75, 0, 1, 0.3, 7, '#facc15'),
+    ]
+    case 'viking': return [
+      b(0, T + 1.4, 0, 9, 3, 9), b(0, T - 0.3, 0, 9.2, 0.8, 9.2, a), b(0, T + 1.4, FACE + 0.55, 1, 3, 0.2, a),
+      ...[1, -1].flatMap(s => [b(s * 5.4, T + 1.8, 0, 2.2, 1.4, 1.4, '#f5f5f4'), b(s * 6.3, T + 3.2, 0, 1.2, 2, 1.2, '#f5f5f4'), b(s * 6.6, T + 4.6, 0, 0.7, 1.2, 0.7, '#e7e5e4')]),
+    ]
+    case 'party': return [
+      b(1.2, T + 1, 0, 5, 2, 5), b(1.2, T + 2.8, 0, 3.6, 1.8, 3.6, a), b(1.2, T + 4.4, 0, 2.2, 1.6, 2.2),
+      b(1.2, T + 5.7, 0, 1, 1, 1, '#fde047', { glow: true }),
+    ]
+    default: return [b(0, T + 1.6, 0, 8.8, 4, 8.8), b(0, T - 0.6, 0, 9, 1.4, 9, a), b(0, T + 3.9, 0, 1.8, 1.2, 1.8, a)]
+  }
+}
+
+function mask(variant: string | undefined, c: string, a: string, b: B): ShapeBox[] {
+  const F = FACE + 0.3
+  switch (variant) {
+    case 'visor': return [b(0, 0.7, F, 8.6, 1.8, 0.6, c, { glow: true }), b(0, 1.8, F, 8.8, 0.4, 0.7, a), b(0, -0.4, F, 8.8, 0.4, 0.7, a)]
+    case 'shades': return [
+      b(-2, 0.7, F, 3, 1.6, 0.5), b(2, 0.7, F, 3, 1.6, 0.5), b(0, 1.2, F, 2, 0.5, 0.5, a),
+      b(-4.3, 1.2, 2.2, 0.4, 0.5, 4.2, a), b(4.3, 1.2, 2.2, 0.4, 0.5, 4.2, a),
+    ]
+    case 'oni': return [
+      b(0, 0, F, 8.4, 8.2, 0.6), b(-2, 1.2, F + 0.35, 1.8, 0.8, 0.2, '#fef08a', { glow: true }), b(2, 1.2, F + 0.35, 1.8, 0.8, 0.2, '#fef08a', { glow: true }),
+      b(-2, 2.3, F + 0.35, 2.2, 0.6, 0.2, '#000000'), b(2, 2.3, F + 0.35, 2.2, 0.6, 0.2, '#000000'),
+      b(0, -2.4, F + 0.35, 5, 0.6, 0.2, '#000000'), b(-1.6, -2.9, F + 0.35, 0.8, 1.2, 0.2, a), b(1.6, -2.9, F + 0.35, 0.8, 1.2, 0.2, a),
+      b(-2.8, 4.8, 0, 1.2, 2, 1.2, a), b(2.8, 4.8, 0, 1.2, 2, 1.2, a),
+    ]
+    case 'kitsune': return [
+      b(0, 0, F, 8.4, 8.2, 0.6), b(-2, 1, F + 0.35, 2, 0.6, 0.2, a), b(2, 1, F + 0.35, 2, 0.6, 0.2, a),
+      b(-2.6, -1.2, F + 0.35, 2.2, 0.4, 0.2, a), b(2.6, -1.2, F + 0.35, 2.2, 0.4, 0.2, a), b(0, -2.4, F + 0.5, 1, 0.8, 0.6, '#18181b'),
+      b(-2.8, 5, 0.5, 1.8, 2.4, 0.8), b(2.8, 5, 0.5, 1.8, 2.4, 0.8), b(-2.8, 5, 0.95, 0.8, 1.4, 0.2, a), b(2.8, 5, 0.95, 0.8, 1.4, 0.2, a),
+    ]
+    case 'scarf': return [b(0, -2.6, 0, 8.8, 3.2, 8.8), b(0, -2.6, 0, 8.9, 0.6, 8.9, a), b(-2, -5, -4.6, 1.4, 3, 0.6, a)]
+    case 'neon': return [
+      b(0, 0.8, F, 8.6, 2.4, 0.4),
+      ...[-3, -1, 1, 3].map(x => b(x, 0.8, F + 0.25, 0.4, 2.4, 0.2, a, { glow: true })),
+      b(0, 0.8, F + 0.25, 8.6, 0.4, 0.2, a, { glow: true }),
+    ]
+    case 'glasses': return [
+      ...[-2, 2].flatMap(x => [b(x, 1.9, F, 3, 0.4, 0.4), b(x, -0.1, F, 3, 0.4, 0.4), b(x - 1.3, 0.9, F, 0.4, 2, 0.4), b(x + 1.3, 0.9, F, 0.4, 2, 0.4), b(x, 0.9, F - 0.1, 2.2, 1.6, 0.1, a)]),
+      b(0, 1.2, F, 1.4, 0.4, 0.4), b(-4.3, 1.2, 2.2, 0.4, 0.4, 4.2), b(4.3, 1.2, 2.2, 0.4, 0.4, 4.2),
+    ]
+    case 'pixel': return [
+      b(0, 1.6, F, 8.4, 0.6, 0.5, '#000000'), b(-2.2, 0.8, F, 3, 1.2, 0.5, '#000000'), b(2.2, 0.8, F, 3, 1.2, 0.5, '#000000'),
+      b(-3.2, 1.1, F + 0.3, 0.6, 0.6, 0.2, '#ffffff'), b(1.2, 1.1, F + 0.3, 0.6, 0.6, 0.2, '#ffffff'),
+    ]
+    case 'monocle': return [
+      b(2, 2.1, F, 2.2, 0.35, 0.35), b(2, -0.2, F, 2.2, 0.35, 0.35), b(0.9, 0.95, F, 0.35, 2.3, 0.35), b(3.1, 0.95, F, 0.35, 2.3, 0.35),
+      b(2, 0.95, F - 0.1, 1.9, 2, 0.1, a), b(3.2, -2.2, F, 0.2, 3.8, 0.2, c),
+    ]
+    default: return [b(0, -0.6, F, 8.2, 3.2, 0.6), b(0, -1.8, F + 0.3, 8.2, 0.6, 0.3, a)]
+  }
+}
+
+function backpack(variant: string | undefined, c: string, a: string, b: B): ShapeBox[] {
+  const Z = BACK - 1.6
+  const straps = [1, -1].map(s => b(s * 2.6, -4.5, BACK + 0.35, 1, 7, 0.4, a))
+  switch (variant) {
+    case 'jetpack': return [
+      b(-1.8, -5, Z, 3, 7.5, 3), b(1.8, -5, Z, 3, 7.5, 3), b(0, -3, Z + 0.5, 1.4, 3, 2, a),
+      b(-1.8, -9.4, Z, 2, 1.4, 2, '#f97316', { glow: true }), b(1.8, -9.4, Z, 2, 1.4, 2, '#f97316', { glow: true }), ...straps,
+    ]
+    case 'guitar': return [
+      b(0.8, -8.5, BACK - 1, 5.5, 5, 1.4), b(-0.3, -3, BACK - 1, 1.2, 8, 1), b(-1, 1.4, BACK - 1, 2, 1.8, 1.2, a),
+      b(0.8, -8, BACK - 0.2, 1.6, 1.6, 0.2, '#000000'), b(2.2, -4, BACK + 0.3, 0.6, 11, 0.3, a, { rz: 0.5 }),
+    ]
+    case 'shell': return [b(0, -6, BACK - 1.4, 8, 10, 2.6), b(0, -6, BACK - 2.8, 6, 7, 0.4, a), b(0, -6, BACK - 3.05, 2, 2, 0.3, c)]
+    default: return [b(0, -5.5, Z, 7, 8.5, 3), b(0, -7, BACK - 3.3, 5, 3.2, 1, a), b(0, -1.5, Z, 6, 1.2, 3.2, a), ...straps]
+  }
+}
+
+/** Right wing, hinge at the origin, extending along +x. Feathers fan from up-and-out to down-and-out. */
+function wing(variant: string | undefined, c: string, a: string, b: B): ShapeBox[] {
+  const fan = (lengths: number[], thickness: number, start: number, step: number, glow = false) =>
+    lengths.map((len, i) => {
+      const angle = start - i * step
+      return b(Math.cos(angle) * len / 2, Math.sin(angle) * len / 2, -i * 0.15, len, thickness - i * 0.15, 0.7, i % 2 ? a : c, { rz: angle, glow })
+    })
+  switch (variant) {
+    case 'bat': return [
+      ...fan([15, 13, 10, 7], 0.8, 0.55, 0.42),
+      b(6, -1.5, 0.1, 11, 7, 0.3, c, { rz: 0.1 }),
+    ]
+    case 'insect':
+    case 'butterfly': return [
+      b(5.5, 3, 0, 10, 8, 0.4, c, { rz: 0.35 }), b(4.5, -4.2, 0, 8, 6, 0.4, c, { rz: -0.3 }),
+      b(8.5, 5.4, 0.05, 3, 1, 0.4, a, { rz: 0.35 }), b(7.2, -6.4, 0.05, 2.6, 1, 0.4, a, { rz: -0.3 }),
+    ]
+    case 'mecha': return [
+      b(5.5, 1, 0, 11, 3.4, 1.2, c, { rz: 0.25 }), b(4.5, -3, 0, 8, 2.6, 1, c, { rz: -0.2 }),
+      b(5, 1, 0.7, 9, 0.7, 0.3, a, { rz: 0.25, glow: true }), b(4.5, -3, 0.6, 6.5, 0.6, 0.3, a, { rz: -0.2, glow: true }),
+    ]
+    case 'flame': return fan([15, 13.5, 12, 10, 8], 2.4, 0.9, 0.38, true)
+    case 'shard': return fan([15, 12, 9], 1.8, 0.7, 0.55, true)
+    default: return fan([16, 14.5, 13, 11, 9, 7], 2.2, 0.95, 0.34)
+  }
+}
