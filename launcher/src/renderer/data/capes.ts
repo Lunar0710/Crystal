@@ -1,6 +1,7 @@
+import { HD_ART } from './hdCapes'
 import type { RankId } from './ranks'
 
-export type CapeCategory = 'team' | 'plus' | 'emblem' | 'anime' | 'internet' | 'themed' | 'solid' | 'gradient' | 'pattern' | 'pixel' | 'neon'
+export type CapeCategory = 'art' | 'team' | 'plus' | 'emblem' | 'anime' | 'internet' | 'themed' | 'solid' | 'gradient' | 'pattern' | 'pixel' | 'neon'
 
 type Painter = (ctx: CanvasRenderingContext2D, w: number, h: number) => void
 
@@ -12,6 +13,8 @@ export interface CapeDef {
   glow?: string
   /** Omitted = free for everyone. */
   requiredRank?: RankId
+  /** Resolution multiplier for detailed (non-pixel) capes: the painter gets a 10*hd x 16*hd canvas. */
+  hd?: number
 }
 
 // A Minecraft cape texture is 64x32, but only the 10x16 block at (1,1) is the
@@ -29,38 +32,72 @@ export function capeTextureUrl(cape: CapeDef): string {
   const cached = textureCache.get(cape.id)
   if (cached) return cached
 
-  // Design pass at the cape's real resolution.
+  // Design pass at the cape's real resolution (times hd for detailed capes).
+  const k = cape.hd ?? 1
   const design = document.createElement('canvas')
-  design.width = CAPE_W
-  design.height = CAPE_H
+  design.width = CAPE_W * k
+  design.height = CAPE_H * k
   const designCtx = design.getContext('2d')!
-  designCtx.imageSmoothingEnabled = false
-  cape.paint(designCtx, CAPE_W, CAPE_H)
+  designCtx.imageSmoothingEnabled = k > 1
+  cape.paint(designCtx, CAPE_W * k, CAPE_H * k)
+  const url = sheetFromDesign(design, k)
+  textureCache.set(cape.id, url)
+  return url
+}
+
+/**
+ * Lays a finished cape face (10:16) out as a Minecraft cape texture: 64x32
+ * times k. Shared by built-in capes and pictures turned into capes.
+ */
+function sheetFromDesign(design: HTMLCanvasElement, k: number): string {
 
   const sheet = document.createElement('canvas')
-  sheet.width = TEX_W
-  sheet.height = TEX_H
+  sheet.width = TEX_W * k
+  sheet.height = TEX_H * k
   const ctx = sheet.getContext('2d')!
-  ctx.imageSmoothingEnabled = false
+  ctx.imageSmoothingEnabled = k > 1
 
   // Stretch the design across the sheet first so the thin edge strips (top,
   // bottom and sides of the cape) pick up matching colours instead of showing
   // transparent pixels.
-  ctx.drawImage(design, 0, 0, TEX_W, TEX_H)
+  ctx.drawImage(design, 0, 0, TEX_W * k, TEX_H * k)
 
   // Outside face — the one everyone sees.
-  ctx.drawImage(design, 1, 1)
+  ctx.drawImage(design, k, k)
 
   // Inside face, mirrored so the design reads correctly from the back.
   ctx.save()
-  ctx.translate(12 + CAPE_W, 1)
+  ctx.translate((12 + CAPE_W) * k, k)
   ctx.scale(-1, 1)
   ctx.drawImage(design, 0, 0)
   ctx.restore()
 
-  const url = sheet.toDataURL('image/png')
-  textureCache.set(cape.id, url)
-  return url
+  return sheet.toDataURL('image/png')
+}
+
+/** Sheet width/height 2:1 means the file already is a cape texture. */
+export function isCapeTexture(width: number, height: number): boolean {
+  return Math.abs(width / height - 2) < 0.05
+}
+
+/**
+ * Turns any picture into a detailed HD cape (1024x512 texture): the picture is
+ * cropped to the cape's 10:16 shape around its centre, like a phone wallpaper.
+ */
+export function pictureToCapeTexture(img: HTMLImageElement): string {
+  const k = 16
+  const design = document.createElement('canvas')
+  design.width = CAPE_W * k
+  design.height = CAPE_H * k
+  const ctx = design.getContext('2d')!
+  ctx.imageSmoothingQuality = 'high'
+  const targetRatio = CAPE_W / CAPE_H
+  const ratio = img.naturalWidth / img.naturalHeight
+  let sw = img.naturalWidth, sh = img.naturalHeight, sx = 0, sy = 0
+  if (ratio > targetRatio) { sw = sh * targetRatio; sx = (img.naturalWidth - sw) / 2 }
+  else { sh = sw / targetRatio; sy = (img.naturalHeight - sh) / 2 }
+  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, design.width, design.height)
+  return sheetFromDesign(design, k)
 }
 
 /** Scaled-up preview of just the visible face, for the picker tiles. */
@@ -69,18 +106,19 @@ export function capePreviewUrl(cape: CapeDef, scale = 8): string {
   const cached = textureCache.get(key)
   if (cached) return cached
 
+  const k = cape.hd ?? 1
   const design = document.createElement('canvas')
-  design.width = CAPE_W
-  design.height = CAPE_H
+  design.width = CAPE_W * k
+  design.height = CAPE_H * k
   const designCtx = design.getContext('2d')!
-  designCtx.imageSmoothingEnabled = false
-  cape.paint(designCtx, CAPE_W, CAPE_H)
+  designCtx.imageSmoothingEnabled = k > 1
+  cape.paint(designCtx, CAPE_W * k, CAPE_H * k)
 
   const out = document.createElement('canvas')
   out.width = CAPE_W * scale
   out.height = CAPE_H * scale
   const ctx = out.getContext('2d')!
-  ctx.imageSmoothingEnabled = false
+  ctx.imageSmoothingEnabled = k > 1
   ctx.drawImage(design, 0, 0, out.width, out.height)
 
   const url = out.toDataURL('image/png')
@@ -1131,6 +1169,9 @@ const TEAM_CAPES: { name: string; rows: string[]; palette: Record<string, string
 ]
 
 export const BUILTIN_CAPES: CapeDef[] = [
+  ...HD_ART.map((a, i): CapeDef => ({
+    id: `art-${i}`, name: a.name, category: 'art', paint: a.paint, glow: a.glow, hd: 16,
+  })),
   ...TEAM_CAPES.map((c, i): CapeDef => ({
     id: `team-${i}`, name: c.name, category: 'team', paint: pixelMap(c.rows, c.palette), glow: c.glow, requiredRank: 'media',
   })),
@@ -1179,6 +1220,7 @@ export const BUILTIN_CAPES: CapeDef[] = [
 ]
 
 export const CAPE_CATEGORIES: { id: CapeCategory; label: string }[] = [
+  { id: 'art', label: 'HD-Bilder' },
   { id: 'team', label: 'Team' },
   { id: 'plus', label: 'Crystal+' },
   { id: 'emblem', label: 'Embleme' },

@@ -433,6 +433,7 @@ export function registerIpcHandlers(store: Store) {
   ipcMain.handle('capes:listCustom', () => capes.listCustom())
   ipcMain.handle('capes:upload', () => capes.upload())
   ipcMain.handle('capes:remove', (_e, id: string) => capes.remove(id))
+  ipcMain.handle('capes:replaceImage', (_e, id: string, dataUrl: string) => capes.replaceImage(id, dataUrl))
   ipcMain.handle('capes:getDataUrl', (_e, id: string) => capes.getCapeDataUrl(id))
   ipcMain.handle('capes:getSelected', () => capes.getSelected())
   ipcMain.handle('capes:setSelected', (_e, id: string) => capes.setSelected(id))
@@ -504,14 +505,19 @@ export function registerIpcHandlers(store: Store) {
       return false
     }
 
+    // The cape layout is 64x32; HD capes use the same layout at 2x to 16x
+    // (up to 1024x512). Minecraft's cape model uses relative texture
+    // coordinates, so any of those sizes shows correctly in game.
     const { width, height } = image.getSize()
-    const normalized = (width === 64 && height === 32)
+    const factor = Math.min(16, Math.max(1, 2 ** Math.round(Math.log2(Math.max(1, width / 64)))))
+    const targetW = 64 * factor, targetH = 32 * factor
+    const normalized = (width === targetW && height === targetH)
       ? image
-      : image.resize({ width: 64, height: 32, quality: 'best' })
+      : image.resize({ width: targetW, height: targetH, quality: 'best' })
 
     fs.writeFileSync(target, normalized.toPNG())
-    if (width !== 64 || height !== 32) {
-      logger.info('launcher', `Cape von ${width}x${height} auf 64x32 skaliert`)
+    if (width !== targetW || height !== targetH) {
+      logger.info('launcher', `Cape von ${width}x${height} auf ${targetW}x${targetH} skaliert`)
     }
     return true
   })

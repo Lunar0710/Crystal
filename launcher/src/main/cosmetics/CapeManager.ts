@@ -33,7 +33,7 @@ export class CapeManager {
   async upload(): Promise<CustomCape | null> {
     const win = BrowserWindow.getFocusedWindow()
     const result = await dialog.showOpenDialog(win!, {
-      title: 'Eigenes Cape hochladen (PNG empfohlen, 64x32 oder 22x17)',
+      title: 'Bild oder Cape-Textur auswählen',
       properties: ['openFile'],
       filters: [{ name: 'Bilder', extensions: ['png', 'jpg', 'jpeg'] }],
     })
@@ -59,6 +59,25 @@ export class CapeManager {
     list.push(cape)
     this.store.set('cosmetics.customCapes', list)
     return cape
+  }
+
+  /**
+   * Replaces an uploaded cape's file with a converted PNG (a normal picture the
+   * renderer turned into an HD cape texture).
+   */
+  replaceImage(id: string, pngDataUrl: string): boolean {
+    const list = this.listCustom()
+    const cape = list.find(c => c.id === id)
+    const match = /^data:image\/png;base64,(.+)$/.exec(pngDataUrl || '')
+    if (!cape || !match) return false
+    const dir = capesDir()
+    const oldPath = path.join(dir, cape.fileName)
+    const fileName = `${id}.png`
+    fs.writeFileSync(path.join(dir, fileName), Buffer.from(match[1], 'base64'))
+    if (cape.fileName !== fileName && fs.existsSync(oldPath)) fs.unlinkSync(oldPath)
+    cape.fileName = fileName
+    this.store.set('cosmetics.customCapes', list)
+    return true
   }
 
   remove(id: string) {

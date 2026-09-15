@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Check, Upload, Trash2, X, Lock } from 'lucide-react'
 import { Page, PageHeader, EmptyState } from '../ui/Page'
 import { notify } from '../../store/notificationStore'
-import { BUILTIN_CAPES, CAPE_CATEGORIES, CapeCategory, capeTextureUrl, capePreviewUrl } from '../../data/capes'
+import { BUILTIN_CAPES, CAPE_CATEGORIES, CapeCategory, capeTextureUrl, capePreviewUrl, isCapeTexture, pictureToCapeTexture } from '../../data/capes'
 import {
   SLOTS, CosmeticSlot, NonCapeSlot, COSMETICS_BY_SLOT, EMPTY_LOADOUT,
   EquippedCosmetics, findCosmetic, syncLoadoutToGame,
@@ -91,6 +91,20 @@ export function Cosmetics() {
     const cape = await api?.uploadCape()
     setUploading(false)
     if (cape) {
+      // A normal picture (anything not already shaped like a 2:1 cape texture)
+      // becomes a detailed HD cape, cropped around its centre.
+      const original = await api?.getCapeDataUrl(cape.id)
+      if (original) {
+        const img = await new Promise<HTMLImageElement | null>(resolve => {
+          const el = new Image()
+          el.onload = () => resolve(el)
+          el.onerror = () => resolve(null)
+          el.src = original
+        })
+        if (img && !isCapeTexture(img.naturalWidth, img.naturalHeight)) {
+          await api?.replaceCapeImage(cape.id, pictureToCapeTexture(img))
+        }
+      }
       notify({ type: 'success', title: cape.name, message: 'Cape hochgeladen' })
       // Awaited: equipping before the thumbnail is loaded leaves equippedCapeUrl
       // null, which the sync effect deliberately skips — the cape would then

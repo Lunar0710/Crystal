@@ -99,6 +99,7 @@ contextBridge.exposeInMainWorld('crystal', {
   listCustomCapes: () => ipcRenderer.invoke('capes:listCustom'),
   uploadCape:      () => ipcRenderer.invoke('capes:upload'),
   removeCape:      (id: string) => ipcRenderer.invoke('capes:remove', id),
+  replaceCapeImage: (id: string, dataUrl: string) => ipcRenderer.invoke('capes:replaceImage', id, dataUrl),
   getCapeDataUrl:  (id: string) => ipcRenderer.invoke('capes:getDataUrl', id),
   getSelectedCape: () => ipcRenderer.invoke('capes:getSelected'),
   setSelectedCape: (id: string) => ipcRenderer.invoke('capes:setSelected', id),
