@@ -23,7 +23,9 @@
     "MixinPlayerCapeModel",
     "MixinPostEffectPass",
     "GameRendererAccessor",
-    "MixinInactivityFpsLimiter"
+    "MixinInactivityFpsLimiter",
+    "MixinScrollableWidget",
+    "MixinClickableWidget"
   ],
   "injectors": {
     "defaultRequire": 1

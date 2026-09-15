@@ -141,6 +141,11 @@ public abstract class HudModule extends Module implements HudRenderable {
         return 0xFF000000 | dev.crystal.client.util.ColorUtil.hsbToRgb(hue, 0.55f, 1f);
     }
 
+    /** A small image drawn in front of the text (for example a server logo), or null for none. */
+    public net.minecraft.util.Identifier getIcon() {
+        return null;
+    }
+
     /** Settings unique to this module — merged after the shared ones. Empty by default. */
     protected List<Setting<?>> getExtraSettings() {
         return Collections.emptyList();

@@ -1,5 +1,8 @@
 package dev.crystal.client.gui;
 
+import net.minecraft.client.gl.RenderPipelines;
+import net.minecraft.util.Identifier;
+
 import dev.crystal.client.module.ModuleManager;
 import dev.crystal.client.module.hud.ArmorDisplay;
 import dev.crystal.client.module.hud.HudModule;
@@ -75,7 +78,7 @@ public class CrystalHUD {
             return new int[]{x - Math.round(3 * s), y - Math.round(3 * s), x + Math.round((size[0] + 3) * s), y + Math.round((size[1] + 3) * s)};
         }
         String text = module.getDisplayText();
-        int w = text == null || text.isEmpty() ? 40 : module.getDisplayWidth(mc.textRenderer);
+        int w = text == null || text.isEmpty() ? 40 : module.getDisplayWidth(mc.textRenderer) + (module.getIcon() != null ? ICON_W : 0);
         if (module.isCrystalLook() && !module.hasBackground()) {
             return new int[]{x - Math.round(3 * s), y - Math.round(2 * s), x + Math.round((w + 3) * s), y + Math.round(9 * s)};
         }
@@ -162,6 +165,9 @@ public class CrystalHUD {
         context.drawText(mc.textRenderer, text, x + 20, y + 4, blinkOn ? 0xFFFCA5A5 : 0xFFEF4444, true);
     }
 
+    /** Space an icon (like the server logo) takes in front of a HUD line: 9px image plus a gap. */
+    private static final int ICON_W = 11;
+
     /** Draws a HUD module using its own position, colour, scale, shadow and background settings. */
     private void drawStyledText(DrawContext context, HudModule module) {
         String text = module.getDisplayText();
@@ -171,7 +177,9 @@ public class CrystalHUD {
         float scale = module.getScale();
         int x = module.getX();
         int y = module.getY();
-        int textWidth = module.getDisplayWidth(mc.textRenderer);
+        Identifier icon = module.getIcon();
+        int iconW = icon != null ? ICON_W : 0;
+        int textWidth = module.getDisplayWidth(mc.textRenderer) + iconW;
 
         context.getMatrices().pushMatrix();
         context.getMatrices().translate(x, y);
@@ -189,6 +197,11 @@ public class CrystalHUD {
         } else if (crystalLook) {
             // 11px tall, so HUD lines on the default 12px rows keep a 1px gap.
             GuiRender.roundedRect(context, -3, -2, textWidth + 3, 9, 3, 0x9E0A0D15);
+        }
+
+        if (icon != null) {
+            context.drawTexture(RenderPipelines.GUI_TEXTURED, icon, 0, -1, 0f, 0f, 9, 9, 9, 9);
+            context.getMatrices().translate(iconW, 0);
         }
 
         int color = module.getEffectiveTextColor();

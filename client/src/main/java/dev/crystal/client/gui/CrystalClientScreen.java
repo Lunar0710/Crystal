@@ -127,8 +127,10 @@ public class CrystalClientScreen extends Screen {
         super.close();
     }
 
-    private int panelW() { return Math.min(660, width - 24); }
-    private int panelH() { return Math.min(372, height - 24); }
+    // About three quarters of the screen, so the game stays visible around the
+    // menu; the tile grid scrolls instead of filling everything.
+    private int panelW() { return Math.min(width - 24, Math.max(360, Math.min(560, Math.round(width * 0.72f)))); }
+    private int panelH() { return Math.min(height - 24, Math.max(230, Math.min(320, Math.round(height * 0.72f)))); }
     private int panelX() { return (width - panelW()) / 2; }
     private int panelY() { return (height - panelH()) / 2; }
 

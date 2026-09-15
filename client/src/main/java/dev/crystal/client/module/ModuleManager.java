@@ -116,6 +116,7 @@ public class ModuleManager {
         register(new LightLevelDisplay());
         register(new PlayerCountDisplay());
         register(new dev.crystal.client.module.render.TextStyle());
+        register(new dev.crystal.client.module.misc.SmoothScroll());
     }
 
     /** Module by its class, for hot paths. Filled once at registration; modules are never replaced. */
