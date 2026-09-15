@@ -52,8 +52,8 @@ public class CrystalClientScreen extends Screen {
 
     private static final int HEADER_H = 34;
     private static final int PAD = 10;
-    private static final int TILE_W = 78;
-    private static final int TILE_H = 80;
+    private static final int TILE_W = 66;
+    private static final int TILE_H = 68;
     private static final int TILE_GAP = 6;
     private static final int ROW_H = 22;
     private static final int OPEN_ANIM_MS = 160;
@@ -129,8 +129,8 @@ public class CrystalClientScreen extends Screen {
 
     // About three quarters of the screen, so the game stays visible around the
     // menu; the tile grid scrolls instead of filling everything.
-    private int panelW() { return Math.min(width - 24, Math.max(360, Math.min(560, Math.round(width * 0.72f)))); }
-    private int panelH() { return Math.min(height - 24, Math.max(230, Math.min(320, Math.round(height * 0.72f)))); }
+    private int panelW() { return Math.min(width - 24, Math.max(300, Math.min(520, Math.round(width * 0.66f)))); }
+    private int panelH() { return Math.min(height - 24, Math.max(170, Math.min(300, Math.round(height * 0.66f)))); }
     private int panelX() { return (width - panelW()) / 2; }
     private int panelY() { return (height - panelH()) / 2; }
 
@@ -283,10 +283,10 @@ public class CrystalClientScreen extends Screen {
 
         // Icon, drawn 2x from the 8px sprites.
         int iconColor = GuiRender.blend(colMuted, colText, Math.max(on, hover * 0.6f));
-        drawIcon(ctx, iconFor(module), x + w / 2 - 8, y + 16, iconColor, 2);
+        drawIcon(ctx, iconFor(module), x + w / 2 - 8, y + 13, iconColor, 2);
 
         String name = GuiRender.trimToWidth(pretty(module.getName()), w - 8);
-        ctx.drawText(textRenderer, name, x + (w - textRenderer.getWidth(name)) / 2, y + 40, colText, false);
+        ctx.drawText(textRenderer, name, x + (w - textRenderer.getWidth(name)) / 2, y + 35, colText, false);
 
         boolean bound = module.getKeybind() != GLFW.GLFW_KEY_UNKNOWN;
         boolean capturing = capturingModuleKey && captureTileModule == module;
