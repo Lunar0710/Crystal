@@ -1,6 +1,6 @@
 import type { RankId } from './ranks'
 
-export type CapeCategory = 'plus' | 'emblem' | 'anime' | 'internet' | 'themed' | 'solid' | 'gradient' | 'pattern' | 'pixel' | 'neon'
+export type CapeCategory = 'team' | 'plus' | 'emblem' | 'anime' | 'internet' | 'themed' | 'solid' | 'gradient' | 'pattern' | 'pixel' | 'neon'
 
 type Painter = (ctx: CanvasRenderingContext2D, w: number, h: number) => void
 
@@ -1058,7 +1058,82 @@ const MEME_CAPES: PixelArt[] = [
   },
 ]
 
+
+// Team capes: only for ranks from Media upwards (not Crystal+ or Member).
+// Each rank has its own colours and symbol; 'Crystal Team' is shared by all.
+const TEAM_CAPES: { name: string; rows: string[]; palette: Record<string, string>; glow: string }[] = [
+  {
+    name: 'Crystal Team',
+    rows: [
+      'gggggggggg', 'g........g', 'g...ww...g', 'g..wabb..g',
+      'g..aabbc.g', 'g.waabbccg', 'g..aabbc.g', 'g...abc..g',
+      'g....b...g', 'g........g', 'g.tt.ttt.g', 'g..t.t...g',
+      'g..t.tt..g', 'g..t.ttt.g', 'g........g', 'gggggggggg',
+    ],
+    palette: { '.': '#0b1020', g: '#ffd54d', w: '#ffffff', a: '#bfe3ff', b: '#6fb6ff', c: '#2f6fd6', t: '#ffd54d' },
+    glow: '#ffd54d',
+  },
+  {
+    name: 'Owner Krone',
+    rows: [
+      'oooooooooo', 'o........o', 'o........o', 'o.y..y..yo',
+      'o.yy.yy.yo', 'o.yyyyyyyo', 'o.yryybyyo', 'o.yyyyyyyo',
+      'o.kkkkkkko', 'o........o', 'o........o', 'o...yy...o',
+      'o..y..y..o', 'o...yy...o', 'o........o', 'oooooooooo',
+    ],
+    palette: { '.': '#1a1206', o: '#ff7a45', y: '#ffd54d', r: '#f5455b', b: '#5b8af5', k: '#b8860b' },
+    glow: '#ffb03a',
+  },
+  {
+    name: 'Admin Schild',
+    rows: [
+      'rrrrrrrrrr', 'r........r', 'r.ssssss.r', 'r.swwwws.r',
+      'r.swsssw.r', 'r.swsssw.r', 'r.swwwws.r', 'r.swsssw.r',
+      'r.swsssw.r', 'r..ssss..r', 'r...ss...r', 'r........r',
+      'r.o.o.o.or', 'r........r', 'r........r', 'rrrrrrrrrr',
+    ],
+    palette: { '.': '#1a0608', r: '#f5455b', s: '#f57c3d', w: '#ffffff', o: '#f5455b' },
+    glow: '#f5455b',
+  },
+  {
+    name: 'Staff Haken',
+    rows: [
+      'mmmmmmmmmm', 'm........m', 'm.ssssss.m', 'm.s....s.m',
+      'm.s...ws.m', 'm.s..w.s.m', 'm.sw.w.s.m', 'm.s.w..s.m',
+      'm.s....s.m', 'm..s..s..m', 'm...ss...m', 'm........m',
+      'm.m.m.m.mm', 'm........m', 'm........m', 'mmmmmmmmmm',
+    ],
+    palette: { '.': '#04140e', m: '#34d399', s: '#5bf5c9', w: '#ffffff' },
+    glow: '#34d399',
+  },
+  {
+    name: 'Developer Code',
+    rows: [
+      'pppppppppp', 'p........p', 'p........p', 'p..w..w..p',
+      'p.w...w..p', 'pw...w...p', 'p.w..w...p', 'p..ww..w.p',
+      'p...w...wp', 'p...w..w.p', 'p..w..w..p', 'p........p',
+      'p.gg.g.g.p', 'p........p', 'p........p', 'pppppppppp',
+    ],
+    palette: { '.': '#0f0620', p: '#a35bf5', w: '#e9d5ff', g: '#7c3df5' },
+    glow: '#a35bf5',
+  },
+  {
+    name: 'Media Play',
+    rows: [
+      'kkkkkkkkkk', 'k........k', 'k.rrrrrr.k', 'k.rwrrrr.k',
+      'k.rwwrrr.k', 'k.rwwwrr.k', 'k.rwwwwr.k', 'k.rwwwrr.k',
+      'k.rwwrrr.k', 'k.rwrrrr.k', 'k.rrrrrr.k', 'k........k',
+      'k.p.p.p.pk', 'k........k', 'k........k', 'kkkkkkkkkk',
+    ],
+    palette: { '.': '#1a0610', k: '#f56ba0', r: '#f5455b', w: '#ffffff', p: '#f56ba0' },
+    glow: '#f56ba0',
+  },
+]
+
 export const BUILTIN_CAPES: CapeDef[] = [
+  ...TEAM_CAPES.map((c, i): CapeDef => ({
+    id: `team-${i}`, name: c.name, category: 'team', paint: pixelMap(c.rows, c.palette), glow: c.glow, requiredRank: 'media',
+  })),
   ...PLUS_CAPES.map((c, i): CapeDef => ({
     id: `plus-${i}`, name: c.name, category: 'plus', paint: pixelMap(c.rows, c.palette), requiredRank: 'crystal_plus',
   })),
@@ -1104,6 +1179,7 @@ export const BUILTIN_CAPES: CapeDef[] = [
 ]
 
 export const CAPE_CATEGORIES: { id: CapeCategory; label: string }[] = [
+  { id: 'team', label: 'Team' },
   { id: 'plus', label: 'Crystal+' },
   { id: 'emblem', label: 'Embleme' },
   { id: 'anime', label: 'Anime-Stil' },
