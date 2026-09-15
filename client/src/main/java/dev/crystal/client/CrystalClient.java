@@ -24,7 +24,7 @@ public class CrystalClient implements ClientModInitializer {
 
     public static final String MOD_ID = "crystal";
     public static final String NAME = "Crystal Client";
-    public static final String VERSION = "1.1.7";
+    public static final String VERSION = "1.1.8";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
     private static CrystalClient instance;
