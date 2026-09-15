@@ -29,3 +29,7 @@ Thumbs.db
 # Installers belong on GitHub Releases, not in the repo
 *.exe
 *.blockmap
+
+# Stonecutter per-version build output
+client/versions/*/build/
+client/.gradle/
