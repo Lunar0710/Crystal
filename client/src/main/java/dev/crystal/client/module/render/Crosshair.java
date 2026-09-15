@@ -1,6 +1,8 @@
 package dev.crystal.client.module.render;
 
 import dev.crystal.client.module.BooleanSetting;
+import dev.crystal.client.module.ButtonSetting;
+import dev.crystal.client.module.HiddenTextSetting;
 import dev.crystal.client.module.ColorSetting;
 import dev.crystal.client.module.EnumSetting;
 import dev.crystal.client.util.ColorUtil;
@@ -27,6 +29,13 @@ public class Crosshair extends Module {
     public static final String SHAPE_CIRCLE = "Circle (Crystal+)";
     public static final String SHAPE_X = "X (Crystal+)";
     public static final String SHAPE_BRACKETS = "Brackets (Crystal+)";
+    public static final String SHAPE_CUSTOM = "Custom";
+
+    /** The pixel editor's canvas is GRID x GRID pixels, centred on the screen centre. */
+    public static final int GRID = 15;
+
+    /** Painted pixels of the Custom shape, row by row, '1' = on. Starts as a small plus. */
+    private String pixels = defaultPixels();
 
     public Crosshair() {
         super("Crosshair", "Replaces the vanilla crosshair with a custom style", ModuleCategory.RENDER);
@@ -41,7 +50,41 @@ public class Crosshair extends Module {
 
     /** Shape actually drawn; Crystal+ shapes fall back to the plain cross without the rank. */
     public String getShape() {
-        return SHAPE_CROSS.equals(shape) || CrystalProfile.hasPerks() ? shape : SHAPE_CROSS;
+        return SHAPE_CROSS.equals(shape) || SHAPE_CUSTOM.equals(shape) || CrystalProfile.hasPerks() ? shape : SHAPE_CROSS;
+    }
+
+    public boolean isPixel(int x, int y) {
+        int i = y * GRID + x;
+        return i >= 0 && i < pixels.length() && pixels.charAt(i) == '1';
+    }
+
+    public void setPixel(int x, int y, boolean on) {
+        if (x < 0 || y < 0 || x >= GRID || y >= GRID) return;
+        StringBuilder sb = new StringBuilder(normalized(pixels));
+        sb.setCharAt(y * GRID + x, on ? '1' : '0');
+        pixels = sb.toString();
+    }
+
+    public void setPixels(String value) { pixels = normalized(value); }
+    public String getPixels() { return normalized(pixels); }
+
+    /** Switches to the Custom shape; used when the editor saves. */
+    public void useCustomShape() { shape = SHAPE_CUSTOM; dot = false; }
+
+    private static String normalized(String value) {
+        StringBuilder sb = new StringBuilder(GRID * GRID);
+        for (int i = 0; i < GRID * GRID; i++) sb.append(value != null && i < value.length() && value.charAt(i) == '1' ? '1' : '0');
+        return sb.toString();
+    }
+
+    public static String defaultPixels() {
+        StringBuilder sb = new StringBuilder();
+        int c = GRID / 2;
+        for (int y = 0; y < GRID; y++) for (int x = 0; x < GRID; x++) {
+            boolean arm = (x == c && Math.abs(y - c) >= 2 && Math.abs(y - c) <= 4) || (y == c && Math.abs(x - c) >= 2 && Math.abs(x - c) <= 4);
+            sb.append(arm || (x == c && y == c) ? '1' : '0');
+        }
+        return sb.toString();
     }
 
     @Override
@@ -51,8 +94,11 @@ public class Crosshair extends Module {
                 new SliderSetting("Size", () -> size, v -> size = v, 2f, 12f, 1f, 0),
                 new SliderSetting("Thickness", () -> thickness, v -> thickness = v, 1f, 4f, 1f, 0),
                 new BooleanSetting("Dot Style", () -> dot, v -> dot = v, false),
-                new EnumSetting("Shape", () -> shape, v -> shape = v, List.of(SHAPE_CROSS, SHAPE_GAP, SHAPE_CIRCLE, SHAPE_X, SHAPE_BRACKETS)),
-                new BooleanSetting("Chroma (Crystal+)", () -> chroma, v -> chroma = v, false)
+                new EnumSetting("Shape", () -> shape, v -> shape = v, List.of(SHAPE_CROSS, SHAPE_CUSTOM, SHAPE_GAP, SHAPE_CIRCLE, SHAPE_X, SHAPE_BRACKETS)),
+                new ButtonSetting("Eigenes Fadenkreuz", () -> "Editor öffnen", () ->
+                        net.minecraft.client.MinecraftClient.getInstance().setScreen(new dev.crystal.client.gui.CrosshairEditorScreen(this))),
+                new BooleanSetting("Chroma (Crystal+)", () -> chroma, v -> chroma = v, false),
+                new HiddenTextSetting("Pixels", () -> pixels, v -> pixels = normalized(v))
         );
     }
 
@@ -68,6 +114,18 @@ public class Crosshair extends Module {
         }
 
         switch (this.getShape()) {
+            case SHAPE_CUSTOM -> {
+                // Each painted pixel is drawn Thickness screen pixels big, centred.
+                int px = Math.max(1, thickness);
+                int half = GRID / 2;
+                for (int y = 0; y < GRID; y++) {
+                    for (int x = 0; x < GRID; x++) {
+                        if (!isPixel(x, y)) continue;
+                        int sx = cx + (x - half) * px, sy = cy + (y - half) * px;
+                        context.fill(sx, sy, sx + px, sy + px, color);
+                    }
+                }
+            }
             case SHAPE_GAP -> {
                 int gap = thickness + 2;
                 context.fill(cx - size - gap, cy - thickness, cx - gap, cy + thickness, color);

@@ -81,17 +81,29 @@ public final class SmokeTest {
                     msg -> CrystalClient.LOGGER.info("[Crystal] Smoke screenshot: {}", msg.getString()));
         }
 
-        // Back view for wings and backpack.
-        if (worldTicks == 240) {
+        // The crosshair pixel editor, with a few pixels painted.
+        if (worldTicks == 236) {
+            CrystalClient.getInstance().getModuleManager().getModuleByName("Crosshair")
+                    .filter(m -> m instanceof dev.crystal.client.module.render.Crosshair)
+                    .map(m -> (dev.crystal.client.module.render.Crosshair) m)
+                    .ifPresent(c -> mc.setScreen(new dev.crystal.client.gui.CrosshairEditorScreen(c)));
+        }
+        if (worldTicks == 254) {
+            ScreenshotRecorder.saveScreenshot(mc.runDirectory, base + "-crosshair.png", mc.getFramebuffer(), 1,
+                    msg -> CrystalClient.LOGGER.info("[Crystal] Smoke screenshot: {}", msg.getString()));
+        }
+
+        // Back view for wings, backpack and the cape.
+        if (worldTicks == 260) {
             mc.setScreen(null);
             mc.options.setPerspective(Perspective.THIRD_PERSON_BACK);
         }
-        if (worldTicks == 265) {
+        if (worldTicks == 285) {
             ScreenshotRecorder.saveScreenshot(mc.runDirectory, base + "-back.png", mc.getFramebuffer(), 1,
                     msg -> CrystalClient.LOGGER.info("[Crystal] Smoke screenshot: {}", msg.getString()));
         }
 
-        if (worldTicks == 290) {
+        if (worldTicks == 310) {
             CrystalClient.LOGGER.info("CRYSTAL_SMOKE_WORLD_DONE");
             mc.scheduleStop();
         }

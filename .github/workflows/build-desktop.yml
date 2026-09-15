@@ -9,7 +9,7 @@ name: Build macOS + Linux
 on:
   workflow_dispatch:
   push:
-    branches: [main, update-1.1.9]
+    branches: [main, update-1.1.9, update-1.1.10]
 
 jobs:
   # Starts Minecraft 1.21.11 with Crystal through the launcher's real launch
