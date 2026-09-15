@@ -183,7 +183,22 @@ public class CrystalClientScreen extends Screen {
         GuiRender.roundedRect(ctx, closeBox.x1, closeBox.y1, closeBox.x2, closeBox.y2, closeHover ? GuiRender.withAlpha(COL_DANGER, 0x40) : 0x14FFFFFF);
         drawIcon(ctx, ICON_CLOSE, closeBox.x1 + 5, closeBox.y1 + 5, closeHover ? COL_DANGER : colMuted, 1);
 
+        // Tab labels, measured first so a narrow window gives the tabs room by
+        // narrowing the search field instead of cutting the last tab off.
+        List<ModuleCategory> order = new ArrayList<>();
+        order.add(null);
+        order.addAll(List.of(ModuleCategory.values()));
+        String[] labels = new String[order.size() + 1];
+        for (int i = 0; i < order.size(); i++) labels[i] = order.get(i) == null ? "Alle" : order.get(i).getDisplayName();
+        labels[order.size()] = "Aktiv";
+        int natural = 0;
+        for (String l : labels) natural += textRenderer.getWidth(l) + 14;
+
+        int tabsX1 = px + 50;
         int sw = Math.min(120, pw / 5);
+        int roomForTabs = closeBox.x1 - 6 - sw - 8 - tabsX1;
+        int minTabs = Math.round(natural * 0.8f);
+        if (roomForTabs < minTabs) sw = Math.max(56, sw - (minTabs - roomForTabs));
         searchBox = new Box(closeBox.x1 - 6 - sw, py + 8, closeBox.x1 - 6, py + 26);
         boolean searchHover = searchBox.contains(mx, my);
         GuiRender.roundedRect(ctx, searchBox.x1, searchBox.y1, searchBox.x2, searchBox.y2, searchFocused ? 0x66000000 : searchHover ? 0x1AFFFFFF : 0x40000000);
@@ -195,16 +210,7 @@ public class CrystalClientScreen extends Screen {
                 searchBox.x1 + 16, searchBox.y1 + 5, empty ? colMuted : colText, false);
 
         // Tabs in between, shrinking the font if they don't fit.
-        List<ModuleCategory> order = new ArrayList<>();
-        order.add(null);
-        order.addAll(List.of(ModuleCategory.values()));
-        String[] labels = new String[order.size() + 1];
-        for (int i = 0; i < order.size(); i++) labels[i] = order.get(i) == null ? "Alle" : order.get(i).getDisplayName();
-        labels[order.size()] = "Aktiv";
-
-        int tabsX1 = px + 50, tabsX2 = searchBox.x1 - 8;
-        int natural = 0;
-        for (String l : labels) natural += textRenderer.getWidth(l) + 14;
+        int tabsX2 = searchBox.x1 - 8;
         float fs = natural <= tabsX2 - tabsX1 ? 1f : Math.max(0.7f, (tabsX2 - tabsX1) / (float) natural);
         int tx = tabsX1;
         for (int i = 0; i < labels.length; i++) {
