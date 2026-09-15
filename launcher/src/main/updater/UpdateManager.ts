@@ -4,6 +4,16 @@ import Store from 'electron-store'
 import { logger } from '../logs/Logger'
 import { UpdateGuard } from './UpdateGuard'
 
+/** True when version a (like "1.1.8") is higher than b; a newer local build is never offered a "downgrade". */
+function isNewer(a: string, b: string): boolean {
+  const pa = a.split(/[.-]/).map(n => parseInt(n, 10) || 0)
+  const pb = b.split(/[.-]/).map(n => parseInt(n, 10) || 0)
+  for (let i = 0; i < 3; i++) {
+    if ((pa[i] ?? 0) !== (pb[i] ?? 0)) return (pa[i] ?? 0) > (pb[i] ?? 0)
+  }
+  return false
+}
+
 export interface UpdateInfo {
   available: boolean
   version?: string
@@ -37,7 +47,7 @@ export class UpdateManager {
       const remoteVersion = result?.updateInfo?.version
       const current = app.getVersion()
       if (remoteVersion) this.store.set('updater.candidateVersion', remoteVersion)
-      return { available: !!remoteVersion && remoteVersion !== current, version: remoteVersion || current }
+      return { available: !!remoteVersion && isNewer(remoteVersion, current), version: remoteVersion || current }
     } catch (err) {
       // No repo configured yet, or offline — not fatal, but still recorded.
       logger.warn('updater', 'Update-Pruefung fehlgeschlagen', String(err))
@@ -83,7 +93,10 @@ export class UpdateManager {
         this.guard.recordPendingUpdate(info.version)
 
         emit('update:progress', { step: 'Update ready — restarting...', percent: 100 })
-        autoUpdater.quitAndInstall()
+        // Silent: an update installs over the existing install without showing the
+        // setup wizard again (that only appears for the very first install), then
+        // starts Crystal straight back up.
+        autoUpdater.quitAndInstall(true, true)
         resolve(true)
       })
       autoUpdater.on('error', err => {

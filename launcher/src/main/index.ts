@@ -2,7 +2,7 @@ import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron'
 import path from 'path'
 import Store from 'electron-store'
 import { MinecraftManager } from './minecraft/MinecraftManager'
-import { UpdateManager } from './updater/UpdateManager'
+import { UpdateManager, type UpdateInfo } from './updater/UpdateManager'
 import { UpdateGuard } from './updater/UpdateGuard'
 import { registerIpcHandlers } from './ipc'
 import { syncThemeToClient } from './theme/ThemeSync'
@@ -144,32 +144,60 @@ app.whenReady().then(async () => {
   registerIpcHandlers(store)
   syncThemeToClient((store.get('theme') as string) || 'crystal-blue')
 
-  setSplashStatus(`Crystal ${app.getVersion()}`, 70)
+  setSplashStatus('Suche nach Updates...', 40)
+
+  // The update check runs while the splash is up. When an update exists the
+  // splash stays open and asks: install now (downloads, installs silently and
+  // restarts) or later (the launcher opens and shows the update banner).
+  const updater = new UpdateManager(store)
+  const checkTimeout = new Promise<UpdateInfo>(resolve =>
+    setTimeout(() => resolve({ available: false, version: app.getVersion() }), 6000))
+  const updateInfo = await Promise.race([updater.check(), checkTimeout])
 
   const elapsed = Date.now() - splashShownAt
   if (elapsed < MIN_SPLASH_MS) {
     await new Promise(resolve => setTimeout(resolve, MIN_SPLASH_MS - elapsed))
   }
 
+  if (updateInfo.available && splashWindow) {
+    splashWindow.webContents.send('splash:update', {
+      current: app.getVersion(),
+      version: updateInfo.version,
+      manual: process.platform === 'darwin',
+    })
+    const choice = await new Promise<string>(resolve => {
+      ipcMain.once('splash:choice', (_e, value: string) => resolve(value))
+      splashWindow?.once('closed', () => resolve('later'))
+    })
+    if (choice === 'update') {
+      const installed = await updater.install((event, data) => {
+        if (event === 'update:progress') {
+          const p = data as { step: string; percent: number }
+          setSplashStatus(p.percent >= 95 ? 'Update wird installiert...' : `Update wird geladen... ${p.percent}%`, p.percent)
+        } else if (event === 'update:error') {
+          setSplashStatus(String(data), 100)
+        }
+      })
+      // On success the app is already quitting into the installer.
+      if (installed) return
+      await new Promise(resolve => setTimeout(resolve, 2500))
+    }
+  }
+
   setSplashStatus('Crystal wird gestartet...', 100)
   createMainWindow()
 
-  // Updates are checked *after* the window is up and reported as a dismissible
-  // banner — nothing blocks getting into the launcher.
-  const updater = new UpdateManager(store)
+  // A skipped update still shows as the dismissible banner inside the launcher.
   // Sent only once the page has loaded and subscribed: a result that arrived
-  // before the renderer was listening used to vanish, so the banner never
-  // appeared even though an update was available.
+  // before the renderer was listening used to vanish.
   const rendererReady = new Promise<void>(resolve => {
     const wc = mainWindow?.webContents
     if (!wc || !wc.isLoading()) resolve()
     else wc.once('did-finish-load', () => resolve())
   })
-  Promise.all([updater.check(), rendererReady])
-    .then(([info]) => {
-      if (info.available) mainWindow?.webContents.send('update:available', info)
-    })
-    .catch(err => logger.warn('updater', 'Update-Prüfung beim Start fehlgeschlagen', String(err)))
+  rendererReady.then(() => {
+    if (updateInfo.available) mainWindow?.webContents.send('update:available', updateInfo)
+  })
 
   ipcMain.handle('update:downloadAndRestart', async () => {
     return updater.install((event, data) => mainWindow?.webContents.send(event, data))
