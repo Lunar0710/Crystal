@@ -111,6 +111,16 @@ public abstract class HudModule extends Module implements HudRenderable {
     public static final String STYLE_NEON = "Neon (Crystal+)";
     public static final String STYLE_PILL = "Pill (Crystal+)";
 
+    /**
+     * Crystal: a small dark panel with the label ("FPS") in the accent colour.
+     * Classic: the plain shadowed text every HUD line used before.
+     */
+    public static final String LOOK_CRYSTAL = "Crystal";
+    public static final String LOOK_CLASSIC = "Classic";
+    private String look = LOOK_CRYSTAL;
+
+    public boolean isCrystalLook() { return LOOK_CRYSTAL.equals(look); }
+
     private String backgroundStyle = STYLE_FLAT;
     private boolean chroma = false;
 
@@ -139,6 +149,7 @@ public abstract class HudModule extends Module implements HudRenderable {
     @Override
     public final List<Setting<?>> getSettings() {
         List<Setting<?>> all = new ArrayList<>(getExtraSettings());
+        all.add(new EnumSetting("Look", () -> look, v -> look = v, List.of(LOOK_CRYSTAL, LOOK_CLASSIC)));
         all.add(new SliderSetting("X", () -> x, v -> x = v, 0f, 1920f, 1f, 0));
         all.add(new SliderSetting("Y", () -> y, v -> y = v, 0f, 1080f, 1f, 0));
         all.add(new ColorSetting("Text Color", () -> textColor, v -> textColor = v, 0xFFE4E8F0));

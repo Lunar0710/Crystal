@@ -76,6 +76,9 @@ public class CrystalHUD {
         }
         String text = module.getDisplayText();
         int w = text == null || text.isEmpty() ? 40 : module.getDisplayWidth(mc.textRenderer);
+        if (module.isCrystalLook() && !module.hasBackground()) {
+            return new int[]{x - Math.round(3 * s), y - Math.round(2 * s), x + Math.round((w + 3) * s), y + Math.round(9 * s)};
+        }
         return new int[]{x - Math.round(4 * s), y - Math.round(3 * s), x + Math.round((w + 4) * s), y + Math.round(11 * s)};
     }
 
@@ -174,6 +177,7 @@ public class CrystalHUD {
         context.getMatrices().translate(x, y);
         context.getMatrices().scale(scale, scale);
 
+        boolean crystalLook = module.isCrystalLook();
         if (module.hasBackground()) {
             int fill = module.getBackgroundColor();
             switch (module.getEffectiveStyle()) {
@@ -182,11 +186,33 @@ public class CrystalHUD {
                 case HudModule.STYLE_PILL -> drawPill(context, -6, -3, textWidth + 6, 11, fill);
                 default -> context.fill(-3, -2, textWidth + 3, 10, fill);
             }
+        } else if (crystalLook) {
+            // 11px tall, so HUD lines on the default 12px rows keep a 1px gap.
+            GuiRender.roundedRect(context, -3, -2, textWidth + 3, 9, 3, 0x9E0A0D15);
         }
-        if (module.hasShadow()) {
-            context.drawText(mc.textRenderer, text, 1, 1, 0x90000000, false);
+
+        int color = module.getEffectiveTextColor();
+        int split = crystalLook ? text.indexOf(": ") : -1;
+        if (split > 0) {
+            // "FPS: 120" draws the label in the theme accent and the value in the text colour.
+            String label = text.substring(0, split + 1);
+            String value = text.substring(split + 1);
+            int accent = color == module.getTextColor()
+                    ? dev.crystal.client.CrystalClient.getInstance().getThemeManager().getAccent() | 0xFF000000
+                    : color;
+            int labelW = mc.textRenderer.getWidth(label);
+            if (module.hasShadow()) {
+                context.drawText(mc.textRenderer, label, 1, 1, 0x90000000, false);
+                context.drawText(mc.textRenderer, value, labelW + 1, 1, 0x90000000, false);
+            }
+            context.drawText(mc.textRenderer, label, 0, 0, accent, false);
+            context.drawText(mc.textRenderer, value, labelW, 0, color, false);
+        } else {
+            if (module.hasShadow()) {
+                context.drawText(mc.textRenderer, text, 1, 1, 0x90000000, false);
+            }
+            context.drawText(mc.textRenderer, text, 0, 0, color, false);
         }
-        context.drawText(mc.textRenderer, text, 0, 0, module.getEffectiveTextColor(), false);
 
         context.getMatrices().popMatrix();
     }

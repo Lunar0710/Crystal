@@ -3,6 +3,8 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
   Home, Play, Boxes, Shirt, Users, Newspaper, ScrollText, Settings, type LucideIcon,
 } from 'lucide-react'
+import { RankBadge } from '../ui/RankBadge'
+import type { RankId } from '../../data/ranks'
 
 interface NavItem {
   path: string
@@ -41,11 +43,13 @@ export function Sidebar() {
   const location = useLocation()
   const navigate = useNavigate()
   const [username, setUsername] = useState<string | null>(null)
+  const [rank, setRank] = useState<RankId | null>(null)
 
   // Re-read on navigation: logging in or switching accounts happens on other
   // pages, and the chip should follow without a reload.
   useEffect(() => {
     api?.getProfile().then((p: { username: string } | null) => setUsername(p?.username ?? null))
+    api?.getRank().then((r: RankId | null) => setRank(r ?? null)).catch(() => setRank(null))
   }, [location.pathname])
 
   return (
@@ -70,8 +74,11 @@ export function Sidebar() {
           <span className="w-6 h-6 rounded bg-crystal-border text-crystal-text text-[11px] font-semibold flex items-center justify-center shrink-0">
             {username ? username.charAt(0).toUpperCase() : '?'}
           </span>
-          <span className="min-w-0">
-            <span className="block text-[13px] text-crystal-text truncate">{username ?? 'Nicht angemeldet'}</span>
+          <span className="min-w-0 flex-1">
+            <span className="flex items-center gap-1.5 min-w-0">
+              <span className="text-[13px] text-crystal-text truncate">{username ?? 'Nicht angemeldet'}</span>
+              {username && <RankBadge rank={rank} size="sm" />}
+            </span>
             <span className="block text-[11px] text-crystal-muted">{username ? 'Konto wechseln' : 'Anmelden'}</span>
           </span>
         </button>

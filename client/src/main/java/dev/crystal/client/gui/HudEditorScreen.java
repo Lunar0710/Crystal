@@ -106,8 +106,8 @@ public class HudEditorScreen extends Screen {
         modsY2 = modsY1 + MODS_H;
         boolean modsHover = mouseX >= modsX1 && mouseX < modsX2 && mouseY >= modsY1 && mouseY < modsY2 && dragging == null;
         int modsBg = modsHover ? GuiRender.withAlpha(accent, 0xF2) : GuiRender.withAlpha(0xFF10131A, Math.round(0xE6 * appear));
-        GuiRender.roundedRect(ctx, modsX1, modsY1, modsX2, modsY2, modsBg);
-        GuiRender.roundedOutline(ctx, modsX1, modsY1, modsX2, modsY2, GuiRender.withAlpha(accent, modsHover ? 0xFF : 0xAA));
+        GuiRender.roundedRect(ctx, modsX1, modsY1, modsX2, modsY2, 12, modsBg);
+        GuiRender.roundedOutline(ctx, modsX1, modsY1, modsX2, modsY2, 12, GuiRender.withAlpha(accent, modsHover ? 0xFF : 0xAA));
         String mods = "MODS";
         GuiRender.scaledText(ctx, mods, width / 2 - GuiRender.scaledWidth(mods, 1.5f) / 2, modsY1 + 8, 1.5f, modsHover ? 0xFF0B0D12 : 0xFFFFFFFF);
 

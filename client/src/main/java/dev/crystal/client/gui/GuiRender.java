@@ -30,6 +30,50 @@ public final class GuiRender {
         ctx.fill(x2 - 2, y2 - 2, x2 - 1, y2 - 1, color);
     }
 
+    /** How far row {@code i} (0 = outermost) of a corner with radius {@code r} is pushed inwards. */
+    private static int cornerInset(int r, int i) {
+        double dy = r - i - 0.5;
+        return (int) Math.round(r - Math.sqrt(Math.max(0, r * r - dy * dy)));
+    }
+
+    /**
+     * Rectangle with round corners of any radius, drawn one row at a time in the
+     * corner bands so translucent colours never overlap and darken.
+     */
+    public static void roundedRect(DrawContext ctx, int x1, int y1, int x2, int y2, int radius, int color) {
+        int r = Math.min(radius, Math.min(x2 - x1, y2 - y1) / 2);
+        if (r <= 2) { roundedRect(ctx, x1, y1, x2, y2, color); return; }
+        for (int i = 0; i < r; i++) {
+            int in = cornerInset(r, i);
+            ctx.fill(x1 + in, y1 + i, x2 - in, y1 + i + 1, color);
+            ctx.fill(x1 + in, y2 - i - 1, x2 - in, y2 - i, color);
+        }
+        ctx.fill(x1, y1 + r, x2, y2 - r, color);
+    }
+
+    /** 1px outline for {@link #roundedRect(DrawContext, int, int, int, int, int, int)}. */
+    public static void roundedOutline(DrawContext ctx, int x1, int y1, int x2, int y2, int radius, int color) {
+        int r = Math.min(radius, Math.min(x2 - x1, y2 - y1) / 2);
+        if (r <= 2) { roundedOutline(ctx, x1, y1, x2, y2, color); return; }
+        for (int i = 0; i < r; i++) {
+            int in = cornerInset(r, i);
+            // The next row's inset tells how wide this row's visible edge is.
+            int next = i + 1 < r ? cornerInset(r, i + 1) : 0;
+            int w = Math.max(1, in - next);
+            if (i == 0) {
+                ctx.fill(x1 + in, y1, x2 - in, y1 + 1, color);
+                ctx.fill(x1 + in, y2 - 1, x2 - in, y2, color);
+            } else {
+                ctx.fill(x1 + in, y1 + i, x1 + in + w, y1 + i + 1, color);
+                ctx.fill(x2 - in - w, y1 + i, x2 - in, y1 + i + 1, color);
+                ctx.fill(x1 + in, y2 - i - 1, x1 + in + w, y2 - i, color);
+                ctx.fill(x2 - in - w, y2 - i - 1, x2 - in, y2 - i, color);
+            }
+        }
+        ctx.fill(x1, y1 + r, x1 + 1, y2 - r, color);
+        ctx.fill(x2 - 1, y1 + r, x2, y2 - r, color);
+    }
+
     /** 1px outline following the same rounded shape. */
     public static void roundedOutline(DrawContext ctx, int x1, int y1, int x2, int y2, int color) {
         ctx.fill(x1 + 2, y1, x2 - 2, y1 + 1, color);
