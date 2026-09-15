@@ -34,6 +34,7 @@ public class ConfigManager {
             if (!module.settings().isEmpty()) {
                 JsonObject settingsObj = new JsonObject();
                 for (Setting<?> setting : module.settings()) {
+                    if (setting.getType() == dev.crystal.client.module.SettingType.ACTION) continue; // buttons hold no value
                     settingsObj.add(setting.getName(), setting.toJson());
                 }
                 mObj.add("settings", settingsObj);

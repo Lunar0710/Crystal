@@ -33,6 +33,9 @@ public abstract class Setting<T> {
     public T getDefault() { return defaultValue; }
     public void resetToDefault() { setValue(defaultValue); }
 
+    /** Saved in the config but never shown as a row (data a module keeps for itself). */
+    public boolean isHidden() { return false; }
+
     public abstract SettingType getType();
 
     /** Text shown to the right of the setting's name in the panel. */

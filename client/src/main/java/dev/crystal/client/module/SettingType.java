@@ -9,5 +9,7 @@ public enum SettingType {
     ENUM,
     COLOR,
     KEYBIND,
-    TEXT
+    TEXT,
+    /** A button that runs an action; see {@link ButtonSetting}. */
+    ACTION
 }

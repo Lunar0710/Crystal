@@ -1,0 +1,27 @@
+package dev.crystal.client.mixin;
+
+import dev.crystal.client.CrystalClient;
+import dev.crystal.client.module.render.NameTags;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.render.entity.LivingEntityRenderer;
+import net.minecraft.entity.LivingEntity;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+/** NameTags "Show Own Nametag": vanilla never labels the camera entity, so allow it in third person. */
+@Mixin(LivingEntityRenderer.class)
+public class MixinLivingEntityRenderer {
+
+    @Inject(method = "hasLabel(Lnet/minecraft/entity/LivingEntity;D)Z", at = @At("RETURN"), cancellable = true)
+    private void crystal$ownNametag(LivingEntity entity, double squaredDistance, CallbackInfoReturnable<Boolean> cir) {
+        if (cir.getReturnValueZ()) return;
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (entity != mc.player || mc.options.getPerspective().isFirstPerson() || !MinecraftClient.isHudEnabled()) return;
+        CrystalClient client = CrystalClient.getInstance();
+        if (client == null) return;
+        NameTags module = client.getModuleManager().getEnabled(NameTags.class);
+        if (module != null && module.isShowOwn() && !entity.isInvisible()) cir.setReturnValue(true);
+    }
+}

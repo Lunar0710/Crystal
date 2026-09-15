@@ -25,7 +25,13 @@
     "GameRendererAccessor",
     "MixinInactivityFpsLimiter",
     "MixinScrollableWidget",
-    "MixinClickableWidget"
+    "MixinClickableWidget",
+    "MixinItemStack",
+    "MixinOverlayTexture",
+    "MixinEntityRenderer",
+    "MixinLivingEntityRenderer",
+    "MixinLabelCommands",
+    "MixinClientPlayerInteractionManager"
   ],
   "injectors": {
     "defaultRequire": 1

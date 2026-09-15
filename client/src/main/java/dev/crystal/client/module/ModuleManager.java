@@ -117,6 +117,13 @@ public class ModuleManager {
         register(new PlayerCountDisplay());
         register(new dev.crystal.client.module.render.TextStyle());
         register(new dev.crystal.client.module.misc.SmoothScroll());
+        register(new dev.crystal.client.module.render.ShinyPots());
+        register(new dev.crystal.client.module.render.HitColor());
+        register(new dev.crystal.client.module.render.NameTags());
+        register(new dev.crystal.client.module.render.TeamView());
+        register(new dev.crystal.client.module.render.ParticleChanger());
+        register(new dev.crystal.client.module.render.BetterSounds());
+        register(new dev.crystal.client.module.misc.PackOrganizer());
     }
 
     /** Module by its class, for hot paths. Filled once at registration; modules are never replaced. */

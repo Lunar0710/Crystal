@@ -356,7 +356,7 @@ public class CrystalClientScreen extends Screen {
         moduleKeyBox = drawKeyRow(ctx, module.getKeybind(), capturingModuleKey && captureTileModule == null, rowX, top, rowW, mx, my);
         top += ROW_H + 6;
 
-        List<Setting<?>> settings = module.settings();
+        List<Setting<?>> settings = module.settings().stream().filter(st -> !st.isHidden()).toList();
         if (!settings.isEmpty()) {
             GuiRender.roundedRect(ctx, rowX, top, rowX + rowW, top + settings.size() * ROW_H, colTile);
             GuiRender.roundedOutline(ctx, rowX, top, rowX + rowW, top + settings.size() * ROW_H, GuiRender.withAlpha(colBorder, 0x88));
@@ -558,6 +558,12 @@ public class CrystalClientScreen extends Screen {
                 int vw = textRenderer.getWidth(value) + 12;
                 GuiRender.roundedRect(ctx, control.x2 - vw, control.y1, control.x2, control.y2, capturing ? GuiRender.withAlpha(colAccent, 0x40) : 0x40000000);
                 ctx.drawText(textRenderer, value, control.x2 - vw + 6, y + 7, colText, false);
+            }
+            case ACTION -> {
+                String label = setting.getDisplayValue();
+                int bw = Math.min(controlW, textRenderer.getWidth(label) + 16);
+                GuiRender.roundedRect(ctx, control.x2 - bw, control.y1, control.x2, control.y2, hover ? colAccent : GuiRender.withAlpha(colAccent, 0x40));
+                ctx.drawText(textRenderer, GuiRender.trimToWidth(label, bw - 8), control.x2 - bw + 8, y + 7, hover ? 0xFF0B0D12 : colText, false);
             }
             case TEXT -> {
                 boolean editing = setting == editingText;
@@ -881,6 +887,7 @@ public class CrystalClientScreen extends Screen {
                     else color.cycleNext();
                 }
                 case KEYBIND -> capturingSetting = (KeybindSetting) setting;
+                case ACTION -> ((dev.crystal.client.module.ButtonSetting) setting).press();
                 case TEXT -> {
                     editingText = (TextSetting) setting;
                     textBuffer = new StringBuilder(editingText.getValue());
