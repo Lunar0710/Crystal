@@ -280,6 +280,23 @@ export function registerIpcHandlers(store: Store) {
       })
       .catch(err => logger.warn('updater', 'Update-Pruefung vor dem Start fehlgeschlagen', String(err)))
 
+    // Crystal alone keeps vanilla's chunk renderer, which falls far behind at
+    // high render distance (worst underground, where vanilla's cave culling is
+    // weak). Sodium and EntityCulling close that gap, so a Crystal instance gets
+    // the performance pack once. Only once: a mod the player removes afterwards
+    // stays removed. A failed download never blocks the launch.
+    const perfKey = `perfPackAuto.${opts.instanceId}`
+    if (opts.injectCrystal && opts.version === '1.21.11' && opts.instanceId
+        && store.get('autoPerformancePack') !== false && !store.get(perfKey)) {
+      win?.webContents.send('launch:progress', { step: 'Performance-Mods werden installiert...', percent: 2 })
+      try {
+        const result = await modrinth.installPerformancePack(opts.instanceId, '1.21.11')
+        if (result.failed.length === 0) store.set(perfKey, true)
+      } catch (err) {
+        logger.warn('client', 'Performance-Paket beim Start fehlgeschlagen', String(err))
+      }
+    }
+
     const instanceName = instances.get(opts.instanceId)?.name || 'Minecraft'
     discord.playing(instanceName, opts.version)
 

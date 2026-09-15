@@ -28,9 +28,11 @@ export function Settings() {
   const [dataRoot, setDataRoot] = useState<{ current?: string; default?: string }>({})
   const [systemMb, setSystemMb] = useState<number | null>(null)
   const [minimizeOnLaunch, setMinimizeOnLaunch] = useState(true)
+  const [autoPerformancePack, setAutoPerformancePack] = useState(true)
 
   useEffect(() => {
     api?.getSetting('minimizeOnLaunch').then((v: boolean | undefined) => setMinimizeOnLaunch(v !== false))
+    api?.getSetting('autoPerformancePack').then((v: boolean | undefined) => setAutoPerformancePack(v !== false))
     api?.getDataRoot().then((r: { current: string; default: string }) => r && setDataRoot(r))
     api?.getVersionInfo().then((v: { launcher: string; client: string | null }) => v && setVersions(v))
     api?.isDiscordEnabled().then((v: boolean) => setDiscordEnabled(!!v))
@@ -161,6 +163,17 @@ export function Settings() {
             checked={minimizeOnLaunch}
             onChange={v => { setMinimizeOnLaunch(v); api?.setSetting('minimizeOnLaunch', v) }}
             label="Launcher beim Spielstart minimieren"
+          />
+        </Field>
+
+        <Field
+          label="Performance-Mods automatisch installieren"
+          hint="Beim ersten Start einer Crystal-Instanz kommen Sodium, Lithium, FerriteCore, EntityCulling und ImmediatelyFast dazu. Das bringt vor allem bei hoher Sichtweite und unter Tage viel mehr FPS. Mods, die du danach entfernst, bleiben entfernt."
+        >
+          <Switch
+            checked={autoPerformancePack}
+            onChange={v => { setAutoPerformancePack(v); api?.setSetting('autoPerformancePack', v) }}
+            label="Performance-Mods automatisch installieren"
           />
         </Field>
 

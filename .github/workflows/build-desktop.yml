@@ -72,6 +72,7 @@ jobs:
         working-directory: launcher
         env:
           CRYSTAL_SMOKE_ROOT: ${{ runner.temp }}/crystal-world
+          CRYSTAL_SMOKE_PERFPACK: "1"
         run: |
           mkdir -p "$CRYSTAL_SMOKE_ROOT"
           if [ "$RUNNER_OS" = "Linux" ]; then

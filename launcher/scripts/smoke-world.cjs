@@ -138,6 +138,14 @@ function writeTestSettings(gameDir) {
   const manager = new MinecraftManager(new Store({ cwd: dataRoot, name: 'smoke-store' }))
   const profile = { username: 'CrystalSmoke', uuid: '00196142-0019-3019-8001-00196142c1a5', accessToken: 'offline', type: 'offline' }
   let pid = null
+  // Players get the performance pack on their first Crystal launch, so the test
+  // plays with it too (proves Crystal still renders correctly next to Sodium).
+  if (process.env.CRYSTAL_SMOKE_PERFPACK) {
+    const { ModrinthService } = require(path.join(launcherRoot, 'dist/main/minecraft/ModrinthService.js'))
+    const pack = await new ModrinthService().installPerformancePack('smoke-world', VERSION)
+    log('performance pack', JSON.stringify(pack))
+    if (pack.failed.length) throw new Error('performance pack install failed')
+  }
   log('launching')
   const ok = await manager.launch({
     version: VERSION, instanceId: 'smoke-world', gameDir, username: profile.username, profile, maxRam: 3072,
