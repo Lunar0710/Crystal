@@ -2,11 +2,21 @@ package dev.crystal.client.module.misc;
 
 import dev.crystal.client.CrystalClient;
 import dev.crystal.client.event.events.TickEvent;
+import dev.crystal.client.module.BooleanSetting;
+import dev.crystal.client.module.ColorSetting;
 import dev.crystal.client.module.Module;
 import dev.crystal.client.module.ModuleCategory;
 import dev.crystal.client.module.Setting;
 import dev.crystal.client.module.SliderSetting;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.sound.PositionedSoundInstance;
+import net.minecraft.sound.SoundEvents;
+import net.minecraft.text.MutableText;
+import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
+
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 
 import java.util.List;
 import java.util.function.Consumer;
@@ -25,6 +35,13 @@ public class ChatMod extends Module {
     private float scale = 1f;
     private float opacity = 1f;
     private float width = 1f;
+    private boolean stackDuplicates = true;
+    private boolean timestamps = false;
+    private boolean highlightName = true;
+    private boolean highlightSound = true;
+    private int highlightColor = 0xFFFACC15;
+
+    private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("HH:mm");
 
     private double previousScale, previousOpacity, previousWidth;
     private boolean capturedPrevious = false;
@@ -32,7 +49,7 @@ public class ChatMod extends Module {
     private final Consumer<TickEvent> tickListener = this::onTick;
 
     public ChatMod() {
-        super("Chat", "Restyled chat window with resizable background and font", ModuleCategory.MISC);
+        super("Chat", "Chat size and opacity, stacked repeats, timestamps and name highlight", ModuleCategory.MISC);
         setEnabled(true);
     }
 
@@ -70,9 +87,40 @@ public class ChatMod extends Module {
         options.getChatWidth().setValue((double) width);
     }
 
+    public boolean isStackDuplicates() { return stackDuplicates; }
+
+    /**
+     * The line as it should appear: optional time in front, a coloured marker
+     * when your name is mentioned (by someone else), and "(x3)" for repeats.
+     * Called from MixinChatHud for every incoming chat line.
+     */
+    public Text decorate(Text message, int repeat) {
+        MutableText out = Text.empty();
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (timestamps) out.append(Text.literal("[" + LocalTime.now().format(TIME) + "] ").formatted(Formatting.GRAY));
+        if (highlightName && mc.player != null && repeat == 1) {
+            String name = mc.player.getName().getString();
+            String plain = message.getString();
+            // A message you sent yourself starts with your name; only mentions by others count.
+            boolean ownMessage = plain.startsWith("<" + name + ">") || plain.startsWith(name + ":");
+            if (!ownMessage && name.length() >= 3 && plain.toLowerCase().contains(name.toLowerCase())) {
+                out.append(Text.literal("▌ ").styled(st -> st.withColor(highlightColor & 0xFFFFFF)));
+                if (highlightSound) mc.getSoundManager().play(PositionedSoundInstance.ui(SoundEvents.BLOCK_NOTE_BLOCK_PLING.value(), 1.6f, 0.4f));
+            }
+        }
+        out.append(message);
+        if (repeat > 1) out.append(Text.literal(" (x" + repeat + ")").formatted(Formatting.GRAY));
+        return out;
+    }
+
     @Override
     public List<Setting<?>> getSettings() {
         return List.of(
+                new BooleanSetting("Stack Duplicates", () -> stackDuplicates, v -> stackDuplicates = v, true),
+                new BooleanSetting("Timestamps", () -> timestamps, v -> timestamps = v, false),
+                new BooleanSetting("Highlight Your Name", () -> highlightName, v -> highlightName = v, true),
+                new BooleanSetting("Mention Sound", () -> highlightSound, v -> highlightSound = v, true),
+                new ColorSetting("Highlight Color", () -> highlightColor, v -> highlightColor = v, 0xFFFACC15),
                 new SliderSetting("Scale", () -> scale, v -> { scale = v; if (isEnabled()) apply(); }, 0.5f, 2f, 0.1f, 1),
                 new SliderSetting("Background Opacity", () -> opacity, v -> { opacity = v; if (isEnabled()) apply(); }, 0f, 1f, 0.05f, 2),
                 new SliderSetting("Width", () -> width, v -> { width = v; if (isEnabled()) apply(); }, 0.4f, 1f, 0.05f, 2)
