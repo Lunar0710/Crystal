@@ -488,12 +488,22 @@ export class LaunchPipeline {
     }
   }
 
-  private downloadIfMissing(url: string, dest: string): Promise<void> {
+  private downloadIfMissing(url: string, dest: string, redirects = 0): Promise<void> {
     if (fs.existsSync(dest) && fs.statSync(dest).size > 0) return Promise.resolve()
 
     return new Promise((resolve, reject) => {
       const file = fs.createWriteStream(dest)
-      https.get(url, res => {
+      https.get(url, { headers: { 'User-Agent': 'crystal-launcher' } }, res => {
+        // Some Maven mirrors (Legacy Fabric's) answer with a redirect to the real file.
+        const location = res.headers.location
+        if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && location && redirects < 5) {
+          res.resume()
+          file.close(() => {
+            fs.rmSync(dest, { force: true })
+            this.downloadIfMissing(new URL(location, url).toString(), dest, redirects + 1).then(resolve, reject)
+          })
+          return
+        }
         if (res.statusCode !== 200) {
           file.close()
           fs.unlinkSync(dest)
@@ -510,9 +520,15 @@ export class LaunchPipeline {
     })
   }
 
-  private getJson<T>(url: string): Promise<T> {
+  private getJson<T>(url: string, redirects = 0): Promise<T> {
     return new Promise((resolve, reject) => {
       https.get(url, { headers: { 'User-Agent': 'crystal-launcher' } }, res => {
+        const location = res.headers.location
+        if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && location && redirects < 5) {
+          res.resume()
+          this.getJson<T>(new URL(location, url).toString(), redirects + 1).then(resolve, reject)
+          return
+        }
         if (res.statusCode !== 200) {
           reject(new Error(`HTTP ${res.statusCode} for ${url}`))
           return
