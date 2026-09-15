@@ -1,8 +1,7 @@
 import { HD_ART } from './hdCapes'
-import { HD_CHARACTERS } from './hdCharacters'
 import type { RankId } from './ranks'
 
-export type CapeCategory = 'characters' | 'art' | 'team' | 'plus' | 'emblem' | 'anime' | 'internet' | 'themed' | 'solid' | 'gradient' | 'pattern' | 'pixel' | 'neon'
+export type CapeCategory = 'art' | 'team' | 'plus' | 'emblem' | 'anime' | 'internet' | 'themed' | 'solid' | 'gradient' | 'pattern' | 'pixel' | 'neon'
 
 type Painter = (ctx: CanvasRenderingContext2D, w: number, h: number) => void
 
@@ -1170,11 +1169,8 @@ const TEAM_CAPES: { name: string; rows: string[]; palette: Record<string, string
 ]
 
 export const BUILTIN_CAPES: CapeDef[] = [
-  ...HD_CHARACTERS.map((a, i): CapeDef => ({
-    id: `character-${i}`, name: a.name, category: 'characters', paint: a.paint, glow: a.glow, hd: 16,
-  })),
   ...HD_ART.map((a, i): CapeDef => ({
-    id: `art-${i}`, name: a.name, category: 'art', paint: a.paint, glow: a.glow, hd: 16,
+    id: `art-${i}`, name: a.name, category: 'art', paint: a.paint, glow: a.glow, hd: 16, requiredRank: 'crystal_plus',
   })),
   ...TEAM_CAPES.map((c, i): CapeDef => ({
     id: `team-${i}`, name: c.name, category: 'team', paint: pixelMap(c.rows, c.palette), glow: c.glow, requiredRank: 'media',
@@ -1224,8 +1220,7 @@ export const BUILTIN_CAPES: CapeDef[] = [
 ]
 
 export const CAPE_CATEGORIES: { id: CapeCategory; label: string }[] = [
-  { id: 'characters', label: 'Charaktere' },
-  { id: 'art', label: 'HD-Bilder' },
+  { id: 'art', label: 'HD (Crystal+)' },
   { id: 'team', label: 'Team' },
   { id: 'plus', label: 'Crystal+' },
   { id: 'emblem', label: 'Embleme' },

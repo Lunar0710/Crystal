@@ -258,6 +258,214 @@ const koiPond: Painter = (ctx, w, h) => {
   ctx.beginPath(); ctx.arc(30, 220, 5, 0, Math.PI * 2); ctx.fill()
 }
 
+const vibeCheck: Painter = (ctx, w, h) => {
+  vertical(ctx, w, h, [[0, '#12002b'], [0.55, '#6d28d9'], [0.56, '#0b0014'], [1, '#1a0033']])
+  // Perspective grid
+  ctx.strokeStyle = 'rgba(236,72,153,0.8)'
+  ctx.lineWidth = 1.5
+  for (let i = -8; i <= 8; i++) {
+    ctx.beginPath(); ctx.moveTo(w / 2, 143); ctx.lineTo(w / 2 + i * 40, h); ctx.stroke()
+  }
+  for (let k = 0; k < 8; k++) {
+    const y = 143 + Math.pow(k / 7, 2) * 113
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke()
+  }
+  stars(ctx, w, h, 30, 77, 0.5)
+  text(ctx, 'VIBE', w / 2, 70, 40, '#f0abfc', "'Segoe UI', sans-serif", 900, '#e879f9')
+  text(ctx, 'CHECK', w / 2, 104, 26, '#67e8f9', "'Segoe UI', sans-serif", 900, '#22d3ee')
+}
+
+const sleepy: Painter = (ctx, w, h) => {
+  vertical(ctx, w, h, [[0, '#1e293b'], [1, '#475569']])
+  stars(ctx, w, h, 36, 18, 0.6)
+  ctx.fillStyle = '#fef9c3'
+  ctx.beginPath(); ctx.arc(46, 52, 22, 0, Math.PI * 2); ctx.fill()
+  ctx.fillStyle = '#243044'
+  ctx.beginPath(); ctx.arc(56, 46, 19, 0, Math.PI * 2); ctx.fill()
+  ctx.fillStyle = 'rgba(241,245,249,0.92)'
+  for (const [cx, cy, r] of [[40, 190, 30], [80, 176, 38], [124, 188, 32], [150, 204, 26], [16, 212, 24], [96, 214, 34]]) {
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill()
+  }
+  ctx.fillRect(0, 210, w, h - 210)
+  text(ctx, 'z', 108, 70, 18, '#cbd5e1', "Georgia, serif", 600)
+  text(ctx, 'z', 122, 54, 24, '#e2e8f0', "Georgia, serif", 600)
+  text(ctx, 'Z', 138, 34, 30, '#f8fafc', "Georgia, serif", 600)
+  text(ctx, 'sleepy', w / 2, 120, 26, '#e2e8f0', "Georgia, 'Times New Roman', serif", 600)
+}
+
+const rainyWindow: Painter = (ctx, w, h) => {
+  vertical(ctx, w, h, [[0, '#0f172a'], [1, '#1e3a5f']])
+  const r = random(64)
+  // City bokeh behind the glass
+  for (let i = 0; i < 28; i++) {
+    const x = r() * w, y = 90 + r() * 160, rad = 6 + r() * 14
+    const color = ['rgba(251,191,36,', 'rgba(244,114,182,', 'rgba(96,165,250,'][i % 3]
+    const g = ctx.createRadialGradient(x, y, 0, x, y, rad)
+    g.addColorStop(0, color + '0.6)'); g.addColorStop(1, color + '0)')
+    ctx.fillStyle = g
+    ctx.fillRect(x - rad, y - rad, rad * 2, rad * 2)
+  }
+  // Drops and trails
+  for (let i = 0; i < 40; i++) {
+    const x = r() * w, y = r() * h, len = 6 + r() * 26
+    ctx.strokeStyle = 'rgba(226,232,240,0.25)'
+    ctx.lineWidth = 1
+    ctx.beginPath(); ctx.moveTo(x, y - len); ctx.lineTo(x, y); ctx.stroke()
+    ctx.fillStyle = 'rgba(226,232,240,0.55)'
+    ctx.beginPath(); ctx.ellipse(x, y, 1.8, 2.6, 0, 0, Math.PI * 2); ctx.fill()
+  }
+  // Window frame
+  ctx.fillStyle = '#0b1120'
+  ctx.fillRect(w / 2 - 3, 0, 6, h)
+  ctx.fillRect(0, h / 2 - 3, w, 6)
+}
+
+const cherrySoda: Painter = (ctx, w, h) => {
+  vertical(ctx, w, h, [[0, '#ffe4e6'], [1, '#fb7185']])
+  const r = random(33)
+  for (let i = 0; i < 40; i++) {
+    const x = r() * w, y = r() * h, rad = 2 + r() * 9
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)'
+    ctx.lineWidth = 1.5
+    ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.stroke()
+    ctx.fillStyle = 'rgba(255,255,255,0.6)'
+    ctx.beginPath(); ctx.arc(x - rad * 0.35, y - rad * 0.35, rad * 0.25, 0, Math.PI * 2); ctx.fill()
+  }
+  // Cherries
+  ctx.strokeStyle = '#166534'; ctx.lineWidth = 3
+  ctx.beginPath(); ctx.moveTo(70, 150); ctx.quadraticCurveTo(84, 100, 102, 86); ctx.stroke()
+  ctx.beginPath(); ctx.moveTo(104, 156); ctx.quadraticCurveTo(100, 110, 102, 86); ctx.stroke()
+  for (const [cx, cy] of [[68, 160], [106, 166]]) {
+    const g = ctx.createRadialGradient(cx - 5, cy - 5, 2, cx, cy, 18)
+    g.addColorStop(0, '#fda4af'); g.addColorStop(1, '#be123c')
+    ctx.fillStyle = g
+    ctx.beginPath(); ctx.arc(cx, cy, 17, 0, Math.PI * 2); ctx.fill()
+  }
+  text(ctx, 'cherry soda', w / 2, 220, 20, '#881337', "'Segoe UI', sans-serif", 800)
+}
+
+const matcha: Painter = (ctx, w, h) => {
+  vertical(ctx, w, h, [[0, '#f5f0e1'], [1, '#e7dcc2']])
+  // Cup from above
+  ctx.fillStyle = '#fafaf9'
+  ctx.beginPath(); ctx.arc(w / 2, 110, 58, 0, Math.PI * 2); ctx.fill()
+  ctx.fillStyle = '#84cc16'
+  const g = ctx.createRadialGradient(w / 2, 110, 5, w / 2, 110, 48)
+  g.addColorStop(0, '#bef264'); g.addColorStop(1, '#4d7c0f')
+  ctx.fillStyle = g
+  ctx.beginPath(); ctx.arc(w / 2, 110, 48, 0, Math.PI * 2); ctx.fill()
+  // Latte art heart
+  ctx.fillStyle = 'rgba(254,252,232,0.9)'
+  ctx.beginPath()
+  ctx.moveTo(w / 2, 132)
+  ctx.bezierCurveTo(w / 2 - 34, 108, w / 2 - 20, 80, w / 2, 96)
+  ctx.bezierCurveTo(w / 2 + 20, 80, w / 2 + 34, 108, w / 2, 132)
+  ctx.fill()
+  text(ctx, 'matcha', w / 2, 196, 30, '#3f6212', "Georgia, 'Times New Roman', serif", 600)
+  text(ctx, 'mood', w / 2, 224, 16, '#65a30d', "'Segoe UI', sans-serif", 600)
+}
+
+const stayHydrated: Painter = (ctx, w, h) => {
+  vertical(ctx, w, h, [[0, '#ecfeff'], [1, '#67e8f9']])
+  // Glass
+  ctx.fillStyle = 'rgba(255,255,255,0.55)'
+  ctx.beginPath(); ctx.moveTo(44, 50); ctx.lineTo(116, 50); ctx.lineTo(106, 170); ctx.lineTo(54, 170); ctx.closePath(); ctx.fill()
+  const water = ctx.createLinearGradient(0, 90, 0, 170)
+  water.addColorStop(0, '#22d3ee'); water.addColorStop(1, '#0284c7')
+  ctx.fillStyle = water
+  ctx.beginPath(); ctx.moveTo(47, 90); ctx.lineTo(113, 90); ctx.lineTo(106, 170); ctx.lineTo(54, 170); ctx.closePath(); ctx.fill()
+  ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 2
+  ctx.beginPath(); ctx.moveTo(44, 50); ctx.lineTo(54, 170); ctx.lineTo(106, 170); ctx.lineTo(116, 50); ctx.stroke()
+  // Ice cubes
+  ctx.fillStyle = 'rgba(255,255,255,0.7)'
+  ctx.save(); ctx.translate(70, 104); ctx.rotate(0.3); ctx.fillRect(-9, -9, 18, 18); ctx.restore()
+  ctx.save(); ctx.translate(92, 118); ctx.rotate(-0.4); ctx.fillRect(-8, -8, 16, 16); ctx.restore()
+  text(ctx, 'stay', w / 2, 204, 24, '#0e7490', "'Segoe UI', sans-serif", 800)
+  text(ctx, 'hydrated', w / 2, 228, 24, '#0e7490', "'Segoe UI', sans-serif", 800)
+}
+
+const noThoughts: Painter = (ctx, w, h) => {
+  vertical(ctx, w, h, [[0, '#fefce8'], [1, '#fde68a']])
+  ctx.strokeStyle = '#78350f'; ctx.lineWidth = 3; ctx.lineCap = 'round'
+  // Tiny cloud with nothing inside
+  ctx.beginPath()
+  ctx.arc(62, 90, 20, Math.PI * 0.9, Math.PI * 1.9)
+  ctx.arc(92, 80, 24, Math.PI * 1.1, Math.PI * 1.95)
+  ctx.arc(116, 98, 18, Math.PI * 1.3, Math.PI * 0.4)
+  ctx.lineTo(50, 112)
+  ctx.arc(52, 100, 12, Math.PI * 0.5, Math.PI * 1.3)
+  ctx.stroke()
+  for (const [x, y, r] of [[48, 132, 5], [38, 148, 3.5]]) { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke() }
+  text(ctx, 'no thoughts', w / 2, 184, 22, '#78350f', "Georgia, 'Times New Roman', serif", 600)
+  text(ctx, 'just vibes', w / 2, 210, 16, '#a16207', "'Segoe UI', sans-serif", 600)
+}
+
+const midnightDrive: Painter = (ctx, w, h) => {
+  vertical(ctx, w, h, [[0, '#020617'], [0.5, '#1e1b4b'], [0.5, '#0f0f1a'], [1, '#111827']])
+  stars(ctx, w, h, 40, 91, 0.45)
+  // Road
+  ctx.fillStyle = '#1f2937'
+  ctx.beginPath(); ctx.moveTo(w / 2 - 6, 128); ctx.lineTo(w / 2 + 6, 128); ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.fill()
+  ctx.fillStyle = '#fbbf24'
+  for (let k = 0; k < 7; k++) {
+    const t = k / 7, y = 132 + t * t * 124, len = 3 + t * 16, width = 1 + t * 3
+    ctx.fillRect(w / 2 - width / 2, y, width, len)
+  }
+  // Street lights
+  for (const s of [-1, 1]) {
+    for (let k = 0; k < 4; k++) {
+      const t = (k + 1) / 5, x = w / 2 + s * (8 + t * t * 80), y = 128 - 6 - t * 40
+      const g = ctx.createRadialGradient(x, y, 0, x, y, 6 + t * 10)
+      g.addColorStop(0, 'rgba(251,146,60,0.95)'); g.addColorStop(1, 'rgba(251,146,60,0)')
+      ctx.fillStyle = g
+      ctx.fillRect(x - 20, y - 20, 40, 40)
+    }
+  }
+  // Taillights
+  const tl = (x: number) => { const g = ctx.createRadialGradient(x, 150, 0, x, 150, 8); g.addColorStop(0, '#ef4444'); g.addColorStop(1, 'rgba(239,68,68,0)'); ctx.fillStyle = g; ctx.fillRect(x - 8, 142, 16, 16) }
+  tl(w / 2 - 7); tl(w / 2 + 7)
+}
+
+const lavenderField: Painter = (ctx, w, h) => {
+  vertical(ctx, w, h, [[0, '#fde68a'], [0.35, '#f9a8d4'], [0.55, '#c4b5fd'], [0.55, '#7c3aed'], [1, '#4c1d95']])
+  ctx.fillStyle = '#fff7ed'
+  ctx.beginPath(); ctx.arc(w / 2, 108, 20, 0, Math.PI * 2); ctx.fill()
+  const r = random(52)
+  // Rows converging to the horizon
+  for (let row = 0; row < 9; row++) {
+    const t = row / 8
+    const y = 142 + t * t * 114
+    for (let i = 0; i < 18; i++) {
+      const x = (i / 17) * w + (r() - 0.5) * 6
+      const size = 1.5 + t * 6
+      ctx.fillStyle = r() > 0.5 ? '#a78bfa' : '#8b5cf6'
+      ctx.beginPath(); ctx.ellipse(x, y, size * 0.6, size * 1.4, 0, 0, Math.PI * 2); ctx.fill()
+    }
+  }
+}
+
+const mountainLake: Painter = (ctx, w, h) => {
+  vertical(ctx, w, h, [[0, '#bae6fd'], [0.5, '#e0f2fe'], [0.5, '#7dd3fc'], [1, '#0369a1']])
+  const mountains = (flip: boolean) => {
+    ctx.save()
+    if (flip) { ctx.translate(0, 256); ctx.scale(1, -1); ctx.globalAlpha = 0.45 }
+    ctx.fillStyle = '#64748b'
+    ctx.beginPath(); ctx.moveTo(0, 128); ctx.lineTo(34, 70); ctx.lineTo(62, 100); ctx.lineTo(98, 48); ctx.lineTo(136, 96); ctx.lineTo(w, 80); ctx.lineTo(w, 128); ctx.fill()
+    ctx.fillStyle = '#f8fafc'
+    ctx.beginPath(); ctx.moveTo(98, 48); ctx.lineTo(86, 66); ctx.lineTo(96, 62); ctx.lineTo(104, 70); ctx.lineTo(110, 62); ctx.fill()
+    ctx.beginPath(); ctx.moveTo(34, 70); ctx.lineTo(26, 84); ctx.lineTo(36, 80); ctx.lineTo(42, 84); ctx.fill()
+    ctx.fillStyle = '#166534'
+    for (let x = 0; x < w; x += 10) {
+      ctx.beginPath(); ctx.moveTo(x, 128); ctx.lineTo(x + 5, 108 + (x % 30) / 3); ctx.lineTo(x + 10, 128); ctx.fill()
+    }
+    ctx.restore()
+  }
+  mountains(false)
+  mountains(true)
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1
+  for (let y = 150; y < h; y += 14) { ctx.beginPath(); ctx.moveTo(20 + (y % 40), y); ctx.lineTo(80 + (y % 50), y); ctx.stroke() }
+}
+
 export const HD_ART: { name: string; paint: Painter; glow?: string }[] = [
   { name: 'Low Cortisol', paint: lowCortisol },
   { name: 'Sunset Lofi', paint: sunsetLofi, glow: '#fb923c' },
@@ -269,4 +477,15 @@ export const HD_ART: { name: string; paint: Painter; glow?: string }[] = [
   { name: 'Touch Grass', paint: touchGrass },
   { name: 'Cyber City', paint: cyberCity, glow: '#f0abfc' },
   { name: 'Koi Pond', paint: koiPond },
+  // Appended after the first ten so equipped capes keep their id.
+  { name: 'Vibe Check', paint: vibeCheck, glow: '#e879f9' },
+  { name: 'Sleepy', paint: sleepy },
+  { name: 'Rainy Window', paint: rainyWindow, glow: '#60a5fa' },
+  { name: 'Cherry Soda', paint: cherrySoda, glow: '#fb7185' },
+  { name: 'Matcha Mood', paint: matcha },
+  { name: 'Stay Hydrated', paint: stayHydrated, glow: '#22d3ee' },
+  { name: 'No Thoughts', paint: noThoughts },
+  { name: 'Midnight Drive', paint: midnightDrive, glow: '#fb923c' },
+  { name: 'Lavender Field', paint: lavenderField, glow: '#a78bfa' },
+  { name: 'Mountain Lake', paint: mountainLake },
 ]
