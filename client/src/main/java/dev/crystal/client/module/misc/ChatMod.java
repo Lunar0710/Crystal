@@ -94,6 +94,23 @@ public class ChatMod extends Module {
      * when your name is mentioned (by someone else), and "(x3)" for repeats.
      * Called from MixinChatHud for every incoming chat line.
      */
+    /**
+     * Your name somewhere in the line as a whole word, but not at the start.
+     * Lines that start with your name are about you, not to you: your own chat
+     * ("&lt;Name&gt; hi", "Name: hi") and server notices like "Name joined the
+     * game" or "Name has made the advancement". Rank prefixes such as
+     * "[VIP] Name: hi" count as starting with the name too.
+     */
+    static boolean isMention(String plain, String name) {
+        java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("(?<![A-Za-z0-9_])" + java.util.regex.Pattern.quote(name) + "(?![A-Za-z0-9_])", java.util.regex.Pattern.CASE_INSENSITIVE)
+                .matcher(plain);
+        if (!m.find()) return false;
+        String before = plain.substring(0, m.start()).replaceAll("\\[[^\\]]*\\]", "").replace("<", "").trim();
+        if (before.isEmpty()) return m.find(); // starts with the name: only a second mention counts
+        return true;
+    }
+
     public Text decorate(Text message, int repeat) {
         MutableText out = Text.empty();
         MinecraftClient mc = MinecraftClient.getInstance();
@@ -101,9 +118,7 @@ public class ChatMod extends Module {
         if (highlightName && mc.player != null && repeat == 1) {
             String name = mc.player.getName().getString();
             String plain = message.getString();
-            // A message you sent yourself starts with your name; only mentions by others count.
-            boolean ownMessage = plain.startsWith("<" + name + ">") || plain.startsWith(name + ":");
-            if (!ownMessage && name.length() >= 3 && plain.toLowerCase().contains(name.toLowerCase())) {
+            if (name.length() >= 3 && isMention(plain, name)) {
                 out.append(Text.literal("▌ ").styled(st -> st.withColor(highlightColor & 0xFFFFFF)));
                 if (highlightSound) mc.getSoundManager().play(PositionedSoundInstance.ui(SoundEvents.BLOCK_NOTE_BLOCK_PLING.value(), 1.6f, 0.4f));
             }
