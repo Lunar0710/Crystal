@@ -44,6 +44,7 @@ public class CrystalClient implements ClientModInitializer {
         eventBus = new EventBus();
         configManager = new ConfigManager();
         themeManager = new ThemeManager();
+        dev.crystal.client.module.render.TextStyle.registerPacks();
         moduleManager = new ModuleManager(eventBus);
         hud = new CrystalHUD(moduleManager);
 

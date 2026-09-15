@@ -56,13 +56,8 @@ public class ModuleManager {
         register(new Zoom());
         register(new Lighting());
         register(new MenuBlur());
-        register(new NameTags());
-        register(new TeamView());
         register(new Titles());
         register(new ScrollableTooltips());
-        register(new Items2D());
-        register(new Skins3D());
-        register(new BetterSounds());
         register(new BlockOutline());
         register(new ChunkBorders());
         register(new ColorSaturation());
@@ -72,15 +67,8 @@ public class ModuleManager {
         register(new BackgroundFps());
         register(new CapeFlutter());
         register(new FOVChanger());
-        register(new GlintColorizer());
         register(new Hitbox());
-        register(new HitColor());
-        register(new ItemPhysics());
-        register(new MotionBlur());
-        register(new ParticleChanger());
-        register(new ShinyPots());
         register(new WeatherChanger());
-        register(new WorldEditCUI());
         register(new WAILA());
 
         // Misc
@@ -89,16 +77,13 @@ public class ModuleManager {
         register(new ChatMod());
         register(new HypixelBedwars());
         register(new HypixelMods());
-        register(new PackOrganizer());
         register(new ScreenshotUploader());
         register(new TabEditor());
         register(new Waypoints());
         register(new ActionBarDisplay());
         register(new AutoTextHotkey());
         register(new HypixelQuickplay());
-        register(new MumbleLink());
         register(new PackDisplay());
-        register(new ReplayMod());
         register(new TimeChanger());
         register(new CustomMainMenu());
 
@@ -130,6 +115,7 @@ public class ModuleManager {
         register(new BiomeDisplay());
         register(new LightLevelDisplay());
         register(new PlayerCountDisplay());
+        register(new dev.crystal.client.module.render.TextStyle());
     }
 
     /** Module by its class, for hot paths. Filled once at registration; modules are never replaced. */
