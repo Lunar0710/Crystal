@@ -23,6 +23,7 @@ import { logger, LogCategory } from './logs/Logger'
 import { TryCrystalService } from './minecraft/TryCrystalService'
 import { CustomClientInstaller } from './minecraft/CustomClientInstaller'
 import { CrashDoctor } from './minecraft/CrashDoctor'
+import { ScreenshotService } from './screenshots/ScreenshotService'
 import { crystalPath, crystalRoot, defaultCrystalRoot, setCrystalRoot, canUseAsRoot } from './paths'
 
 export function registerIpcHandlers(store: Store) {
@@ -54,6 +55,7 @@ export function registerIpcHandlers(store: Store) {
   const tryCrystal = new TryCrystalService(store, instances, minecraft, auth)
   const clientInstaller = new CustomClientInstaller(instances)
   const crashDoctor = new CrashDoctor(instances)
+  const screenshots = new ScreenshotService(instances)
 
   // A snapshot left over from a previous run means that attempt never finished.
   tryCrystal.recoverInterrupted()
@@ -523,6 +525,14 @@ export function registerIpcHandlers(store: Store) {
   })
 
   // Launcher's own logs (separate from per-instance game logs)
+  // Screenshots from every instance
+  ipcMain.handle('screenshots:list', () => screenshots.list())
+  ipcMain.handle('screenshots:thumb', (_e, instanceId: string, fileName: string) => screenshots.thumbnail(instanceId, fileName))
+  ipcMain.handle('screenshots:full', (_e, instanceId: string, fileName: string) => screenshots.full(instanceId, fileName))
+  ipcMain.handle('screenshots:copy', (_e, instanceId: string, fileName: string) => screenshots.copy(instanceId, fileName))
+  ipcMain.handle('screenshots:show', (_e, instanceId: string, fileName: string) => screenshots.showInFolder(instanceId, fileName))
+  ipcMain.handle('screenshots:remove', (_e, instanceId: string, fileName: string) => screenshots.remove(instanceId, fileName))
+
   ipcMain.handle('launcherLog:read', (_e, category: LogCategory) => logger.read(category))
   ipcMain.handle('launcherLog:clear', (_e, category?: LogCategory) => logger.clear(category))
   ipcMain.handle('launcherLog:openFolder', () => {

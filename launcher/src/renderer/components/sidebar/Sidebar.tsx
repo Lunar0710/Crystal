@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
-  Home, Play, Boxes, Shirt, Users, Newspaper, ScrollText, Settings, type LucideIcon,
+  Home, Play, Boxes, Shirt, Users, Newspaper, ScrollText, Settings, Images, type LucideIcon,
 } from 'lucide-react'
 import { RankBadge } from '../ui/RankBadge'
 import type { RankId } from '../../data/ranks'
@@ -25,6 +25,7 @@ const groups: { title: string; items: NavItem[] }[] = [
     title: 'Profil',
     items: [
       { path: '/cosmetics', icon: Shirt, label: 'Cosmetics' },
+      { path: '/screenshots', icon: Images, label: 'Screenshots' },
       { path: '/friends',   icon: Users, label: 'Freunde' },
     ],
   },
