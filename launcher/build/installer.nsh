@@ -2,15 +2,25 @@
 !define MUI_BGCOLOR "0D0F14"
 !define MUI_TEXTCOLOR "E4E8F0"
 
-; Replaces the "Crystal Launcher cannot be closed, close it manually" dialog.
-; An update starts the installer while the old launcher is still shutting
-; down (or a second launcher window is open in the background), so instead of
-; asking the player, the installer closes it itself: politely first, then by
-; force. By image name only, never the process tree, so the installer itself
-; (started by the launcher) is never affected.
+; Replaces electron-builder's default "is the app still running" check.
+; That default force-kills too (see allowOnlyOneInstallerInstance.nsh,
+; _CHECK_APP_RUNNING), but gives up after ~2 retries (a few seconds) and then
+; makes the player close Crystal by hand — "Crystal Launcher kann nicht
+; geschlossen werden". An Electron app can take a moment longer to actually
+; exit (GPU process, a game instance still shutting down), so this keeps
+; force-killing by image name — never the installer's own process, which has
+; a different name — for up to ~20 seconds before ever bothering the player,
+; and if it's still somehow found after that, proceeds anyway rather than
+; blocking the whole update on it.
 !macro customCheckAppRunning
-  nsExec::Exec 'taskkill /IM "${APP_EXECUTABLE_FILENAME}"'
-  Sleep 1500
-  nsExec::Exec 'taskkill /F /IM "${APP_EXECUTABLE_FILENAME}"'
-  Sleep 1000
+  DetailPrint "Closing running Crystal Launcher..."
+  StrCpy $R2 0
+  crystal_close_loop:
+    nsExec::Exec 'taskkill /F /IM "${APP_EXECUTABLE_FILENAME}"'
+    Sleep 1000
+    !insertmacro FIND_PROCESS "${APP_EXECUTABLE_FILENAME}" $R0
+    IntCmp $R0 0 crystal_close_done
+    IntOp $R2 $R2 + 1
+    IntCmp $R2 20 crystal_close_done crystal_close_loop crystal_close_done
+  crystal_close_done:
 !macroend
