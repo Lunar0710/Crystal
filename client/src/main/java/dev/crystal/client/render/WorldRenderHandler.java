@@ -61,6 +61,9 @@ public final class WorldRenderHandler {
             ChunkBorders borders = module("ChunkBorders", ChunkBorders.class);
             if (borders != null) drawChunkBorders(context, borders);
 
+            dev.crystal.client.module.render.WorldEditCUI worldEdit = module("WorldEditCUI", dev.crystal.client.module.render.WorldEditCUI.class);
+            if (worldEdit != null) worldEdit.render(context.matrices(), context.consumers().getBuffer(RenderLayers.lines()), cameraPos(context));
+
             TNTCountdown tnt = module("TNTCountdown", TNTCountdown.class);
             if (tnt != null) drawTntCountdowns(context, tnt);
         });

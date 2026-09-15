@@ -128,6 +128,7 @@ public class ModuleManager {
         register(new dev.crystal.client.module.render.ItemPhysics());
         register(new dev.crystal.client.module.render.GlintColorizer());
         register(new dev.crystal.client.module.render.MotionBlur());
+        register(new dev.crystal.client.module.render.WorldEditCUI());
     }
 
     /** Module by its class, for hot paths. Filled once at registration; modules are never replaced. */
