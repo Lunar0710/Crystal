@@ -38,28 +38,51 @@ public class HudPresetManager {
 
         switch (preset) {
             case DEFAULT -> {
-                if (fps != null) { fps.setEnabled(true); fps.setPosition(4, 4); }
-                if (cps != null) { cps.setEnabled(true); cps.setPosition(4, 16); }
-                if (coords != null) { coords.setEnabled(true); coords.setPosition(4, 28); }
-                if (ping != null) { ping.setEnabled(true); ping.setPosition(4, 40); }
+                if (fps != null) { fps.setEnabled(true); fps.setPosition(4, 16); }
+                if (cps != null) { cps.setEnabled(true); cps.setPosition(4, 28); }
+                if (coords != null) { coords.setEnabled(true); coords.setPosition(4, 40); }
+                if (ping != null) { ping.setEnabled(true); ping.setPosition(4, 52); }
             }
             case COMPACT -> {
-                if (fps != null) { fps.setEnabled(true); fps.setPosition(4, 4); }
-                if (cps != null) { cps.setEnabled(true); cps.setPosition(4, 13); }
-                if (coords != null) { coords.setEnabled(true); coords.setPosition(4, 22); }
-                if (ping != null) { ping.setEnabled(true); ping.setPosition(4, 31); }
+                if (fps != null) { fps.setEnabled(true); fps.setPosition(4, 16); }
+                if (cps != null) { cps.setEnabled(true); cps.setPosition(4, 25); }
+                if (coords != null) { coords.setEnabled(true); coords.setPosition(4, 34); }
+                if (ping != null) { ping.setEnabled(true); ping.setPosition(4, 43); }
             }
             case MINIMAL -> {
-                if (fps != null) { fps.setEnabled(true); fps.setPosition(4, 4); }
+                if (fps != null) { fps.setEnabled(true); fps.setPosition(4, 16); }
                 if (cps != null) cps.setEnabled(false);
                 if (coords != null) coords.setEnabled(false);
                 if (ping != null) ping.setEnabled(false);
             }
             case CORNERS -> {
-                if (fps != null) { fps.setEnabled(true); fps.setPosition(4, 4); }
+                if (fps != null) { fps.setEnabled(true); fps.setPosition(4, 16); }
                 if (ping != null) { ping.setEnabled(true); ping.setPosition(w - 60, 4); }
                 if (coords != null) { coords.setEnabled(true); coords.setPosition(4, h - 14); }
                 if (cps != null) { cps.setEnabled(true); cps.setPosition(w - 60, h - 14); }
+            }
+        }
+    }
+
+    /**
+     * The Watermark and FPS display both used to default to (4, 4) and drew on
+     * top of each other, and the icon Armor HUD grew over the compass below it.
+     * Existing configs keep those old spots, so modules still sitting exactly on
+     * an old default are moved to the new column. Anything the player placed
+     * somewhere else is left alone.
+     */
+    public void moveOffOldDefaults() {
+        int[][] moves = {
+                // oldX, oldY, newX, newY
+                {4, 4, 4, 16}, {4, 16, 4, 28}, {4, 28, 4, 40}, {4, 40, 4, 52}, {4, 76, 4, 64}, {4, 64, 4, 80},
+        };
+        Class<?>[] types = { FPSDisplay.class, CPSDisplay.class, Coordinates.class, PingDisplay.class,
+                dev.crystal.client.module.hud.DirectionHUD.class, dev.crystal.client.module.hud.ArmorDisplay.class };
+        for (int i = 0; i < types.length; i++) {
+            Object found = find(types[i]);
+            if (found instanceof dev.crystal.client.module.hud.HudModule hud
+                    && hud.getX() == moves[i][0] && hud.getY() == moves[i][1]) {
+                hud.setPosition(moves[i][2], moves[i][3]);
             }
         }
     }

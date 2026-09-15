@@ -3,15 +3,18 @@ import * as skinview3d from 'skinview3d'
 import * as THREE from 'three'
 import { RotateCw, Pause, Play } from 'lucide-react'
 import { CosmeticDef } from '../../data/cosmetics'
+import { shapeFor, ShapeBox } from '../../data/cosmeticShapes'
 
 const COSMETIC_GROUP = 'crystal-cosmetics'
 
-// skinview3d's player space, read off its own geometry: the head is centred at
-// y=0 (spanning -4..4), the body at y=-6, legs reach y=-18, and the cape hangs
-// at z=-2 — so negative z is *behind* the player.
-const HEAD_TOP = 4
+// Cosmetics hang off skinview3d's SkinObject (playerObject.skin), whose space
+// is (skinview3d 3.4 model.js): head 0..8, body -12..0, legs down to -24,
+// negative z is behind the player. Head pieces are authored around the head's
+// centre and placed in a group raised to y=4; see HEAD_CENTER_Y below.
+// Attaching to playerObject instead (as before) put everything one head too
+// low, because the skin itself sits at y=8 inside the player object.
+const HEAD_CENTER_Y = 4
 const BODY_BACK_Z = -2
-const FACE_Z = 4
 
 export function SkinPreview3D({
   skinDataUrl,
@@ -64,11 +67,10 @@ export function SkinPreview3D({
       const t = clock.getElapsedTime()
 
       if (wingRefs.current) {
-        const flap = Math.sin(t * 2.4) * 0.36
-        wingRefs.current.right.rotation.y = -0.45 - flap
-        wingRefs.current.left.rotation.y = 0.45 + flap
-        wingRefs.current.right.rotation.z = flap * 0.25
-        wingRefs.current.left.rotation.z = -flap * 0.25
+        // Swept back (-z is behind the player here), flapping like in-game.
+        const sweep = 0.8 + Math.sin(t * 2) * 0.22
+        wingRefs.current.right.rotation.y = sweep
+        wingRefs.current.left.rotation.y = -sweep
       }
 
       if (auraRef.current) {
@@ -156,7 +158,7 @@ export function SkinPreview3D({
     const viewer = viewerRef.current
     if (!viewer) return
 
-    const player = viewer.playerObject as unknown as THREE.Object3D
+    const player = viewer.playerObject.skin as unknown as THREE.Object3D
     const previous = player.getObjectByName(COSMETIC_GROUP)
     if (previous) {
       previous.removeFromParent()
@@ -173,262 +175,41 @@ export function SkinPreview3D({
 
     const group = new THREE.Group()
     group.name = COSMETIC_GROUP
+    // Hat, bandana and mask coordinates are relative to the head's centre.
+    const head = new THREE.Group()
+    head.position.y = HEAD_CENTER_Y
+    group.add(head)
 
-    const box = (w: number, h: number, d: number, color: string, opacity = 1) =>
-      new THREE.Mesh(
-        new THREE.BoxGeometry(w, h, d),
-        new THREE.MeshLambertMaterial({
-          color: new THREE.Color(color),
-          transparent: opacity < 1,
-          opacity,
-        })
-      )
-
-    if (bandana) {
-      const band = box(8.7, 1.8, 8.7, bandana.color)
-      band.position.set(0, -1.4, 0)
-      group.add(band)
-
-      const knot = box(1.4, 1.4, 2.2, bandana.secondary ?? bandana.color)
-      knot.position.set(0, -1.4, BODY_BACK_Z - 3)
-      group.add(knot)
-    }
-
-    if (hat) {
-      const accent = hat.secondary ?? hat.color
-      switch (hat.variant) {
-        case 'crown': {
-          const base = box(8.8, 1.6, 8.8, hat.color)
-          base.position.set(0, HEAD_TOP + 0.8, 0)
-          group.add(base)
-          for (let i = 0; i < 6; i++) {
-            const angle = (i / 6) * Math.PI * 2
-            const spike = new THREE.Mesh(
-              new THREE.ConeGeometry(0.9, 2.6, 6),
-              new THREE.MeshLambertMaterial({ color: new THREE.Color(hat.color) })
-            )
-            spike.position.set(Math.cos(angle) * 3.4, HEAD_TOP + 2.8, Math.sin(angle) * 3.4)
-            group.add(spike)
-          }
-          const gem = box(1.2, 1.2, 1.2, accent)
-          gem.position.set(0, HEAD_TOP + 1, FACE_Z)
-          group.add(gem)
-          break
-        }
-        case 'tophat': {
-          const brim = box(11.5, 0.8, 11.5, hat.color)
-          brim.position.set(0, HEAD_TOP + 0.4, 0)
-          const top = box(7.4, 6, 7.4, hat.color)
-          top.position.set(0, HEAD_TOP + 3.8, 0)
-          const ribbon = box(7.6, 1.2, 7.6, accent)
-          ribbon.position.set(0, HEAD_TOP + 1.4, 0)
-          group.add(brim, top, ribbon)
-          break
-        }
-        case 'straw': {
-          const brim = box(13, 0.7, 13, hat.color)
-          brim.position.set(0, HEAD_TOP + 0.4, 0)
-          const dome = box(8, 2.8, 8, accent)
-          dome.position.set(0, HEAD_TOP + 2.1, 0)
-          group.add(brim, dome)
-          break
-        }
-        case 'cap': {
-          const dome = box(8.7, 3.2, 8.7, hat.color)
-          dome.position.set(0, HEAD_TOP + 1.6, 0)
-          const visor = box(8, 0.6, 4.5, accent)
-          visor.position.set(0, HEAD_TOP + 0.3, FACE_Z + 1.4)
-          group.add(dome, visor)
-          break
-        }
-        case 'halo': {
-          const ring = new THREE.Mesh(
-            new THREE.TorusGeometry(3.6, 0.5, 10, 28),
-            new THREE.MeshBasicMaterial({ color: new THREE.Color(hat.color) })
-          )
-          ring.rotation.x = Math.PI / 2
-          ring.position.set(0, HEAD_TOP + 4, 0)
-          group.add(ring)
-          break
-        }
-        case 'horns': {
-          for (const side of [-1, 1]) {
-            const horn = new THREE.Mesh(
-              new THREE.ConeGeometry(1.3, 5, 8),
-              new THREE.MeshLambertMaterial({ color: new THREE.Color(hat.color) })
-            )
-            horn.position.set(side * 3, HEAD_TOP + 2, 0)
-            horn.rotation.z = side * -0.4
-            group.add(horn)
-          }
-          break
-        }
-        case 'antenna': {
-          const stalk = box(0.5, 4.5, 0.5, accent)
-          stalk.position.set(0, HEAD_TOP + 2.2, 0)
-          const bulb = new THREE.Mesh(
-            new THREE.SphereGeometry(1.1, 14, 14),
-            new THREE.MeshBasicMaterial({ color: new THREE.Color(hat.color) })
-          )
-          bulb.position.set(0, HEAD_TOP + 5, 0)
-          group.add(stalk, bulb)
-          break
-        }
-        default: {
-          const beanie = box(8.8, 4, 8.8, hat.color)
-          beanie.position.set(0, HEAD_TOP + 1.6, 0)
-          const cuff = box(9, 1.4, 9, accent)
-          cuff.position.set(0, HEAD_TOP - 0.6, 0)
-          group.add(beanie, cuff)
-        }
+    // One shape source for preview and game (data/cosmeticShapes.ts).
+    const addBoxes = (parent: THREE.Object3D, boxes: ShapeBox[], mirror = 1) => {
+      for (const b of boxes) {
+        const material = new THREE.MeshLambertMaterial({ color: new THREE.Color(b.color) })
+        if (b.glow) { material.emissive = new THREE.Color(b.color); material.emissiveIntensity = 0.6 }
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(b.w, b.h, b.d), material)
+        mesh.position.set(b.x * mirror, b.y, b.z)
+        if (b.rz) mesh.rotation.z = b.rz * mirror
+        parent.add(mesh)
       }
     }
 
-    if (mask) {
-      const plate = box(8.2, 3.2, 0.6, mask.color, 0.96)
-      plate.position.set(0, -0.6, FACE_Z + 0.2)
-      group.add(plate)
-
-      const accent = box(8.2, 0.6, 0.3, mask.secondary ?? mask.color)
-      plate.add(accent)
-      accent.position.set(0, -1.2, 0.3)
+    for (const def of [hat, bandana, mask]) {
+      const shape = def ? shapeFor(def) : null
+      if (shape) addBoxes(head, shape.boxes)
     }
+    const packShape = backpack ? shapeFor(backpack) : null
+    if (packShape) addBoxes(group, packShape.boxes)
 
-    if (backpack) {
-      const body = box(7, 8.5, 3, backpack.color)
-      body.position.set(0, -5.5, BODY_BACK_Z - 1.6)
-      group.add(body)
-
-      const pocket = box(5, 3.2, 1, backpack.secondary ?? backpack.color)
-      pocket.position.set(0, -7, BODY_BACK_Z - 3.3)
-      group.add(pocket)
-
-      for (const side of [-1, 1]) {
-        const strap = box(1, 7, 0.6, backpack.secondary ?? backpack.color)
-        strap.position.set(side * 2.6, -4.5, BODY_BACK_Z + 0.2)
-        group.add(strap)
-      }
-    }
-
-    if (wings) {
-      const primary = new THREE.Color(wings.color)
-      const secondary = new THREE.Color(wings.secondary ?? wings.color)
-
-      // Each variant has its own silhouette, built from a shared pivot so the
-      // flap animation only ever has to rotate one node per wing.
-      const buildWing = (direction: 1 | -1) => {
+    const wingShape = wings ? shapeFor(wings) : null
+    if (wingShape) {
+      const makeWing = (side: 1 | -1) => {
+        // Hinge on the upper back; boxes extend along +x and are mirrored for the left wing.
         const pivot = new THREE.Group()
-        pivot.position.set(direction * 1.5, -2, BODY_BACK_Z - 0.4)
-
-        const panel = (
-          len: number, thick: number, drop: number, color: THREE.Color,
-          tilt: number, opacity: number, depth = 0.5
-        ) => {
-          const mesh = new THREE.Mesh(
-            new THREE.BoxGeometry(len, thick, depth),
-            new THREE.MeshLambertMaterial({ color, transparent: opacity < 1, opacity })
-          )
-          mesh.position.set(direction * (len / 2), drop, 0)
-          mesh.rotation.z = direction * tilt
-          pivot.add(mesh)
-          return mesh
-        }
-
-        switch (wings.variant) {
-          case 'feather':
-            // Long, soft, many overlapping quills.
-            for (let i = 0; i < 5; i++) {
-              panel(12 - i * 1.6, 2.4 - i * 0.2, -i * 2, i % 2 ? secondary : primary, 0.14 - i * 0.1, 0.95)
-            }
-            break
-
-          case 'bat': {
-            // Membrane with visible finger bones.
-            panel(11, 7, -2.5, primary, -0.12, 0.82)
-            for (let i = 0; i < 3; i++) {
-              panel(10 - i, 0.5, -0.5 - i * 2.4, secondary, -0.1 - i * 0.14, 1)
-            }
-            break
-          }
-
-          case 'insect': {
-            // Two translucent, rounded wings.
-            for (const [len, thick, drop, op] of [[10, 5, 1, 0.45], [7.5, 4, -3.5, 0.38]] as const) {
-              const mesh = new THREE.Mesh(
-                new THREE.SphereGeometry(1, 16, 10),
-                new THREE.MeshLambertMaterial({
-                  color: primary, transparent: true, opacity: op,
-                  emissive: secondary, emissiveIntensity: 0.35,
-                })
-              )
-              mesh.scale.set(len / 2, thick / 2, 0.3)
-              mesh.position.set(direction * (len / 2), drop, 0)
-              pivot.add(mesh)
-            }
-            break
-          }
-
-          case 'mecha': {
-            // Hard angular plates with a glowing thruster line.
-            panel(11, 3.4, 0, primary, 0.05, 1, 1.2)
-            panel(8, 2.6, -3.6, primary, -0.18, 1, 1)
-            const thruster = panel(9, 0.7, -1.6, secondary, 0.05, 1, 0.6)
-            ;(thruster.material as THREE.MeshLambertMaterial).emissive = secondary
-            ;(thruster.material as THREE.MeshLambertMaterial).emissiveIntensity = 0.8
-            break
-          }
-
-          case 'butterfly': {
-            // Big upper wing, smaller lower, with a contrasting border.
-            const upper = panel(11, 8, 1.5, primary, 0.1, 0.92)
-            const lower = panel(8, 6, -5, primary, -0.16, 0.92)
-            for (const mesh of [upper, lower]) {
-              const edge = new THREE.Mesh(
-                new THREE.BoxGeometry(mesh.geometry.parameters.width, 1, 0.55),
-                new THREE.MeshLambertMaterial({ color: secondary })
-              )
-              edge.position.y = -mesh.geometry.parameters.height / 2
-              mesh.add(edge)
-            }
-            break
-          }
-
-          case 'flame': {
-            // Tapered plumes that fade out, lit from within.
-            for (let i = 0; i < 4; i++) {
-              const mesh = panel(11 - i * 2, 3 - i * 0.5, -i * 2.2, i % 2 ? secondary : primary, 0.2 - i * 0.16, 0.8 - i * 0.12)
-              const material = mesh.material as THREE.MeshLambertMaterial
-              material.emissive = secondary
-              material.emissiveIntensity = 0.5
-            }
-            break
-          }
-
-          default: {
-            // 'shard' — faceted crystal blades.
-            for (let i = 0; i < 3; i++) {
-              const shard = new THREE.Mesh(
-                new THREE.ConeGeometry(1.6 - i * 0.3, 11 - i * 2.4, 4),
-                new THREE.MeshLambertMaterial({
-                  color: i % 2 ? secondary : primary,
-                  transparent: true,
-                  opacity: 0.9,
-                  emissive: primary,
-                  emissiveIntensity: 0.25,
-                })
-              )
-              shard.rotation.z = direction * (Math.PI / 2 - 0.25 + i * 0.3)
-              shard.position.set(direction * (5 - i * 0.6), -i * 2.4, 0)
-              pivot.add(shard)
-            }
-          }
-        }
-
+        pivot.position.set(side * 1.5, -2.5, BODY_BACK_Z - 0.6)
+        addBoxes(pivot, wingShape.boxes, side)
         return pivot
       }
-
-      const right = buildWing(1)
-      const left = buildWing(-1)
+      const right = makeWing(1)
+      const left = makeWing(-1)
       group.add(right, left)
       wingRefs.current = { left, right }
     }
@@ -530,6 +311,8 @@ export function SkinPreview3D({
       )
       points.userData.phases = phases
       points.userData.variant = aura.variant ?? 'orbit'
+      // Particle layouts were tuned for a 22-unit-tall figure; centre them on the real one.
+      points.position.y = -4
       group.add(points)
       auraRef.current = points
     }

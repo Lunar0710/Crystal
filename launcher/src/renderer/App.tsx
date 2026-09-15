@@ -1,4 +1,5 @@
-import React from 'react'
+import React, { useEffect } from 'react'
+import { EquippedCosmetics, syncLoadoutToGame } from './data/cosmetics'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { Sidebar } from './components/sidebar/Sidebar'
 import { TitleBar } from './components/ui/TitleBar'
@@ -14,6 +15,11 @@ import { NotificationContainer } from './components/ui/Notifications'
 import { UpdateBanner } from './components/ui/UpdateBanner'
 
 export default function App() {
+  // Equipped cosmetics reach the game even if the Cosmetics page is never opened.
+  useEffect(() => {
+    ;(window as any).crystal?.getLoadout().then((l: EquippedCosmetics | null) => l && syncLoadoutToGame(l))
+  }, [])
+
   return (
     <div className="relative flex flex-col h-full bg-crystal-bg">
       <TitleBar />

@@ -28,9 +28,11 @@ export function Settings() {
   const [dataRoot, setDataRoot] = useState<{ current?: string; default?: string }>({})
   const [systemMb, setSystemMb] = useState<number | null>(null)
   const [minimizeOnLaunch, setMinimizeOnLaunch] = useState(true)
+  const [autoPerformancePack, setAutoPerformancePack] = useState(true)
 
   useEffect(() => {
     api?.getSetting('minimizeOnLaunch').then((v: boolean | undefined) => setMinimizeOnLaunch(v !== false))
+    api?.getSetting('autoPerformancePack').then((v: boolean | undefined) => setAutoPerformancePack(v !== false))
     api?.getDataRoot().then((r: { current: string; default: string }) => r && setDataRoot(r))
     api?.getVersionInfo().then((v: { launcher: string; client: string | null }) => v && setVersions(v))
     api?.isDiscordEnabled().then((v: boolean) => setDiscordEnabled(!!v))
@@ -165,6 +167,17 @@ export function Settings() {
         </Field>
 
         <Field
+          label="Performance-Mods automatisch installieren"
+          hint="Beim ersten Start einer Crystal-Instanz kommen Sodium, Lithium, FerriteCore, EntityCulling und ImmediatelyFast dazu. Das bringt vor allem bei hoher Sichtweite und unter Tage viel mehr FPS. Mods, die du danach entfernst, bleiben entfernt."
+        >
+          <Switch
+            checked={autoPerformancePack}
+            onChange={v => { setAutoPerformancePack(v); api?.setSetting('autoPerformancePack', v) }}
+            label="Performance-Mods automatisch installieren"
+          />
+        </Field>
+
+        <Field
           label="Speicherort für Spieldateien"
           hint="Neue Instanzen, Java und Downloads landen hier. Bestehende Instanzen bleiben, wo sie sind. Es wird nichts verschoben oder gelöscht."
           stacked
@@ -291,7 +304,7 @@ function CrystalPlusSection({ unlocked }: { unlocked: boolean }) {
   const perks: { title: string; detail: string }[] = [
     { title: `${plusThemes} Themes`, detail: 'Für Launcher und Client-Menü.' },
     { title: `${plusCapes} Capes`, detail: 'Handgezeichnet, im Spiel sichtbar.' },
-    { title: `${plusCosmetics} Cosmetics`, detail: 'Hüte, Masken, Flügel und mehr. Derzeit nur in der Vorschau.' },
+    { title: `${plusCosmetics} Cosmetics`, detail: 'Hüte, Masken, Flügel und mehr, auch im Spiel.' },
     { title: 'HUD-Stile', detail: 'Glass, Neon und Pill als Hintergrund für jedes HUD-Modul.' },
     { title: 'Chroma-Text', detail: 'Farbverlauf für HUD-Module, der langsam durchläuft.' },
     { title: 'Crosshair-Formen', detail: 'Gap Cross, Kreis, X und Klammern, auf Wunsch in Chroma.' },

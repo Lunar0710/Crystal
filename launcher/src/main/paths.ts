@@ -33,6 +33,31 @@ export function crystalPath(...segments: string[]): string {
   return path.join(dataRoot, ...segments)
 }
 
+/**
+ * True for a bare file name that stays inside the folder it is joined onto.
+ * File names reach the main process from the renderer (mods list, auto-fix) and
+ * from download APIs (Modrinth's "filename"); without this, a name like
+ * "../../x" would let path.join step outside the instance folder.
+ */
+export function isPlainFileName(name: unknown): name is string {
+  return typeof name === 'string'
+    && name.length > 0
+    && name !== '.' && name !== '..'
+    && !/[\\/]/.test(name)
+    && path.basename(name) === name
+}
+
+/**
+ * The joined path, or null if it would land outside `base`. For relative paths
+ * that come from archives (modpack entries and overrides), where a crafted
+ * "../" or absolute path could otherwise write anywhere on disk.
+ */
+export function resolveInside(base: string, relative: string): string | null {
+  const root = path.resolve(base)
+  const target = path.resolve(root, relative)
+  return target === root || target.startsWith(root + path.sep) ? target : null
+}
+
 /** True if the folder can be used as a data root — i.e. it exists (or can be made) and is writable. */
 export function canUseAsRoot(root: string): { ok: boolean; error?: string } {
   try {

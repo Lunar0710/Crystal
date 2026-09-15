@@ -5,7 +5,7 @@ import { notify } from '../../store/notificationStore'
 import { BUILTIN_CAPES, CAPE_CATEGORIES, CapeCategory, capeTextureUrl, capePreviewUrl } from '../../data/capes'
 import {
   SLOTS, CosmeticSlot, NonCapeSlot, COSMETICS_BY_SLOT, EMPTY_LOADOUT,
-  EquippedCosmetics, findCosmetic,
+  EquippedCosmetics, findCosmetic, syncLoadoutToGame,
 } from '../../data/cosmetics'
 import { SkinPreview3D } from '../ui/SkinPreview3D'
 import { RankId, meetsRank, lockLabel } from '../../data/ranks'
@@ -22,6 +22,7 @@ export function Cosmetics() {
   const [slot, setSlot] = useState<CosmeticSlot>('cape')
   const [capeCategory, setCapeCategory] = useState<CapeCategory | 'mine'>('plus')
   const [loadout, setLoadout] = useState<EquippedCosmetics>(EMPTY_LOADOUT)
+  const [loadoutLoaded, setLoadoutLoaded] = useState(false)
 
   const [customCapes, setCustomCapes] = useState<CustomCape[]>([])
   const [customThumbs, setCustomThumbs] = useState<Record<string, string>>({})
@@ -36,7 +37,10 @@ export function Cosmetics() {
 
   useEffect(() => {
     api?.getRank().then((r: RankId) => { setRank(r); setRankLoaded(true) })
-    api?.getLoadout().then((l: EquippedCosmetics) => l && setLoadout({ ...EMPTY_LOADOUT, ...l }))
+    api?.getLoadout().then((l: EquippedCosmetics) => {
+      if (l) setLoadout({ ...EMPTY_LOADOUT, ...l })
+      setLoadoutLoaded(true)
+    })
     refreshCustom()
 
     // Start on the logged-in player's own skin so the preview isn't empty.
@@ -122,6 +126,16 @@ export function Cosmetics() {
     api?.syncEquippedCape(equippedCapeUrl)
   }, [equippedCapeUrl])
 
+  // Hats, masks, wings… reach the game the same way: the resolved colours and
+  // shapes go to a file the Java client reads. Rank-locked items are flagged so
+  // the client hides them again if the rank runs out.
+  const nonCapeKey = `${loadout.hat}|${loadout.bandana}|${loadout.mask}|${loadout.wings}|${loadout.backpack}|${loadout.aura}`
+  useEffect(() => {
+    // Not before the saved loadout has arrived: syncing the empty initial state
+    // briefly took everything off in a running game each time the page opened.
+    if (loadoutLoaded) syncLoadoutToGame(loadout)
+  }, [nonCapeKey, loadoutLoaded])
+
   // A timed rank can run out while a perk cape is still equipped; take it off
   // then, but only once the real rank has arrived, never on the initial default.
   useEffect(() => {
@@ -147,7 +161,7 @@ export function Cosmetics() {
     <Page wide>
       <PageHeader
         title="Cosmetics"
-        description="Capes siehst du im Spiel. Alle anderen Teile zeigt vorerst nur diese Vorschau."
+        description="Alles, was du hier ausrüstest, siehst du genau so auch im Spiel. Andere Spieler sehen es nicht."
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-[272px_minmax(0,1fr)] gap-6 items-start">
@@ -290,7 +304,7 @@ export function Cosmetics() {
           ) : (
             <>
               <p className="text-xs text-crystal-muted mb-3">
-                Nur in der Vorschau sichtbar. Im Spiel wird dieser Slot noch nicht angezeigt.
+                Wird im Spiel an deinem Spieler angezeigt, in vereinfachter Block-Form. Wie beim Cape siehst nur du es.
               </p>
               <TileGrid>
                 {COSMETICS_BY_SLOT[slot as NonCapeSlot].map(item => {

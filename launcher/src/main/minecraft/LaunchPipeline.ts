@@ -7,6 +7,7 @@ import extract from 'extract-zip'
 import { AuthProfile } from '../auth/AuthManager'
 import { logger } from '../logs/Logger'
 import { crystalRoot } from '../paths'
+import { nativesSuffix, platformJvmArgs, rulesAllow, OsRule } from './platform'
 
 // Electron/Node 18+ ships a global fetch; not covered by this tsconfig's
 // ES2020-only lib, so declared locally instead of pulling in a DOM lib.
@@ -30,9 +31,12 @@ export interface LaunchPipelineOptions {
   javaPath: string
   maxRam: number
   profile: AuthProfile
+  /** Test runs only (scripts/smoke-world.cjs); a normal launch never sets these. */
+  extraJvmArgs?: string[]
+  extraGameArgs?: string[]
 }
 
-interface Rule { action: 'allow' | 'disallow'; os?: { name?: string } }
+type Rule = OsRule
 interface LibraryDownload { path: string; url: string; sha1?: string }
 interface LibraryArtifact {
   downloads?: { artifact?: LibraryDownload; classifiers?: Record<string, LibraryDownload> }
@@ -158,14 +162,16 @@ export class LaunchPipeline {
       '-XX:+UseG1GC', '-XX:+ParallelRefProcEnabled', '-XX:MaxGCPauseMillis=40',
       '-XX:+UnlockExperimentalVMOptions', '-XX:G1NewSizePercent=20', '-XX:G1ReservePercent=20',
       '-XX:G1HeapRegionSize=16M', '-XX:+DisableExplicitGC', '-XX:+PerfDisableSharedMem',
+      ...platformJvmArgs(),
       `-Djava.library.path=${nativesDir}`,
       // Tells the in-game client where the launcher keeps cosmetics/theme files,
       // so a moved data folder doesn't silently break cape and theme sync.
       `-Dcrystal.root=${crystalRoot()}`,
+      ...(opts.extraJvmArgs ?? []),
       '-cp', classpath,
     ]
 
-    const gameArgs = this.buildGameArgs(versionJson, opts)
+    const gameArgs = [...this.buildGameArgs(versionJson, opts), ...(opts.extraGameArgs ?? [])]
 
     const logPath = path.join(opts.gameDir, 'crystal-launch.log')
     const logStream = fs.createWriteStream(logPath, { flags: 'w' })
@@ -176,7 +182,9 @@ export class LaunchPipeline {
       `# loader:    ${opts.loader}\n` +
       `# mainClass: ${mainClass}\n` +
       `# gameDir:   ${opts.gameDir}\n` +
-      `# jvmArgs:   ${jvmArgs.filter(a => a !== '-cp' && !a.includes(path.delimiter)).join(' ')}\n` +
+      // Everything except the long classpath. Filtering by path.delimiter instead
+      // hid every "-XX:..." flag on macOS/Linux, where the delimiter is ':'.
+      `# jvmArgs:   ${jvmArgs.filter(a => a !== '-cp' && a !== classpath).join(' ')}\n` +
       `# classpath: ${libPaths.length + 1} entries\n\n`
     logStream.write(header)
 
@@ -269,8 +277,14 @@ export class LaunchPipeline {
     fs.mkdirSync(nativesDir, { recursive: true })
 
     for (const jar of nativeJars) {
+      // Each jar is unpacked once. Re-extracting over files a running game has
+      // loaded (a second launch while playing) hung the launch at this step on
+      // Windows, and it was wasted work on every start anyway.
+      const marker = path.join(nativesDir, `.extracted-${path.basename(jar)}`)
+      if (fs.existsSync(marker)) continue
       try {
         await extract(jar, { dir: nativesDir })
+        fs.writeFileSync(marker, '')
       } catch (err) {
         // A single unreadable natives jar shouldn't abort the whole launch —
         // the game will report a clearer error if something is genuinely missing.
@@ -326,9 +340,10 @@ export class LaunchPipeline {
 
     for (const lib of applicable) {
       // Modern versions ship natives as their own library entries
-      // (name ending in ":natives-windows"); older ones use a classifiers map.
-      const isNative = lib.name?.includes('natives-windows')
-      const classifier = lib.downloads?.classifiers?.['natives-windows']
+      // (name ending in ":natives-windows", ":natives-macos-arm64", ...);
+      // older ones use a classifiers map keyed the same way.
+      const isNative = lib.name?.includes(nativesSuffix())
+      const classifier = lib.downloads?.classifiers?.[nativesSuffix()]
 
       const artifact = lib.downloads?.artifact
       if (artifact?.url && artifact.path) {
@@ -372,14 +387,7 @@ export class LaunchPipeline {
   }
 
   private rulesAllow(rules?: Rule[]): boolean {
-    if (!rules || rules.length === 0) return true
-    let allowed = false
-    for (const rule of rules) {
-      const osMatches = !rule.os?.name || rule.os.name === 'windows'
-      if (rule.action === 'allow' && osMatches) allowed = true
-      if (rule.action === 'disallow' && osMatches) allowed = false
-    }
-    return allowed
+    return rulesAllow(rules)
   }
 
   private async downloadAssets(assetIndexRef: { id: string; url: string }, onProgress: (done: number, total: number) => void) {

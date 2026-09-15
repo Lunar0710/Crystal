@@ -41,6 +41,8 @@ public class ModuleManager {
         register(new ToggleSneakSprint());
         register(new NickHider());
         register(new UHCOverlay());
+        register(new LowHealthWarning());
+        register(new DurabilityWarning());
 
         // Movement
         register(new Sprint());
@@ -124,6 +126,10 @@ public class ModuleManager {
         register(new TNTCountdown());
         register(new ClockDisplay());
         register(new ServerAddressDisplay());
+        register(new SpeedDisplay());
+        register(new BiomeDisplay());
+        register(new LightLevelDisplay());
+        register(new PlayerCountDisplay());
     }
 
     /** Module by its class, for hot paths. Filled once at registration; modules are never replaced. */

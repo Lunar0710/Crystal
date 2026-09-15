@@ -8,6 +8,7 @@ import dev.crystal.client.module.KeybindSetting;
 import dev.crystal.client.module.Module;
 import dev.crystal.client.module.ModuleCategory;
 import dev.crystal.client.module.Setting;
+import dev.crystal.client.module.SliderSetting;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.Perspective;
 import net.minecraft.client.util.InputUtil;
@@ -37,6 +38,8 @@ public class Freelook extends Module {
     private int key = GLFW.GLFW_KEY_LEFT_ALT;
     private String view = VIEW_BACK;
     private boolean toggleMode = false;
+    /** Multiplier on your normal mouse sensitivity while freelooking. */
+    private float sensitivity = 1f;
 
     private boolean active = false;
     private boolean wasKeyDown = false;
@@ -113,10 +116,11 @@ public class Freelook extends Module {
 
     /** Called from {@link dev.crystal.client.mixin.MixinEntity} with the same deltas that would otherwise turn the player's body. */
     public void accumulate(double deltaX, double deltaY) {
-        // Same 0.15 factor vanilla applies in Entity.changeLookDirection, so
-        // freelook turns at your normal sensitivity.
-        cameraYaw += (float) deltaX * 0.15f;
-        cameraPitch = MathHelper.clamp(cameraPitch + (float) deltaY * 0.15f, -90f, 90f);
+        // Same 0.15 factor vanilla applies in Entity.changeLookDirection, so at
+        // 1.0 freelook turns exactly like your normal mouse; the slider scales it.
+        float scale = 0.15f * sensitivity;
+        cameraYaw += (float) deltaX * scale;
+        cameraPitch = MathHelper.clamp(cameraPitch + (float) deltaY * scale, -90f, 90f);
     }
 
     public float getCameraYaw() { return cameraYaw; }
@@ -127,6 +131,7 @@ public class Freelook extends Module {
         return List.of(
                 new KeybindSetting("Freelook Key", () -> key, v -> key = v, GLFW.GLFW_KEY_LEFT_ALT),
                 new EnumSetting("View", () -> view, v -> view = v, List.of(VIEW_BACK, VIEW_FRONT, VIEW_FIRST)),
+                new SliderSetting("Sensitivity", () -> sensitivity, v -> sensitivity = v, 0.1f, 3f, 0.1f, 1),
                 new BooleanSetting("Toggle Instead Of Hold", () -> toggleMode, v -> { toggleMode = v; stop(MinecraftClient.getInstance()); }, false)
         );
     }

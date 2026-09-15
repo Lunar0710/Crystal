@@ -25,7 +25,7 @@ public class MixinKeyboard {
 
         // Right Shift opens Crystal GUI
         if (key == GLFW.GLFW_KEY_RIGHT_SHIFT && client.currentScreen == null) {
-            client.execute(() -> client.setScreen(new CrystalClientScreen()));
+            client.execute(() -> client.setScreen(new dev.crystal.client.gui.HudEditorScreen()));
             return;
         }
 

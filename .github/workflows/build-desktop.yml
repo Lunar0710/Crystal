@@ -1,0 +1,145 @@
+# Builds and tests the launcher on macOS and Linux. Those installers can't be
+# made on Windows (a .dmg needs macOS), so GitHub's own machines do it.
+#
+# Runs on pushes to the OS-update branch and by hand (Actions tab > Run
+# workflow). Installers are attached to the run as downloadable artifacts;
+# nothing is published to a release from here.
+name: Build macOS + Linux
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [os-update-1.1.6]
+
+jobs:
+  # Starts Minecraft 1.21.11 with Crystal through the launcher's real launch
+  # code, to prove the macOS/Linux paths (Java, natives, JVM flags) work.
+  smoke:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, macos-15-intel, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Build client mod
+        working-directory: client
+        run: |
+          chmod +x gradlew
+          ./gradlew build --no-daemon
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: launcher/package-lock.json
+
+      - name: Build launcher (main process)
+        working-directory: launcher
+        run: |
+          npm ci
+          npm run build:main
+
+      - name: Linux display for the game window
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y xvfb libgl1-mesa-dri libglx-mesa0
+
+      - name: Launch Minecraft with Crystal
+        working-directory: launcher
+        # JAVA_HOME is cleared so the launcher has to find or download Java itself, like on a fresh machine.
+        run: |
+          unset JAVA_HOME
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            xvfb-run -a -s "-screen 0 1280x720x24" node scripts/smoke-launch.cjs
+          else
+            # macOS runners have no GPU, so the game can't open its window there.
+            CRYSTAL_SMOKE_NO_GPU=1 node scripts/smoke-launch.cjs
+          fi
+
+      # Joins a generated test world with Crystal's test settings (colour
+      # grading, armor HUD, cosmetics) and saves a screenshot to look at.
+      # Linux only: it needs a real OpenGL window (Mesa under Xvfb).
+      - name: Play a test world and take a screenshot
+        if: runner.os == 'Linux'
+        working-directory: launcher
+        env:
+          CRYSTAL_SMOKE_ROOT: ${{ runner.temp }}/crystal-world
+          CRYSTAL_SMOKE_PERFPACK: "1"
+        run: |
+          mkdir -p "$CRYSTAL_SMOKE_ROOT"
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            xvfb-run -a -s "-screen 0 1280x720x24" node scripts/smoke-world.cjs
+          else
+            node scripts/smoke-world.cjs
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: world-test-${{ matrix.os }}
+          path: |
+            ${{ runner.temp }}/crystal-world/instances/smoke-world/screenshots/
+            ${{ runner.temp }}/crystal-world/instances/smoke-world/crystal-launch.log
+            ${{ runner.temp }}/crystal-world/instances/smoke-world/crash-reports/
+          if-no-files-found: ignore
+
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: --mac
+          - os: ubuntu-latest
+            target: --linux
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Build client mod
+        working-directory: client
+        run: |
+          chmod +x gradlew
+          ./gradlew build --no-daemon
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: launcher/package-lock.json
+
+      - name: Build launcher
+        working-directory: launcher
+        env:
+          # Unsigned macOS build; no Apple Developer certificate is configured.
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: |
+          npm ci
+          npm run build
+          npx electron-builder ${{ matrix.target }} --publish never
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: crystal-launcher-${{ runner.os }}
+          # latest-linux.yml lets the AppImage update itself; latest-mac.yml is
+          # kept for completeness (unsigned macOS builds can't self-update).
+          path: |
+            launcher/release/*.dmg
+            launcher/release/*.AppImage
+            launcher/release/latest-linux.yml
+            launcher/release/latest-mac.yml
+          if-no-files-found: error

@@ -3,7 +3,7 @@ import path from 'path'
 import { InstanceManager } from './InstanceManager'
 import { JarReader } from '../util/jarReader'
 import { logger } from '../logs/Logger'
-import { crystalPath } from '../paths'
+import { crystalPath, isPlainFileName } from '../paths'
 
 export type FixKind =
   | 'disable-mod'
@@ -162,6 +162,7 @@ export class CrashDoctor {
     switch (fix.kind) {
       case 'disable-mod': {
         if (!fix.modFile) return { ok: false, message: 'Keine Datei angegeben.' }
+        if (!isPlainFileName(fix.modFile)) return { ok: false, message: 'Ungültiger Dateiname.' }
         const filePath = path.join(this.modsDir(instanceId), fix.modFile)
         if (!fs.existsSync(filePath)) return { ok: false, message: `${fix.modFile} nicht gefunden.` }
         // Renamed, never deleted — the user can re-enable it in the Mods tab.

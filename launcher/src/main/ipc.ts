@@ -280,6 +280,23 @@ export function registerIpcHandlers(store: Store) {
       })
       .catch(err => logger.warn('updater', 'Update-Pruefung vor dem Start fehlgeschlagen', String(err)))
 
+    // Crystal alone keeps vanilla's chunk renderer, which falls far behind at
+    // high render distance (worst underground, where vanilla's cave culling is
+    // weak). Sodium and EntityCulling close that gap, so a Crystal instance gets
+    // the performance pack once. Only once: a mod the player removes afterwards
+    // stays removed. A failed download never blocks the launch.
+    const perfKey = `perfPackAuto.${opts.instanceId}`
+    if (opts.injectCrystal && opts.version === '1.21.11' && opts.instanceId
+        && store.get('autoPerformancePack') !== false && !store.get(perfKey)) {
+      win?.webContents.send('launch:progress', { step: 'Performance-Mods werden installiert...', percent: 2 })
+      try {
+        const result = await modrinth.installPerformancePack(opts.instanceId, '1.21.11')
+        if (result.failed.length === 0) store.set(perfKey, true)
+      } catch (err) {
+        logger.warn('client', 'Performance-Paket beim Start fehlgeschlagen', String(err))
+      }
+    }
+
     const instanceName = instances.get(opts.instanceId)?.name || 'Minecraft'
     discord.playing(instanceName, opts.version)
 
@@ -419,6 +436,48 @@ export function registerIpcHandlers(store: Store) {
   ipcMain.handle('capes:getDataUrl', (_e, id: string) => capes.getCapeDataUrl(id))
   ipcMain.handle('capes:getSelected', () => capes.getSelected())
   ipcMain.handle('capes:setSelected', (_e, id: string) => capes.setSelected(id))
+
+  // Hats, masks, wings… for the in-game client (CosmeticLoadout.java). Only the
+  // fields the Java renderer needs, and only content-changing writes, since the
+  // client re-reads the file whenever its modification time changes.
+  ipcMain.handle('cosmetics:syncLoadout', (_e, items: Record<string, { color: string; secondary?: string; variant?: string; plusOnly?: boolean; anchor?: string; boxes?: unknown[] } | null>) => {
+    const dir = crystalPath('cosmetics')
+    fs.mkdirSync(dir, { recursive: true })
+    const target = path.join(dir, 'loadout.json')
+    const isHex = (v: unknown): v is string => typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v)
+    const num = (v: unknown, limit: number) => typeof v === 'number' && Number.isFinite(v) ? Math.max(-limit, Math.min(limit, v)) : 0
+    const clean: Record<string, unknown> = {}
+    for (const slot of ['hat', 'bandana', 'mask', 'wings', 'backpack', 'aura']) {
+      const item = items?.[slot]
+      if (!item || !isHex(item.color)) continue
+      // Shape boxes, bounded: a few dozen boxes of sane size around the player.
+      const boxes = (Array.isArray(item.boxes) ? item.boxes : []).slice(0, 64).flatMap((raw: any) => {
+        if (!raw || !isHex(raw.color)) return []
+        return [{
+          x: num(raw.x, 32), y: num(raw.y, 32), z: num(raw.z, 32),
+          w: Math.abs(num(raw.w, 32)), h: Math.abs(num(raw.h, 32)), d: Math.abs(num(raw.d, 32)),
+          rz: num(raw.rz, 7), color: raw.color, glow: !!raw.glow,
+        }]
+      })
+      clean[slot] = {
+        color: item.color,
+        secondary: isHex(item.secondary) ? item.secondary : null,
+        variant: typeof item.variant === 'string' ? item.variant : null,
+        plusOnly: !!item.plusOnly,
+        anchor: ['head', 'body', 'wing'].includes(item.anchor as string) ? item.anchor : null,
+        boxes,
+      }
+    }
+    const json = JSON.stringify(clean, null, 2)
+    try {
+      if (fs.existsSync(target) && fs.readFileSync(target, 'utf8') === json) return true
+      fs.writeFileSync(target, json)
+      return true
+    } catch (err) {
+      logger.warn('launcher', 'Cosmetics-Loadout konnte nicht geschrieben werden', String(err))
+      return false
+    }
+  })
 
   // Pushes whichever cape is actually equipped (as a real PNG) to a fixed path
   // the Java client reads — capes.ts's built-in designs only ever exist as

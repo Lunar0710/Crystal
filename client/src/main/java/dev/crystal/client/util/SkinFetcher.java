@@ -36,16 +36,32 @@ public final class SkinFetcher {
 
     /** Non-blocking: returns the cached skin if ready, otherwise kicks off a fetch and returns null. */
     public static SkinTextures getOrFetch(String username) {
-        String key = username.toLowerCase();
+        // Minecraft names only. Anything else can't exist, would break the
+        // texture identifier, and shouldn't be put into the request URL.
+        if (username == null || !VALID_NAME.matcher(username).matches()) return null;
+
+        String key = username.toLowerCase(java.util.Locale.ROOT);
         SkinTextures cached = CACHE.get(key);
         if (cached != null) return cached;
+
+        // This is called every frame. A failed lookup (typo, unknown name, Mojang
+        // down) used to be retried on the very next frame, flooding Mojang's API
+        // until it rate-limited the player; now it waits a minute.
+        Long failedAt = FAILED_AT.get(key);
+        if (failedAt != null && System.currentTimeMillis() - failedAt < RETRY_AFTER_MS) return null;
 
         if (IN_FLIGHT.putIfAbsent(key, true) == null) {
             Thread.ofVirtual().start(() -> {
                 try {
                     SkinTextures result = fetchBlocking(key);
-                    if (result != null) CACHE.put(key, result);
+                    if (result != null) {
+                        CACHE.put(key, result);
+                        FAILED_AT.remove(key);
+                    } else {
+                        FAILED_AT.put(key, System.currentTimeMillis());
+                    }
                 } catch (Exception e) {
+                    FAILED_AT.put(key, System.currentTimeMillis());
                     CrystalClient.LOGGER.warn("[Crystal] SkinChanger failed for '{}': {}", key, e.getMessage());
                 } finally {
                     IN_FLIGHT.remove(key);
@@ -54,6 +70,10 @@ public final class SkinFetcher {
         }
         return null;
     }
+
+    private static final java.util.regex.Pattern VALID_NAME = java.util.regex.Pattern.compile("[A-Za-z0-9_]{1,16}");
+    private static final long RETRY_AFTER_MS = 60_000;
+    private static final Map<String, Long> FAILED_AT = new ConcurrentHashMap<>();
 
     private static SkinTextures fetchBlocking(String username) throws IOException, InterruptedException {
         String uuid = getJson("https://api.mojang.com/users/profiles/minecraft/" + username)

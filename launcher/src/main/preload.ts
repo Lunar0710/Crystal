@@ -1,6 +1,9 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
 contextBridge.exposeInMainWorld('crystal', {
+  // 'win32' | 'darwin' | 'linux' — the title bar draws macOS traffic-light spacing instead of caption buttons.
+  platform: process.platform,
+
   // Window controls
   minimize:  () => ipcRenderer.invoke('window:minimize'),
   maximize:  () => ipcRenderer.invoke('window:maximize'),
@@ -90,6 +93,7 @@ contextBridge.exposeInMainWorld('crystal', {
   getLoadout:  () => ipcRenderer.invoke('cosmetics:getLoadout'),
   setLoadout:  (loadout: unknown) => ipcRenderer.invoke('cosmetics:setLoadout', loadout),
   syncEquippedCape: (dataUrl: string | null) => ipcRenderer.invoke('cosmetics:syncCape', dataUrl),
+  syncLoadout: (items: unknown) => ipcRenderer.invoke('cosmetics:syncLoadout', items),
 
   // Cosmetics / capes
   listCustomCapes: () => ipcRenderer.invoke('capes:listCustom'),

@@ -97,6 +97,8 @@ public abstract class HudModule extends Module implements HudRenderable {
     public boolean hasShadow() { return shadow; }
     public boolean hasBackground() { return background; }
     public float getScale() { return scale; }
+    /** Same range as the Scale slider (0.5 - 2). */
+    public void setScale(float value) { this.scale = Math.max(0.5f, Math.min(2f, Math.round(value * 10f) / 10f)); }
 
     /** Background colour with the opacity slider already applied. */
     public int getBackgroundColor() {
@@ -126,7 +128,7 @@ public abstract class HudModule extends Module implements HudRenderable {
         if (!chroma || !CrystalProfile.hasPerks()) return textColor;
         long period = 4000;
         float hue = ((System.currentTimeMillis() + (long) (y * 12 + x * 4)) % period) / (float) period;
-        return 0xFF000000 | (java.awt.Color.HSBtoRGB(hue, 0.55f, 1f) & 0x00FFFFFF);
+        return 0xFF000000 | dev.crystal.client.util.ColorUtil.hsbToRgb(hue, 0.55f, 1f);
     }
 
     /** Settings unique to this module — merged after the shared ones. Empty by default. */

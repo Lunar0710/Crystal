@@ -2,6 +2,7 @@ package dev.crystal.client.mixin;
 
 import dev.crystal.client.CrystalClient;
 import dev.crystal.client.module.render.ScrollableTooltips;
+import dev.crystal.client.module.render.Zoom;
 import net.minecraft.client.Mouse;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.util.InputUtil;
@@ -19,7 +20,17 @@ public class MixinMouseScroll {
 
     @Inject(method = "onMouseScroll", at = @At("HEAD"), cancellable = true)
     private void onMouseScroll(long window, double horizontal, double vertical, CallbackInfo ci) {
-        if (CrystalClient.getInstance() == null || client.currentScreen == null) return;
+        if (CrystalClient.getInstance() == null) return;
+
+        // In game while zoomed: the wheel zooms instead of switching hotbar slots.
+        if (client.currentScreen == null) {
+            Zoom zoom = CrystalClient.getInstance().getModuleManager().getEnabled(Zoom.class);
+            if (zoom != null && zoom.isScrollToZoom() && vertical != 0) {
+                zoom.scroll(vertical);
+                ci.cancel();
+            }
+            return;
+        }
 
         ScrollableTooltips module = CrystalClient.getInstance().getModuleManager().getModuleByName("ScrollableTooltips")
                 .filter(m -> m.isEnabled())

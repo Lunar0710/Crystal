@@ -14,34 +14,85 @@ import java.util.List;
  * FOV like a spyglass for as long as it's enabled rather than while a key is
  * held. Actual FOV change happens in MixinGameRenderer#getFov; this class just
  * holds the settings and the sensitivity-restore state.
+ *
+ * While zoomed, the scroll wheel zooms further in (up) or out (down) instead of
+ * switching hotbar slots (see MixinMouseScroll). That only changes the current
+ * zoom; the Factor setting is where each zoom starts.
  */
 public class Zoom extends Module {
+    private static final double MIN_FACTOR = 1.5;
+    private static final double MAX_FACTOR = 50.0;
+    /** Each wheel notch multiplies or divides the zoom by this. */
+    private static final double SCROLL_STEP = 1.2;
+
     private double factor = 4.0;
     private boolean smooth = true;
     private boolean lowerSensitivity = true;
+    private boolean scrollToZoom = true;
+
+    /** Zoom in effect right now; starts at {@link #factor} and follows the wheel. */
+    private double currentFactor = factor;
     private double previousSensitivity;
+    /** Whether this zoom lowered the sensitivity, so only a real saved value is ever restored. */
+    private boolean sensitivityLowered = false;
 
     public Zoom() {
-        super("Zoom", "Reduces your FOV like a spyglass while enabled", ModuleCategory.RENDER);
+        super("Zoom", "Reduces your FOV like a spyglass while enabled; scroll to zoom further", ModuleCategory.RENDER);
     }
-    public double getFactor() { return factor; }
-    public void setFactor(double f) { this.factor = Math.max(1.5, Math.min(10.0, f)); }
+
+    public double getFactor() { return currentFactor; }
+    public void setFactor(double f) { this.factor = clamp(f); }
+
+    public boolean isScrollToZoom() { return scrollToZoom; }
+
+    /** One wheel step: positive zooms in, negative zooms out. */
+    public void scroll(double amount) {
+        if (amount == 0) return;
+        currentFactor = clamp(amount > 0 ? currentFactor * SCROLL_STEP : currentFactor / SCROLL_STEP);
+        applySensitivity();
+    }
 
     @Override
     public void onEnable() {
-        if (!lowerSensitivity) return;
-        var options = MinecraftClient.getInstance().options;
-        if (options == null) return;
-        previousSensitivity = options.getMouseSensitivity().getValue();
-        options.getMouseSensitivity().setValue(Math.max(0.0, previousSensitivity / factor));
+        currentFactor = factor;
+        applySensitivity();
     }
 
     @Override
     public void onDisable() {
-        if (!lowerSensitivity) return;
+        restoreSensitivity();
+    }
+
+    /** Puts back the sensitivity from before the zoom, if this zoom changed it. */
+    public void restoreSensitivity() {
         var options = MinecraftClient.getInstance().options;
-        if (options == null) return;
+        if (!sensitivityLowered || options == null) return;
         options.getMouseSensitivity().setValue(previousSensitivity);
+        sensitivityLowered = false;
+    }
+
+    /**
+     * Aim slows down in step with the zoom, so a far zoom stays controllable.
+     * The original value is captured the first time only; switching "Lower
+     * Sensitivity" on mid-zoom used to "restore" an uncaptured 0 afterwards and
+     * left the mouse unable to turn.
+     */
+    private void applySensitivity() {
+        var options = MinecraftClient.getInstance().options;
+        if (options == null || !isEnabled()) return;
+        if (!lowerSensitivity) {
+            restoreSensitivity();
+            return;
+        }
+        if (!sensitivityLowered) {
+            previousSensitivity = options.getMouseSensitivity().getValue();
+            sensitivityLowered = true;
+        }
+        options.getMouseSensitivity().setValue(Math.max(0.0, previousSensitivity / currentFactor));
+    }
+
+    private static double clamp(double f) {
+        return Math.max(MIN_FACTOR, Math.min(MAX_FACTOR, f));
     }
 
     @Override
@@ -49,7 +100,8 @@ public class Zoom extends Module {
         return List.of(
                 new SliderSetting("Factor", () -> (float) factor, v -> factor = v, 1.5f, 10f, 0.5f),
                 new BooleanSetting("Smooth Zoom", () -> smooth, v -> smooth = v, true),
-                new BooleanSetting("Lower Sensitivity", () -> lowerSensitivity, v -> lowerSensitivity = v, true)
+                new BooleanSetting("Lower Sensitivity", () -> lowerSensitivity, v -> { lowerSensitivity = v; applySensitivity(); }, true),
+                new BooleanSetting("Scroll To Zoom", () -> scrollToZoom, v -> scrollToZoom = v, true)
         );
     }
 

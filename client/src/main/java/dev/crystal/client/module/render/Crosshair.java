@@ -55,4 +55,61 @@ public class Crosshair extends Module {
                 new BooleanSetting("Chroma (Crystal+)", () -> chroma, v -> chroma = v, false)
         );
     }
+
+    /** Draws the crosshair centred on (cx, cy): in-game by MixinInGameHud and in the menu's live preview. */
+    public void draw(net.minecraft.client.gui.DrawContext context, int cx, int cy) {
+        int size = Math.round(this.getSize());
+        int thickness = Math.round(this.getThickness());
+        int color = this.getColor();
+
+        if (this.isDot()) {
+            context.fill(cx - thickness, cy - thickness, cx + thickness, cy + thickness, color);
+            return;
+        }
+
+        switch (this.getShape()) {
+            case SHAPE_GAP -> {
+                int gap = thickness + 2;
+                context.fill(cx - size - gap, cy - thickness, cx - gap, cy + thickness, color);
+                context.fill(cx + gap, cy - thickness, cx + size + gap, cy + thickness, color);
+                context.fill(cx - thickness, cy - size - gap, cx + thickness, cy - gap, color);
+                context.fill(cx - thickness, cy + gap, cx + thickness, cy + size + gap, color);
+            }
+            case SHAPE_CIRCLE -> {
+                // Ring stamped at pixel steps; 1px dot in the middle for aiming.
+                int steps = Math.max(24, size * 8);
+                for (int i = 0; i < steps; i++) {
+                    double a = Math.PI * 2 * i / steps;
+                    int px = cx + (int) Math.round(Math.cos(a) * size);
+                    int py = cy + (int) Math.round(Math.sin(a) * size);
+                    context.fill(px, py, px + thickness, py + thickness, color);
+                }
+                context.fill(cx, cy, cx + 1, cy + 1, color);
+            }
+            case SHAPE_X -> {
+                for (int i = -size; i <= size; i++) {
+                    if (i == 0) continue;
+                    context.fill(cx + i, cy + i, cx + i + thickness, cy + i + thickness, color);
+                    context.fill(cx + i, cy - i, cx + i + thickness, cy - i + thickness, color);
+                }
+            }
+            case SHAPE_BRACKETS -> {
+                int half = Math.max(2, size / 2 + 1);
+                int arm = Math.max(2, size / 2);
+                // [ on the left
+                context.fill(cx - size - thickness, cy - half, cx - size, cy + half, color);
+                context.fill(cx - size, cy - half, cx - size + arm, cy - half + thickness, color);
+                context.fill(cx - size, cy + half - thickness, cx - size + arm, cy + half, color);
+                // ] on the right
+                context.fill(cx + size, cy - half, cx + size + thickness, cy + half, color);
+                context.fill(cx + size - arm, cy - half, cx + size, cy - half + thickness, color);
+                context.fill(cx + size - arm, cy + half - thickness, cx + size, cy + half, color);
+                context.fill(cx, cy, cx + 1, cy + 1, color);
+            }
+            default -> {
+                context.fill(cx - size, cy - thickness, cx + size, cy + thickness, color);
+                context.fill(cx - thickness, cy - size, cx + thickness, cy + size, color);
+            }
+        }
+    }
 }

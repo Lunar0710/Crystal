@@ -3,7 +3,7 @@ import path from 'path'
 import os from 'os'
 import { dialog, BrowserWindow } from 'electron'
 import { InstanceManager } from './InstanceManager'
-import { crystalPath } from '../paths'
+import { crystalPath, isPlainFileName } from '../paths'
 
 export type ContentType = 'mod' | 'resourcepack' | 'shader'
 
@@ -93,6 +93,7 @@ export class ContentManager {
   }
 
   remove(instanceId: string, type: ContentType, fileName: string): boolean {
+    if (!isPlainFileName(fileName)) return false
     const target = path.join(this.contentDir(instanceId, type), fileName)
     if (!fs.existsSync(target)) return false
     fs.unlinkSync(target)
@@ -101,6 +102,7 @@ export class ContentManager {
 
   /** Enable/disable by renaming — the same convention every Minecraft launcher uses. */
   toggle(instanceId: string, type: ContentType, fileName: string): string | null {
+    if (!isPlainFileName(fileName)) return null
     const dir = this.contentDir(instanceId, type)
     const current = path.join(dir, fileName)
     if (!fs.existsSync(current)) return null

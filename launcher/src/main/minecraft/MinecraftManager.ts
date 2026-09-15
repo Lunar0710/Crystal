@@ -9,7 +9,8 @@ import Store from 'electron-store'
 import { AuthProfile } from '../auth/AuthManager'
 import { LaunchPipeline } from './LaunchPipeline'
 import { logger } from '../logs/Logger'
-import { crystalPath } from '../paths'
+import { crystalPath, isPlainFileName } from '../paths'
+import { adoptiumJdk, extractTarGz, javaCandidates, javaInJdk } from './platform'
 
 // Electron/Node 18+ ships a global fetch; not covered by this tsconfig's
 // ES2020-only lib, so declared locally instead of pulling in a DOM lib.
@@ -36,6 +37,9 @@ export interface LaunchOptions {
   // instance's mods folder before launching. false = plain "Vanilla + Mods"
   // launch using only whatever the user installed themselves (Modrinth/manual).
   injectCrystal?: boolean
+  /** Test runs only, see LaunchPipelineOptions. */
+  extraJvmArgs?: string[]
+  extraGameArgs?: string[]
 }
 
 export interface VersionInfo {
@@ -166,9 +170,11 @@ export class MinecraftManager {
         javaPath,
         maxRam: opts.maxRam,
         profile: opts.profile,
+        extraJvmArgs: opts.extraJvmArgs,
+        extraGameArgs: opts.extraGameArgs,
       }, emit)
     } catch (err) {
-      emit('launch:error', err instanceof Error ? err.message : 'Unbekannter Fehler beim Starten')
+      emit('launch:error', err instanceof Error ? (err.message || err.stack || err.name) : 'Unbekannter Fehler beim Starten')
       return false
     }
   }
@@ -256,8 +262,8 @@ export class MinecraftManager {
       }
 
       const file = versions[0].files.find(f => f.primary) || versions[0].files[0]
-      if (!file) {
-        logger.error('client', 'Fabric-API-Version enthält keine herunterladbare Datei')
+      if (!file || !isPlainFileName(file.filename)) {
+        logger.error('client', 'Fabric-API-Version enthält keine gültige herunterladbare Datei')
         return false
       }
 
@@ -298,19 +304,23 @@ export class MinecraftManager {
    */
   private async ensureJava(version: string, emit: (event: string, data: unknown) => void): Promise<string | null> {
     const bundledDir = crystalPath('jdk', '21')
-    const bundledJava = path.join(bundledDir, 'bin', 'java.exe')
     // Check our own previously-downloaded copy first — no point re-validating
     // it every launch, and it can't be some unrelated stale Java 8 install.
-    if (fs.existsSync(bundledJava)) return bundledJava
+    if (fs.existsSync(javaInJdk(bundledDir))) return javaInJdk(bundledDir)
 
     const existing = this.findJava(version)
     if (existing) return existing
 
+    const download = adoptiumJdk(21)
+    if (!download) {
+      logger.error('client', `Kein Java-Download für ${process.platform}/${process.arch} verfügbar`)
+      return null
+    }
+
     emit('launch:progress', { step: 'Lade Java 21 herunter (einmalig)...', percent: 5 })
 
     try {
-      const apiUrl = 'https://api.adoptium.net/v3/binary/latest/21/ga/windows/x64/jdk/hotspot/normal/eclipse?project=jdk'
-      const res = await fetch(apiUrl)
+      const res = await fetch(download.url)
       if (!res.ok) {
         logger.error('client', `Java-Download fehlgeschlagen: HTTP ${res.status}`)
         return null
@@ -318,19 +328,20 @@ export class MinecraftManager {
 
       const cacheDir = crystalPath('cache')
       fs.mkdirSync(cacheDir, { recursive: true })
-      const zipPath = path.join(cacheDir, 'temurin-21-windows-x64.zip')
-      fs.writeFileSync(zipPath, Buffer.from(await res.arrayBuffer()))
+      const archivePath = path.join(cacheDir, `temurin-21-${process.platform}-${process.arch}.${download.archive}`)
+      fs.writeFileSync(archivePath, Buffer.from(await res.arrayBuffer()))
 
       emit('launch:progress', { step: 'Installiere Java 21...', percent: 15 })
 
       const extractDir = crystalPath('jdk', '21-extract')
       fs.rmSync(extractDir, { recursive: true, force: true })
       fs.mkdirSync(extractDir, { recursive: true })
-      await extract(zipPath, { dir: extractDir })
+      if (download.archive === 'zip') await extract(archivePath, { dir: extractDir })
+      else extractTarGz(archivePath, extractDir)
 
       // The archive contains one top-level "jdk-21.x.y+z" folder — move its
-      // contents up so the final path is always ~/.crystal/jdk/21/bin/java.exe
-      // regardless of the exact patch version Adoptium currently serves.
+      // contents up so the final path is always <data>/jdk/21/bin/java
+      // (…/Contents/Home/bin/java on macOS) whatever patch version Adoptium serves.
       const inner = fs.readdirSync(extractDir).find(f => fs.statSync(path.join(extractDir, f)).isDirectory())
       if (!inner) {
         logger.error('client', 'Java-Archiv hatte kein erwartetes JDK-Verzeichnis')
@@ -340,8 +351,9 @@ export class MinecraftManager {
       fs.rmSync(bundledDir, { recursive: true, force: true })
       fs.renameSync(path.join(extractDir, inner), bundledDir)
       fs.rmSync(extractDir, { recursive: true, force: true })
-      fs.unlinkSync(zipPath)
+      fs.unlinkSync(archivePath)
 
+      const bundledJava = javaInJdk(bundledDir)
       if (!fs.existsSync(bundledJava)) {
         logger.error('client', `Java-Installation unvollständig, erwartet: ${bundledJava}`)
         return null
@@ -383,19 +395,7 @@ export class MinecraftManager {
 
   private findJava(version: string): string | null {
     const required = this.requiredJavaMajor(version)
-    const homeCandidate = process.env.JAVA_HOME ? path.join(process.env.JAVA_HOME, 'bin', 'java.exe') : null
-
-    const candidates = [
-      homeCandidate,
-      'C:\\Program Files\\Eclipse Adoptium\\jdk-21\\bin\\java.exe',
-      'C:\\Program Files\\Java\\jdk-21\\bin\\java.exe',
-      'C:\\Program Files\\Microsoft\\jdk-21\\bin\\java.exe',
-      'C:\\Program Files\\Eclipse Adoptium\\jdk-17\\bin\\java.exe',
-      'C:\\Program Files\\Eclipse Adoptium\\jdk-8\\bin\\java.exe',
-      'C:\\Program Files (x86)\\Java\\jre8\\bin\\java.exe',
-      'C:\\Program Files\\Java\\jre8\\bin\\java.exe',
-      'java', // resolved via PATH by child_process itself
-    ].filter(Boolean) as string[]
+    const candidates = javaCandidates()
 
     // Existence alone isn't enough — a stale Java 8 on JAVA_HOME/PATH would
     // otherwise "win" over actually downloading the version Minecraft needs,

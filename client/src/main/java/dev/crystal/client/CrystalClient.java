@@ -24,7 +24,7 @@ public class CrystalClient implements ClientModInitializer {
 
     public static final String MOD_ID = "crystal";
     public static final String NAME = "Crystal Client";
-    public static final String VERSION = "1.1.6";
+    public static final String VERSION = "1.1.7";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
     private static CrystalClient instance;
@@ -62,6 +62,8 @@ public class CrystalClient implements ClientModInitializer {
         // and re-applying DEFAULT here would stomp right back over it.
         if (!hadSavedConfig) {
             hudPresetManager.apply(HudPreset.DEFAULT);
+        } else {
+            hudPresetManager.moveOffOldDefaults();
         }
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
@@ -74,6 +76,12 @@ public class CrystalClient implements ClientModInitializer {
 
         // Block outline, hitboxes and chunk borders draw in world space.
         dev.crystal.client.render.WorldRenderHandler.register();
+
+        // Hats, masks, wings etc. from the launcher's Cosmetics page, on the player model.
+        registerCosmeticsRenderer();
+
+        // No-op unless started by the launcher's automated world test.
+        dev.crystal.client.util.SmokeTest.registerIfRequested();
 
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
             dispatcher.register(ClientCommandManager.literal("crystalskin")
@@ -110,6 +118,17 @@ public class CrystalClient implements ClientModInitializer {
         LOGGER.info("[{}] {} loaded successfully!", MOD_ID, NAME);
     }
 
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static void registerCosmeticsRenderer() {
+        net.fabricmc.fabric.api.client.rendering.v1.LivingEntityFeatureRendererRegistrationCallback.EVENT.register(
+                (entityType, renderer, helper, context) -> {
+                    if (renderer instanceof net.minecraft.client.render.entity.PlayerEntityRenderer<?> player) {
+                        helper.register(new dev.crystal.client.render.CosmeticsFeatureRenderer(
+                                (net.minecraft.client.render.entity.feature.FeatureRendererContext) player));
+                    }
+                });
+    }
+
     public static CrystalClient getInstance() {
         return instance;
     }
@@ -128,6 +147,10 @@ public class CrystalClient implements ClientModInitializer {
 
     public HudPresetManager getHudPresetManager() {
         return hudPresetManager;
+    }
+
+    public CrystalHUD getHud() {
+        return hud;
     }
 
     public EventBus getEventBus() {
