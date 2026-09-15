@@ -174,7 +174,7 @@ export class MinecraftManager {
         extraGameArgs: opts.extraGameArgs,
       }, emit)
     } catch (err) {
-      emit('launch:error', err instanceof Error ? err.message : 'Unbekannter Fehler beim Starten')
+      emit('launch:error', err instanceof Error ? (err.message || err.stack || err.name) : 'Unbekannter Fehler beim Starten')
       return false
     }
   }
