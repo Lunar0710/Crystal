@@ -75,9 +75,12 @@ public class HudPresetManager {
         int[][] moves = {
                 // oldX, oldY, newX, newY
                 {4, 4, 4, 16}, {4, 16, 4, 28}, {4, 28, 4, 40}, {4, 40, 4, 52}, {4, 76, 4, 64}, {4, 64, 4, 80},
+                // ServerAddress sat inside the icon Armor HUD (which reaches y ~153).
+                {4, 124, 4, 158},
         };
         Class<?>[] types = { FPSDisplay.class, CPSDisplay.class, Coordinates.class, PingDisplay.class,
-                dev.crystal.client.module.hud.DirectionHUD.class, dev.crystal.client.module.hud.ArmorDisplay.class };
+                dev.crystal.client.module.hud.DirectionHUD.class, dev.crystal.client.module.hud.ArmorDisplay.class,
+                dev.crystal.client.module.hud.ServerAddressDisplay.class };
         for (int i = 0; i < types.length; i++) {
             Object found = find(types[i]);
             if (found instanceof dev.crystal.client.module.hud.HudModule hud

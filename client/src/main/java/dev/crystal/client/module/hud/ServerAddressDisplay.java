@@ -24,7 +24,8 @@ public class ServerAddressDisplay extends HudModule {
     private boolean uploadFailed = false;
 
     public ServerAddressDisplay() {
-        super("ServerAddress", "Displays the address of the server you're connected to", 4, 124);
+        // Below the icon Armor HUD, which runs from y=80 to about 153.
+        super("ServerAddress", "Displays the address of the server you're connected to", 4, 158);
     }
 
     @Override
