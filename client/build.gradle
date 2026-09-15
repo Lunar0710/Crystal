@@ -1,50 +1,49 @@
+// Build for one obfuscated Minecraft version (1.14.4 to 1.21.11), run once per
+// entry in settings.gradle. 26.x uses unobfuscated.gradle instead.
 plugins {
-    id 'fabric-loom' version '1.17.20'
-    id 'maven-publish'
+    id 'dev.kikugie.stonecutter'
+    id 'net.fabricmc.fabric-loom-remap'
 }
 
-version = project.mod_version
-group = project.maven_group
+def mc = stonecutter.current.version
+def javaVersion = (project.property('java_version') as String).toInteger()
 
-base {
-    archivesName = project.archives_base_name
-}
+// crystal-client-<mod>+<mc>.jar: the launcher picks the jar by the part after "+".
+version = "${rootProject.property('mod_version')}+${mc}"
+group = rootProject.property('maven_group')
+base { archivesName = rootProject.property('archives_base_name') }
 
 repositories {
     maven { url 'https://maven.terraformersmc.com/releases' }
 }
 
-loom {
-    // Crystal is a client-only mod (see fabric.mod.json "environment": "client"),
-    // so we skip splitEnvironmentSourceSets() and compile everything in src/main
-    // directly against the full client jar.
-}
-
 dependencies {
-    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    minecraft "com.mojang:minecraft:${mc}"
     mappings loom.officialMojangMappings()
-    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+    modImplementation "net.fabricmc:fabric-loader:${rootProject.property('loader_version')}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.property('fabric_version')}"
 }
 
 processResources {
-    inputs.property "version", project.version
-
-    filesMatching("fabric.mod.json") {
-        expand "version": project.version
-    }
-}
-
-tasks.withType(JavaCompile).configureEach {
-    it.options.release = 21
+    def props = [version: project.version, minecraft: project.property('minecraft_dependency'), java: javaVersion]
+    inputs.properties props
+    filesMatching('fabric.mod.json') { expand props }
 }
 
 java {
     withSourcesJar()
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
+    toolchain { languageVersion = JavaLanguageVersion.of(javaVersion) }
 }
 
-jar {
-    from("LICENSE") { rename { "${it}_crystal" } }
+tasks.withType(JavaCompile).configureEach { it.options.release = javaVersion }
+
+// Every version's jar also lands in the shared client/build/libs, where the
+// launcher (and its installer build) looks for them.
+tasks.named('build') {
+    doLast {
+        copy {
+            from tasks.named('remapJar')
+            into rootProject.layout.buildDirectory.dir('libs')
+        }
+    }
 }

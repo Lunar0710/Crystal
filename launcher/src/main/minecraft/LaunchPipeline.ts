@@ -139,8 +139,13 @@ export class LaunchPipeline {
     await this.downloadIfMissing(versionJson.downloads.client.url, clientJarPath)
 
     emit('launch:progress', { step: 'Downloading libraries...', percent: 30 })
+    // A loader library replaces the game's copy of the same one: Legacy Fabric
+    // ships its own LWJGL 2 build, and two LWJGLs on the classpath crash the game.
+    const libraryKey = (name: string) => name.split(':').slice(0, 2).join(':')
+    const replacedByLoader = new Set(extraLibraries.map(l => libraryKey(l.name)))
+    const gameLibraries = (versionJson.libraries as LibraryArtifact[]).filter(l => !replacedByLoader.has(libraryKey(l.name)))
     const { classpath: libPaths, natives: nativeJars } = await this.downloadLibraries(
-      [...(versionJson.libraries as LibraryArtifact[]), ...extraLibraries],
+      [...gameLibraries, ...extraLibraries],
       (done, total) => emit('launch:progress', { step: `Downloading libraries (${done}/${total})...`, percent: 30 + Math.round((done / Math.max(1, total)) * 25) })
     )
 
@@ -427,6 +432,17 @@ export class LaunchPipeline {
         // go on the classpath as well as being unpacked (26.x relies on that).
         if (isNative) natives.push(dest)
         classpath.push(dest)
+      } else if (lib.name && lib.url && classifierName) {
+        // Maven natives-only library (Legacy Fabric's LWJGL platform jar):
+        // there is no main jar, just "<artifact>-<version>-natives-<os>.jar".
+        const relative = this.mavenToPath(lib.name, classifierName)
+        if (relative) {
+          const dest = path.join(LIBRARIES_DIR(), relative)
+          fs.mkdirSync(path.dirname(dest), { recursive: true })
+          const base = lib.url.endsWith('/') ? lib.url : `${lib.url}/`
+          await this.downloadIfMissing(base + relative.replace(/\\/g, '/'), dest)
+          natives.push(dest)
+        }
       } else if (lib.name && lib.url) {
         // Fabric's meta API describes libraries as Maven coordinates plus a
         // repository root instead of a prebuilt download entry — without this
@@ -455,10 +471,12 @@ export class LaunchPipeline {
   }
 
   /** "group:artifact:version" → "group/path/artifact/version/artifact-version.jar" */
-  private mavenToPath(coordinate: string): string | null {
+  /** "group:artifact:version" (+ classifier) → "group/path/artifact/version/artifact-version[-classifier].jar" */
+  private mavenToPath(coordinate: string, classifier?: string): string | null {
     const [group, artifact, version] = coordinate.split(':')
     if (!group || !artifact || !version) return null
-    return path.join(...group.split('.'), artifact, version, `${artifact}-${version}.jar`)
+    const suffix = classifier ? `-${classifier}` : ''
+    return path.join(...group.split('.'), artifact, version, `${artifact}-${version}${suffix}.jar`)
   }
 
   private rulesAllow(rules?: Rule[]): boolean {

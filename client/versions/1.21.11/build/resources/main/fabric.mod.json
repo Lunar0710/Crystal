@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "crystal",
-  "version": "${version}",
+  "version": "1.1.9+1.21.11",
   "name": "Crystal Client",
   "description": "Crystal — A legit, feature-rich Minecraft client with a custom HUD and quality-of-life tools",
   "authors": ["Crystal Development Team"],
@@ -18,8 +18,8 @@
   "mixins": ["crystal.mixins.json"],
   "depends": {
     "fabricloader": ">=0.19.0",
-    "minecraft": "${minecraft}",
-    "java": ">=${java}",
+    "minecraft": "~1.21.11",
+    "java": ">=21",
     "fabric-api": "*"
   },
   "recommends": {
