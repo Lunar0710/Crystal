@@ -34,7 +34,8 @@
     "MixinClientPlayerInteractionManager",
     "MixinItemEntityRenderer",
     "MixinItemEntityRenderState",
-    "MixinPlayerEntityModel"
+    "MixinPlayerEntityModel",
+    "MixinCapeFeatureRenderer"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -2,13 +2,13 @@ import React, { useState, useEffect } from 'react'
 import { Check, Upload, Trash2, X, Lock } from 'lucide-react'
 import { Page, PageHeader, EmptyState } from '../ui/Page'
 import { notify } from '../../store/notificationStore'
-import { BUILTIN_CAPES, CAPE_CATEGORIES, CapeCategory, capeTextureUrl, capePreviewUrl, isCapeTexture, pictureToCapeTexture } from '../../data/capes'
+import { BUILTIN_CAPES, CAPE_CATEGORIES, CapeCategory, capeTextureUrl, capePreviewUrl, isCapeTexture, pictureToCapeTexture, canUseCape } from '../../data/capes'
 import {
   SLOTS, CosmeticSlot, NonCapeSlot, COSMETICS_BY_SLOT, EMPTY_LOADOUT,
   EquippedCosmetics, findCosmetic, syncLoadoutToGame,
 } from '../../data/cosmetics'
 import { SkinPreview3D } from '../ui/SkinPreview3D'
-import { RankId, meetsRank, lockLabel } from '../../data/ranks'
+import { RankId, RANKS, meetsRank, lockLabel } from '../../data/ranks'
 
 interface CustomCape {
   id: string
@@ -155,7 +155,7 @@ export function Cosmetics() {
   useEffect(() => {
     if (!rankLoaded || !loadout.cape?.startsWith('builtin:')) return
     const def = BUILTIN_CAPES.find(c => `builtin:${c.id}` === loadout.cape)
-    if (def?.requiredRank && !meetsRank(rank, def.requiredRank)) equip('cape', null)
+    if (def && !canUseCape(rank, def)) equip('cape', null)
   }, [rankLoaded, rank, loadout.cape])
 
   const visibleCapes = BUILTIN_CAPES.filter(c => c.category === capeCategory)
@@ -299,16 +299,20 @@ export function Cosmetics() {
                 <TileGrid>
                   {visibleCapes.map(cape => {
                     const id = `builtin:${cape.id}`
-                    const locked = !!cape.requiredRank && !meetsRank(rank, cape.requiredRank)
+                    const locked = !canUseCape(rank, cape)
+                    // A rank cape names its one rank; other locked capes say "Crystal+" or "Team".
+                    const lockText = cape.exactRank && cape.requiredRank ? RANKS[cape.requiredRank].label : cape.requiredRank ? lockLabel(cape.requiredRank) : ''
                     return (
                       <Tile
                         key={cape.id}
                         selected={loadout.cape === id}
-                        onClick={() => equip('cape', id, cape.requiredRank)}
+                        onClick={() => locked
+                          ? notify({ type: 'info', message: `Dieses Cape ist ${lockText} vorbehalten` })
+                          : equip('cape', id)}
                         label={cape.name}
                         background={`url(${capePreviewUrl(cape)}) center/cover`}
-                        lockedLabel={locked ? lockLabel(cape.requiredRank!) : undefined}
-                        pixelated
+                        lockedLabel={locked ? lockText : undefined}
+                        pixelated={!cape.hd}
                       />
                     )
                   })}

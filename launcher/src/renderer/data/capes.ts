@@ -1,5 +1,5 @@
 import { HD_ART } from './hdCapes'
-import type { RankId } from './ranks'
+import { meetsRank, type RankId } from './ranks'
 
 export type CapeCategory = 'art' | 'team' | 'plus' | 'emblem' | 'anime' | 'internet' | 'themed' | 'solid' | 'gradient' | 'pattern' | 'pixel' | 'neon'
 
@@ -13,6 +13,8 @@ export interface CapeDef {
   glow?: string
   /** Omitted = free for everyone. */
   requiredRank?: RankId
+  /** Only this exact rank (and the Owner) may use it, instead of this rank and everything above. */
+  exactRank?: boolean
   /** Resolution multiplier for detailed (non-pixel) capes: the painter gets a 10*hd x 16*hd canvas. */
   hd?: number
 }
@@ -1097,11 +1099,13 @@ const MEME_CAPES: PixelArt[] = [
 ]
 
 
-// Team capes: only for ranks from Media upwards (not Crystal+ or Member).
-// Each rank has its own colours and symbol; 'Crystal Team' is shared by all.
-const TEAM_CAPES: { name: string; rows: string[]; palette: Record<string, string>; glow: string }[] = [
+// Team capes. Each rank cape belongs to exactly one rank: a Co-Owner only
+// gets the Co-Owner cape, an Admin only the Admin cape, and so on. The Owner
+// gets every one. 'Crystal Team' is shared by the whole team (Media and up).
+// Ids are fixed per cape so an equipped cape survives reordering.
+const TEAM_CAPES: { id: string; name: string; rank: RankId | null; rows: string[]; palette: Record<string, string>; glow: string }[] = [
   {
-    name: 'Crystal Team',
+    id: 'team-0', name: 'Crystal Team', rank: null,
     rows: [
       'gggggggggg', 'g........g', 'g...ww...g', 'g..wabb..g',
       'g..aabbc.g', 'g.waabbccg', 'g..aabbc.g', 'g...abc..g',
@@ -1112,7 +1116,7 @@ const TEAM_CAPES: { name: string; rows: string[]; palette: Record<string, string
     glow: '#ffd54d',
   },
   {
-    name: 'Owner Krone',
+    id: 'team-1', name: 'Owner Krone', rank: 'owner',
     rows: [
       'oooooooooo', 'o........o', 'o........o', 'o.y..y..yo',
       'o.yy.yy.yo', 'o.yyyyyyyo', 'o.yryybyyo', 'o.yyyyyyyo',
@@ -1123,7 +1127,18 @@ const TEAM_CAPES: { name: string; rows: string[]; palette: Record<string, string
     glow: '#ffb03a',
   },
   {
-    name: 'Admin Schild',
+    id: 'team-6', name: 'Co-Owner Krone', rank: 'co_owner',
+    rows: [
+      'rrrrrrrrrr', 'r........r', 'r..y..y..r', 'r..yy.yy.r',
+      'r..yyyyy.r', 'r..ywyyy.r', 'r..yyyyy.r', 'r..kkkkk.r',
+      'r........r', 'r.yy..yy.r', 'r.yy..yy.r', 'r........r',
+      'r..s..s..r', 'r...ss...r', 'r........r', 'rrrrrrrrrr',
+    ],
+    palette: { '.': '#1a0609', r: '#f5455b', y: '#ffd54d', w: '#ffffff', k: '#b8860b', s: '#ffd54d' },
+    glow: '#f5455b',
+  },
+  {
+    id: 'team-2', name: 'Admin Schild', rank: 'admin',
     rows: [
       'rrrrrrrrrr', 'r........r', 'r.ssssss.r', 'r.swwwws.r',
       'r.swsssw.r', 'r.swsssw.r', 'r.swwwws.r', 'r.swsssw.r',
@@ -1134,7 +1149,7 @@ const TEAM_CAPES: { name: string; rows: string[]; palette: Record<string, string
     glow: '#f5455b',
   },
   {
-    name: 'Staff Haken',
+    id: 'team-3', name: 'Staff Haken', rank: 'staff',
     rows: [
       'mmmmmmmmmm', 'm........m', 'm.ssssss.m', 'm.s....s.m',
       'm.s...ws.m', 'm.s..w.s.m', 'm.sw.w.s.m', 'm.s.w..s.m',
@@ -1145,7 +1160,7 @@ const TEAM_CAPES: { name: string; rows: string[]; palette: Record<string, string
     glow: '#34d399',
   },
   {
-    name: 'Developer Code',
+    id: 'team-4', name: 'Developer Code', rank: 'developer',
     rows: [
       'pppppppppp', 'p........p', 'p........p', 'p..w..w..p',
       'p.w...w..p', 'pw...w...p', 'p.w..w...p', 'p..ww..w.p',
@@ -1156,7 +1171,7 @@ const TEAM_CAPES: { name: string; rows: string[]; palette: Record<string, string
     glow: '#a35bf5',
   },
   {
-    name: 'Media Play',
+    id: 'team-5', name: 'Media Play', rank: 'media',
     rows: [
       'kkkkkkkkkk', 'k........k', 'k.rrrrrr.k', 'k.rwrrrr.k',
       'k.rwwrrr.k', 'k.rwwwrr.k', 'k.rwwwwr.k', 'k.rwwwrr.k',
@@ -1172,8 +1187,9 @@ export const BUILTIN_CAPES: CapeDef[] = [
   ...HD_ART.map((a, i): CapeDef => ({
     id: `art-${i}`, name: a.name, category: 'art', paint: a.paint, glow: a.glow, hd: 16, requiredRank: 'crystal_plus',
   })),
-  ...TEAM_CAPES.map((c, i): CapeDef => ({
-    id: `team-${i}`, name: c.name, category: 'team', paint: pixelMap(c.rows, c.palette), glow: c.glow, requiredRank: 'media',
+  ...TEAM_CAPES.map((c): CapeDef => ({
+    id: c.id, name: c.name, category: 'team', paint: pixelMap(c.rows, c.palette), glow: c.glow,
+    requiredRank: c.rank ?? 'media', exactRank: c.rank !== null,
   })),
   ...PLUS_CAPES.map((c, i): CapeDef => ({
     id: `plus-${i}`, name: c.name, category: 'plus', paint: pixelMap(c.rows, c.palette), requiredRank: 'crystal_plus',
@@ -1218,6 +1234,14 @@ export const BUILTIN_CAPES: CapeDef[] = [
     id: `neon-${i}`, name: n.name, category: 'neon', paint: neon('#0a0a0f', n.glow), glow: n.glow,
   })),
 ]
+
+/** Whether a player with `rank` may equip this cape. */
+export function canUseCape(rank: RankId | null | undefined, cape: CapeDef): boolean {
+  if (!cape.requiredRank) return true
+  if (!rank) return false
+  if (cape.exactRank) return rank === 'owner' || rank === cape.requiredRank
+  return meetsRank(rank, cape.requiredRank)
+}
 
 export const CAPE_CATEGORIES: { id: CapeCategory; label: string }[] = [
   { id: 'art', label: 'HD (Crystal+)' },
