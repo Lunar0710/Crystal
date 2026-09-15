@@ -27,7 +27,7 @@ public class CapeFlutter extends Module {
     private boolean onlyWhileMoving = false;
 
     private boolean wavyCloth = true;
-    private float waveAmplitude = 1.4f;
+    private float waveAmplitude = 2f;
     private float waveSpeed = 1f;
 
     public CapeFlutter() {
@@ -71,7 +71,7 @@ public class CapeFlutter extends Module {
                 new SliderSetting("Speed", () -> speed, v -> speed = v, 0.3f, 2.5f, 0.1f, 1),
                 new BooleanSetting("Only While Moving", () -> onlyWhileMoving, v -> onlyWhileMoving = v, false),
                 new BooleanSetting("Wavy Cloth", () -> wavyCloth, v -> wavyCloth = v, true),
-                new SliderSetting("Wave Amount", () -> waveAmplitude, v -> waveAmplitude = v, 0.2f, 3f, 0.1f, 1),
+                new SliderSetting("Wave Amount", () -> waveAmplitude, v -> waveAmplitude = v, 0.2f, 4f, 0.1f, 1),
                 new SliderSetting("Wave Speed", () -> waveSpeed, v -> waveSpeed = v, 0.3f, 2.5f, 0.1f, 1)
         );
     }

@@ -96,11 +96,16 @@ public class MixinCapeFeatureRenderer {
             for (int r = 0; r <= ROWS; r++) {
                 float u = c / (float) COLS, v = r / (float) ROWS;
                 // Anchored at the shoulders (v=0), full ripple by the hem (v=1).
-                float pin = v * v;
-                float phase = t - v * 3.2f + u * 0.6f;
-                px[c][r] = -CAPE_W / 2f + u * CAPE_W + pin * amplitude * 0.6f * MathHelper.sin(phase * 0.8f + 1.1f);
-                py[c][r] = v * CAPE_H;
-                pz[c][r] = -1f + pin * amplitude * MathHelper.sin(phase);
+                // Grows a little faster than v² so the middle already moves.
+                float pin = v * (0.35f + 0.65f * v);
+                // Waves run down the cape (v) and also across it (u), so the
+                // cloth ripples diagonally instead of flapping as one strip —
+                // that's what makes it read as wavy from behind, too.
+                float phase = t - v * 3.4f;
+                float across = MathHelper.sin(u * (float) Math.PI * 1.6f + t * 1.3f - v * 2.2f);
+                px[c][r] = -CAPE_W / 2f + u * CAPE_W + pin * amplitude * 0.9f * MathHelper.sin(phase * 0.8f + 1.1f);
+                py[c][r] = v * CAPE_H - pin * amplitude * 0.25f * (1f - MathHelper.cos(phase));
+                pz[c][r] = -1f + pin * amplitude * (0.7f * MathHelper.sin(phase) + 0.5f * across);
             }
         }
         for (int c = 0; c < COLS; c++) {
