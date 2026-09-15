@@ -1,7 +1,7 @@
 package dev.crystal.client.mixin;
 
 import dev.crystal.client.util.ItemGroundState;
-import net.minecraft.client.render.entity.state.ItemEntityRenderState;
+import net.minecraft.client.renderer.entity.state.ItemEntityRenderState;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 

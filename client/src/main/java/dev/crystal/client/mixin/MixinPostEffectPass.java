@@ -3,15 +3,13 @@ package dev.crystal.client.mixin;
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.buffers.Std140Builder;
+import com.mojang.blaze3d.framegraph.FrameGraphBuilder;
+import com.mojang.blaze3d.pipeline.RenderTarget;
+import com.mojang.blaze3d.resource.ResourceHandle;
 import com.mojang.blaze3d.systems.RenderSystem;
 import dev.crystal.client.CrystalClient;
 import dev.crystal.client.module.render.ColorSaturation;
 import dev.crystal.client.module.render.MotionBlur;
-import net.minecraft.client.gl.Framebuffer;
-import net.minecraft.client.gl.PostEffectPass;
-import net.minecraft.client.render.FrameGraphBuilder;
-import net.minecraft.client.util.Handle;
-import net.minecraft.util.Identifier;
 import org.lwjgl.system.MemoryStack;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -23,6 +21,8 @@ import org.spongepowered.asm.mixin.injection.ModifyConstant;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.Map;
+import net.minecraft.client.renderer.PostPass;
+import net.minecraft.resources.Identifier;
 
 /**
  * Live uniforms for Crystal's color_grade post effect. Vanilla fills a post
@@ -30,13 +30,13 @@ import java.util.Map;
  * would otherwise only apply after a resource reload. Here the buffer is
  * rewritten with the current slider values right before the pass draws.
  */
-@Mixin(PostEffectPass.class)
+@Mixin(PostPass.class)
 public class MixinPostEffectPass {
 
     private static final String BLOCK = "CrystalColorGrade";
     private static final String BLUR_BLOCK = "CrystalMotionBlur";
 
-    @Shadow @Final private Map<String, GpuBuffer> uniformBuffers;
+    @Shadow @Final private Map<String, GpuBuffer> customUniforms;
 
     /** Vanilla creates the buffers as uniform-only; writing to them later also needs COPY_DST. */
     @ModifyConstant(method = "<init>", constant = @Constant(intValue = GpuBuffer.USAGE_UNIFORM))
@@ -44,10 +44,10 @@ public class MixinPostEffectPass {
         return usage | GpuBuffer.USAGE_COPY_DST;
     }
 
-    @Inject(method = "render", at = @At("HEAD"))
-    private void crystal$updateColorGrade(FrameGraphBuilder builder, Map<Identifier, Handle<Framebuffer>> handles, GpuBufferSlice slice, CallbackInfo ci) {
+    @Inject(method = "addToFrame", at = @At("HEAD"))
+    private void crystal$updateColorGrade(FrameGraphBuilder builder, Map<Identifier, ResourceHandle<RenderTarget>> handles, GpuBufferSlice slice, CallbackInfo ci) {
         if (CrystalClient.getInstance() == null) return;
-        GpuBuffer blurBuffer = uniformBuffers.get(BLUR_BLOCK);
+        GpuBuffer blurBuffer = customUniforms.get(BLUR_BLOCK);
         if (blurBuffer != null) {
             MotionBlur blur = CrystalClient.getInstance().getModuleManager().get(MotionBlur.class);
             if (blur != null) {
@@ -58,7 +58,7 @@ public class MixinPostEffectPass {
             }
         }
 
-        GpuBuffer buffer = uniformBuffers.get(BLOCK);
+        GpuBuffer buffer = customUniforms.get(BLOCK);
         if (buffer == null) return;
 
         ColorSaturation module = CrystalClient.getInstance().getModuleManager().get(ColorSaturation.class);

@@ -1,12 +1,12 @@
 package dev.crystal.client.module.render;
 
 import dev.crystal.client.module.hud.HudModule;
-import net.minecraft.block.Block;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.EntityHitResult;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.EntityHitResult;
 
 /** "What Am I Looking At" — a HUD line naming whatever's under the crosshair. */
 public class WAILA extends HudModule {
@@ -17,16 +17,16 @@ public class WAILA extends HudModule {
 
     @Override
     public String getText() {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc.crosshairTarget instanceof EntityHitResult hit) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.hitResult instanceof EntityHitResult hit) {
             Entity entity = hit.getEntity();
             if (entity instanceof LivingEntity living) {
                 return String.format("%s (%.1f/%.1f HP)", entity.getName().getString(), living.getHealth(), living.getMaxHealth());
             }
             return entity.getName().getString();
         }
-        if (mc.crosshairTarget instanceof BlockHitResult hit && mc.world != null) {
-            Block block = mc.world.getBlockState(hit.getBlockPos()).getBlock();
+        if (mc.hitResult instanceof BlockHitResult hit && mc.level != null) {
+            Block block = mc.level.getBlockState(hit.getBlockPos()).getBlock();
             return block.getName().getString();
         }
         return "";

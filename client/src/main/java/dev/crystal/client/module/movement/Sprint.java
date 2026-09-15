@@ -6,10 +6,9 @@ import dev.crystal.client.module.Module;
 import dev.crystal.client.module.ModuleCategory;
 import dev.crystal.client.module.BooleanSetting;
 import dev.crystal.client.module.Setting;
-import net.minecraft.client.MinecraftClient;
-
 import java.util.List;
 import java.util.function.Consumer;
+import net.minecraft.client.Minecraft;
 
 public class Sprint extends Module {
 
@@ -36,17 +35,17 @@ public class Sprint extends Module {
     }
 
     private void onTick(TickEvent event) {
-        MinecraftClient mc = event.getClient();
+        Minecraft mc = event.getClient();
         if (mc.player == null) return;
 
         var options = mc.options;
-        boolean moving = options.forwardKey.isPressed() || options.backKey.isPressed()
-                || (omnidirectional && (options.leftKey.isPressed() || options.rightKey.isPressed()));
+        boolean moving = options.keyUp.isDown() || options.keyDown.isDown()
+                || (omnidirectional && (options.keyLeft.isDown() || options.keyRight.isDown()));
 
-        boolean waterOk = allowInWater || !mc.player.isTouchingWater();
-        boolean foodOk = !requireFood || mc.player.getHungerManager().getFoodLevel() > 6;
+        boolean waterOk = allowInWater || !mc.player.isInWater();
+        boolean foodOk = !requireFood || mc.player.getFoodData().getFoodLevel() > 6;
 
-        if (moving && !mc.player.isSneaking() && waterOk && foodOk) {
+        if (moving && !mc.player.isShiftKeyDown() && waterOk && foodOk) {
             mc.player.setSprinting(true);
         }
     }

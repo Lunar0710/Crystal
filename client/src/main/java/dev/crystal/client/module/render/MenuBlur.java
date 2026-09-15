@@ -6,10 +6,9 @@ import dev.crystal.client.module.Module;
 import dev.crystal.client.module.ModuleCategory;
 import dev.crystal.client.module.Setting;
 import dev.crystal.client.module.SliderSetting;
-import net.minecraft.client.MinecraftClient;
-
 import java.util.List;
 import java.util.function.Consumer;
+import net.minecraft.client.Minecraft;
 
 /**
  * Wraps vanilla's own menu-background-blurriness option (its default is very mild) — restores the previous value on disable.
@@ -40,27 +39,27 @@ public class MenuBlur extends Module {
     @Override
     public void onDisable() {
         CrystalClient.getInstance().getEventBus().unsubscribe(TickEvent.class, tickListener);
-        var options = MinecraftClient.getInstance().options;
+        var options = Minecraft.getInstance().options;
         if (options == null || !capturedPrevious) return;
-        options.getMenuBackgroundBlurriness().setValue(previousBlurriness);
+        options.menuBackgroundBlurriness().set(previousBlurriness);
     }
 
     private void onTick(TickEvent event) {
         if (capturedPrevious) return;
         var options = event.getClient().options;
         if (options == null) return;
-        var option = options.getMenuBackgroundBlurriness();
-        previousBlurriness = option.getValue();
+        var option = options.menuBackgroundBlurriness();
+        previousBlurriness = option.get();
         capturedPrevious = true;
-        option.setValue(Math.round(strength));
+        option.set(Math.round(strength));
     }
 
     @Override
     public List<Setting<?>> getSettings() {
         return List.of(new SliderSetting("Strength", () -> strength, v -> {
             strength = v;
-            var options = MinecraftClient.getInstance().options;
-            if (isEnabled() && options != null) options.getMenuBackgroundBlurriness().setValue(Math.round(strength));
+            var options = Minecraft.getInstance().options;
+            if (isEnabled() && options != null) options.menuBackgroundBlurriness().set(Math.round(strength));
         }, 0f, 30f, 1f, 0));
     }
 }

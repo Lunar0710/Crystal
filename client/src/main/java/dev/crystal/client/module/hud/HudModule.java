@@ -61,11 +61,11 @@ public abstract class HudModule extends Module implements HudRenderable {
     private int cachedWidth = 0;
 
     /** Pixel width of the current display text, measured only when the text actually changed. */
-    public final int getDisplayWidth(net.minecraft.client.font.TextRenderer renderer) {
+    public final int getDisplayWidth(net.minecraft.client.gui.Font renderer) {
         String text = cachedText;
         if (!text.equals(widthFor)) {
             widthFor = text;
-            cachedWidth = renderer.getWidth(text);
+            cachedWidth = renderer.width(text);
         }
         return cachedWidth;
     }
@@ -142,7 +142,7 @@ public abstract class HudModule extends Module implements HudRenderable {
     }
 
     /** A small image drawn in front of the text (for example a server logo), or null for none. */
-    public net.minecraft.util.Identifier getIcon() {
+    public net.minecraft.resources.Identifier getIcon() {
         return null;
     }
 

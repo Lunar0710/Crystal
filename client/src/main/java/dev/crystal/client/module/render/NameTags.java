@@ -5,12 +5,11 @@ import dev.crystal.client.module.Module;
 import dev.crystal.client.module.ModuleCategory;
 import dev.crystal.client.module.Setting;
 import dev.crystal.client.module.SliderSetting;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-
 import java.util.List;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.world.entity.player.Player;
 
 /**
  * Nametag options: your own nametag in third person, health next to player
@@ -34,13 +33,13 @@ public class NameTags extends Module {
     public float getBackgroundOpacity() { return backgroundOpacity / 100f; }
 
     /** The name with " 20❤" appended in a colour from green to red. */
-    public Text decorate(Text name, PlayerEntity player) {
+    public Component decorate(Component name, Player player) {
         if (!showHealth) return name;
         float health = player.getHealth() + player.getAbsorptionAmount();
         float fraction = player.getMaxHealth() <= 0 ? 0 : player.getHealth() / player.getMaxHealth();
-        Formatting color = fraction > 0.6f ? Formatting.GREEN : fraction > 0.3f ? Formatting.YELLOW : Formatting.RED;
-        MutableText text = name.copy();
-        text.append(Text.literal(" " + Math.round(health) + "❤").formatted(color));
+        ChatFormatting color = fraction > 0.6f ? ChatFormatting.GREEN : fraction > 0.3f ? ChatFormatting.YELLOW : ChatFormatting.RED;
+        MutableComponent text = name.copy();
+        text.append(Component.literal(" " + Math.round(health) + "❤").withStyle(color));
         return text;
     }
 

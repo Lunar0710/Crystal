@@ -3,12 +3,11 @@ package dev.crystal.client.module.hud;
 import dev.crystal.client.module.BooleanSetting;
 import dev.crystal.client.module.EnumSetting;
 import dev.crystal.client.module.Setting;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.item.ItemStack;
-
 import java.util.ArrayList;
 import java.util.List;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ItemStack;
 
 /**
  * Armor status HUD. "Icons" draws each worn piece (and optionally the held
@@ -46,22 +45,22 @@ public class ArmorDisplay extends HudModule {
 
     /** Pieces to draw, top to bottom: armor, then the held item if enabled. Empty slots are skipped. */
     public List<ItemStack> getShownStacks() {
-        var player = MinecraftClient.getInstance().player;
+        var player = Minecraft.getInstance().player;
         List<ItemStack> stacks = new ArrayList<>(5);
         if (player == null) return stacks;
         for (EquipmentSlot slot : ARMOR_TOP_DOWN) {
-            ItemStack stack = player.getEquippedStack(slot);
+            ItemStack stack = player.getItemBySlot(slot);
             if (!stack.isEmpty()) stacks.add(stack);
         }
-        if (showHeldItem && !player.getMainHandStack().isEmpty()) stacks.add(player.getMainHandStack());
+        if (showHeldItem && !player.getMainHandItem().isEmpty()) stacks.add(player.getMainHandItem());
         return stacks;
     }
 
     /** Label next to an icon: durability in the chosen format, the stack size for stackables, or nothing. */
     public String labelFor(ItemStack stack) {
-        if (stack.isDamageable() && !DURABILITY_NONE.equals(durability)) {
+        if (stack.isDamageableItem() && !DURABILITY_NONE.equals(durability)) {
             int max = stack.getMaxDamage();
-            int left = max - stack.getDamage();
+            int left = max - stack.getDamageValue();
             return DURABILITY_VALUE.equals(durability) ? String.valueOf(left) : Math.round(left * 100f / max) + "%";
         }
         return stack.getCount() > 1 ? String.valueOf(stack.getCount()) : "";
@@ -69,19 +68,19 @@ public class ArmorDisplay extends HudModule {
 
     /** 1 = undamaged, 0 = about to break; 1 for anything without durability. */
     public float durabilityFraction(ItemStack stack) {
-        if (!stack.isDamageable() || stack.getMaxDamage() <= 0) return 1f;
-        return 1f - (float) stack.getDamage() / stack.getMaxDamage();
+        if (!stack.isDamageableItem() || stack.getMaxDamage() <= 0) return 1f;
+        return 1f - (float) stack.getDamageValue() / stack.getMaxDamage();
     }
 
     @Override
     public String getText() {
-        var player = MinecraftClient.getInstance().player;
+        var player = Minecraft.getInstance().player;
         if (player == null) return "Armor: N/A";
 
         int worn = 0;
         int totalPercent = 0;
         for (EquipmentSlot slot : ARMOR_TOP_DOWN) {
-            ItemStack stack = player.getEquippedStack(slot);
+            ItemStack stack = player.getItemBySlot(slot);
             if (stack.isEmpty()) continue;
             worn++;
             totalPercent += Math.round(durabilityFraction(stack) * 100);

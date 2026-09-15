@@ -5,8 +5,6 @@ import com.google.gson.JsonParser;
 import dev.crystal.client.CrystalClient;
 import dev.crystal.client.module.TextSetting;
 import dev.crystal.client.module.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
-
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -15,6 +13,7 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import net.minecraft.client.Minecraft;
 
 /**
  * Real Hypixel Public API integration — needs your own free key from
@@ -39,13 +38,13 @@ public class HypixelMods extends HudModule {
 
     @Override
     public String getText() {
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         if (apiKey.isBlank() || mc.player == null) return apiKey.isBlank() ? "Hypixel: no API key set" : "";
 
         long now = System.currentTimeMillis();
         if (!fetching && now - lastFetch > REFRESH_INTERVAL_MS) {
             fetching = true;
-            fetchAsync(mc.player.getUuidAsString());
+            fetchAsync(mc.player.getStringUUID());
         }
         return cachedText;
     }

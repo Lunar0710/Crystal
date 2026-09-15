@@ -3,9 +3,9 @@ package dev.crystal.client.mixin;
 import dev.crystal.client.CrystalClient;
 import dev.crystal.client.module.movement.Freelook;
 import dev.crystal.client.module.movement.Snaplook;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.Camera;
-import net.minecraft.entity.Entity;
+import net.minecraft.client.Camera;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.Entity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
@@ -24,9 +24,9 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 @Mixin(Camera.class)
 public class MixinCamera {
 
-    @Redirect(method = "update", at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/Entity;getYaw(F)F"))
+    @Redirect(method = "setup", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;getViewYRot(F)F"))
     private float crystal$cameraYaw(Entity entity, float tickDelta) {
-        float yaw = entity.getYaw(tickDelta);
+        float yaw = entity.getViewYRot(tickDelta);
         if (!isLocalPlayer(entity)) return yaw;
 
         Freelook freelook = freelook();
@@ -36,9 +36,9 @@ public class MixinCamera {
         return snaplook != null ? snaplook.snap(yaw) : yaw;
     }
 
-    @Redirect(method = "update", at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/Entity;getPitch(F)F"))
+    @Redirect(method = "setup", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;getViewXRot(F)F"))
     private float crystal$cameraPitch(Entity entity, float tickDelta) {
-        float pitch = entity.getPitch(tickDelta);
+        float pitch = entity.getViewXRot(tickDelta);
         if (!isLocalPlayer(entity)) return pitch;
 
         Freelook freelook = freelook();
@@ -46,7 +46,7 @@ public class MixinCamera {
     }
 
     private static boolean isLocalPlayer(Entity entity) {
-        return CrystalClient.getInstance() != null && entity == MinecraftClient.getInstance().player;
+        return CrystalClient.getInstance() != null && entity == Minecraft.getInstance().player;
     }
 
     private static Freelook freelook() {

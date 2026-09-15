@@ -1,17 +1,17 @@
 package dev.crystal.client.mixin;
 
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Axis;
 import dev.crystal.client.CrystalClient;
 import dev.crystal.client.module.render.ItemPhysics;
 import dev.crystal.client.module.render.Items2D;
 import dev.crystal.client.util.ItemGroundState;
-import net.minecraft.client.render.command.OrderedRenderCommandQueue;
-import net.minecraft.client.render.entity.ItemEntityRenderer;
-import net.minecraft.client.render.entity.state.ItemEntityRenderState;
-import net.minecraft.client.render.state.CameraRenderState;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.ItemEntity;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.RotationAxis;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.entity.ItemEntityRenderer;
+import net.minecraft.client.renderer.entity.state.ItemEntityRenderState;
+import net.minecraft.client.renderer.state.CameraRenderState;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.item.ItemEntity;
 import org.joml.Quaternionfc;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -26,35 +26,35 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(ItemEntityRenderer.class)
 public class MixinItemEntityRenderer {
 
-    @Inject(method = "updateRenderState(Lnet/minecraft/entity/ItemEntity;Lnet/minecraft/client/render/entity/state/ItemEntityRenderState;F)V", at = @At("TAIL"))
+    @Inject(method = "extractRenderState(Lnet/minecraft/world/entity/item/ItemEntity;Lnet/minecraft/client/renderer/entity/state/ItemEntityRenderState;F)V", at = @At("TAIL"))
     private void crystal$rememberGround(ItemEntity entity, ItemEntityRenderState state, float tickProgress, CallbackInfo ci) {
-        ((ItemGroundState) state).crystal$setOnGround(entity.isOnGround());
+        ((ItemGroundState) state).crystal$setOnGround(entity.onGround());
     }
 
-    @Redirect(method = "render(Lnet/minecraft/client/render/entity/state/ItemEntityRenderState;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/command/OrderedRenderCommandQueue;Lnet/minecraft/client/render/state/CameraRenderState;)V",
-            at = @At(value = "INVOKE", target = "Lnet/minecraft/util/math/MathHelper;sin(D)F"))
+    @Redirect(method = "submit(Lnet/minecraft/client/renderer/entity/state/ItemEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/CameraRenderState;)V",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/util/Mth;sin(D)F"))
     private float crystal$bob(double value) {
         // sin() = -1 makes vanilla's "sin * 0.1 + 0.1" bob offset exactly 0.
-        return crystal$items2D() != null || crystal$physics() != null ? -1f : MathHelper.sin(value);
+        return crystal$items2D() != null || crystal$physics() != null ? -1f : Mth.sin(value);
     }
 
-    @Redirect(method = "render(Lnet/minecraft/client/render/entity/state/ItemEntityRenderState;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/command/OrderedRenderCommandQueue;Lnet/minecraft/client/render/state/CameraRenderState;)V",
-            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/util/math/MatrixStack;multiply(Lorg/joml/Quaternionfc;)V"))
-    private void crystal$rotate(MatrixStack matrices, Quaternionfc spin, ItemEntityRenderState state, MatrixStack sameMatrices,
-                                OrderedRenderCommandQueue queue, CameraRenderState camera) {
+    @Redirect(method = "submit(Lnet/minecraft/client/renderer/entity/state/ItemEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/CameraRenderState;)V",
+            at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/vertex/PoseStack;mulPose(Lorg/joml/Quaternionfc;)V"))
+    private void crystal$rotate(PoseStack matrices, Quaternionfc spin, ItemEntityRenderState state, PoseStack sameMatrices,
+                                SubmitNodeCollector queue, CameraRenderState camera) {
         ItemPhysics physics = crystal$physics();
         if (physics != null && ((ItemGroundState) state).crystal$isOnGround()) {
             // Lying on the ground: a fixed random turn, then tipped flat.
-            matrices.multiply(RotationAxis.POSITIVE_Y.rotation(state.uniqueOffset));
-            matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(90f));
+            matrices.mulPose(Axis.YP.rotation(state.bobOffset));
+            matrices.mulPose(Axis.XP.rotationDegrees(90f));
             return;
         }
         if (crystal$items2D() != null) {
-            matrices.multiply(camera.orientation);
-            matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(180f));
+            matrices.mulPose(camera.orientation);
+            matrices.mulPose(Axis.YP.rotationDegrees(180f));
             return;
         }
-        matrices.multiply(spin);
+        matrices.mulPose(spin);
     }
 
     @org.spongepowered.asm.mixin.Unique

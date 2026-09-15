@@ -2,22 +2,22 @@ package dev.crystal.client.mixin;
 
 import dev.crystal.client.CrystalClient;
 import dev.crystal.client.module.render.FogCustomizer;
-import net.minecraft.client.render.Camera;
-import net.minecraft.client.render.RenderTickCounter;
-import net.minecraft.client.render.fog.AtmosphericFogModifier;
-import net.minecraft.client.render.fog.FogData;
-import net.minecraft.client.world.ClientWorld;
+import net.minecraft.client.Camera;
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.renderer.fog.FogData;
+import net.minecraft.client.renderer.fog.environment.AtmosphericFogEnvironment;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /** Overrides the normal overworld fog's start/end distances after vanilla computes them. */
-@Mixin(AtmosphericFogModifier.class)
+@Mixin(AtmosphericFogEnvironment.class)
 public class MixinAtmosphericFogModifier {
 
-    @Inject(method = "applyStartEndModifier", at = @At("TAIL"))
-    private void onApplyStartEndModifier(FogData fogData, Camera camera, ClientWorld world, float viewDistance, RenderTickCounter tickCounter, CallbackInfo ci) {
+    @Inject(method = "setupFog", at = @At("TAIL"))
+    private void onApplyStartEndModifier(FogData fogData, Camera camera, ClientLevel world, float viewDistance, DeltaTracker tickCounter, CallbackInfo ci) {
         if (CrystalClient.getInstance() == null) return;
 
         FogCustomizer module = CrystalClient.getInstance().getModuleManager().getEnabled(FogCustomizer.class);

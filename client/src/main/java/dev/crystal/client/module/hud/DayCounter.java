@@ -1,6 +1,6 @@
 package dev.crystal.client.module.hud;
 
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 public class DayCounter extends HudModule {
 
@@ -10,10 +10,10 @@ public class DayCounter extends HudModule {
 
     @Override
     public String getText() {
-        var world = MinecraftClient.getInstance().world;
+        var world = Minecraft.getInstance().level;
         if (world == null) return "Day: N/A";
         // 24000 ticks per Minecraft day; day 1 starts at tick 0.
-        long day = world.getTimeOfDay() / 24000L + 1;
+        long day = world.getDayTime() / 24000L + 1;
         return "Day: " + day;
     }
 }

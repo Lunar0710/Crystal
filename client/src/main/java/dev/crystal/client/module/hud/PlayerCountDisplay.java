@@ -1,6 +1,6 @@
 package dev.crystal.client.module.hud;
 
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 /** Number of players in the server's tab list. */
 public class PlayerCountDisplay extends HudModule {
@@ -11,9 +11,9 @@ public class PlayerCountDisplay extends HudModule {
 
     @Override
     public String getText() {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        var handler = mc.getNetworkHandler();
+        Minecraft mc = Minecraft.getInstance();
+        var handler = mc.getConnection();
         if (handler == null) return "Players: -";
-        return "Players: " + handler.getPlayerList().size();
+        return "Players: " + handler.getOnlinePlayers().size();
     }
 }

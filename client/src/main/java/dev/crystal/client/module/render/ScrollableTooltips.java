@@ -47,7 +47,7 @@ public class ScrollableTooltips extends Module {
     // Closing whatever screen you were scrolling a tooltip on should always
     // start the next one fresh, rather than carrying a stale offset over.
     private void onTick(TickEvent event) {
-        if (event.getClient().currentScreen == null) offset = 0f;
+        if (event.getClient().screen == null) offset = 0f;
     }
 
     public int getHoldKey() { return holdKey; }

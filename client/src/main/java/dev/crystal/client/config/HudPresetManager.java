@@ -5,7 +5,7 @@ import dev.crystal.client.module.hud.CPSDisplay;
 import dev.crystal.client.module.hud.Coordinates;
 import dev.crystal.client.module.hud.FPSDisplay;
 import dev.crystal.client.module.hud.PingDisplay;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 /**
  * Applies a {@link HudPreset} to every position-aware HUD module in one go.
@@ -27,9 +27,9 @@ public class HudPresetManager {
 
     public void apply(HudPreset preset) {
         current = preset;
-        MinecraftClient mc = MinecraftClient.getInstance();
-        int w = mc.getWindow() != null ? mc.getWindow().getScaledWidth() : 320;
-        int h = mc.getWindow() != null ? mc.getWindow().getScaledHeight() : 240;
+        Minecraft mc = Minecraft.getInstance();
+        int w = mc.getWindow() != null ? mc.getWindow().getGuiScaledWidth() : 320;
+        int h = mc.getWindow() != null ? mc.getWindow().getGuiScaledHeight() : 240;
 
         FPSDisplay fps = find(FPSDisplay.class);
         CPSDisplay cps = find(CPSDisplay.class);

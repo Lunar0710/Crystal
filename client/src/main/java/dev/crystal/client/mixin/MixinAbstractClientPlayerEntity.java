@@ -4,26 +4,26 @@ import dev.crystal.client.CrystalClient;
 import dev.crystal.client.module.player.SkinChanger;
 import dev.crystal.client.util.CosmeticCapeLoader;
 import dev.crystal.client.util.SkinFetcher;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.AbstractClientPlayerEntity;
-import net.minecraft.entity.player.SkinTextures;
-import net.minecraft.util.AssetInfo;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.core.ClientAsset;
+import net.minecraft.world.entity.player.PlayerSkin;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(AbstractClientPlayerEntity.class)
+@Mixin(AbstractClientPlayer.class)
 public class MixinAbstractClientPlayerEntity {
 
     @Inject(method = "getSkin", at = @At("RETURN"), cancellable = true)
-    private void onGetSkin(CallbackInfoReturnable<SkinTextures> cir) {
+    private void onGetSkin(CallbackInfoReturnable<PlayerSkin> cir) {
         if (CrystalClient.getInstance() == null) return;
 
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || (Object) this != mc.player) return;
 
-        SkinTextures current = cir.getReturnValue();
+        PlayerSkin current = cir.getReturnValue();
         boolean changed = false;
 
         SkinChanger module = CrystalClient.getInstance().getModuleManager()
@@ -32,20 +32,20 @@ public class MixinAbstractClientPlayerEntity {
                 .map(m -> (SkinChanger) m)
                 .orElse(null);
         if (module != null && !module.getTargetUsername().isEmpty()) {
-            SkinTextures replacement = SkinFetcher.getOrFetch(module.getTargetUsername());
+            PlayerSkin replacement = SkinFetcher.getOrFetch(module.getTargetUsername());
             if (replacement != null) {
                 // Swap the skin and arm model only; the player's own cape and
                 // elytra texture used to vanish along with the old skin.
-                current = SkinTextures.create(replacement.body(), current.cape(), current.elytra(), replacement.model());
+                current = PlayerSkin.insecure(replacement.body(), current.cape(), current.elytra(), replacement.model());
                 changed = true;
             }
         }
 
         // Cosmetics-page cape is independent of SkinChanger — applies whether
         // or not the skin itself was also swapped above.
-        AssetInfo.TextureAsset cape = CosmeticCapeLoader.getEquippedCape();
+        ClientAsset.Texture cape = CosmeticCapeLoader.getEquippedCape();
         if (cape != null) {
-            current = SkinTextures.create(current.body(), cape, current.elytra(), current.model());
+            current = PlayerSkin.insecure(current.body(), cape, current.elytra(), current.model());
             changed = true;
         }
 

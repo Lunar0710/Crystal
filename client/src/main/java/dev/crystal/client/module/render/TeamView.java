@@ -5,12 +5,11 @@ import dev.crystal.client.module.ColorSetting;
 import dev.crystal.client.module.Module;
 import dev.crystal.client.module.ModuleCategory;
 import dev.crystal.client.module.Setting;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-
 import java.util.List;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.world.entity.player.Player;
 
 /**
  * Marks players by scoreboard team: a coloured dot in front of teammates' and
@@ -28,17 +27,17 @@ public class TeamView extends Module {
         setEnabled(true);
     }
 
-    public Text decorate(Text name, PlayerEntity player) {
-        var self = MinecraftClient.getInstance().player;
+    public Component decorate(Component name, Player player) {
+        var self = Minecraft.getInstance().player;
         if (self == null || player == self) return name;
-        var ownTeam = self.getScoreboardTeam();
-        var theirTeam = player.getScoreboardTeam();
+        var ownTeam = self.getTeam();
+        var theirTeam = player.getTeam();
         if (ownTeam == null || theirTeam == null) return name;
 
-        boolean teammate = ownTeam.isEqual(theirTeam);
+        boolean teammate = ownTeam.isAlliedTo(theirTeam);
         if (!teammate && !markEnemies) return name;
         int color = (teammate ? teamColor : enemyColor) & 0xFFFFFF;
-        MutableText text = Text.literal("● ").styled(s -> s.withColor(color));
+        MutableComponent text = Component.literal("● ").withStyle(s -> s.withColor(color));
         return text.append(name);
     }
 

@@ -3,20 +3,20 @@ package dev.crystal.client.mixin;
 import dev.crystal.client.CrystalClient;
 import dev.crystal.client.module.render.BetterSounds;
 import dev.crystal.client.module.render.ParticleChanger;
-import net.minecraft.client.network.ClientPlayerInteractionManager;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.client.multiplayer.MultiPlayerGameMode;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /** Hit feedback (particles and sounds) right after you attack something. Visual and audio only. */
-@Mixin(ClientPlayerInteractionManager.class)
+@Mixin(MultiPlayerGameMode.class)
 public class MixinClientPlayerInteractionManager {
 
-    @Inject(method = "attackEntity", at = @At("TAIL"))
-    private void crystal$onAttack(PlayerEntity player, Entity target, CallbackInfo ci) {
+    @Inject(method = "attack", at = @At("TAIL"))
+    private void crystal$onAttack(Player player, Entity target, CallbackInfo ci) {
         CrystalClient client = CrystalClient.getInstance();
         if (client == null) return;
         ParticleChanger particles = client.getModuleManager().getEnabled(ParticleChanger.class);

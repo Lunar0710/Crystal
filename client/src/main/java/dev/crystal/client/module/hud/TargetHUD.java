@@ -1,8 +1,8 @@
 package dev.crystal.client.module.hud;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.util.hit.EntityHitResult;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.EntityHitResult;
 
 public class TargetHUD extends HudModule {
 
@@ -12,8 +12,8 @@ public class TargetHUD extends HudModule {
 
     @Override
     public String getText() {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (!(mc.crosshairTarget instanceof EntityHitResult hit) || !(hit.getEntity() instanceof LivingEntity target)) {
+        Minecraft mc = Minecraft.getInstance();
+        if (!(mc.hitResult instanceof EntityHitResult hit) || !(hit.getEntity() instanceof LivingEntity target)) {
             return "Target: none";
         }
         return String.format("Target: %s (%.1f/%.1f HP)",

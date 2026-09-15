@@ -1,7 +1,7 @@
 package dev.crystal.client.module.hud;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.util.hit.EntityHitResult;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.phys.EntityHitResult;
 
 public class ReachDisplay extends HudModule {
 
@@ -11,8 +11,8 @@ public class ReachDisplay extends HudModule {
 
     @Override
     public String getText() {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc.player == null || !(mc.crosshairTarget instanceof EntityHitResult hit)) return "Reach: -";
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || !(mc.hitResult instanceof EntityHitResult hit)) return "Reach: -";
 
         double distance = mc.player.distanceTo(hit.getEntity());
         return String.format("Reach: %.2f", distance);

@@ -6,15 +6,14 @@ import dev.crystal.client.module.Module;
 import dev.crystal.client.module.ModuleCategory;
 import dev.crystal.client.module.BooleanSetting;
 import dev.crystal.client.module.Setting;
-import net.minecraft.block.BlockState;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.network.packet.c2s.play.UpdateSelectedSlotC2SPacket;
-import net.minecraft.util.hit.BlockHitResult;
-
 import java.util.List;
 import java.util.function.Consumer;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
 
 /** Switches to whichever hotbar slot mines the targeted block fastest, the moment mining starts. */
 public class AutoTool extends Module {
@@ -40,37 +39,37 @@ public class AutoTool extends Module {
     }
 
     private void onTick(TickEvent event) {
-        MinecraftClient mc = event.getClient();
-        ClientPlayerEntity player = mc.player;
-        if (player == null || mc.world == null) return;
+        Minecraft mc = event.getClient();
+        LocalPlayer player = mc.player;
+        if (player == null || mc.level == null) return;
 
-        boolean pressed = mc.options.attackKey.isPressed();
+        boolean pressed = mc.options.keyAttack.isDown();
         boolean justPressed = pressed && !wasAttackPressed;
         wasAttackPressed = pressed;
 
         // Restore the slot we came from once mining stops, when asked to.
         if (!pressed && switchBack && previousSlot >= 0) {
             player.getInventory().setSelectedSlot(previousSlot);
-            mc.getNetworkHandler().sendPacket(new UpdateSelectedSlotC2SPacket(previousSlot));
+            mc.getConnection().send(new ServerboundSetCarriedItemPacket(previousSlot));
             previousSlot = -1;
         }
 
-        if (!justPressed || !(mc.crosshairTarget instanceof BlockHitResult hit)) return;
-        if (onlyWhenHoldingTool && player.getMainHandStack().getMiningSpeedMultiplier(
-                mc.world.getBlockState(hit.getBlockPos())) <= 1.0f) return;
+        if (!justPressed || !(mc.hitResult instanceof BlockHitResult hit)) return;
+        if (onlyWhenHoldingTool && player.getMainHandItem().getDestroySpeed(
+                mc.level.getBlockState(hit.getBlockPos())) <= 1.0f) return;
 
-        BlockState state = mc.world.getBlockState(hit.getBlockPos());
-        var hotbar = player.getInventory().getMainStacks();
+        BlockState state = mc.level.getBlockState(hit.getBlockPos());
+        var hotbar = player.getInventory().getNonEquipmentItems();
 
         int bestSlot = player.getInventory().getSelectedSlot();
-        float bestSpeed = hotbar.get(bestSlot).getMiningSpeedMultiplier(state);
+        float bestSpeed = hotbar.get(bestSlot).getDestroySpeed(state);
 
         // Only the 9 hotbar slots are switchable without opening the inventory.
         for (int slot = 0; slot < 9; slot++) {
             ItemStack stack = hotbar.get(slot);
             if (stack.isEmpty()) continue;
 
-            float speed = stack.getMiningSpeedMultiplier(state);
+            float speed = stack.getDestroySpeed(state);
             if (speed > bestSpeed) {
                 bestSpeed = speed;
                 bestSlot = slot;
@@ -80,7 +79,7 @@ public class AutoTool extends Module {
         if (bestSlot != player.getInventory().getSelectedSlot()) {
             if (switchBack && previousSlot < 0) previousSlot = player.getInventory().getSelectedSlot();
             player.getInventory().setSelectedSlot(bestSlot);
-            mc.getNetworkHandler().sendPacket(new UpdateSelectedSlotC2SPacket(bestSlot));
+            mc.getConnection().send(new ServerboundSetCarriedItemPacket(bestSlot));
         }
     }
 

@@ -1,17 +1,17 @@
 package dev.crystal.client.mixin;
 
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import dev.crystal.client.CrystalClient;
 import dev.crystal.client.module.render.CapeFlutter;
-import net.minecraft.client.render.OverlayTexture;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.RenderLayers;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.command.OrderedRenderCommandQueue;
-import net.minecraft.client.render.entity.feature.CapeFeatureRenderer;
-import net.minecraft.client.render.entity.model.PlayerEntityModel;
-import net.minecraft.client.render.entity.state.PlayerEntityRenderState;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.client.model.player.PlayerModel;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.entity.layers.CapeLayer;
+import net.minecraft.client.renderer.entity.state.AvatarRenderState;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.util.Mth;
 import org.joml.Quaternionf;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -30,7 +30,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * Cloth is off, this does nothing and vanilla's cape (with the base flutter
  * from {@link MixinPlayerCapeModel}) renders as usual.
  */
-@Mixin(CapeFeatureRenderer.class)
+@Mixin(CapeLayer.class)
 public class MixinCapeFeatureRenderer {
 
     // Matches vanilla's cape cuboid (10 wide, 16 tall) and the visible face's
@@ -42,11 +42,11 @@ public class MixinCapeFeatureRenderer {
     private static final float U0 = 1f / 64f, U1 = 11f / 64f, V0 = 1f / 32f, V1 = 17f / 32f;
     private static final int COLS = 5, ROWS = 9;
 
-    @Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/command/OrderedRenderCommandQueue;ILnet/minecraft/client/render/entity/state/PlayerEntityRenderState;FF)V",
+    @Inject(method = "submit(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;ILnet/minecraft/client/renderer/entity/state/AvatarRenderState;FF)V",
             at = @At("HEAD"), cancellable = true)
-    private void crystal$wavy(MatrixStack matrices, OrderedRenderCommandQueue queue, int light, PlayerEntityRenderState state, float f, float g, CallbackInfo ci) {
-        if (state.invisible || !state.capeVisible) return;
-        var cape = state.skinTextures.cape();
+    private void crystal$wavy(PoseStack matrices, SubmitNodeCollector queue, int light, AvatarRenderState state, float f, float g, CallbackInfo ci) {
+        if (state.isInvisible || !state.showCape) return;
+        var cape = state.skin.cape();
         if (cape == null) return;
 
         CrystalClient client = CrystalClient.getInstance();
@@ -60,35 +60,35 @@ public class MixinCapeFeatureRenderer {
 
         ci.cancel();
 
-        matrices.push();
+        matrices.pushPose();
         // Same body pose vanilla would use — sneaking, swimming, elytra-flying
         // etc. all already baked in, since this is the shared model the main
         // renderer already posed for this player this frame (the same one
         // CosmeticsFeatureRenderer's wings/backpack anchor to).
-        PlayerEntityModel bodyModel = ((CapeFeatureRenderer) (Object) this).getContextModel();
-        bodyModel.body.applyTransform(matrices);
+        PlayerModel bodyModel = ((CapeLayer) (Object) this).getParentModel();
+        bodyModel.body.translateAndRotate(matrices);
         // Then the cape's own attachment, same as vanilla: 2 pixels behind the
         // body -> rotateY(180°) -> the lean/sway. applyTransform works in
         // blocks, so the 2px offset is 2/16 here; only the mesh below is in pixels.
         matrices.translate(0f, 0f, 2f / 16f);
-        matrices.multiply(new Quaternionf().rotateY((float) Math.PI));
-        matrices.multiply(new Quaternionf()
+        matrices.mulPose(new Quaternionf().rotateY((float) Math.PI));
+        matrices.mulPose(new Quaternionf()
                 .rotateY(-(float) Math.PI)
-                .rotateX((6f + state.field_53537 / 2f + state.field_53536) * (float) (Math.PI / 180.0))
-                .rotateZ(state.field_53538 / 2f * (float) (Math.PI / 180.0))
-                .rotateY((180f - state.field_53538 / 2f) * (float) (Math.PI / 180.0)));
+                .rotateX((6f + state.capeLean / 2f + state.capeFlap) * (float) (Math.PI / 180.0))
+                .rotateZ(state.capeLean2 / 2f * (float) (Math.PI / 180.0))
+                .rotateY((180f - state.capeLean2 / 2f) * (float) (Math.PI / 180.0)));
         matrices.scale(1 / 16f, 1 / 16f, 1 / 16f);
 
-        RenderLayer layer = RenderLayers.entitySolid(cape.texturePath());
+        RenderType layer = RenderTypes.entitySolid(cape.texturePath());
         float amplitude = flutter.getWaveAmplitude();
-        float t = state.age * flutter.getWaveSpeed() * 0.12f;
+        float t = state.ageInTicks * flutter.getWaveSpeed() * 0.12f;
 
-        queue.submitCustom(matrices, layer, (entry, vc) ->
+        queue.submitCustomGeometry(matrices, layer, (entry, vc) ->
                 buildMesh(entry, vc, light, amplitude, t));
-        matrices.pop();
+        matrices.popPose();
     }
 
-    private static void buildMesh(MatrixStack.Entry entry, VertexConsumer vc, int light, float amplitude, float t) {
+    private static void buildMesh(PoseStack.Pose entry, VertexConsumer vc, int light, float amplitude, float t) {
         float[][] px = new float[COLS + 1][ROWS + 1];
         float[][] py = new float[COLS + 1][ROWS + 1];
         float[][] pz = new float[COLS + 1][ROWS + 1];
@@ -102,10 +102,10 @@ public class MixinCapeFeatureRenderer {
                 // cloth ripples diagonally instead of flapping as one strip —
                 // that's what makes it read as wavy from behind, too.
                 float phase = t - v * 3.4f;
-                float across = MathHelper.sin(u * (float) Math.PI * 1.6f + t * 1.3f - v * 2.2f);
-                px[c][r] = -CAPE_W / 2f + u * CAPE_W + pin * amplitude * 0.9f * MathHelper.sin(phase * 0.8f + 1.1f);
-                py[c][r] = v * CAPE_H - pin * amplitude * 0.25f * (1f - MathHelper.cos(phase));
-                pz[c][r] = -1f + pin * amplitude * (0.7f * MathHelper.sin(phase) + 0.5f * across);
+                float across = Mth.sin(u * (float) Math.PI * 1.6f + t * 1.3f - v * 2.2f);
+                px[c][r] = -CAPE_W / 2f + u * CAPE_W + pin * amplitude * 0.9f * Mth.sin(phase * 0.8f + 1.1f);
+                py[c][r] = v * CAPE_H - pin * amplitude * 0.25f * (1f - Mth.cos(phase));
+                pz[c][r] = -1f + pin * amplitude * (0.7f * Mth.sin(phase) + 0.5f * across);
             }
         }
         for (int c = 0; c < COLS; c++) {
@@ -120,7 +120,7 @@ public class MixinCapeFeatureRenderer {
     }
 
     /** One cell, drawn both sides so the cape reads solid from front and back like the vanilla cuboid did. */
-    private static void quad(MatrixStack.Entry e, VertexConsumer vc, int light,
+    private static void quad(PoseStack.Pose e, VertexConsumer vc, int light,
                              float x1, float y1, float z1, float u1, float v1,
                              float x2, float y2, float z2, float u2, float v2,
                              float x3, float y3, float z3, float u3, float v3,
@@ -128,7 +128,7 @@ public class MixinCapeFeatureRenderer {
         float nx = (y2 - y1) * (z3 - z1) - (z2 - z1) * (y3 - y1);
         float ny = (z2 - z1) * (x3 - x1) - (x2 - x1) * (z3 - z1);
         float nz = (x2 - x1) * (y3 - y1) - (y2 - y1) * (x3 - x1);
-        float len = MathHelper.sqrt(nx * nx + ny * ny + nz * nz);
+        float len = Mth.sqrt(nx * nx + ny * ny + nz * nz);
         if (len > 1.0e-5f) { nx /= len; ny /= len; nz /= len; }
 
         vertex(e, vc, x1, y1, z1, u1, v1, light, nx, ny, nz);
@@ -142,8 +142,8 @@ public class MixinCapeFeatureRenderer {
         vertex(e, vc, x1, y1, z1, u1, v1, light, -nx, -ny, -nz);
     }
 
-    private static void vertex(MatrixStack.Entry e, VertexConsumer vc, float x, float y, float z, float u, float v,
+    private static void vertex(PoseStack.Pose e, VertexConsumer vc, float x, float y, float z, float u, float v,
                                int light, float nx, float ny, float nz) {
-        vc.vertex(e, x, y, z).color(0xFFFFFFFF).texture(u, v).overlay(OverlayTexture.DEFAULT_UV).light(light).normal(e, nx, ny, nz);
+        vc.addVertex(e, x, y, z).setColor(0xFFFFFFFF).setUv(u, v).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(e, nx, ny, nz);
     }
 }

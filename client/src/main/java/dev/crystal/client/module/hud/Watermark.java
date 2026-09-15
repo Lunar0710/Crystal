@@ -31,7 +31,7 @@ public class Watermark extends HudModule {
             default -> CrystalClient.NAME + " v" + CrystalClient.VERSION;
         };
         if (!showFps) return base;
-        return base + "  " + net.minecraft.client.MinecraftClient.getInstance().getCurrentFps() + " fps";
+        return base + "  " + net.minecraft.client.Minecraft.getInstance().getFps() + " fps";
     }
 
     @Override

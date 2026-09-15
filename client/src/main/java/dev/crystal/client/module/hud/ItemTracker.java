@@ -1,9 +1,9 @@
 package dev.crystal.client.module.hud;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
 public class ItemTracker extends HudModule {
 
@@ -17,18 +17,18 @@ public class ItemTracker extends HudModule {
 
     @Override
     public void onEnable() {
-        var player = MinecraftClient.getInstance().player;
-        tracked = player != null ? player.getMainHandStack().getItem() : Items.AIR;
+        var player = Minecraft.getInstance().player;
+        tracked = player != null ? player.getMainHandItem().getItem() : Items.AIR;
     }
 
     @Override
     public String getText() {
-        var player = MinecraftClient.getInstance().player;
+        var player = Minecraft.getInstance().player;
         if (player == null || tracked == Items.AIR) return "Tracking: none";
 
         int total = 0;
-        for (ItemStack stack : player.getInventory().getMainStacks()) {
-            if (stack.isOf(tracked)) total += stack.getCount();
+        for (ItemStack stack : player.getInventory().getNonEquipmentItems()) {
+            if (stack.is(tracked)) total += stack.getCount();
         }
         return tracked.getName().getString() + ": " + total;
     }

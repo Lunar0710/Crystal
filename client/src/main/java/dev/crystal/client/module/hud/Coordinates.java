@@ -1,6 +1,6 @@
 package dev.crystal.client.module.hud;
 
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 public class Coordinates extends HudModule {
 
@@ -11,7 +11,7 @@ public class Coordinates extends HudModule {
 
     @Override
     public String getText() {
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) return "XYZ: N/A";
         return String.format("XYZ: %.1f / %.1f / %.1f",
                 mc.player.getX(), mc.player.getY(), mc.player.getZ());

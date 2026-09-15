@@ -6,13 +6,6 @@ import dev.crystal.client.module.hud.Scoreboard;
 import dev.crystal.client.module.misc.ActionBarDisplay;
 import dev.crystal.client.module.render.Crosshair;
 import dev.crystal.client.module.render.Titles;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.hud.InGameHud;
-import net.minecraft.client.render.RenderTickCounter;
-import net.minecraft.scoreboard.ScoreboardEntry;
-import net.minecraft.scoreboard.ScoreboardObjective;
-import net.minecraft.text.Text;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -23,29 +16,36 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.scores.Objective;
+import net.minecraft.world.scores.PlayerScoreEntry;
 
-@Mixin(InGameHud.class)
+@Mixin(Gui.class)
 public class MixinInGameHud {
 
-    @Shadow private Text overlayMessage;
-    @Shadow private int overlayRemaining;
-    @Shadow private Text title;
-    @Shadow private Text subtitle;
-    @Shadow private int titleRemainTicks;
-    @Shadow private int titleFadeInTicks;
-    @Shadow private int titleStayTicks;
-    @Shadow private int titleFadeOutTicks;
+    @Shadow private Component overlayMessageString;
+    @Shadow private int overlayMessageTime;
+    @Shadow private Component title;
+    @Shadow private Component subtitle;
+    @Shadow private int titleTime;
+    @Shadow private int titleFadeInTime;
+    @Shadow private int titleStayTime;
+    @Shadow private int titleFadeOutTime;
 
-    @Unique private List<ScoreboardEntry> crystal$sidebarEntries = List.of();
+    @Unique private List<PlayerScoreEntry> crystal$sidebarEntries = List.of();
     @Unique private String crystal$sidebarTitle = "";
     @Unique private int crystal$sidebarWidth;
-    @Unique private ScoreboardObjective crystal$sidebarObjective;
+    @Unique private Objective crystal$sidebarObjective;
     @Unique private boolean crystal$sidebarShowScores;
     @Unique private long crystal$sidebarBuiltAt;
 
     @Inject(method = "renderOverlayMessage", at = @At("HEAD"), cancellable = true)
-    private void onRenderOverlayMessage(DrawContext context, RenderTickCounter tickCounter, CallbackInfo ci) {
-        if (CrystalClient.getInstance() == null || overlayMessage == null || overlayRemaining <= 0) return;
+    private void onRenderOverlayMessage(GuiGraphics context, DeltaTracker tickCounter, CallbackInfo ci) {
+        if (CrystalClient.getInstance() == null || overlayMessageString == null || overlayMessageTime <= 0) return;
 
         ActionBarDisplay module = CrystalClient.getInstance().getModuleManager().getModuleByName("ActionBar")
                 .filter(m -> m.isEnabled())
@@ -55,15 +55,15 @@ public class MixinInGameHud {
 
         ci.cancel();
 
-        InGameHud self = (InGameHud) (Object) this;
-        TextRenderer textRenderer = self.getTextRenderer();
+        Gui self = (Gui) (Object) this;
+        Font textRenderer = self.getFont();
 
         // Same fade curve as vanilla: fully visible, then fading out over the last 20 ticks.
-        int alpha = overlayRemaining > 20 ? 255 : Math.max(0, overlayRemaining * 255 / 20);
+        int alpha = overlayMessageTime > 20 ? 255 : Math.max(0, overlayMessageTime * 255 / 20);
 
-        int width = context.getScaledWindowWidth();
-        int height = context.getScaledWindowHeight();
-        int textWidth = textRenderer.getWidth(overlayMessage);
+        int width = context.guiWidth();
+        int height = context.guiHeight();
+        int textWidth = textRenderer.width(overlayMessageString);
         int x = (width - textWidth) / 2;
         int y = height - 68;
 
@@ -73,12 +73,12 @@ public class MixinInGameHud {
         }
 
         int color = (module.getTextColor() & 0x00FFFFFF) | (alpha << 24);
-        context.drawText(textRenderer, overlayMessage, x, y, color, true);
+        context.drawString(textRenderer, overlayMessageString, x, y, color, true);
     }
 
-    @Inject(method = "renderTitleAndSubtitle", at = @At("HEAD"), cancellable = true)
-    private void onRenderTitleAndSubtitle(DrawContext context, RenderTickCounter tickCounter, CallbackInfo ci) {
-        if (CrystalClient.getInstance() == null || title == null || titleRemainTicks <= 0) return;
+    @Inject(method = "renderTitle", at = @At("HEAD"), cancellable = true)
+    private void onRenderTitleAndSubtitle(GuiGraphics context, DeltaTracker tickCounter, CallbackInfo ci) {
+        if (CrystalClient.getInstance() == null || title == null || titleTime <= 0) return;
 
         Titles module = CrystalClient.getInstance().getModuleManager().getModuleByName("Titles")
                 .filter(m -> m.isEnabled())
@@ -88,41 +88,41 @@ public class MixinInGameHud {
 
         ci.cancel();
 
-        InGameHud self = (InGameHud) (Object) this;
-        TextRenderer textRenderer = self.getTextRenderer();
-        float remaining = titleRemainTicks - tickCounter.getTickProgress(false);
+        Gui self = (Gui) (Object) this;
+        Font textRenderer = self.getFont();
+        float remaining = titleTime - tickCounter.getGameTimeDeltaPartialTick(false);
 
         int alpha;
-        if (titleRemainTicks > titleFadeOutTicks + titleStayTicks) {
-            float fadeIn = 1f - (remaining - (titleFadeOutTicks + titleStayTicks)) / titleFadeInTicks;
+        if (titleTime > titleFadeOutTime + titleStayTime) {
+            float fadeIn = 1f - (remaining - (titleFadeOutTime + titleStayTime)) / titleFadeInTime;
             alpha = Math.round(Math.max(0f, Math.min(1f, fadeIn)) * 255f);
-        } else if (remaining <= titleFadeOutTicks) {
-            alpha = Math.round(Math.max(0f, remaining / Math.max(1, titleFadeOutTicks)) * 255f);
+        } else if (remaining <= titleFadeOutTime) {
+            alpha = Math.round(Math.max(0f, remaining / Math.max(1, titleFadeOutTime)) * 255f);
         } else {
             alpha = 255;
         }
 
         float scale = module.getScale();
-        int width = context.getScaledWindowWidth();
-        int height = context.getScaledWindowHeight();
+        int width = context.guiWidth();
+        int height = context.guiHeight();
 
-        context.getMatrices().pushMatrix();
-        context.getMatrices().translate(width / 2f, height / 2f);
-        context.getMatrices().scale(scale, scale);
+        context.pose().pushMatrix();
+        context.pose().translate(width / 2f, height / 2f);
+        context.pose().scale(scale, scale);
 
         int titleColor = (module.getTitleColor() & 0x00FFFFFF) | (alpha << 24);
-        context.drawCenteredTextWithShadow(textRenderer, title, 0, -20, titleColor);
+        context.drawCenteredString(textRenderer, title, 0, -20, titleColor);
 
         if (subtitle != null) {
             int subtitleColor = (module.getSubtitleColor() & 0x00FFFFFF) | (alpha << 24);
-            context.drawCenteredTextWithShadow(textRenderer, subtitle, 0, 5, subtitleColor);
+            context.drawCenteredString(textRenderer, subtitle, 0, 5, subtitleColor);
         }
 
-        context.getMatrices().popMatrix();
+        context.pose().popMatrix();
     }
 
     @Inject(method = "renderCrosshair", at = @At("HEAD"), cancellable = true)
-    private void onRenderCrosshair(DrawContext context, RenderTickCounter tickCounter, CallbackInfo ci) {
+    private void onRenderCrosshair(GuiGraphics context, DeltaTracker tickCounter, CallbackInfo ci) {
         if (CrystalClient.getInstance() == null) return;
 
         Crosshair module = CrystalClient.getInstance().getModuleManager().getModuleByName("Crosshair")
@@ -133,14 +133,14 @@ public class MixinInGameHud {
 
         ci.cancel();
 
-        module.draw(context, context.getScaledWindowWidth() / 2, context.getScaledWindowHeight() / 2);
+        module.draw(context, context.guiWidth() / 2, context.guiHeight() / 2);
     }
 
     @Inject(
-        method = "renderScoreboardSidebar(Lnet/minecraft/client/gui/DrawContext;Lnet/minecraft/scoreboard/ScoreboardObjective;)V",
+        method = "displayScoreboardSidebar(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/world/scores/Objective;)V",
         at = @At("HEAD"), cancellable = true
     )
-    private void onRenderScoreboardSidebar(DrawContext context, ScoreboardObjective objective, CallbackInfo ci) {
+    private void onRenderScoreboardSidebar(GuiGraphics context, Objective objective, CallbackInfo ci) {
         if (CrystalClient.getInstance() == null) return;
 
         Scoreboard module = CrystalClient.getInstance().getModuleManager().getModuleByName("Scoreboard")
@@ -151,8 +151,8 @@ public class MixinInGameHud {
 
         ci.cancel();
 
-        InGameHud self = (InGameHud) (Object) this;
-        TextRenderer textRenderer = self.getTextRenderer();
+        Gui self = (Gui) (Object) this;
+        Font textRenderer = self.getFont();
 
         // Copy, filter, sort and measure the sidebar at most every 50 ms (one
         // server tick) instead of every frame. On servers with a full
@@ -160,16 +160,16 @@ public class MixinInGameHud {
         long now = System.currentTimeMillis();
         boolean showScores = module.isShowScores();
         if (objective != crystal$sidebarObjective || showScores != crystal$sidebarShowScores || now - crystal$sidebarBuiltAt >= 50) {
-            List<ScoreboardEntry> built = new ArrayList<>(objective.getScoreboard().getScoreboardEntries(objective));
-            built.removeIf(ScoreboardEntry::hidden);
-            built.sort(Comparator.comparingInt(ScoreboardEntry::value).reversed());
+            List<PlayerScoreEntry> built = new ArrayList<>(objective.getScoreboard().listPlayerScores(objective));
+            built.removeIf(PlayerScoreEntry::isHidden);
+            built.sort(Comparator.comparingInt(PlayerScoreEntry::value).reversed());
             if (built.size() > 15) built = new ArrayList<>(built.subList(0, 15));
 
             String builtTitle = objective.getDisplayName().getString();
-            int builtWidth = textRenderer.getWidth(builtTitle) + 8;
-            for (ScoreboardEntry entry : built) {
-                int lineWidth = textRenderer.getWidth(entry.name());
-                if (showScores) lineWidth += textRenderer.getWidth(" " + entry.value()) + 4;
+            int builtWidth = textRenderer.width(builtTitle) + 8;
+            for (PlayerScoreEntry entry : built) {
+                int lineWidth = textRenderer.width(entry.ownerName());
+                if (showScores) lineWidth += textRenderer.width(" " + entry.value()) + 4;
                 builtWidth = Math.max(builtWidth, lineWidth + 8);
             }
 
@@ -181,25 +181,25 @@ public class MixinInGameHud {
             crystal$sidebarBuiltAt = now;
         }
 
-        List<ScoreboardEntry> entries = crystal$sidebarEntries;
+        List<PlayerScoreEntry> entries = crystal$sidebarEntries;
         String title = crystal$sidebarTitle;
         int width = crystal$sidebarWidth;
         int lineHeight = 9;
 
-        int screenHeight = context.getScaledWindowHeight();
+        int screenHeight = context.guiHeight();
         int panelHeight = lineHeight * (entries.size() + 1) + 4;
-        int x = context.getScaledWindowWidth() - width - 4;
+        int x = context.guiWidth() - width - 4;
         int y = Math.max(4, (screenHeight - panelHeight) / 3);
 
         GuiRender.roundedRect(context, x, y, x + width, y + panelHeight, module.getBackgroundColor());
-        context.drawCenteredTextWithShadow(textRenderer, title, x + width / 2, y + 2, module.getTitleColor());
+        context.drawCenteredString(textRenderer, title, x + width / 2, y + 2, module.getTitleColor());
 
         int rowY = y + lineHeight + 4;
-        for (ScoreboardEntry entry : entries) {
-            context.drawTextWithShadow(textRenderer, entry.name(), x + 4, rowY, module.getTextColor());
+        for (PlayerScoreEntry entry : entries) {
+            context.drawString(textRenderer, entry.ownerName(), x + 4, rowY, module.getTextColor());
             if (module.isShowScores()) {
                 String value = String.valueOf(entry.value());
-                context.drawTextWithShadow(textRenderer, value, x + width - textRenderer.getWidth(value) - 4, rowY, module.getTitleColor());
+                context.drawString(textRenderer, value, x + width - textRenderer.width(value) - 4, rowY, module.getTitleColor());
             }
             rowY += lineHeight;
         }

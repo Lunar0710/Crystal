@@ -2,15 +2,15 @@ package dev.crystal.client.gui;
 
 import dev.crystal.client.CrystalClient;
 import dev.crystal.client.module.render.Crosshair;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.input.KeyInput;
-import net.minecraft.text.Text;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.List;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.network.chat.Component;
 
 /**
  * Paint your own crosshair pixel by pixel. Left click paints, right click
@@ -41,17 +41,17 @@ public class CrosshairEditorScreen extends Screen {
     }
 
     public CrosshairEditorScreen(Crosshair crosshair) {
-        super(Text.literal("Fadenkreuz-Editor"));
+        super(Component.literal("Fadenkreuz-Editor"));
         this.crosshair = crosshair;
         this.accent = CrystalClient.getInstance().getThemeManager().getAccent();
         for (int y = 0; y < GRID; y++) for (int x = 0; x < GRID; x++) cells[y * GRID + x] = crosshair.isPixel(x, y);
     }
 
     @Override
-    public boolean shouldPause() { return false; }
+    public boolean isPauseScreen() { return false; }
 
     @Override
-    public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
+    public void renderBackground(GuiGraphics context, int mouseX, int mouseY, float delta) {
         context.fill(0, 0, width, height, 0xB0080A10);
     }
 
@@ -83,15 +83,15 @@ public class CrosshairEditorScreen extends Screen {
         tx = addButton("X", tx, ty, () -> template("x"), false);
 
         int footerY = by + 26;
-        int saveW = textRenderer.getWidth("Speichern") + 20;
-        int cancelW = textRenderer.getWidth("Abbrechen") + 20;
+        int saveW = font.width("Speichern") + 20;
+        int cancelW = font.width("Abbrechen") + 20;
         int right = gridX + total;
         buttons.add(new Button("Speichern", right - saveW, footerY, right, footerY + 18, this::save, true));
-        buttons.add(new Button("Abbrechen", right - saveW - 6 - cancelW, footerY, right - saveW - 6, footerY + 18, this::close, false));
+        buttons.add(new Button("Abbrechen", right - saveW - 6 - cancelW, footerY, right - saveW - 6, footerY + 18, this::onClose, false));
     }
 
     private int addButton(String label, int x, int y, Runnable action, boolean primary) {
-        int w = textRenderer.getWidth(label) + 16;
+        int w = font.width(label) + 16;
         buttons.add(new Button(label, x, y, x + w, y + 18, action, primary));
         return x + w + 4;
     }
@@ -99,13 +99,13 @@ public class CrosshairEditorScreen extends Screen {
     // ------------------------------------------------------------ render
 
     @Override
-    public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
+    public void render(GuiGraphics ctx, int mouseX, int mouseY, float delta) {
         super.render(ctx, mouseX, mouseY, delta);
         layout();
         int gridSize = cell * GRID;
 
-        ctx.drawText(textRenderer, "Fadenkreuz-Editor", gridX, gridY - 26, 0xFFE4E8F0, false);
-        ctx.drawText(textRenderer, "Linksklick malen · Rechtsklick radieren", gridX, gridY - 14, 0xFF8E97B0, false);
+        ctx.drawString(font, "Fadenkreuz-Editor", gridX, gridY - 26, 0xFFE4E8F0, false);
+        ctx.drawString(font, "Linksklick malen · Rechtsklick radieren", gridX, gridY - 14, 0xFF8E97B0, false);
 
         // Grid
         GuiRender.roundedRect(ctx, gridX - 4, gridY - 4, gridX + gridSize + 4, gridY + gridSize + 4, 6, 0xFF10131A);
@@ -126,7 +126,7 @@ public class CrosshairEditorScreen extends Screen {
 
         // Preview: real size on a sky/grass strip, and 3x to see detail.
         int px = gridX + gridSize + 24, py = gridY + 20;
-        ctx.drawText(textRenderer, "Vorschau", px, gridY + 4, 0xFF8E97B0, false);
+        ctx.drawString(font, "Vorschau", px, gridY + 4, 0xFF8E97B0, false);
         int pw = 120, ph = 56;
         GuiRender.roundedRect(ctx, px, py, px + pw, py + ph, 4, 0xFF87B7E8);
         ctx.fill(px, py + ph / 2 + 8, px + pw, py + ph, 0xFF4E8C3A);
@@ -135,19 +135,19 @@ public class CrosshairEditorScreen extends Screen {
         GuiRender.roundedRect(ctx, px, py + ph + 6, px + pw, py + ph + 6 + 50, 4, 0xFF10131A);
         drawCells(ctx, px + pw / 2, py + ph + 6 + 25, 3);
 
-        ctx.drawText(textRenderer, "Vorlagen", px, py + 108, 0xFF8E97B0, false);
+        ctx.drawString(font, "Vorlagen", px, py + 108, 0xFF8E97B0, false);
 
         for (Button b : buttons) {
             boolean hover = b.contains(mouseX, mouseY);
             int bg = b.primary ? (hover ? GuiRender.blend(accent | 0xFF000000, 0xFFFFFFFF, 0.15f) : accent | 0xFF000000)
                     : (hover ? 0x33FFFFFF : 0x1FFFFFFF);
             GuiRender.roundedRect(ctx, b.x1, b.y1, b.x2, b.y2, 5, bg);
-            int tw = textRenderer.getWidth(b.label);
-            ctx.drawText(textRenderer, b.label, b.x1 + (b.x2 - b.x1 - tw) / 2, b.y1 + 5, b.primary ? 0xFF0B0D12 : 0xFFE4E8F0, false);
+            int tw = font.width(b.label);
+            ctx.drawString(font, b.label, b.x1 + (b.x2 - b.x1 - tw) / 2, b.y1 + 5, b.primary ? 0xFF0B0D12 : 0xFFE4E8F0, false);
         }
     }
 
-    private void drawCells(DrawContext ctx, int cx, int cy, int scale) {
+    private void drawCells(GuiGraphics ctx, int cx, int cy, int scale) {
         int half = GRID / 2;
         int color = crosshair.getColor() | 0xFF000000;
         for (int y = 0; y < GRID; y++) for (int x = 0; x < GRID; x++) {
@@ -208,20 +208,20 @@ public class CrosshairEditorScreen extends Screen {
         crosshair.useCustomShape();
         if (!crosshair.isEnabled()) crosshair.setEnabled(true);
         CrystalClient.getInstance().getConfigManager().save();
-        close();
+        onClose();
     }
 
     @Override
-    public void close() {
+    public void onClose() {
         CrystalClientScreen menu = new CrystalClientScreen();
         menu.openSettingsFor(crosshair);
-        client.setScreen(menu);
+        minecraft.setScreen(menu);
     }
 
     // ------------------------------------------------------------ input
 
     @Override
-    public boolean mouseClicked(Click click, boolean doubled) {
+    public boolean mouseClicked(MouseButtonEvent click, boolean doubled) {
         for (Button b : buttons) {
             if (b.contains(click.x(), click.y())) {
                 b.action.run();
@@ -238,22 +238,22 @@ public class CrosshairEditorScreen extends Screen {
     }
 
     @Override
-    public boolean mouseDragged(Click click, double deltaX, double deltaY) {
+    public boolean mouseDragged(MouseButtonEvent click, double deltaX, double deltaY) {
         if (painting == null) return super.mouseDragged(click, deltaX, deltaY);
         paintAt(click.x(), click.y());
         return true;
     }
 
     @Override
-    public boolean mouseReleased(Click click) {
+    public boolean mouseReleased(MouseButtonEvent click) {
         painting = null;
         return super.mouseReleased(click);
     }
 
     @Override
-    public boolean keyPressed(KeyInput input) {
+    public boolean keyPressed(KeyEvent input) {
         if (input.key() == GLFW.GLFW_KEY_ESCAPE) {
-            close();
+            onClose();
             return true;
         }
         return super.keyPressed(input);

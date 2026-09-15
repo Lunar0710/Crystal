@@ -1,6 +1,6 @@
 package dev.crystal.client.module.hud;
 
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 public class FPSDisplay extends HudModule {
 
@@ -11,6 +11,6 @@ public class FPSDisplay extends HudModule {
 
     @Override
     public String getText() {
-        return "FPS: " + MinecraftClient.getInstance().getCurrentFps();
+        return "FPS: " + Minecraft.getInstance().getFps();
     }
 }

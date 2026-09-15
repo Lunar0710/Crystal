@@ -7,13 +7,12 @@ import dev.crystal.client.module.ModuleCategory;
 import dev.crystal.client.module.EnumSetting;
 import dev.crystal.client.module.Setting;
 import dev.crystal.client.module.SliderSetting;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.hit.EntityHitResult;
-
 import java.util.List;
 import java.util.function.Consumer;
+import net.minecraft.client.Minecraft;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.EntityHitResult;
 
 /** Same swing-based approximation as ComboCounter — Minecraft doesn't tell the client when a hit actually connects. */
 public class HitSound extends Module {
@@ -44,24 +43,24 @@ public class HitSound extends Module {
     }
 
     private void onTick(TickEvent event) {
-        MinecraftClient mc = event.getClient();
+        Minecraft mc = event.getClient();
         if (mc.player == null) return;
 
-        boolean pressed = mc.options.attackKey.isPressed();
+        boolean pressed = mc.options.keyAttack.isDown();
         boolean justPressed = pressed && !wasAttackPressed;
         wasAttackPressed = pressed;
 
-        if (justPressed && mc.crosshairTarget instanceof EntityHitResult hit && hit.getEntity() instanceof LivingEntity) {
+        if (justPressed && mc.hitResult instanceof EntityHitResult hit && hit.getEntity() instanceof LivingEntity) {
             mc.player.playSound(selectedSound(), volume / 100f, pitch);
         }
     }
 
-    private net.minecraft.sound.SoundEvent selectedSound() {
+    private net.minecraft.sounds.SoundEvent selectedSound() {
         return switch (sound) {
-            case SOUND_BOW -> SoundEvents.ENTITY_ARROW_HIT_PLAYER;
-            case SOUND_ANVIL -> SoundEvents.BLOCK_ANVIL_LAND;
-            case SOUND_EXP -> SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP;
-            default -> SoundEvents.ENTITY_PLAYER_ATTACK_KNOCKBACK;
+            case SOUND_BOW -> SoundEvents.ARROW_HIT_PLAYER;
+            case SOUND_ANVIL -> SoundEvents.ANVIL_LAND;
+            case SOUND_EXP -> SoundEvents.EXPERIENCE_ORB_PICKUP;
+            default -> SoundEvents.PLAYER_ATTACK_KNOCKBACK;
         };
     }
 

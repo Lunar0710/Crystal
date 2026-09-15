@@ -4,9 +4,8 @@ import dev.crystal.client.module.BooleanSetting;
 import dev.crystal.client.module.ColorSetting;
 import dev.crystal.client.module.Setting;
 import dev.crystal.client.module.SliderSetting;
-import net.minecraft.client.MinecraftClient;
-
 import java.util.List;
+import net.minecraft.client.Minecraft;
 
 /** Rendered specially by {@link dev.crystal.client.gui.CrystalHUD} — a WASD box grid, not a single text line. */
 public class Keystrokes extends HudModule {
@@ -22,13 +21,13 @@ public class Keystrokes extends HudModule {
         super("Keystrokes", "Shows WASD and click inputs on screen", 4, 200);
     }
 
-    public boolean forward() { return MinecraftClient.getInstance().options.forwardKey.isPressed(); }
-    public boolean left() { return MinecraftClient.getInstance().options.leftKey.isPressed(); }
-    public boolean back() { return MinecraftClient.getInstance().options.backKey.isPressed(); }
-    public boolean right() { return MinecraftClient.getInstance().options.rightKey.isPressed(); }
-    public boolean jump() { return MinecraftClient.getInstance().options.jumpKey.isPressed(); }
-    public boolean attack() { return MinecraftClient.getInstance().options.attackKey.isPressed(); }
-    public boolean use() { return MinecraftClient.getInstance().options.useKey.isPressed(); }
+    public boolean forward() { return Minecraft.getInstance().options.keyUp.isDown(); }
+    public boolean left() { return Minecraft.getInstance().options.keyLeft.isDown(); }
+    public boolean back() { return Minecraft.getInstance().options.keyDown.isDown(); }
+    public boolean right() { return Minecraft.getInstance().options.keyRight.isDown(); }
+    public boolean jump() { return Minecraft.getInstance().options.keyJump.isDown(); }
+    public boolean attack() { return Minecraft.getInstance().options.keyAttack.isDown(); }
+    public boolean use() { return Minecraft.getInstance().options.keyUse.isDown(); }
 
     public int getPressedColor() { return pressedColor; }
     public int getIdleColor() { return idleColor; }

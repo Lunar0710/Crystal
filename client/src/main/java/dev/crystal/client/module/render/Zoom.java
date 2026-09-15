@@ -5,9 +5,8 @@ import dev.crystal.client.module.ModuleCategory;
 import dev.crystal.client.module.Setting;
 import dev.crystal.client.module.BooleanSetting;
 import dev.crystal.client.module.SliderSetting;
-import net.minecraft.client.MinecraftClient;
-
 import java.util.List;
+import net.minecraft.client.Minecraft;
 
 /**
  * Toggle (not hold) — Crystal's keybind system is toggle-only, so this reduces
@@ -65,9 +64,9 @@ public class Zoom extends Module {
 
     /** Puts back the sensitivity from before the zoom, if this zoom changed it. */
     public void restoreSensitivity() {
-        var options = MinecraftClient.getInstance().options;
+        var options = Minecraft.getInstance().options;
         if (!sensitivityLowered || options == null) return;
-        options.getMouseSensitivity().setValue(previousSensitivity);
+        options.sensitivity().set(previousSensitivity);
         sensitivityLowered = false;
     }
 
@@ -78,17 +77,17 @@ public class Zoom extends Module {
      * left the mouse unable to turn.
      */
     private void applySensitivity() {
-        var options = MinecraftClient.getInstance().options;
+        var options = Minecraft.getInstance().options;
         if (options == null || !isEnabled()) return;
         if (!lowerSensitivity) {
             restoreSensitivity();
             return;
         }
         if (!sensitivityLowered) {
-            previousSensitivity = options.getMouseSensitivity().getValue();
+            previousSensitivity = options.sensitivity().get();
             sensitivityLowered = true;
         }
-        options.getMouseSensitivity().setValue(Math.max(0.0, previousSensitivity / currentFactor));
+        options.sensitivity().set(Math.max(0.0, previousSensitivity / currentFactor));
     }
 
     private static double clamp(double f) {

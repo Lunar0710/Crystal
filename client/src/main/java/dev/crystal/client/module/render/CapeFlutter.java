@@ -5,10 +5,9 @@ import dev.crystal.client.module.Module;
 import dev.crystal.client.module.ModuleCategory;
 import dev.crystal.client.module.Setting;
 import dev.crystal.client.module.SliderSetting;
-import net.minecraft.client.render.entity.state.PlayerEntityRenderState;
-import net.minecraft.util.math.MathHelper;
-
 import java.util.List;
+import net.minecraft.client.renderer.entity.state.AvatarRenderState;
+import net.minecraft.util.Mth;
 
 /**
  * Makes capes flutter instead of hanging stiffly, and — with Wavy Cloth on —
@@ -48,20 +47,20 @@ public class CapeFlutter extends Module {
      * off, and from the wavy-mesh renderer either way (as the base tilt the
      * ripple then plays out on top of).
      */
-    public void apply(PlayerEntityRenderState state) {
+    public void apply(AvatarRenderState state) {
         if (strength <= 0f) return;
-        float movement = MathHelper.clamp(state.limbSwingAmplitude, 0f, 1f);
+        float movement = Mth.clamp(state.walkAnimationSpeed, 0f, 1f);
         if (onlyWhileMoving && movement < 0.05f) return;
 
-        float t = state.age * speed;
+        float t = state.ageInTicks * speed;
 
         // Two slightly detuned waves so the motion doesn't read as a metronome.
-        float lift = (2.5f + 10f * movement) * (0.55f + 0.45f * MathHelper.sin(t * 0.55f))
-                + 1.5f * MathHelper.sin(t * 1.3f + 0.7f);
-        float sway = (1.5f + 4f * movement) * MathHelper.sin(t * 0.42f + 1.1f);
+        float lift = (2.5f + 10f * movement) * (0.55f + 0.45f * Mth.sin(t * 0.55f))
+                + 1.5f * Mth.sin(t * 1.3f + 0.7f);
+        float sway = (1.5f + 4f * movement) * Mth.sin(t * 0.42f + 1.1f);
 
-        state.field_53536 += lift * strength;
-        state.field_53538 += sway * strength;
+        state.capeFlap += lift * strength;
+        state.capeLean2 += sway * strength;
     }
 
     @Override

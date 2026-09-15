@@ -9,10 +9,9 @@ import dev.crystal.client.module.Setting;
 import net.fabricmc.fabric.api.resource.v1.ResourceLoader;
 import net.fabricmc.fabric.api.resource.v1.pack.PackActivationType;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.resource.ResourcePackManager;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.packs.repository.PackRepository;
 import java.util.List;
 
 /**
@@ -46,10 +45,10 @@ public class TextStyle extends Module {
 
     public static void registerPacks() {
         var crystal = FabricLoader.getInstance().getModContainer(CrystalClient.MOD_ID).orElseThrow();
-        ResourceLoader.registerBuiltinPack(Identifier.of(CrystalClient.MOD_ID, "smooth_font"), crystal,
-                Text.literal("Crystal: Smooth Font"), PackActivationType.NORMAL);
-        ResourceLoader.registerBuiltinPack(Identifier.of(CrystalClient.MOD_ID, "mono_font"), crystal,
-                Text.literal("Crystal: Mono Font"), PackActivationType.NORMAL);
+        ResourceLoader.registerBuiltinPack(Identifier.fromNamespaceAndPath(CrystalClient.MOD_ID, "smooth_font"), crystal,
+                Component.literal("Crystal: Smooth Font"), PackActivationType.NORMAL);
+        ResourceLoader.registerBuiltinPack(Identifier.fromNamespaceAndPath(CrystalClient.MOD_ID, "mono_font"), crystal,
+                Component.literal("Crystal: Mono Font"), PackActivationType.NORMAL);
     }
 
     /** The font that should be showing right now. */
@@ -60,29 +59,29 @@ public class TextStyle extends Module {
     /** Brings packs and the Unicode option in line with {@link #wanted()} when they differ. */
     private void sync() {
         if (mc.getOverlay() != null || mc.options == null) return;
-        ResourcePackManager packs = mc.getResourcePackManager();
+        PackRepository packs = mc.getResourcePackRepository();
         String want = wanted();
 
-        boolean smoothOn = packs.getEnabledIds().contains(PACK_SMOOTH);
-        boolean monoOn = packs.getEnabledIds().contains(PACK_MONO);
+        boolean smoothOn = packs.getSelectedIds().contains(PACK_SMOOTH);
+        boolean monoOn = packs.getSelectedIds().contains(PACK_MONO);
         boolean needSmooth = FONT_SMOOTH.equals(want);
         boolean needMono = FONT_MONO.equals(want);
 
         if (smoothOn != needSmooth || monoOn != needMono) {
-            if (needSmooth) packs.enable(PACK_SMOOTH); else packs.disable(PACK_SMOOTH);
-            if (needMono) packs.enable(PACK_MONO); else packs.disable(PACK_MONO);
+            if (needSmooth) packs.addPack(PACK_SMOOTH); else packs.removePack(PACK_SMOOTH);
+            if (needMono) packs.addPack(PACK_MONO); else packs.removePack(PACK_MONO);
             // Saves the pack list to options.txt and reloads resources.
-            mc.options.refreshResourcePacks(packs);
+            mc.options.updateResourcePacks(packs);
             return;
         }
 
-        boolean unicode = mc.options.getForceUnicodeFont().getValue();
+        boolean unicode = mc.options.forceUnicodeFont().get();
         boolean wantUnicode = FONT_UNICODE.equals(want);
         boolean turnOn = wantUnicode && !unicode;
         boolean turnOff = !wantUnicode && unicode && FONT_UNICODE.equals(lastApplied);
         if (turnOn || turnOff) {
-            mc.options.getForceUnicodeFont().setValue(turnOn);
-            mc.options.write();
+            mc.options.forceUnicodeFont().set(turnOn);
+            mc.options.save();
         }
         lastApplied = want;
     }

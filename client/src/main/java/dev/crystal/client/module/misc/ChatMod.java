@@ -8,18 +8,17 @@ import dev.crystal.client.module.Module;
 import dev.crystal.client.module.ModuleCategory;
 import dev.crystal.client.module.Setting;
 import dev.crystal.client.module.SliderSetting;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.sound.PositionedSoundInstance;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 
 import java.util.List;
 import java.util.function.Consumer;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.sounds.SoundEvents;
 
 /**
  * Wraps vanilla's own chat scale/opacity/width options — restores them on disable.
@@ -61,30 +60,30 @@ public class ChatMod extends Module {
     @Override
     public void onDisable() {
         CrystalClient.getInstance().getEventBus().unsubscribe(TickEvent.class, tickListener);
-        var options = MinecraftClient.getInstance().options;
+        var options = Minecraft.getInstance().options;
         if (options == null || !capturedPrevious) return;
-        options.getChatScale().setValue(previousScale);
-        options.getChatOpacity().setValue(previousOpacity);
-        options.getChatWidth().setValue(previousWidth);
+        options.chatScale().set(previousScale);
+        options.chatOpacity().set(previousOpacity);
+        options.chatWidth().set(previousWidth);
     }
 
     private void onTick(TickEvent event) {
         if (capturedPrevious) return;
         var options = event.getClient().options;
         if (options == null) return;
-        previousScale = options.getChatScale().getValue();
-        previousOpacity = options.getChatOpacity().getValue();
-        previousWidth = options.getChatWidth().getValue();
+        previousScale = options.chatScale().get();
+        previousOpacity = options.chatOpacity().get();
+        previousWidth = options.chatWidth().get();
         capturedPrevious = true;
         apply();
     }
 
     private void apply() {
-        var options = MinecraftClient.getInstance().options;
+        var options = Minecraft.getInstance().options;
         if (options == null) return;
-        options.getChatScale().setValue((double) scale);
-        options.getChatOpacity().setValue((double) opacity);
-        options.getChatWidth().setValue((double) width);
+        options.chatScale().set((double) scale);
+        options.chatOpacity().set((double) opacity);
+        options.chatWidth().set((double) width);
     }
 
     public boolean isStackDuplicates() { return stackDuplicates; }
@@ -111,20 +110,20 @@ public class ChatMod extends Module {
         return true;
     }
 
-    public Text decorate(Text message, int repeat) {
-        MutableText out = Text.empty();
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (timestamps) out.append(Text.literal("[" + LocalTime.now().format(TIME) + "] ").formatted(Formatting.GRAY));
+    public Component decorate(Component message, int repeat) {
+        MutableComponent out = Component.empty();
+        Minecraft mc = Minecraft.getInstance();
+        if (timestamps) out.append(Component.literal("[" + LocalTime.now().format(TIME) + "] ").withStyle(ChatFormatting.GRAY));
         if (highlightName && mc.player != null && repeat == 1) {
             String name = mc.player.getName().getString();
             String plain = message.getString();
             if (name.length() >= 3 && isMention(plain, name)) {
-                out.append(Text.literal("▌ ").styled(st -> st.withColor(highlightColor & 0xFFFFFF)));
-                if (highlightSound) mc.getSoundManager().play(PositionedSoundInstance.ui(SoundEvents.BLOCK_NOTE_BLOCK_PLING.value(), 1.6f, 0.4f));
+                out.append(Component.literal("▌ ").withStyle(st -> st.withColor(highlightColor & 0xFFFFFF)));
+                if (highlightSound) mc.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.NOTE_BLOCK_PLING.value(), 1.6f, 0.4f));
             }
         }
         out.append(message);
-        if (repeat > 1) out.append(Text.literal(" (x" + repeat + ")").formatted(Formatting.GRAY));
+        if (repeat > 1) out.append(Component.literal(" (x" + repeat + ")").withStyle(ChatFormatting.GRAY));
         return out;
     }
 

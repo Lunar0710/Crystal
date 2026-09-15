@@ -11,16 +11,15 @@ import dev.crystal.client.module.ModuleCategory;
 import dev.crystal.client.module.Setting;
 import dev.crystal.client.module.SliderSetting;
 import dev.crystal.client.util.CrystalPaths;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.CloudRenderMode;
-import net.minecraft.client.option.GameOptions;
-import net.minecraft.particle.ParticlesMode;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.function.Consumer;
+import net.minecraft.client.CloudStatus;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Options;
+import net.minecraft.server.level.ParticleStatus;
 
 /**
  * Turns down the vanilla video options that cost the most on weak hardware,
@@ -67,18 +66,18 @@ public class PerformanceMode extends Module {
         apply(event.getClient().options);
     }
 
-    private void apply(GameOptions o) {
+    private void apply(Options o) {
         Path backup = backupFile();
         // Never overwrite an existing backup: if one is there, it already holds
         // the real originals from before an earlier session.
         if (!Files.exists(backup)) {
             JsonObject saved = new JsonObject();
-            saved.addProperty("viewDistance", o.getViewDistance().getValue());
-            saved.addProperty("simulationDistance", o.getSimulationDistance().getValue());
-            saved.addProperty("particles", o.getParticles().getValue().name());
-            saved.addProperty("clouds", o.getCloudRenderMode().getValue().name());
-            saved.addProperty("entityShadows", o.getEntityShadows().getValue());
-            saved.addProperty("biomeBlend", o.getBiomeBlendRadius().getValue());
+            saved.addProperty("viewDistance", o.renderDistance().get());
+            saved.addProperty("simulationDistance", o.simulationDistance().get());
+            saved.addProperty("particles", o.particles().get().name());
+            saved.addProperty("clouds", o.cloudStatus().get().name());
+            saved.addProperty("entityShadows", o.entityShadows().get());
+            saved.addProperty("biomeBlend", o.biomeBlendRadius().get());
             try {
                 Files.createDirectories(backup.getParent());
                 Files.writeString(backup, GSON.toJson(saved));
@@ -90,32 +89,32 @@ public class PerformanceMode extends Module {
             }
         }
 
-        o.getViewDistance().setValue(Math.min(o.getViewDistance().getValue(), Math.round(viewDistance)));
-        o.getSimulationDistance().setValue(Math.min(o.getSimulationDistance().getValue(), Math.round(simulationDistance)));
-        if (reduceParticles && o.getParticles().getValue() == ParticlesMode.ALL) o.getParticles().setValue(ParticlesMode.DECREASED);
-        if (disableClouds) o.getCloudRenderMode().setValue(CloudRenderMode.OFF);
-        if (disableEntityShadows) o.getEntityShadows().setValue(false);
-        if (disableBiomeBlend) o.getBiomeBlendRadius().setValue(0);
-        o.write();
+        o.renderDistance().set(Math.min(o.renderDistance().get(), Math.round(viewDistance)));
+        o.simulationDistance().set(Math.min(o.simulationDistance().get(), Math.round(simulationDistance)));
+        if (reduceParticles && o.particles().get() == ParticleStatus.ALL) o.particles().set(ParticleStatus.DECREASED);
+        if (disableClouds) o.cloudStatus().set(CloudStatus.OFF);
+        if (disableEntityShadows) o.entityShadows().set(false);
+        if (disableBiomeBlend) o.biomeBlendRadius().set(0);
+        o.save();
         applied = true;
     }
 
     private void restore() {
         applied = false;
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         Path backup = backupFile();
         if (mc.options == null || !Files.exists(backup)) return;
 
         try {
             JsonObject saved = GSON.fromJson(Files.readString(backup), JsonObject.class);
-            GameOptions o = mc.options;
-            o.getViewDistance().setValue(saved.get("viewDistance").getAsInt());
-            o.getSimulationDistance().setValue(saved.get("simulationDistance").getAsInt());
-            o.getParticles().setValue(ParticlesMode.valueOf(saved.get("particles").getAsString()));
-            o.getCloudRenderMode().setValue(CloudRenderMode.valueOf(saved.get("clouds").getAsString()));
-            o.getEntityShadows().setValue(saved.get("entityShadows").getAsBoolean());
-            o.getBiomeBlendRadius().setValue(saved.get("biomeBlend").getAsInt());
-            o.write();
+            Options o = mc.options;
+            o.renderDistance().set(saved.get("viewDistance").getAsInt());
+            o.simulationDistance().set(saved.get("simulationDistance").getAsInt());
+            o.particles().set(ParticleStatus.valueOf(saved.get("particles").getAsString()));
+            o.cloudStatus().set(CloudStatus.valueOf(saved.get("clouds").getAsString()));
+            o.entityShadows().set(saved.get("entityShadows").getAsBoolean());
+            o.biomeBlendRadius().set(saved.get("biomeBlend").getAsInt());
+            o.save();
             Files.delete(backup);
         } catch (Exception e) {
             // Keep the backup file so nothing is lost; the next disable retries.
@@ -129,8 +128,8 @@ public class PerformanceMode extends Module {
 
     /** Re-applies with the new values when a setting changes while active. */
     private void reapply() {
-        if (!isEnabled() || MinecraftClient.getInstance().options == null) return;
-        apply(MinecraftClient.getInstance().options);
+        if (!isEnabled() || Minecraft.getInstance().options == null) return;
+        apply(Minecraft.getInstance().options);
     }
 
     @Override

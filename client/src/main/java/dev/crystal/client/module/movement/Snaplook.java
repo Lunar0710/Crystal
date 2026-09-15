@@ -1,5 +1,6 @@
 package dev.crystal.client.module.movement;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import dev.crystal.client.CrystalClient;
 import dev.crystal.client.event.events.TickEvent;
 import dev.crystal.client.module.KeybindSetting;
@@ -7,12 +8,11 @@ import dev.crystal.client.module.Module;
 import dev.crystal.client.module.ModuleCategory;
 import dev.crystal.client.module.Setting;
 import dev.crystal.client.module.SliderSetting;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.util.InputUtil;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.List;
 import java.util.function.Consumer;
+import net.minecraft.client.Minecraft;
 
 /** The actual snap happens in {@link dev.crystal.client.mixin.MixinCamera}, reading {@link #isActive()} and {@link #snap(float)}. */
 public class Snaplook extends Module {
@@ -39,9 +39,9 @@ public class Snaplook extends Module {
     }
 
     private void onTick(TickEvent event) {
-        MinecraftClient mc = event.getClient();
-        active = key != GLFW.GLFW_KEY_UNKNOWN && mc.player != null && mc.currentScreen == null
-                && InputUtil.isKeyPressed(mc.getWindow(), key);
+        Minecraft mc = event.getClient();
+        active = key != GLFW.GLFW_KEY_UNKNOWN && mc.player != null && mc.screen == null
+                && InputConstants.isKeyDown(mc.getWindow(), key);
     }
 
     public boolean isActive() { return active; }

@@ -3,11 +3,6 @@ package dev.crystal.client.mixin;
 import dev.crystal.client.CrystalClient;
 import dev.crystal.client.module.misc.ChatFilter;
 import dev.crystal.client.module.misc.ChatMod;
-import net.minecraft.client.gui.hud.ChatHudLine;
-import net.minecraft.client.gui.hud.ChatHud;
-import net.minecraft.client.gui.hud.MessageIndicator;
-import net.minecraft.network.message.MessageSignatureData;
-import net.minecraft.text.Text;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -18,12 +13,17 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.List;
+import net.minecraft.client.GuiMessage;
+import net.minecraft.client.GuiMessageTag;
+import net.minecraft.client.gui.components.ChatComponent;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MessageSignature;
 
-@Mixin(ChatHud.class)
+@Mixin(ChatComponent.class)
 public class MixinChatHud {
 
-    @Shadow @Final private List<ChatHudLine.Visible> visibleMessages;
-    @Shadow @Final private List<ChatHudLine> messages;
+    @Shadow @Final private List<GuiMessage.Line> trimmedMessages;
+    @Shadow @Final private List<GuiMessage> allMessages;
 
     /** Plain text of the newest line, how often it repeated, and how many wrapped rows it took. */
     @Unique private String crystal$lastPlain = null;
@@ -36,10 +36,10 @@ public class MixinChatHud {
      * line with "(x2)", "(x3)"... instead of filling the chat; timestamps and
      * name highlighting are added here too.
      */
-    @ModifyVariable(method = "addMessage(Lnet/minecraft/text/Text;Lnet/minecraft/network/message/MessageSignatureData;Lnet/minecraft/client/gui/hud/MessageIndicator;)V",
+    @ModifyVariable(method = "addMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/GuiMessageTag;)V",
             at = @At("HEAD"), argsOnly = true, ordinal = 0)
-    private Text crystal$decorate(Text message) {
-        crystal$rowsBefore = visibleMessages.size();
+    private Component crystal$decorate(Component message) {
+        crystal$rowsBefore = trimmedMessages.size();
         CrystalClient client = CrystalClient.getInstance();
         ChatMod chat = client == null ? null : client.getModuleManager().getEnabled(ChatMod.class);
         if (chat == null) {
@@ -47,12 +47,12 @@ public class MixinChatHud {
             return message;
         }
         String plain = message.getString();
-        if (chat.isStackDuplicates() && plain.equals(crystal$lastPlain) && !messages.isEmpty()
-                && crystal$lastRows > 0 && crystal$lastRows <= visibleMessages.size()) {
+        if (chat.isStackDuplicates() && plain.equals(crystal$lastPlain) && !allMessages.isEmpty()
+                && crystal$lastRows > 0 && crystal$lastRows <= trimmedMessages.size()) {
             crystal$repeat++;
-            messages.removeFirst();
-            for (int i = 0; i < crystal$lastRows; i++) visibleMessages.removeFirst();
-            crystal$rowsBefore = visibleMessages.size();
+            allMessages.removeFirst();
+            for (int i = 0; i < crystal$lastRows; i++) trimmedMessages.removeFirst();
+            crystal$rowsBefore = trimmedMessages.size();
         } else {
             crystal$lastPlain = plain;
             crystal$repeat = 1;
@@ -60,18 +60,18 @@ public class MixinChatHud {
         return chat.decorate(message, crystal$repeat);
     }
 
-    @Inject(method = "addMessage(Lnet/minecraft/text/Text;Lnet/minecraft/network/message/MessageSignatureData;Lnet/minecraft/client/gui/hud/MessageIndicator;)V",
+    @Inject(method = "addMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/GuiMessageTag;)V",
             at = @At("TAIL"))
-    private void crystal$countRows(Text message, MessageSignatureData signature, MessageIndicator indicator, CallbackInfo ci) {
-        crystal$lastRows = Math.max(0, visibleMessages.size() - crystal$rowsBefore);
+    private void crystal$countRows(Component message, MessageSignature signature, GuiMessageTag indicator, CallbackInfo ci) {
+        crystal$lastRows = Math.max(0, trimmedMessages.size() - crystal$rowsBefore);
     }
 
     @Inject(
-        method = "addMessage(Lnet/minecraft/text/Text;Lnet/minecraft/network/message/MessageSignatureData;Lnet/minecraft/client/gui/hud/MessageIndicator;)V",
+        method = "addMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/GuiMessageTag;)V",
         at = @At("HEAD"),
         cancellable = true
     )
-    private void onAddMessage(Text message, MessageSignatureData signature, MessageIndicator indicator, CallbackInfo ci) {
+    private void onAddMessage(Component message, MessageSignature signature, GuiMessageTag indicator, CallbackInfo ci) {
         if (CrystalClient.getInstance() == null) return;
 
         ChatFilter filter = CrystalClient.getInstance().getModuleManager().getModuleByName("ChatFilter")

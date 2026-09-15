@@ -5,9 +5,8 @@ import dev.crystal.client.module.Module;
 import dev.crystal.client.module.ModuleCategory;
 import dev.crystal.client.module.Setting;
 import dev.crystal.client.module.SliderSetting;
-import net.minecraft.client.MinecraftClient;
-
 import java.util.List;
+import net.minecraft.client.Minecraft;
 
 /**
  * Fullbright via vanilla's own gamma value.
@@ -29,17 +28,17 @@ public class Lighting extends Module {
 
     @Override
     public void onEnable() {
-        var options = MinecraftClient.getInstance().options;
+        var options = Minecraft.getInstance().options;
         if (options == null) return;
 
-        previousGamma = options.getGamma().getValue();
+        previousGamma = options.gamma().get();
         setGamma((double) brightness);
         applied = true;
     }
 
     @Override
     public void onDisable() {
-        var options = MinecraftClient.getInstance().options;
+        var options = Minecraft.getInstance().options;
         if (options == null || !applied) return;
 
         setGamma(previousGamma);
@@ -47,9 +46,9 @@ public class Lighting extends Module {
     }
 
     private void setGamma(double value) {
-        var options = MinecraftClient.getInstance().options;
+        var options = Minecraft.getInstance().options;
         if (options == null) return;
-        ((SimpleOptionAccessor) (Object) options.getGamma()).crystal$setRawValue(value);
+        ((SimpleOptionAccessor) (Object) options.gamma()).crystal$setRawValue(value);
     }
 
     @Override

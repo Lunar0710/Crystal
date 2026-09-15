@@ -1,5 +1,6 @@
 package dev.crystal.client.module.render;
 
+import com.mojang.blaze3d.platform.NativeImage;
 import dev.crystal.client.CrystalClient;
 import dev.crystal.client.event.events.TickEvent;
 import dev.crystal.client.module.ColorSetting;
@@ -7,10 +8,8 @@ import dev.crystal.client.module.Module;
 import dev.crystal.client.module.ModuleCategory;
 import dev.crystal.client.module.Setting;
 import dev.crystal.client.module.SliderSetting;
-import net.minecraft.client.texture.NativeImage;
-import net.minecraft.client.texture.NativeImageBackedTexture;
-
 import java.util.List;
+import net.minecraft.client.renderer.texture.DynamicTexture;
 
 /**
  * Recolours the flash mobs and players get when they take damage (vanilla:
@@ -22,7 +21,7 @@ public class HitColor extends Module {
     /** Vanilla's hurt tint: red at 70% opacity. */
     private static final int VANILLA = 0xB2FF0000;
 
-    private static NativeImageBackedTexture overlay;
+    private static DynamicTexture overlay;
 
     private int color = 0xFF7C6AF5;
     private float opacity = 70f;
@@ -33,7 +32,7 @@ public class HitColor extends Module {
         CrystalClient.getInstance().getEventBus().subscribe(TickEvent.class, e -> sync());
     }
 
-    public static void attach(NativeImageBackedTexture texture) {
+    public static void attach(DynamicTexture texture) {
         overlay = texture;
     }
 
@@ -41,10 +40,10 @@ public class HitColor extends Module {
         int alpha = Math.round(Math.max(5f, Math.min(100f, opacity)) * 2.55f);
         int wanted = isEnabled() ? (alpha << 24) | (color & 0xFFFFFF) : VANILLA;
         if (wanted == painted || overlay == null) return;
-        NativeImage image = overlay.getImage();
+        NativeImage image = overlay.getPixels();
         if (image == null) return;
         for (int y = 0; y < 8; y++) {
-            for (int x = 0; x < 16; x++) image.setColorArgb(x, y, wanted);
+            for (int x = 0; x < 16; x++) image.setPixel(x, y, wanted);
         }
         overlay.upload();
         painted = wanted;

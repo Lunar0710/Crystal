@@ -1,8 +1,7 @@
 package dev.crystal.client.module.hud;
 
-import net.minecraft.client.MinecraftClient;
-
 import java.util.Locale;
+import net.minecraft.client.Minecraft;
 
 /** Name of the biome at the player's feet, e.g. "Biome: Dark Forest". */
 public class BiomeDisplay extends HudModule {
@@ -13,10 +12,10 @@ public class BiomeDisplay extends HudModule {
 
     @Override
     public String getText() {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc.player == null || mc.world == null) return "Biome: -";
-        return mc.world.getBiome(mc.player.getBlockPos()).getKey()
-                .map(key -> "Biome: " + pretty(key.getValue().getPath()))
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || mc.level == null) return "Biome: -";
+        return mc.level.getBiome(mc.player.blockPosition()).unwrapKey()
+                .map(key -> "Biome: " + pretty(key.identifier().getPath()))
                 .orElse("Biome: -");
     }
 

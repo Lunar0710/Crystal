@@ -2,11 +2,10 @@ package dev.crystal.client.module.hud;
 
 import dev.crystal.client.CrystalClient;
 import dev.crystal.client.event.events.TickEvent;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.util.hit.EntityHitResult;
-
 import java.util.function.Consumer;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.EntityHitResult;
 
 /** Tracks the last entity swung at (see {@link ComboCounter} for why this is a swing-based approximation, not a server-confirmed hit). */
 public class PvPInfo extends HudModule {
@@ -32,19 +31,19 @@ public class PvPInfo extends HudModule {
     }
 
     private void onTick(TickEvent event) {
-        MinecraftClient mc = event.getClient();
-        boolean pressed = mc.options.attackKey.isPressed();
+        Minecraft mc = event.getClient();
+        boolean pressed = mc.options.keyAttack.isDown();
         boolean justPressed = pressed && !wasAttackPressed;
         wasAttackPressed = pressed;
 
-        if (justPressed && mc.crosshairTarget instanceof EntityHitResult hit && hit.getEntity() instanceof LivingEntity target) {
+        if (justPressed && mc.hitResult instanceof EntityHitResult hit && hit.getEntity() instanceof LivingEntity target) {
             lastTargetName = target.getName().getString();
         }
     }
 
     @Override
     public String getText() {
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) return "PvP: N/A";
 
         String you = String.format("You: %.1f HP", mc.player.getHealth());

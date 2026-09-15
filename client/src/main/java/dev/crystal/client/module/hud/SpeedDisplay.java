@@ -2,9 +2,8 @@ package dev.crystal.client.module.hud;
 
 import dev.crystal.client.module.BooleanSetting;
 import dev.crystal.client.module.Setting;
-import net.minecraft.client.MinecraftClient;
-
 import java.util.List;
+import net.minecraft.client.Minecraft;
 
 /** Movement speed in blocks per second, measured from the player's position between refreshes. */
 public class SpeedDisplay extends HudModule {
@@ -21,7 +20,7 @@ public class SpeedDisplay extends HudModule {
 
     @Override
     public String getText() {
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) return "Speed: -";
 
         long now = System.currentTimeMillis();

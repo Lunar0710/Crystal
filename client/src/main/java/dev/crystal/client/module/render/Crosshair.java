@@ -96,14 +96,14 @@ public class Crosshair extends Module {
                 new BooleanSetting("Dot Style", () -> dot, v -> dot = v, false),
                 new EnumSetting("Shape", () -> shape, v -> shape = v, List.of(SHAPE_CROSS, SHAPE_CUSTOM, SHAPE_GAP, SHAPE_CIRCLE, SHAPE_X, SHAPE_BRACKETS)),
                 new ButtonSetting("Eigenes Fadenkreuz", () -> "Editor öffnen", () ->
-                        net.minecraft.client.MinecraftClient.getInstance().setScreen(new dev.crystal.client.gui.CrosshairEditorScreen(this))),
+                        net.minecraft.client.Minecraft.getInstance().setScreen(new dev.crystal.client.gui.CrosshairEditorScreen(this))),
                 new BooleanSetting("Chroma (Crystal+)", () -> chroma, v -> chroma = v, false),
                 new HiddenTextSetting("Pixels", () -> pixels, v -> pixels = normalized(v))
         );
     }
 
     /** Draws the crosshair centred on (cx, cy): in-game by MixinInGameHud and in the menu's live preview. */
-    public void draw(net.minecraft.client.gui.DrawContext context, int cx, int cy) {
+    public void draw(net.minecraft.client.gui.GuiGraphics context, int cx, int cy) {
         int size = Math.round(this.getSize());
         int thickness = Math.round(this.getThickness());
         int color = this.getColor();

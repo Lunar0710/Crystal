@@ -1,21 +1,20 @@
 package dev.crystal.client.module.hud;
 
+import com.mojang.blaze3d.platform.NativeImage;
 import dev.crystal.client.CrystalClient;
 import dev.crystal.client.module.BooleanSetting;
 import dev.crystal.client.module.Setting;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.texture.NativeImage;
-import net.minecraft.client.texture.NativeImageBackedTexture;
-import net.minecraft.util.Identifier;
-
 import java.util.Arrays;
 import java.util.List;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.resources.Identifier;
 
 /** The address of the server you're on, optionally with the server's logo in front. */
 public class ServerAddressDisplay extends HudModule {
 
-    private static final Identifier LOGO_ID = Identifier.of(CrystalClient.MOD_ID, "hud/server_logo");
-    private static final Identifier UNKNOWN_LOGO = Identifier.ofVanilla("textures/misc/unknown_server.png");
+    private static final Identifier LOGO_ID = Identifier.fromNamespaceAndPath(CrystalClient.MOD_ID, "hud/server_logo");
+    private static final Identifier UNKNOWN_LOGO = Identifier.withDefaultNamespace("textures/misc/unknown_server.png");
 
     private boolean showLogo = true;
 
@@ -30,28 +29,28 @@ public class ServerAddressDisplay extends HudModule {
 
     @Override
     public String getText() {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc.isIntegratedServerRunning()) return "Singleplayer";
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.hasSingleplayerServer()) return "Singleplayer";
 
-        var entry = mc.getCurrentServerEntry();
-        return entry != null ? entry.address : "";
+        var entry = mc.getCurrentServer();
+        return entry != null ? entry.ip : "";
     }
 
     @Override
     public Identifier getIcon() {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (!showLogo || mc.isIntegratedServerRunning()) return null;
-        var entry = mc.getCurrentServerEntry();
+        Minecraft mc = Minecraft.getInstance();
+        if (!showLogo || mc.hasSingleplayerServer()) return null;
+        var entry = mc.getCurrentServer();
         if (entry == null) return null;
 
-        byte[] favicon = entry.getFavicon();
+        byte[] favicon = entry.getIconBytes();
         if (favicon == null) return UNKNOWN_LOGO;
         if (!Arrays.equals(favicon, uploadedFavicon)) {
             uploadedFavicon = favicon;
             try {
                 NativeImage image = NativeImage.read(favicon);
                 // Replaces (and frees) the previous server's logo.
-                mc.getTextureManager().registerTexture(LOGO_ID, new NativeImageBackedTexture(LOGO_ID::toString, image));
+                mc.getTextureManager().register(LOGO_ID, new DynamicTexture(LOGO_ID::toString, image));
                 uploadFailed = false;
             } catch (Exception e) {
                 CrystalClient.LOGGER.warn("[Crystal] Server logo could not be read: {}", e.getMessage());

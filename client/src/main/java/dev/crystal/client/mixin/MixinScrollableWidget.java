@@ -3,8 +3,8 @@ package dev.crystal.client.mixin;
 import dev.crystal.client.CrystalClient;
 import dev.crystal.client.module.misc.SmoothScroll;
 import dev.crystal.client.util.SmoothScrollable;
-import net.minecraft.client.gui.widget.ScrollableWidget;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.client.gui.components.AbstractScrollArea;
+import net.minecraft.util.Mth;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -20,14 +20,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * position (dragging the scrollbar, jumping to a selected entry) cancels the
  * glide so it never fights the game.
  */
-@Mixin(ScrollableWidget.class)
+@Mixin(AbstractScrollArea.class)
 public abstract class MixinScrollableWidget implements SmoothScrollable {
 
-    @Shadow public abstract double getScrollY();
-    @Shadow public abstract void setScrollY(double scrollY);
-    @Shadow public abstract int getMaxScrollY();
-    @Shadow protected abstract double getDeltaYPerScroll();
-    @Shadow protected abstract boolean overflows();
+    @Shadow public abstract double scrollAmount();
+    @Shadow public abstract void setScrollAmount(double scrollY);
+    @Shadow public abstract int maxScrollAmount();
+    @Shadow protected abstract double scrollRate();
+    @Shadow protected abstract boolean scrollbarVisible();
 
     @Unique private double crystal$target;
     @Unique private boolean crystal$gliding;
@@ -37,17 +37,17 @@ public abstract class MixinScrollableWidget implements SmoothScrollable {
     @Inject(method = "mouseScrolled", at = @At("HEAD"), cancellable = true)
     private void crystal$onScroll(double mouseX, double mouseY, double horizontal, double vertical, CallbackInfoReturnable<Boolean> cir) {
         SmoothScroll module = crystal$module();
-        if (module == null || !overflows() || !((ScrollableWidget) (Object) this).visible) return;
+        if (module == null || !scrollbarVisible() || !((AbstractScrollArea) (Object) this).visible) return;
         if (!crystal$gliding) {
-            crystal$target = getScrollY();
+            crystal$target = scrollAmount();
             crystal$lastFrame = System.nanoTime();
         }
-        crystal$target = MathHelper.clamp(crystal$target - vertical * getDeltaYPerScroll() * module.getDistance(), 0, getMaxScrollY());
+        crystal$target = Mth.clamp(crystal$target - vertical * scrollRate() * module.getDistance(), 0, maxScrollAmount());
         crystal$gliding = true;
         cir.setReturnValue(true);
     }
 
-    @Inject(method = "setScrollY", at = @At("TAIL"))
+    @Inject(method = "setScrollAmount", at = @At("TAIL"))
     private void crystal$onSetScroll(double scrollY, CallbackInfo ci) {
         if (!crystal$internalSet) crystal$gliding = false;
     }
@@ -60,7 +60,7 @@ public abstract class MixinScrollableWidget implements SmoothScrollable {
         float dt = Math.min(0.1f, (now - crystal$lastFrame) / 1_000_000_000f);
         crystal$lastFrame = now;
 
-        double current = getScrollY();
+        double current = scrollAmount();
         double next = module == null ? crystal$target
                 : current + (crystal$target - current) * Math.min(1f, dt * module.getSpeed());
         if (Math.abs(crystal$target - next) < 0.5) {
@@ -68,7 +68,7 @@ public abstract class MixinScrollableWidget implements SmoothScrollable {
             crystal$gliding = false;
         }
         crystal$internalSet = true;
-        setScrollY(next);
+        setScrollAmount(next);
         crystal$internalSet = false;
     }
 

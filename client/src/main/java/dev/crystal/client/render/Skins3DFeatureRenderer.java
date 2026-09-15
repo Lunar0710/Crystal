@@ -1,22 +1,21 @@
 package dev.crystal.client.render;
 
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import dev.crystal.client.CrystalClient;
 import dev.crystal.client.module.render.Skins3D;
-import net.minecraft.client.model.ModelPart;
-import net.minecraft.client.render.OverlayTexture;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.RenderLayers;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.command.OrderedRenderCommandQueue;
-import net.minecraft.client.render.entity.feature.FeatureRenderer;
-import net.minecraft.client.render.entity.feature.FeatureRendererContext;
-import net.minecraft.client.render.entity.model.PlayerEntityModel;
-import net.minecraft.client.render.entity.state.PlayerEntityRenderState;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.player.PlayerSkinType;
-
 import java.util.ArrayList;
 import java.util.List;
+import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.client.model.player.PlayerModel;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.entity.RenderLayerParent;
+import net.minecraft.client.renderer.entity.layers.RenderLayer;
+import net.minecraft.client.renderer.entity.state.AvatarRenderState;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.world.entity.player.PlayerModelType;
 
 /**
  * 3D Skins: the outer skin layer (hat, jacket, sleeves, trousers) drawn as one
@@ -28,7 +27,7 @@ import java.util.List;
  * layer is hidden meanwhile (MixinPlayerEntityModel). Voxel positions come from
  * the same cuboid and UV layout Minecraft's player model uses.
  */
-public class Skins3DFeatureRenderer extends FeatureRenderer<PlayerEntityRenderState, PlayerEntityModel> {
+public class Skins3DFeatureRenderer extends RenderLayer<AvatarRenderState, PlayerModel> {
 
     /** One voxel: centre in part space, outward face direction, texel. */
     private record Voxel(float x, float y, float z, int nx, int ny, int nz, int u, int v) {}
@@ -42,44 +41,44 @@ public class Skins3DFeatureRenderer extends FeatureRenderer<PlayerEntityRenderSt
     private static final List<Voxel> RIGHT_PANTS = cuboid(0, 32, -2, 0, -2, 4, 12, 4);
     private static final List<Voxel> LEFT_PANTS = cuboid(0, 48, -2, 0, -2, 4, 12, 4);
 
-    public Skins3DFeatureRenderer(FeatureRendererContext<PlayerEntityRenderState, PlayerEntityModel> context) {
+    public Skins3DFeatureRenderer(RenderLayerParent<AvatarRenderState, PlayerModel> context) {
         super(context);
     }
 
-    public static boolean activeFor(PlayerEntityRenderState state) {
+    public static boolean activeFor(AvatarRenderState state) {
         CrystalClient client = CrystalClient.getInstance();
-        if (client == null || state.invisible) return false;
+        if (client == null || state.isInvisible) return false;
         Skins3D module = client.getModuleManager().getEnabled(Skins3D.class);
-        return module != null && state.squaredDistanceToCamera <= module.getRangeSquared();
+        return module != null && state.distanceToCameraSq <= module.getRangeSquared();
     }
 
     @Override
-    public void render(MatrixStack matrices, OrderedRenderCommandQueue queue, int light, PlayerEntityRenderState state, float limbAngle, float limbDistance) {
+    public void submit(PoseStack matrices, SubmitNodeCollector queue, int light, AvatarRenderState state, float limbAngle, float limbDistance) {
         if (!activeFor(state)) return;
-        PlayerEntityModel model = getContextModel();
-        RenderLayer layer = RenderLayers.entityCutoutNoCull(state.skinTextures.body().texturePath());
-        boolean slim = state.skinTextures.model() == PlayerSkinType.SLIM;
+        PlayerModel model = getParentModel();
+        RenderType layer = RenderTypes.entityCutoutNoCull(state.skin.body().texturePath());
+        boolean slim = state.skin.model() == PlayerModelType.SLIM;
         float size = CrystalClient.getInstance().getModuleManager().get(Skins3D.class).getVoxelSize();
 
-        if (state.hatVisible) draw(matrices, queue, layer, light, model.head, HAT, size);
-        if (state.jacketVisible) draw(matrices, queue, layer, light, model.body, JACKET, size);
-        if (state.rightSleeveVisible) draw(matrices, queue, layer, light, model.rightArm, slim ? RIGHT_SLEEVE_SLIM : RIGHT_SLEEVE_WIDE, size);
-        if (state.leftSleeveVisible) draw(matrices, queue, layer, light, model.leftArm, slim ? LEFT_SLEEVE_SLIM : LEFT_SLEEVE_WIDE, size);
-        if (state.rightPantsLegVisible) draw(matrices, queue, layer, light, model.rightLeg, RIGHT_PANTS, size);
-        if (state.leftPantsLegVisible) draw(matrices, queue, layer, light, model.leftLeg, LEFT_PANTS, size);
+        if (state.showHat) draw(matrices, queue, layer, light, model.head, HAT, size);
+        if (state.showJacket) draw(matrices, queue, layer, light, model.body, JACKET, size);
+        if (state.showRightSleeve) draw(matrices, queue, layer, light, model.rightArm, slim ? RIGHT_SLEEVE_SLIM : RIGHT_SLEEVE_WIDE, size);
+        if (state.showLeftSleeve) draw(matrices, queue, layer, light, model.leftArm, slim ? LEFT_SLEEVE_SLIM : LEFT_SLEEVE_WIDE, size);
+        if (state.showRightPants) draw(matrices, queue, layer, light, model.rightLeg, RIGHT_PANTS, size);
+        if (state.showLeftPants) draw(matrices, queue, layer, light, model.leftLeg, LEFT_PANTS, size);
     }
 
-    private static void draw(MatrixStack matrices, OrderedRenderCommandQueue queue, RenderLayer layer, int light,
+    private static void draw(PoseStack matrices, SubmitNodeCollector queue, RenderType layer, int light,
                              ModelPart part, List<Voxel> voxels, float size) {
         if (!part.visible) return;
-        matrices.push();
-        part.applyTransform(matrices);
+        matrices.pushPose();
+        part.translateAndRotate(matrices);
         matrices.scale(1 / 16f, 1 / 16f, 1 / 16f);
         float h = size / 2f;
-        queue.submitCustom(matrices, layer, (entry, vc) -> {
+        queue.submitCustomGeometry(matrices, layer, (entry, vc) -> {
             for (Voxel voxel : voxels) cube(entry, vc, voxel, h, light);
         });
-        matrices.pop();
+        matrices.popPose();
     }
 
     /** Builds the voxels for all six faces of an outer-layer cuboid (64x64 skin UVs, see ModelPart.Cuboid). */
@@ -111,7 +110,7 @@ public class Skins3DFeatureRenderer extends FeatureRenderer<PlayerEntityRenderSt
         return out;
     }
 
-    private static void cube(MatrixStack.Entry e, VertexConsumer vc, Voxel p, float h, int light) {
+    private static void cube(PoseStack.Pose e, VertexConsumer vc, Voxel p, float h, int light) {
         float u = (p.u + 0.5f) / 64f, v = (p.v + 0.5f) / 64f;
         // Thin along the face normal so neighbouring faces' voxels don't bulge at the edges.
         float hx = p.nx != 0 ? 0.5f : h, hy = p.ny != 0 ? 0.5f : h, hz = p.nz != 0 ? 0.5f : h;
@@ -124,7 +123,7 @@ public class Skins3DFeatureRenderer extends FeatureRenderer<PlayerEntityRenderSt
         quad(e, vc, u, v, light, 0, 1, 0, ax, by, bz, bx, by, bz, bx, by, az, ax, by, az);
     }
 
-    private static void quad(MatrixStack.Entry e, VertexConsumer vc, float u, float v, int light, float nx, float ny, float nz,
+    private static void quad(PoseStack.Pose e, VertexConsumer vc, float u, float v, int light, float nx, float ny, float nz,
                              float x1, float y1, float z1, float x2, float y2, float z2,
                              float x3, float y3, float z3, float x4, float y4, float z4) {
         vertex(e, vc, x1, y1, z1, u, v, light, nx, ny, nz);
@@ -133,8 +132,8 @@ public class Skins3DFeatureRenderer extends FeatureRenderer<PlayerEntityRenderSt
         vertex(e, vc, x4, y4, z4, u, v, light, nx, ny, nz);
     }
 
-    private static void vertex(MatrixStack.Entry e, VertexConsumer vc, float x, float y, float z, float u, float v, int light,
+    private static void vertex(PoseStack.Pose e, VertexConsumer vc, float x, float y, float z, float u, float v, int light,
                                float nx, float ny, float nz) {
-        vc.vertex(e, x, y, z).color(0xFFFFFFFF).texture(u, v).overlay(OverlayTexture.DEFAULT_UV).light(light).normal(e, nx, ny, nz);
+        vc.addVertex(e, x, y, z).setColor(0xFFFFFFFF).setUv(u, v).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(e, nx, ny, nz);
     }
 }

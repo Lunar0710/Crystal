@@ -2,10 +2,9 @@ package dev.crystal.client.module.hud;
 
 import dev.crystal.client.module.BooleanSetting;
 import dev.crystal.client.module.Setting;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.util.math.MathHelper;
-
 import java.util.List;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
 
 public class DirectionHUD extends HudModule {
 
@@ -21,10 +20,10 @@ public class DirectionHUD extends HudModule {
 
     @Override
     public String getText() {
-        var player = MinecraftClient.getInstance().player;
+        var player = Minecraft.getInstance().player;
         if (player == null) return "Facing: N/A";
 
-        float yawDeg = MathHelper.wrapDegrees(player.getYaw());
+        float yawDeg = Mth.wrapDegrees(player.getYRot());
         float normalized = yawDeg < 0 ? yawDeg + 360f : yawDeg;
         int index = Math.floorMod(Math.round(normalized / 45f), 8);
         String direction = COMPASS[index];

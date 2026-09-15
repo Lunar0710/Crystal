@@ -1,15 +1,15 @@
 package dev.crystal.client.event.events;
 
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 public class TickEvent {
-    private final MinecraftClient client;
+    private final Minecraft client;
 
-    public TickEvent(MinecraftClient client) {
+    public TickEvent(Minecraft client) {
         this.client = client;
     }
 
-    public MinecraftClient getClient() {
+    public Minecraft getClient() {
         return client;
     }
 }

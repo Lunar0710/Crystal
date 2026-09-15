@@ -6,16 +6,15 @@ import dev.crystal.client.module.Module;
 import dev.crystal.client.module.ModuleCategory;
 import dev.crystal.client.module.Setting;
 import dev.crystal.client.module.SliderSetting;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.DisconnectedScreen;
-import net.minecraft.client.gui.screen.multiplayer.ConnectScreen;
-import net.minecraft.client.network.CookieStorage;
-import net.minecraft.client.network.ServerAddress;
-import net.minecraft.client.network.ServerInfo;
-
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.ConnectScreen;
+import net.minecraft.client.gui.screens.DisconnectedScreen;
+import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.client.multiplayer.TransferState;
+import net.minecraft.client.multiplayer.resolver.ServerAddress;
 
 /**
  * Remembers the last multiplayer server you were on and rejoins it after a
@@ -25,7 +24,7 @@ import java.util.function.Consumer;
 public class AutoReconnect extends Module {
 
     private float delaySeconds = 3f;
-    private ServerInfo lastServer;
+    private ServerData lastServer;
     private long disconnectedAt = 0;
     private boolean attempted = false;
 
@@ -46,10 +45,10 @@ public class AutoReconnect extends Module {
     }
 
     private void onTick(TickEvent event) {
-        MinecraftClient mc = event.getClient();
+        Minecraft mc = event.getClient();
 
         // Remember the server while actually connected to one.
-        ServerInfo current = mc.getCurrentServerEntry();
+        ServerData current = mc.getCurrentServer();
         if (current != null) {
             lastServer = current;
             disconnectedAt = 0;
@@ -57,7 +56,7 @@ public class AutoReconnect extends Module {
             return;
         }
 
-        if (!(mc.currentScreen instanceof DisconnectedScreen) || lastServer == null) return;
+        if (!(mc.screen instanceof DisconnectedScreen) || lastServer == null) return;
 
         long now = System.currentTimeMillis();
         if (disconnectedAt == 0) {
@@ -67,9 +66,9 @@ public class AutoReconnect extends Module {
         if (attempted || now - disconnectedAt < delaySeconds * 1000) return;
 
         attempted = true;
-        ServerAddress address = ServerAddress.parse(lastServer.address);
-        ConnectScreen.connect(mc.currentScreen, mc, address, lastServer, false,
-                new CookieStorage(Map.of(), Map.of(), false));
+        ServerAddress address = ServerAddress.parseString(lastServer.ip);
+        ConnectScreen.startConnecting(mc.screen, mc, address, lastServer, false,
+                new TransferState(Map.of(), Map.of(), false));
     }
 
     @Override

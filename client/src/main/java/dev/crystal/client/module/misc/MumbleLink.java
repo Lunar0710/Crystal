@@ -8,10 +8,9 @@ import dev.crystal.client.CrystalClient;
 import dev.crystal.client.event.events.TickEvent;
 import dev.crystal.client.module.Module;
 import dev.crystal.client.module.ModuleCategory;
-import net.minecraft.util.math.Vec3d;
-
 import java.nio.charset.StandardCharsets;
 import java.util.function.Consumer;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * Positional audio for Mumble: players on the same server and dimension sound
@@ -87,7 +86,7 @@ public class MumbleLink extends Module {
     }
 
     private void update() {
-        if (mc.player == null || mc.world == null || !open()) return;
+        if (mc.player == null || mc.level == null || !open()) return;
 
         if (memory.getInt(VERSION) != 2) {
             memory.setInt(VERSION, 2);
@@ -96,9 +95,9 @@ public class MumbleLink extends Module {
         }
         memory.setInt(TICK, ++tick);
 
-        Vec3d eye = mc.player.getEyePos();
-        Vec3d front = mc.player.getRotationVec(1f);
-        Vec3d top = mc.player.getOppositeRotationVector(1f);
+        Vec3 eye = mc.player.getEyePosition();
+        Vec3 front = mc.player.getViewVector(1f);
+        Vec3 top = mc.player.getUpVector(1f);
         writeVec(AVATAR_POS, eye);
         writeVec(AVATAR_FRONT, front);
         writeVec(AVATAR_TOP, top);
@@ -109,8 +108,8 @@ public class MumbleLink extends Module {
         writeWide(IDENTITY, mc.player.getName().getString(), 256);
 
         // Only players with the same context hear each other positionally: same server and dimension.
-        var server = mc.getCurrentServerEntry();
-        String context = (server != null ? server.address : "singleplayer") + "|" + mc.world.getRegistryKey().getValue();
+        var server = mc.getCurrentServer();
+        String context = (server != null ? server.ip : "singleplayer") + "|" + mc.level.dimension().identifier();
         byte[] bytes = context.getBytes(StandardCharsets.UTF_8);
         int length = Math.min(bytes.length, 255);
         memory.write(CONTEXT, bytes, 0, length);
@@ -118,7 +117,7 @@ public class MumbleLink extends Module {
     }
 
     // Mumble uses a left-handed system like Minecraft, in metres (one block = one metre).
-    private void writeVec(int offset, Vec3d v) {
+    private void writeVec(int offset, Vec3 v) {
         memory.setFloat(offset, (float) v.x);
         memory.setFloat(offset + 4, (float) v.y);
         memory.setFloat(offset + 8, (float) v.z);

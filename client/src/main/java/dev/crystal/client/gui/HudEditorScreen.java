@@ -3,15 +3,15 @@ package dev.crystal.client.gui;
 import dev.crystal.client.CrystalClient;
 import dev.crystal.client.module.Module;
 import dev.crystal.client.module.hud.HudModule;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.input.KeyInput;
-import net.minecraft.text.Text;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.List;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.network.chat.Component;
 
 /**
  * What Right Shift opens: the HUD stays live on screen and every enabled HUD
@@ -41,25 +41,25 @@ public class HudEditorScreen extends Screen {
     private int gridX1, gridX2, doneX1, doneX2, barY1, barY2;
 
     public HudEditorScreen() {
-        super(Text.literal("HUD"));
+        super(Component.literal("HUD"));
         accent = CrystalClient.getInstance().getThemeManager().getAccent();
     }
 
     @Override
-    public boolean shouldPause() {
+    public boolean isPauseScreen() {
         return false;
     }
 
     @Override
-    public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
+    public void renderBackground(GuiGraphics context, int mouseX, int mouseY, float delta) {
         // No blur: the point of this screen is seeing the HUD over the real game.
         context.fill(0, 0, width, height, 0x40000000);
     }
 
     @Override
-    public void close() {
+    public void onClose() {
         CrystalClient.getInstance().getConfigManager().save();
-        super.close();
+        super.onClose();
     }
 
     private List<HudModule> hudModules() {
@@ -71,7 +71,7 @@ public class HudEditorScreen extends Screen {
     }
 
     @Override
-    public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
+    public void render(GuiGraphics ctx, int mouseX, int mouseY, float delta) {
         super.render(ctx, mouseX, mouseY, delta);
         CrystalHUD hud = CrystalClient.getInstance().getHud();
         float appear = Math.min(1f, (System.currentTimeMillis() - openedAt) / 180f);
@@ -92,10 +92,10 @@ public class HudEditorScreen extends Screen {
             dashedRect(ctx, b[0] - 1, b[1] - 1, b[2] + 1, b[3] + 1, color);
             if (active) {
                 String label = module.getName() + "  " + Math.round(module.getScale() * 100) + "%";
-                int lw = textRenderer.getWidth(label) + 6;
+                int lw = font.width(label) + 6;
                 int ly = b[1] - 12 < 0 ? b[3] + 2 : b[1] - 12;
                 ctx.fill(b[0] - 1, ly, b[0] - 1 + lw, ly + 11, GuiRender.withAlpha(accent, 0xE6));
-                ctx.drawText(textRenderer, label, b[0] + 2, ly + 2, 0xFF0B0D12, false);
+                ctx.drawString(font, label, b[0] + 2, ly + 2, 0xFF0B0D12, false);
             }
         }
 
@@ -115,25 +115,25 @@ public class HudEditorScreen extends Screen {
         barY1 = height - 26;
         barY2 = height - 8;
         String help = "Ziehen: verschieben  ·  Mausrad: Größe  ·  Rechtsklick: Einstellungen";
-        int helpW = textRenderer.getWidth(help);
+        int helpW = font.width(help);
         String grid = snapToGrid ? "Raster: an" : "Raster: aus";
-        int gridW = textRenderer.getWidth(grid) + 14;
+        int gridW = font.width(grid) + 14;
         String done = "Fertig";
-        int doneW = textRenderer.getWidth(done) + 18;
+        int doneW = font.width(done) + 18;
         int total = helpW + 12 + gridW + 6 + doneW;
         int x = Math.max(6, width / 2 - total / 2);
         GuiRender.roundedRect(ctx, x - 8, barY1 - 4, x + total + 8, barY2 + 4, 0xCC0B0D12);
-        ctx.drawText(textRenderer, help, x, barY1 + 5, 0xFFB5BCCB, false);
+        ctx.drawString(font, help, x, barY1 + 5, 0xFFB5BCCB, false);
         gridX1 = x + helpW + 12;
         gridX2 = gridX1 + gridW;
         boolean gridHover = mouseX >= gridX1 && mouseX < gridX2 && mouseY >= barY1 && mouseY < barY2;
         GuiRender.roundedRect(ctx, gridX1, barY1, gridX2, barY2, gridHover ? 0x33FFFFFF : 0x1AFFFFFF);
-        ctx.drawText(textRenderer, grid, gridX1 + 7, barY1 + 5, snapToGrid ? 0xFFFFFFFF : 0xFF8F98AB, false);
+        ctx.drawString(font, grid, gridX1 + 7, barY1 + 5, snapToGrid ? 0xFFFFFFFF : 0xFF8F98AB, false);
         doneX1 = gridX2 + 6;
         doneX2 = doneX1 + doneW;
         boolean doneHover = mouseX >= doneX1 && mouseX < doneX2 && mouseY >= barY1 && mouseY < barY2;
         GuiRender.roundedRect(ctx, doneX1, barY1, doneX2, barY2, GuiRender.withAlpha(accent, doneHover ? 0xFF : 0xCC));
-        ctx.drawText(textRenderer, done, doneX1 + 9, barY1 + 5, 0xFF0B0D12, false);
+        ctx.drawString(font, done, doneX1 + 9, barY1 + 5, 0xFF0B0D12, false);
     }
 
     /** Topmost element under the mouse; later modules draw on top, so they win. */
@@ -147,7 +147,7 @@ public class HudEditorScreen extends Screen {
         return null;
     }
 
-    private void dashedRect(DrawContext ctx, int x1, int y1, int x2, int y2, int color) {
+    private void dashedRect(GuiGraphics ctx, int x1, int y1, int x2, int y2, int color) {
         for (int x = x1; x < x2; x += 4) {
             ctx.fill(x, y1, Math.min(x + 2, x2), y1 + 1, color);
             ctx.fill(x, y2 - 1, Math.min(x + 2, x2), y2, color);
@@ -159,17 +159,17 @@ public class HudEditorScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(Click click, boolean doubled) {
+    public boolean mouseClicked(MouseButtonEvent click, boolean doubled) {
         double mx = click.x(), my = click.y();
         boolean right = click.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT;
 
         if (mx >= modsX1 && mx < modsX2 && my >= modsY1 && my < modsY2) {
-            client.setScreen(new CrystalClientScreen());
+            minecraft.setScreen(new CrystalClientScreen());
             return true;
         }
         if (my >= barY1 && my < barY2) {
             if (mx >= gridX1 && mx < gridX2) { snapToGrid = !snapToGrid; return true; }
-            if (mx >= doneX1 && mx < doneX2) { close(); return true; }
+            if (mx >= doneX1 && mx < doneX2) { onClose(); return true; }
         }
 
         HudModule hit = elementAt(mx, my);
@@ -178,7 +178,7 @@ public class HudEditorScreen extends Screen {
         if (right) {
             CrystalClientScreen menu = new CrystalClientScreen();
             menu.openSettingsFor(hit);
-            client.setScreen(menu);
+            minecraft.setScreen(menu);
             return true;
         }
         dragging = hit;
@@ -188,7 +188,7 @@ public class HudEditorScreen extends Screen {
     }
 
     @Override
-    public boolean mouseDragged(Click click, double deltaX, double deltaY) {
+    public boolean mouseDragged(MouseButtonEvent click, double deltaX, double deltaY) {
         if (dragging == null) return super.mouseDragged(click, deltaX, deltaY);
         CrystalHUD hud = CrystalClient.getInstance().getHud();
 
@@ -216,7 +216,7 @@ public class HudEditorScreen extends Screen {
     }
 
     @Override
-    public boolean mouseReleased(Click click) {
+    public boolean mouseReleased(MouseButtonEvent click) {
         dragging = null;
         guideX = guideY = false;
         return super.mouseReleased(click);
@@ -231,10 +231,10 @@ public class HudEditorScreen extends Screen {
     }
 
     @Override
-    public boolean keyPressed(KeyInput input) {
+    public boolean keyPressed(KeyEvent input) {
         int key = input.key();
         if (key == GLFW.GLFW_KEY_RIGHT_SHIFT || key == GLFW.GLFW_KEY_ESCAPE) {
-            close();
+            onClose();
             return true;
         }
         return super.keyPressed(input);

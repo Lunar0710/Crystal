@@ -4,10 +4,9 @@ import dev.crystal.client.module.BooleanSetting;
 import dev.crystal.client.module.Module;
 import dev.crystal.client.module.ModuleCategory;
 import dev.crystal.client.module.Setting;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-
 import java.util.List;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
 /**
  * Gives potions the enchantment shimmer again, like before 1.20. Purely visual:
@@ -24,9 +23,9 @@ public class ShinyPots extends Module {
     }
 
     public boolean shouldShine(ItemStack stack) {
-        return (drinkable && stack.isOf(Items.POTION))
-                || (splash && stack.isOf(Items.SPLASH_POTION))
-                || (lingering && stack.isOf(Items.LINGERING_POTION));
+        return (drinkable && stack.is(Items.POTION))
+                || (splash && stack.is(Items.SPLASH_POTION))
+                || (lingering && stack.is(Items.LINGERING_POTION));
     }
 
     @Override

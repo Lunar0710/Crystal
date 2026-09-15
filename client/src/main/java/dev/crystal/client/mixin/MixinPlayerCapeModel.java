@@ -2,8 +2,8 @@ package dev.crystal.client.mixin;
 
 import dev.crystal.client.CrystalClient;
 import dev.crystal.client.module.render.CapeFlutter;
-import net.minecraft.client.render.entity.model.PlayerCapeModel;
-import net.minecraft.client.render.entity.state.PlayerEntityRenderState;
+import net.minecraft.client.model.player.PlayerCapeModel;
+import net.minecraft.client.renderer.entity.state.AvatarRenderState;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -23,8 +23,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(PlayerCapeModel.class)
 public class MixinPlayerCapeModel {
 
-    @Inject(method = "setAngles(Lnet/minecraft/client/render/entity/state/PlayerEntityRenderState;)V", at = @At("HEAD"))
-    private void crystal$flutter(PlayerEntityRenderState state, CallbackInfo ci) {
+    @Inject(method = "setupAnim(Lnet/minecraft/client/renderer/entity/state/AvatarRenderState;)V", at = @At("HEAD"))
+    private void crystal$flutter(AvatarRenderState state, CallbackInfo ci) {
         if (CrystalClient.getInstance() == null) return;
         CapeFlutter flutter = CrystalClient.getInstance().getModuleManager().getEnabled(CapeFlutter.class);
         if (flutter != null) flutter.apply(state);

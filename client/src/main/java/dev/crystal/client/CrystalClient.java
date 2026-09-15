@@ -13,7 +13,7 @@ import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
 
 import static com.mojang.brigadier.arguments.StringArgumentType.getString;
 import static com.mojang.brigadier.arguments.StringArgumentType.word;
@@ -72,7 +72,7 @@ public class CrystalClient implements ClientModInitializer {
         });
 
         HudRenderCallback.EVENT.register((drawContext, tickCounter) -> {
-            hud.render(drawContext, tickCounter.getTickProgress(true));
+            hud.render(drawContext, tickCounter.getGameTimeDeltaPartialTick(true));
         });
 
         // Block outline, hitboxes and chunk borders draw in world space.
@@ -98,7 +98,7 @@ public class CrystalClient implements ClientModInitializer {
                                         .ifPresent(skin -> {
                                             skin.setTargetUsername(name);
                                             skin.setEnabled(true);
-                                            ctx.getSource().sendFeedback(Text.literal(
+                                            ctx.getSource().sendFeedback(Component.literal(
                                                     "[Crystal] Previewing " + name + "'s skin"));
                                         });
                                 return 1;
@@ -113,7 +113,7 @@ public class CrystalClient implements ClientModInitializer {
                                         .map(m -> (dev.crystal.client.module.misc.HypixelQuickplay) m)
                                         .ifPresentOrElse(
                                                 q -> q.quickplay(mode),
-                                                () -> ctx.getSource().sendFeedback(Text.literal(
+                                                () -> ctx.getSource().sendFeedback(Component.literal(
                                                         "[Crystal] Enable the HypixelQuickplay module first.")));
                                 return 1;
                             })));
@@ -126,11 +126,11 @@ public class CrystalClient implements ClientModInitializer {
     private static void registerCosmeticsRenderer() {
         net.fabricmc.fabric.api.client.rendering.v1.LivingEntityFeatureRendererRegistrationCallback.EVENT.register(
                 (entityType, renderer, helper, context) -> {
-                    if (renderer instanceof net.minecraft.client.render.entity.PlayerEntityRenderer<?> player) {
+                    if (renderer instanceof net.minecraft.client.renderer.entity.player.AvatarRenderer<?> player) {
                         helper.register(new dev.crystal.client.render.CosmeticsFeatureRenderer(
-                                (net.minecraft.client.render.entity.feature.FeatureRendererContext) player));
+                                (net.minecraft.client.renderer.entity.RenderLayerParent) player));
                         helper.register(new dev.crystal.client.render.Skins3DFeatureRenderer(
-                                (net.minecraft.client.render.entity.feature.FeatureRendererContext) player));
+                                (net.minecraft.client.renderer.entity.RenderLayerParent) player));
                     }
                 });
     }

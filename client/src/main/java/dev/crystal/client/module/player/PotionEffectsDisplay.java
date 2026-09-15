@@ -2,8 +2,8 @@ package dev.crystal.client.module.player;
 
 import dev.crystal.client.module.ModuleCategory;
 import dev.crystal.client.module.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.effect.StatusEffectInstance;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.effect.MobEffectInstance;
 
 public class PotionEffectsDisplay extends HudModule {
 
@@ -14,15 +14,15 @@ public class PotionEffectsDisplay extends HudModule {
 
     @Override
     public String getText() {
-        var player = MinecraftClient.getInstance().player;
-        if (player == null || player.getStatusEffects().isEmpty()) return "";
+        var player = Minecraft.getInstance().player;
+        if (player == null || player.getActiveEffects().isEmpty()) return "";
 
         StringBuilder sb = new StringBuilder();
-        for (StatusEffectInstance effect : player.getStatusEffects()) {
+        for (MobEffectInstance effect : player.getActiveEffects()) {
             if (sb.length() > 0) sb.append(" | ");
             int amplifier = effect.getAmplifier() + 1;
             int seconds = effect.getDuration() / 20;
-            sb.append(effect.getEffectType().value().getName().getString())
+            sb.append(effect.getEffect().value().getDisplayName().getString())
               .append(' ').append(amplifier)
               .append(" (").append(seconds / 60).append(':').append(String.format("%02d", seconds % 60)).append(')');
         }

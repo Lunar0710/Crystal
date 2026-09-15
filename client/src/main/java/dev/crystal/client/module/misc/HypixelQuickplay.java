@@ -2,7 +2,7 @@ package dev.crystal.client.module.misc;
 
 import dev.crystal.client.module.Module;
 import dev.crystal.client.module.ModuleCategory;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 /**
  * Backs the client-side {@code /cplay <mode>} command (registered in
@@ -18,8 +18,8 @@ public class HypixelQuickplay extends Module {
     }
 
     public void quickplay(String mode) {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc.getNetworkHandler() == null) return;
-        mc.getNetworkHandler().sendChatCommand("play " + mode);
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.getConnection() == null) return;
+        mc.getConnection().sendCommand("play " + mode);
     }
 }

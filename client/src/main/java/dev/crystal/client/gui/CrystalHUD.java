@@ -1,22 +1,20 @@
 package dev.crystal.client.gui;
 
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.util.Identifier;
-
 import dev.crystal.client.module.ModuleManager;
 import dev.crystal.client.module.hud.ArmorDisplay;
 import dev.crystal.client.module.hud.HudModule;
 import dev.crystal.client.module.player.DurabilityWarning;
 import dev.crystal.client.module.player.LowHealthWarning;
 import dev.crystal.client.util.ColorUtil;
-import net.minecraft.item.ItemStack;
-
 import java.util.List;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.ItemStack;
 import dev.crystal.client.module.hud.HudRenderable;
 import dev.crystal.client.module.hud.Keystrokes;
 import dev.crystal.client.module.hud.Watermark;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
 
 public class CrystalHUD {
 
@@ -26,7 +24,7 @@ public class CrystalHUD {
         this.moduleManager = moduleManager;
     }
 
-    public void render(DrawContext context, float tickDelta) {
+    public void render(GuiGraphics context, float tickDelta) {
         for (dev.crystal.client.module.Module module : moduleManager.getModules()) {
             if (module.isEnabled()) drawModule(context, module);
         }
@@ -37,7 +35,7 @@ public class CrystalHUD {
      * the warnings have their own drawing; everything else styled through
      * HudModule gets the same treatment, so a new HUD module needs nothing here.
      */
-    public void drawModule(DrawContext context, dev.crystal.client.module.Module module) {
+    public void drawModule(GuiGraphics context, dev.crystal.client.module.Module module) {
             if (module instanceof Keystrokes keys) {
                 drawKeystrokes(context, keys);
             } else if (module instanceof ArmorDisplay armor && armor.isIconStyle()) {
@@ -60,7 +58,7 @@ public class CrystalHUD {
      * so they can still be grabbed.
      */
     public int[] bounds(HudModule module) {
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         int x = module.getX(), y = module.getY();
         if (module instanceof Keystrokes keys) {
             int size = keys.getKeySize(), gap = 2;
@@ -78,7 +76,7 @@ public class CrystalHUD {
             return new int[]{x - Math.round(3 * s), y - Math.round(3 * s), x + Math.round((size[0] + 3) * s), y + Math.round((size[1] + 3) * s)};
         }
         String text = module.getDisplayText();
-        int w = text == null || text.isEmpty() ? 40 : module.getDisplayWidth(mc.textRenderer) + (module.getIcon() != null ? ICON_W : 0);
+        int w = text == null || text.isEmpty() ? 40 : module.getDisplayWidth(mc.font) + (module.getIcon() != null ? ICON_W : 0);
         if (module.isCrystalLook() && !module.hasBackground()) {
             return new int[]{x - Math.round(3 * s), y - Math.round(2 * s), x + Math.round((w + 3) * s), y + Math.round(9 * s)};
         }
@@ -87,11 +85,11 @@ public class CrystalHUD {
 
     /** Unscaled {width, height} of the icon Armor HUD; a stand-in size when nothing is worn. */
     private int[] armorSize(ArmorDisplay module) {
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         List<ItemStack> stacks = module.getShownStacks();
         int count = Math.max(1, stacks.size());
         int labelWidth = stacks.isEmpty() ? 24 : 0;
-        for (ItemStack stack : stacks) labelWidth = Math.max(labelWidth, mc.textRenderer.getWidth(module.labelFor(stack)));
+        for (ItemStack stack : stacks) labelWidth = Math.max(labelWidth, mc.font.width(module.labelFor(stack)));
         int cellW = 16 + (labelWidth > 0 ? 3 + labelWidth : 0);
         int w = module.isHorizontal() ? count * cellW + (count - 1) * 6 : cellW;
         int h = module.isHorizontal() ? 16 : count * 16 + (count - 1) * 2;
@@ -102,7 +100,7 @@ public class CrystalHUD {
      * Draws a HUD module centred in a box (the menu's live preview), by moving it
      * there for this one draw and putting it straight back.
      */
-    public void drawCentered(DrawContext context, HudModule module, int boxX1, int boxY1, int boxX2, int boxY2) {
+    public void drawCentered(GuiGraphics context, HudModule module, int boxX1, int boxY1, int boxX2, int boxY2) {
         int oldX = module.getX(), oldY = module.getY();
         module.setPosition(0, 0);
         int[] b = bounds(module);
@@ -119,8 +117,8 @@ public class CrystalHUD {
      * Red edge that pulses while health is low, stronger the lower it gets.
      * Built from bands because DrawContext only has vertical gradients.
      */
-    private void drawLowHealth(DrawContext context, LowHealthWarning module) {
-        MinecraftClient mc = MinecraftClient.getInstance();
+    private void drawLowHealth(GuiGraphics context, LowHealthWarning module) {
+        Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.player.isCreative() || mc.player.isSpectator()) return;
         float health = mc.player.getHealth();
         if (health <= 0 || health > module.getThreshold()) return;
@@ -129,8 +127,8 @@ public class CrystalHUD {
         float pulse = 0.7f + 0.3f * (float) Math.sin(System.currentTimeMillis() / (severity > 0.7f ? 140.0 : 260.0));
         int maxAlpha = Math.round(170 * module.getIntensity() * Math.max(0.35f, severity) * pulse);
 
-        int w = context.getScaledWindowWidth();
-        int h = context.getScaledWindowHeight();
+        int w = context.guiWidth();
+        int h = context.guiHeight();
         int depth = Math.max(12, Math.min(w, h) / 6);
         int bands = 10;
         for (int i = 0; i < bands; i++) {
@@ -146,44 +144,44 @@ public class CrystalHUD {
     }
 
     /** "Chestplate at 7%" above the hotbar, with the item icon, blinking gently. */
-    private void drawDurabilityWarning(DrawContext context, DurabilityWarning module) {
+    private void drawDurabilityWarning(GuiGraphics context, DurabilityWarning module) {
         ItemStack stack = module.findWornItem();
         if (stack == null) return;
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
 
-        int percent = Math.round((1f - (float) stack.getDamage() / stack.getMaxDamage()) * 100);
-        String text = stack.getName().getString() + " " + percent + "%";
-        int textW = mc.textRenderer.getWidth(text);
+        int percent = Math.round((1f - (float) stack.getDamageValue() / stack.getMaxDamage()) * 100);
+        String text = stack.getHoverName().getString() + " " + percent + "%";
+        int textW = mc.font.width(text);
         int totalW = 16 + 4 + textW;
-        int x = (context.getScaledWindowWidth() - totalW) / 2;
-        int y = context.getScaledWindowHeight() - 72;
+        int x = (context.guiWidth() - totalW) / 2;
+        int y = context.guiHeight() - 72;
 
         boolean blinkOn = System.currentTimeMillis() / 450 % 2 == 0;
         GuiRender.roundedRect(context, x - 5, y - 3, x + totalW + 5, y + 19, 0x99000000);
         GuiRender.roundedOutline(context, x - 5, y - 3, x + totalW + 5, y + 19, blinkOn ? 0xFFEF4444 : 0x66EF4444);
-        context.drawItem(stack, x, y);
-        context.drawText(mc.textRenderer, text, x + 20, y + 4, blinkOn ? 0xFFFCA5A5 : 0xFFEF4444, true);
+        context.renderItem(stack, x, y);
+        context.drawString(mc.font, text, x + 20, y + 4, blinkOn ? 0xFFFCA5A5 : 0xFFEF4444, true);
     }
 
     /** Space an icon (like the server logo) takes in front of a HUD line: 9px image plus a gap. */
     private static final int ICON_W = 11;
 
     /** Draws a HUD module using its own position, colour, scale, shadow and background settings. */
-    private void drawStyledText(DrawContext context, HudModule module) {
+    private void drawStyledText(GuiGraphics context, HudModule module) {
         String text = module.getDisplayText();
         if (text == null || text.isEmpty()) return;
 
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         float scale = module.getScale();
         int x = module.getX();
         int y = module.getY();
         Identifier icon = module.getIcon();
         int iconW = icon != null ? ICON_W : 0;
-        int textWidth = module.getDisplayWidth(mc.textRenderer) + iconW;
+        int textWidth = module.getDisplayWidth(mc.font) + iconW;
 
-        context.getMatrices().pushMatrix();
-        context.getMatrices().translate(x, y);
-        context.getMatrices().scale(scale, scale);
+        context.pose().pushMatrix();
+        context.pose().translate(x, y);
+        context.pose().scale(scale, scale);
 
         boolean crystalLook = module.isCrystalLook();
         if (module.hasBackground()) {
@@ -200,8 +198,8 @@ public class CrystalHUD {
         }
 
         if (icon != null) {
-            context.drawTexture(RenderPipelines.GUI_TEXTURED, icon, 0, -1, 0f, 0f, 9, 9, 9, 9);
-            context.getMatrices().translate(iconW, 0);
+            context.blit(RenderPipelines.GUI_TEXTURED, icon, 0, -1, 0f, 0f, 9, 9, 9, 9);
+            context.pose().translate(iconW, 0);
         }
 
         int color = module.getEffectiveTextColor();
@@ -213,25 +211,25 @@ public class CrystalHUD {
             int accent = color == module.getTextColor()
                     ? dev.crystal.client.CrystalClient.getInstance().getThemeManager().getAccent() | 0xFF000000
                     : color;
-            int labelW = mc.textRenderer.getWidth(label);
+            int labelW = mc.font.width(label);
             if (module.hasShadow()) {
-                context.drawText(mc.textRenderer, label, 1, 1, 0x90000000, false);
-                context.drawText(mc.textRenderer, value, labelW + 1, 1, 0x90000000, false);
+                context.drawString(mc.font, label, 1, 1, 0x90000000, false);
+                context.drawString(mc.font, value, labelW + 1, 1, 0x90000000, false);
             }
-            context.drawText(mc.textRenderer, label, 0, 0, accent, false);
-            context.drawText(mc.textRenderer, value, labelW, 0, color, false);
+            context.drawString(mc.font, label, 0, 0, accent, false);
+            context.drawString(mc.font, value, labelW, 0, color, false);
         } else {
             if (module.hasShadow()) {
-                context.drawText(mc.textRenderer, text, 1, 1, 0x90000000, false);
+                context.drawString(mc.font, text, 1, 1, 0x90000000, false);
             }
-            context.drawText(mc.textRenderer, text, 0, 0, color, false);
+            context.drawString(mc.font, text, 0, 0, color, false);
         }
 
-        context.getMatrices().popMatrix();
+        context.pose().popMatrix();
     }
 
     /** Crystal+ "neon": dark panel, accent outline and a soft accent bloom one pixel outside it. */
-    private void drawNeon(DrawContext context, int x1, int y1, int x2, int y2, int fill) {
+    private void drawNeon(GuiGraphics context, int x1, int y1, int x2, int y2, int fill) {
         int accent = dev.crystal.client.CrystalClient.getInstance().getThemeManager().getAccent();
         GuiRender.roundedOutline(context, x1 - 1, y1 - 1, x2 + 1, y2 + 1, GuiRender.withAlpha(accent, 0x30));
         GuiRender.roundedRect(context, x1, y1, x2, y2, fill);
@@ -244,7 +242,7 @@ public class CrystalHUD {
      * Crystal+ "pill": fully rounded ends. roundedRect only cuts single corner
      * pixels, so the ends are stepped by hand for a height of 14.
      */
-    private void drawPill(DrawContext context, int x1, int y1, int x2, int y2, int fill) {
+    private void drawPill(GuiGraphics context, int x1, int y1, int x2, int y2, int fill) {
         int h = y2 - y1;
         int[] inset = {3, 2, 1, 1};
         for (int row = 0; row < h; row++) {
@@ -258,7 +256,7 @@ public class CrystalHUD {
      * Crystal+ "glass" panel: rounded, a lighter band along the top edge, and
      * a thin outline in the launcher theme's accent colour.
      */
-    private void drawGlass(DrawContext context, int x1, int y1, int x2, int y2, int fill) {
+    private void drawGlass(GuiGraphics context, int x1, int y1, int x2, int y2, int fill) {
         int accent = dev.crystal.client.CrystalClient.getInstance().getThemeManager().getAccent();
         GuiRender.roundedRect(context, x1, y1, x2, y2, fill);
         context.fill(x1 + 2, y1 + 1, x2 - 2, y1 + 2, 0x22FFFFFF);
@@ -270,11 +268,11 @@ public class CrystalHUD {
      * Uses the module's scale, shadow, background and text colour settings;
      * the label turns from green to red as the piece wears down.
      */
-    private void drawArmor(DrawContext context, ArmorDisplay module) {
+    private void drawArmor(GuiGraphics context, ArmorDisplay module) {
         List<ItemStack> stacks = module.getShownStacks();
         if (stacks.isEmpty()) return;
 
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         boolean horizontal = module.isHorizontal();
         int icon = 16;
         int gap = 2;
@@ -284,16 +282,16 @@ public class CrystalHUD {
         String[] labels = new String[stacks.size()];
         for (int i = 0; i < stacks.size(); i++) {
             labels[i] = module.labelFor(stacks.get(i));
-            labelWidth = Math.max(labelWidth, mc.textRenderer.getWidth(labels[i]));
+            labelWidth = Math.max(labelWidth, mc.font.width(labels[i]));
         }
         int cellW = icon + (labelWidth > 0 ? 3 + labelWidth : 0);
         int cellH = icon;
         int totalW = horizontal ? stacks.size() * cellW + (stacks.size() - 1) * (gap + 4) : cellW;
         int totalH = horizontal ? cellH : stacks.size() * cellH + (stacks.size() - 1) * gap;
 
-        context.getMatrices().pushMatrix();
-        context.getMatrices().translate(module.getX(), module.getY());
-        context.getMatrices().scale(module.getScale(), module.getScale());
+        context.pose().pushMatrix();
+        context.pose().translate(module.getX(), module.getY());
+        context.pose().scale(module.getScale(), module.getScale());
 
         if (module.hasBackground()) {
             int fill = module.getBackgroundColor();
@@ -310,30 +308,30 @@ public class CrystalHUD {
             int cx = horizontal ? i * (cellW + gap + 4) : 0;
             int cy = horizontal ? 0 : i * (cellH + gap);
 
-            context.drawItem(stack, cx, cy);
+            context.renderItem(stack, cx, cy);
             if (labels[i].isEmpty()) continue;
 
             int color = module.getEffectiveTextColor();
-            if (module.isColorByDurability() && stack.isDamageable()) {
+            if (module.isColorByDurability() && stack.isDamageableItem()) {
                 color = ColorUtil.healthGradient(module.durabilityFraction(stack));
             }
             int tx = cx + icon + 3;
             int ty = cy + (icon - 8) / 2;
-            if (module.hasShadow()) context.drawText(mc.textRenderer, labels[i], tx + 1, ty + 1, 0x90000000, false);
-            context.drawText(mc.textRenderer, labels[i], tx, ty, color, false);
+            if (module.hasShadow()) context.drawString(mc.font, labels[i], tx + 1, ty + 1, 0x90000000, false);
+            context.drawString(mc.font, labels[i], tx, ty, color, false);
         }
 
-        context.getMatrices().popMatrix();
+        context.pose().popMatrix();
     }
 
-    private void drawPlainText(DrawContext context, String text, int x, int y) {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        context.drawText(mc.textRenderer, text, x + 1, y + 1, 0x80000000, false);
-        context.drawText(mc.textRenderer, text, x, y, 0xFFE4E8F0, false);
+    private void drawPlainText(GuiGraphics context, String text, int x, int y) {
+        Minecraft mc = Minecraft.getInstance();
+        context.drawString(mc.font, text, x + 1, y + 1, 0x80000000, false);
+        context.drawString(mc.font, text, x, y, 0xFFE4E8F0, false);
     }
 
     /** A 3x2 WASD grid plus jump/attack/use indicators, each box lit while the key is held. */
-    private void drawKeystrokes(DrawContext context, Keystrokes keys) {
+    private void drawKeystrokes(GuiGraphics context, Keystrokes keys) {
         int x = keys.getX();
         int y = keys.getY();
         int size = keys.getKeySize();
@@ -353,14 +351,14 @@ public class CrystalHUD {
         drawKey(context, keys, "USE", x + (wide + gap) * 2, row2Y, wide, keys.use());
     }
 
-    private void drawKey(DrawContext context, Keystrokes keys, String label, int x, int y, int size, boolean active) {
-        MinecraftClient mc = MinecraftClient.getInstance();
+    private void drawKey(GuiGraphics context, Keystrokes keys, String label, int x, int y, int size, boolean active) {
+        Minecraft mc = Minecraft.getInstance();
         int bg = active ? keys.getPressedColor() : keys.getIdleColor();
         int fg = active ? keys.getPressedTextColor() : keys.getIdleTextColor();
 
         GuiRender.roundedRect(context, x, y, x + size, y + size, bg);
-        int textX = x + (size - mc.textRenderer.getWidth(label)) / 2;
+        int textX = x + (size - mc.font.width(label)) / 2;
         int textY = y + (size - 8) / 2;
-        context.drawText(mc.textRenderer, label, textX, textY, fg, false);
+        context.drawString(mc.font, label, textX, textY, fg, false);
     }
 }

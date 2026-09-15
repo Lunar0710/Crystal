@@ -1,29 +1,29 @@
 package dev.crystal.client.module.player;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import dev.crystal.client.CrystalClient;
 import dev.crystal.client.event.events.TickEvent;
 import dev.crystal.client.module.KeybindSetting;
 import dev.crystal.client.module.Module;
 import dev.crystal.client.module.ModuleCategory;
 import dev.crystal.client.module.Setting;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.registry.Registries;
-import net.minecraft.screen.ScreenHandler;
-import net.minecraft.screen.slot.SlotActionType;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.function.Consumer;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
 /**
  * Sorts the main inventory + hotbar (slots 9–44 of the player's own screen
  * handler — armor, offhand and the crafting grid are left alone) by item type,
- * using the exact same {@link ScreenHandler#onSlotClick} entry point the
+ * using the exact same {@link AbstractContainerMenu#clicked} entry point the
  * vanilla inventory screen itself uses for every click. That method already
  * handles the server-sync packet correctly, so this never has to construct
  * one by hand or guess at how the newer stack-hash reconciliation works.
@@ -58,25 +58,25 @@ public class InventoryCleanup extends Module {
     }
 
     private void onTick(TickEvent event) {
-        MinecraftClient mc = event.getClient();
-        if (sortKey == GLFW.GLFW_KEY_UNKNOWN || mc.player == null || mc.currentScreen != null) {
+        Minecraft mc = event.getClient();
+        if (sortKey == GLFW.GLFW_KEY_UNKNOWN || mc.player == null || mc.screen != null) {
             wasPressed = false;
             return;
         }
 
-        boolean pressed = InputUtil.isKeyPressed(mc.getWindow(), sortKey);
+        boolean pressed = InputConstants.isKeyDown(mc.getWindow(), sortKey);
         if (pressed && !wasPressed) sort(mc);
         wasPressed = pressed;
     }
 
-    private void sort(MinecraftClient mc) {
-        ScreenHandler handler = mc.player.playerScreenHandler;
+    private void sort(Minecraft mc) {
+        AbstractContainerMenu handler = mc.player.inventoryMenu;
 
         List<Integer> indices = new ArrayList<>();
         for (int i = INVENTORY_START; i < HOTBAR_END; i++) indices.add(i);
 
         List<Integer> sortedOrder = new ArrayList<>(indices);
-        sortedOrder.sort(Comparator.comparing((Integer slot) -> sortKeyFor(handler.getSlot(slot).getStack())));
+        sortedOrder.sort(Comparator.comparing((Integer slot) -> sortKeyFor(handler.getSlot(slot).getItem())));
 
         // Cycle-decomposition swap sort: every operation is a strict two-way
         // exchange, so nothing can ever be duplicated or lost even if this
@@ -86,20 +86,20 @@ public class InventoryCleanup extends Module {
             int wantSlot = sortedOrder.get(i);
             if (currentSlot == wantSlot) continue;
 
-            ItemStack currentStack = handler.getSlot(currentSlot).getStack();
-            ItemStack wantedStack = handler.getSlot(wantSlot).getStack();
-            if (ItemStack.areItemsAndComponentsEqual(currentStack, wantedStack)) continue;
+            ItemStack currentStack = handler.getSlot(currentSlot).getItem();
+            ItemStack wantedStack = handler.getSlot(wantSlot).getItem();
+            if (ItemStack.isSameItemSameComponents(currentStack, wantedStack)) continue;
 
-            handler.onSlotClick(currentSlot, 0, SlotActionType.PICKUP, mc.player);
-            handler.onSlotClick(wantSlot, 0, SlotActionType.PICKUP, mc.player);
-            handler.onSlotClick(currentSlot, 0, SlotActionType.PICKUP, mc.player);
+            handler.clicked(currentSlot, 0, ClickType.PICKUP, mc.player);
+            handler.clicked(wantSlot, 0, ClickType.PICKUP, mc.player);
+            handler.clicked(currentSlot, 0, ClickType.PICKUP, mc.player);
         }
     }
 
     /** Empty slots sort last; everything else by its registry id so identical items land next to each other. */
     private String sortKeyFor(ItemStack stack) {
         if (stack.isEmpty()) return "￿";
-        return Registries.ITEM.getId(stack.getItem() == null ? Items.AIR : stack.getItem()).toString();
+        return BuiltInRegistries.ITEM.getKey(stack.getItem() == null ? Items.AIR : stack.getItem()).toString();
     }
 
     @Override

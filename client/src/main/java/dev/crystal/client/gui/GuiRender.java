@@ -1,8 +1,8 @@
 package dev.crystal.client.gui;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.font.TextRenderer;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
 
 /**
  * Drawing primitives the Crystal menu is built from.
@@ -16,7 +16,7 @@ public final class GuiRender {
     private GuiRender() {}
 
     /** Rectangle with 2px-radius corners, built from three bars plus four corner pixels. */
-    public static void roundedRect(DrawContext ctx, int x1, int y1, int x2, int y2, int color) {
+    public static void roundedRect(GuiGraphics ctx, int x1, int y1, int x2, int y2, int color) {
         if (x2 - x1 < 4 || y2 - y1 < 4) {
             ctx.fill(x1, y1, x2, y2, color);
             return;
@@ -40,7 +40,7 @@ public final class GuiRender {
      * Rectangle with round corners of any radius, drawn one row at a time in the
      * corner bands so translucent colours never overlap and darken.
      */
-    public static void roundedRect(DrawContext ctx, int x1, int y1, int x2, int y2, int radius, int color) {
+    public static void roundedRect(GuiGraphics ctx, int x1, int y1, int x2, int y2, int radius, int color) {
         int r = Math.min(radius, Math.min(x2 - x1, y2 - y1) / 2);
         if (r <= 2) { roundedRect(ctx, x1, y1, x2, y2, color); return; }
         for (int i = 0; i < r; i++) {
@@ -51,8 +51,8 @@ public final class GuiRender {
         ctx.fill(x1, y1 + r, x2, y2 - r, color);
     }
 
-    /** 1px outline for {@link #roundedRect(DrawContext, int, int, int, int, int, int)}. */
-    public static void roundedOutline(DrawContext ctx, int x1, int y1, int x2, int y2, int radius, int color) {
+    /** 1px outline for {@link #roundedRect(GuiGraphics, int, int, int, int, int, int)}. */
+    public static void roundedOutline(GuiGraphics ctx, int x1, int y1, int x2, int y2, int radius, int color) {
         int r = Math.min(radius, Math.min(x2 - x1, y2 - y1) / 2);
         if (r <= 2) { roundedOutline(ctx, x1, y1, x2, y2, color); return; }
         for (int i = 0; i < r; i++) {
@@ -75,7 +75,7 @@ public final class GuiRender {
     }
 
     /** 1px outline following the same rounded shape. */
-    public static void roundedOutline(DrawContext ctx, int x1, int y1, int x2, int y2, int color) {
+    public static void roundedOutline(GuiGraphics ctx, int x1, int y1, int x2, int y2, int color) {
         ctx.fill(x1 + 2, y1, x2 - 2, y1 + 1, color);
         ctx.fill(x1 + 2, y2 - 1, x2 - 2, y2, color);
         ctx.fill(x1, y1 + 2, x1 + 1, y2 - 2, color);
@@ -90,14 +90,14 @@ public final class GuiRender {
     public static final int TOGGLE_W = 18;
     public static final int TOGGLE_H = 10;
 
-    public static void toggle(DrawContext ctx, int x, int y, boolean on, int accent, int offTrack, int knobColor) {
+    public static void toggle(GuiGraphics ctx, int x, int y, boolean on, int accent, int offTrack, int knobColor) {
         roundedRect(ctx, x, y, x + TOGGLE_W, y + TOGGLE_H, on ? accent : offTrack);
         int knobX = on ? x + TOGGLE_W - 8 : x + 2;
         roundedRect(ctx, knobX, y + 2, knobX + 6, y + TOGGLE_H - 2, knobColor);
     }
 
     /** Horizontal slider track with a filled portion and a knob at the current value. */
-    public static void slider(DrawContext ctx, int x, int y, int width, float fraction, int trackColor, int fillColor, int knobColor) {
+    public static void slider(GuiGraphics ctx, int x, int y, int width, float fraction, int trackColor, int fillColor, int knobColor) {
         int centerY = y + 3;
         roundedRect(ctx, x, centerY, x + width, centerY + 3, trackColor);
 
@@ -109,29 +109,29 @@ public final class GuiRender {
     }
 
     /** Draws text shrunk to the given scale, used for the small muted descriptions. */
-    public static void scaledText(DrawContext ctx, String text, int x, int y, float scale, int color) {
-        TextRenderer font = MinecraftClient.getInstance().textRenderer;
-        ctx.getMatrices().pushMatrix();
-        ctx.getMatrices().translate(x, y);
-        ctx.getMatrices().scale(scale, scale);
-        ctx.drawText(font, text, 0, 0, color, false);
-        ctx.getMatrices().popMatrix();
+    public static void scaledText(GuiGraphics ctx, String text, int x, int y, float scale, int color) {
+        Font font = Minecraft.getInstance().font;
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(x, y);
+        ctx.pose().scale(scale, scale);
+        ctx.drawString(font, text, 0, 0, color, false);
+        ctx.pose().popMatrix();
     }
 
     public static int scaledWidth(String text, float scale) {
-        return Math.round(MinecraftClient.getInstance().textRenderer.getWidth(text) * scale);
+        return Math.round(Minecraft.getInstance().font.width(text) * scale);
     }
 
     /** Trims text to fit a pixel width, adding an ellipsis when it had to cut. */
     public static String trimToWidth(String text, int maxWidth) {
-        TextRenderer font = MinecraftClient.getInstance().textRenderer;
-        if (font.getWidth(text) <= maxWidth) return text;
+        Font font = Minecraft.getInstance().font;
+        if (font.width(text) <= maxWidth) return text;
 
         String ellipsis = "...";
-        int available = maxWidth - font.getWidth(ellipsis);
+        int available = maxWidth - font.width(ellipsis);
         StringBuilder sb = new StringBuilder();
         for (char c : text.toCharArray()) {
-            if (font.getWidth(sb.toString() + c) > available) break;
+            if (font.width(sb.toString() + c) > available) break;
             sb.append(c);
         }
         return sb + ellipsis;

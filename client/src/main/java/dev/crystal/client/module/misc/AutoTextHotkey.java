@@ -1,5 +1,6 @@
 package dev.crystal.client.module.misc;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import dev.crystal.client.CrystalClient;
 import dev.crystal.client.event.events.TickEvent;
 import dev.crystal.client.module.KeybindSetting;
@@ -7,12 +8,11 @@ import dev.crystal.client.module.Module;
 import dev.crystal.client.module.ModuleCategory;
 import dev.crystal.client.module.Setting;
 import dev.crystal.client.module.TextSetting;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.util.InputUtil;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.List;
 import java.util.function.Consumer;
+import net.minecraft.client.Minecraft;
 
 public class AutoTextHotkey extends Module {
 
@@ -37,19 +37,19 @@ public class AutoTextHotkey extends Module {
     }
 
     private void onTick(TickEvent event) {
-        MinecraftClient mc = event.getClient();
+        Minecraft mc = event.getClient();
         if (hotkey == GLFW.GLFW_KEY_UNKNOWN || message.isBlank() || mc.player == null
-                || mc.currentScreen != null || mc.getNetworkHandler() == null) {
+                || mc.screen != null || mc.getConnection() == null) {
             wasPressed = false;
             return;
         }
 
-        boolean pressed = InputUtil.isKeyPressed(mc.getWindow(), hotkey);
+        boolean pressed = InputConstants.isKeyDown(mc.getWindow(), hotkey);
         if (pressed && !wasPressed) {
             if (message.startsWith("/")) {
-                mc.getNetworkHandler().sendChatCommand(message.substring(1));
+                mc.getConnection().sendCommand(message.substring(1));
             } else {
-                mc.getNetworkHandler().sendChatMessage(message);
+                mc.getConnection().sendChat(message);
             }
         }
         wasPressed = pressed;

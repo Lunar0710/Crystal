@@ -1,5 +1,7 @@
 package dev.crystal.client.module.render;
 
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import dev.crystal.client.CrystalClient;
 import dev.crystal.client.event.events.TickEvent;
 import dev.crystal.client.module.ColorSetting;
@@ -10,13 +12,11 @@ import dev.crystal.client.module.SliderSetting;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.network.PacketByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.packet.CustomPayload;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Vector3f;
 
 import java.nio.charset.StandardCharsets;
@@ -33,9 +33,9 @@ import java.util.List;
  */
 public class WorldEditCUI extends Module {
 
-    public record CuiPayload(String message) implements CustomPayload {
-        public static final Id<CuiPayload> ID = new Id<>(Identifier.of("worldedit", "cui"));
-        public static final PacketCodec<PacketByteBuf, CuiPayload> CODEC = CustomPayload.codecOf(
+    public record CuiPayload(String message) implements CustomPacketPayload {
+        public static final Type<CuiPayload> ID = new Type<>(Identifier.fromNamespaceAndPath("worldedit", "cui"));
+        public static final StreamCodec<FriendlyByteBuf, CuiPayload> CODEC = CustomPacketPayload.codec(
                 (value, buf) -> buf.writeBytes(value.message.getBytes(StandardCharsets.UTF_8)),
                 buf -> {
                     byte[] bytes = new byte[buf.readableBytes()];
@@ -43,7 +43,7 @@ public class WorldEditCUI extends Module {
                     return new CuiPayload(new String(bytes, StandardCharsets.UTF_8));
                 });
 
-        @Override public Id<? extends CustomPayload> getId() { return ID; }
+        @Override public Type<? extends CustomPacketPayload> type() { return ID; }
     }
 
     private static final int PROTOCOL = 4;
@@ -125,7 +125,7 @@ public class WorldEditCUI extends Module {
     }
 
     /** Called from WorldRenderHandler after entities are drawn. */
-    public void render(MatrixStack matrices, VertexConsumer lines, Vec3d camera) {
+    public void render(PoseStack matrices, VertexConsumer lines, Vec3 camera) {
         if ("polygon2d".equals(shape) && polygon.stream().filter(p -> p != null).count() >= 2) {
             List<int[]> points = polygon.stream().filter(p -> p != null).toList();
             double bottom = minY, top = maxY + 1;
@@ -151,11 +151,11 @@ public class WorldEditCUI extends Module {
         if (corners[1] != null) blockMarker(matrices, lines, camera, corners[1], gridColor);
     }
 
-    private void blockMarker(MatrixStack m, VertexConsumer lines, Vec3d cam, int[] p, int color) {
+    private void blockMarker(PoseStack m, VertexConsumer lines, Vec3 cam, int[] p, int color) {
         box(m, lines, cam, p[0] + 0.02, p[1] + 0.02, p[2] + 0.02, p[0] + 0.98, p[1] + 0.98, p[2] + 0.98, color);
     }
 
-    private void box(MatrixStack m, VertexConsumer l, Vec3d c, double x1, double y1, double z1, double x2, double y2, double z2, int color) {
+    private void box(PoseStack m, VertexConsumer l, Vec3 c, double x1, double y1, double z1, double x2, double y2, double z2, int color) {
         line(m, l, c, x1, y1, z1, x2, y1, z1, color); line(m, l, c, x1, y2, z1, x2, y2, z1, color);
         line(m, l, c, x1, y1, z2, x2, y1, z2, color); line(m, l, c, x1, y2, z2, x2, y2, z2, color);
         line(m, l, c, x1, y1, z1, x1, y2, z1, color); line(m, l, c, x2, y1, z1, x2, y2, z1, color);
@@ -164,12 +164,12 @@ public class WorldEditCUI extends Module {
         line(m, l, c, x1, y2, z1, x1, y2, z2, color); line(m, l, c, x2, y2, z1, x2, y2, z2, color);
     }
 
-    private void line(MatrixStack matrices, VertexConsumer lines, Vec3d cam,
+    private void line(PoseStack matrices, VertexConsumer lines, Vec3 cam,
                       double x1, double y1, double z1, double x2, double y2, double z2, int color) {
-        MatrixStack.Entry entry = matrices.peek();
+        PoseStack.Pose entry = matrices.last();
         Vector3f normal = new Vector3f((float) (x2 - x1), (float) (y2 - y1), (float) (z2 - z1)).normalize();
-        lines.vertex(entry, (float) (x1 - cam.x), (float) (y1 - cam.y), (float) (z1 - cam.z)).color(color).normal(entry, normal).lineWidth(lineWidth);
-        lines.vertex(entry, (float) (x2 - cam.x), (float) (y2 - cam.y), (float) (z2 - cam.z)).color(color).normal(entry, normal).lineWidth(lineWidth);
+        lines.addVertex(entry, (float) (x1 - cam.x), (float) (y1 - cam.y), (float) (z1 - cam.z)).setColor(color).setNormal(entry, normal).setLineWidth(lineWidth);
+        lines.addVertex(entry, (float) (x2 - cam.x), (float) (y2 - cam.y), (float) (z2 - cam.z)).setColor(color).setNormal(entry, normal).setLineWidth(lineWidth);
     }
 
     @Override

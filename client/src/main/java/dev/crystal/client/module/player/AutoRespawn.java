@@ -6,11 +6,10 @@ import dev.crystal.client.module.Module;
 import dev.crystal.client.module.ModuleCategory;
 import dev.crystal.client.module.Setting;
 import dev.crystal.client.module.SliderSetting;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.DeathScreen;
-
 import java.util.List;
 import java.util.function.Consumer;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.DeathScreen;
 
 public class AutoRespawn extends Module {
 
@@ -33,8 +32,8 @@ public class AutoRespawn extends Module {
     }
 
     private void onTick(TickEvent event) {
-        MinecraftClient mc = event.getClient();
-        if (!(mc.currentScreen instanceof DeathScreen) || mc.player == null) {
+        Minecraft mc = event.getClient();
+        if (!(mc.screen instanceof DeathScreen) || mc.player == null) {
             deathSeenAt = 0;
             return;
         }
@@ -46,7 +45,7 @@ public class AutoRespawn extends Module {
             return;
         }
         if (now - deathSeenAt >= delaySeconds * 1000) {
-            mc.player.requestRespawn();
+            mc.player.respawn();
             deathSeenAt = 0;
         }
     }

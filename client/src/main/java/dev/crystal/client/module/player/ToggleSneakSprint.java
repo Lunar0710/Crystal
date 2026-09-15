@@ -6,10 +6,9 @@ import dev.crystal.client.module.Module;
 import dev.crystal.client.module.ModuleCategory;
 import dev.crystal.client.module.BooleanSetting;
 import dev.crystal.client.module.Setting;
-import net.minecraft.client.MinecraftClient;
-
 import java.util.List;
 import java.util.function.Consumer;
+import net.minecraft.client.Minecraft;
 
 /**
  * Re-asserts sneak/sprint at the end of every tick, after vanilla's own input
@@ -45,18 +44,18 @@ public class ToggleSneakSprint extends Module {
     }
 
     private void onTick(TickEvent event) {
-        MinecraftClient mc = event.getClient();
+        Minecraft mc = event.getClient();
         if (mc.player == null) return;
 
-        boolean sneakPressed = toggleSneak && mc.options.sneakKey.isPressed();
+        boolean sneakPressed = toggleSneak && mc.options.keyShift.isDown();
         if (sneakPressed && !wasSneakPressed) sneakToggled = !sneakToggled;
         wasSneakPressed = sneakPressed;
 
-        boolean sprintPressed = toggleSprint && mc.options.sprintKey.isPressed();
+        boolean sprintPressed = toggleSprint && mc.options.keySprint.isDown();
         if (sprintPressed && !wasSprintPressed) sprintToggled = !sprintToggled;
         wasSprintPressed = sprintPressed;
 
-        if (sneakToggled) mc.player.setSneaking(true);
+        if (sneakToggled) mc.player.setShiftKeyDown(true);
         if (sprintToggled) mc.player.setSprinting(true);
     }
 

@@ -2,7 +2,7 @@ package dev.crystal.client.module.player;
 
 import dev.crystal.client.module.ModuleCategory;
 import dev.crystal.client.module.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 public class UHCOverlay extends HudModule {
 
@@ -12,8 +12,8 @@ public class UHCOverlay extends HudModule {
 
     @Override
     public String getText() {
-        var player = MinecraftClient.getInstance().player;
+        var player = Minecraft.getInstance().player;
         if (player == null) return "";
-        return String.format("HP: %.1f  Hunger: %d", player.getHealth(), player.getHungerManager().getFoodLevel());
+        return String.format("HP: %.1f  Hunger: %d", player.getHealth(), player.getFoodData().getFoodLevel());
     }
 }

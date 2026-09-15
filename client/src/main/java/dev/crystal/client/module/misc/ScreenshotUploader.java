@@ -7,10 +7,6 @@ import dev.crystal.client.module.Module;
 import dev.crystal.client.module.ModuleCategory;
 import dev.crystal.client.module.Setting;
 import dev.crystal.client.module.SliderSetting;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.text.ClickEvent;
-import net.minecraft.text.Text;
-
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
@@ -22,6 +18,9 @@ import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.ClickEvent;
+import net.minecraft.network.chat.Component;
 
 /**
  * Uploads to catbox.moe's anonymous file API — public, no account or API key
@@ -63,10 +62,10 @@ public class ScreenshotUploader extends Module {
     }
 
     private void onTick(TickEvent event) {
-        MinecraftClient mc = event.getClient();
-        if (mc.currentScreen == null) {
+        Minecraft mc = event.getClient();
+        if (mc.screen == null) {
             // isPressed() reflects whatever key the player has it bound to, F2 or not.
-            boolean pressed = mc.options.screenshotKey.isPressed();
+            boolean pressed = mc.options.keyScreenshot.isDown();
             if (pressed && !wasScreenshotKeyPressed) {
                 pendingUploadAt = System.currentTimeMillis() + (long) (writeDelaySeconds * 1000);
             }
@@ -81,8 +80,8 @@ public class ScreenshotUploader extends Module {
 
     /** Also callable directly (e.g. from a future command) — not just from the F2 watcher above. */
     public void uploadLatest() {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        File screenshotDir = new File(mc.runDirectory, "screenshots");
+        Minecraft mc = Minecraft.getInstance();
+        File screenshotDir = new File(mc.gameDirectory, "screenshots");
         File[] files = screenshotDir.listFiles((dir, name) -> name.endsWith(".png"));
         if (files == null || files.length == 0) {
             notify(mc, "No screenshot found to upload.");
@@ -95,7 +94,7 @@ public class ScreenshotUploader extends Module {
     }
 
     private void upload(File file) {
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         CompletableFuture.runAsync(() -> {
             try {
                 byte[] fileBytes = Files.readAllBytes(file.toPath());
@@ -115,7 +114,7 @@ public class ScreenshotUploader extends Module {
                         // GLFW's clipboard on the render thread. The AWT clipboard used
                         // before throws in headless mode (always the case on macOS),
                         // and that exception was swallowed, so nothing ever showed up.
-                        if (copyLinkToClipboard) mc.keyboard.setClipboard(url);
+                        if (copyLinkToClipboard) mc.keyboardHandler.setClipboard(url);
                         notify(mc, "Screenshot uploaded" + (copyLinkToClipboard ? ", link copied: " : ": ") + url);
                     });
                 } else {
@@ -142,15 +141,15 @@ public class ScreenshotUploader extends Module {
         return out.toByteArray();
     }
 
-    private void notify(MinecraftClient mc, String message) {
+    private void notify(Minecraft mc, String message) {
         if (mc.player == null) return;
-        Text text = Text.literal("[Crystal] " + message);
+        Component text = Component.literal("[Crystal] " + message);
         if (message.startsWith("Screenshot uploaded")) {
             String url = message.substring(message.lastIndexOf(' ') + 1);
-            text = Text.literal("[Crystal] Screenshot uploaded: ")
-                    .append(Text.literal(url).styled(s -> s.withClickEvent(new ClickEvent.OpenUrl(URI.create(url)))));
+            text = Component.literal("[Crystal] Screenshot uploaded: ")
+                    .append(Component.literal(url).withStyle(s -> s.withClickEvent(new ClickEvent.OpenUrl(URI.create(url)))));
         }
-        mc.player.sendMessage(text, false);
+        mc.player.displayClientMessage(text, false);
     }
 
     @Override

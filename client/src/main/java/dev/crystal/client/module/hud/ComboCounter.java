@@ -4,12 +4,11 @@ import dev.crystal.client.CrystalClient;
 import dev.crystal.client.event.events.TickEvent;
 import dev.crystal.client.module.Setting;
 import dev.crystal.client.module.SliderSetting;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.util.hit.EntityHitResult;
-
 import java.util.List;
 import java.util.function.Consumer;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.EntityHitResult;
 
 /**
  * Counts consecutive attack-key swings landed on the same target while it's in
@@ -45,10 +44,10 @@ public class ComboCounter extends HudModule {
     }
 
     private void onTick(TickEvent event) {
-        MinecraftClient mc = event.getClient();
+        Minecraft mc = event.getClient();
         if (mc.player == null) return;
 
-        boolean pressed = mc.options.attackKey.isPressed();
+        boolean pressed = mc.options.keyAttack.isDown();
         boolean justPressed = pressed && !wasAttackPressed;
         wasAttackPressed = pressed;
 
@@ -59,7 +58,7 @@ public class ComboCounter extends HudModule {
         }
 
         if (!justPressed) return;
-        if (!(mc.crosshairTarget instanceof EntityHitResult hit) || !(hit.getEntity() instanceof LivingEntity target)) return;
+        if (!(mc.hitResult instanceof EntityHitResult hit) || !(hit.getEntity() instanceof LivingEntity target)) return;
 
         int id = target.getId();
         combo = (id == lastTargetId) ? combo + 1 : 1;

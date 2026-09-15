@@ -8,10 +8,9 @@ import dev.crystal.client.module.ModuleCategory;
 import dev.crystal.client.module.Setting;
 import dev.crystal.client.module.SliderSetting;
 import dev.crystal.client.util.ColorUtil;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-
 import java.util.List;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 
 /** Drawing happens in {@link dev.crystal.client.render.WorldRenderHandler}; this holds the style and filters. */
 public class Hitbox extends Module {

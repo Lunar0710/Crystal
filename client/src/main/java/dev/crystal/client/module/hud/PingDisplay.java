@@ -1,7 +1,7 @@
 package dev.crystal.client.module.hud;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.PlayerListEntry;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.PlayerInfo;
 
 public class PingDisplay extends HudModule {
 
@@ -12,9 +12,9 @@ public class PingDisplay extends HudModule {
 
     @Override
     public String getText() {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc.player == null || mc.getNetworkHandler() == null) return "Ping: N/A";
-        PlayerListEntry entry = mc.getNetworkHandler().getPlayerListEntry(mc.player.getUuid());
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || mc.getConnection() == null) return "Ping: N/A";
+        PlayerInfo entry = mc.getConnection().getPlayerInfo(mc.player.getUUID());
         if (entry == null) return "Ping: N/A";
         return "Ping: " + entry.getLatency() + "ms";
     }

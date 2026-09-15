@@ -2,8 +2,8 @@ package dev.crystal.client.module.player;
 
 import dev.crystal.client.module.ModuleCategory;
 import dev.crystal.client.module.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.item.ItemStack;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.item.ItemStack;
 
 public class Cooldowns extends HudModule {
 
@@ -14,17 +14,17 @@ public class Cooldowns extends HudModule {
 
     @Override
     public String getText() {
-        var player = MinecraftClient.getInstance().player;
+        var player = Minecraft.getInstance().player;
         if (player == null) return "";
 
         // Attack cooldown (weapon "charge") only matters while it's not already full.
-        float attackProgress = player.getAttackCooldownProgress(0f);
+        float attackProgress = player.getAttackStrengthScale(0f);
         String attack = attackProgress < 1f ? "Attack: " + Math.round(attackProgress * 100) + "%" : null;
 
-        ItemStack held = player.getMainHandStack();
+        ItemStack held = player.getMainHandItem();
         String item = null;
-        if (player.getItemCooldownManager().isCoolingDown(held)) {
-            float progress = 1f - player.getItemCooldownManager().getCooldownProgress(held, 0f);
+        if (player.getCooldowns().isOnCooldown(held)) {
+            float progress = 1f - player.getCooldowns().getCooldownPercent(held, 0f);
             item = held.getItem().getName().getString() + ": " + Math.round(progress * 100) + "%";
         }
 

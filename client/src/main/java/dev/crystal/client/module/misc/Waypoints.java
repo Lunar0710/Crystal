@@ -1,5 +1,6 @@
 package dev.crystal.client.module.misc;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import dev.crystal.client.CrystalClient;
 import dev.crystal.client.event.events.TickEvent;
 import dev.crystal.client.module.KeybindSetting;
@@ -7,14 +8,13 @@ import dev.crystal.client.module.Module;
 import dev.crystal.client.module.ModuleCategory;
 import dev.crystal.client.module.Setting;
 import dev.crystal.client.module.hud.HudRenderable;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.util.math.BlockPos;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
 
 /** No dedicated GUI yet — press the "Add Waypoint" key to drop one at your feet; the HUD line tracks the nearest. */
 public class Waypoints extends Module implements HudRenderable {
@@ -44,17 +44,17 @@ public class Waypoints extends Module implements HudRenderable {
     }
 
     private void onTick(TickEvent event) {
-        MinecraftClient mc = event.getClient();
-        if (addKey == GLFW.GLFW_KEY_UNKNOWN || mc.player == null || mc.currentScreen != null) {
+        Minecraft mc = event.getClient();
+        if (addKey == GLFW.GLFW_KEY_UNKNOWN || mc.player == null || mc.screen != null) {
             wasAddPressed = false;
             return;
         }
 
-        boolean pressed = InputUtil.isKeyPressed(mc.getWindow(), addKey);
+        boolean pressed = InputConstants.isKeyDown(mc.getWindow(), addKey);
         if (pressed && !wasAddPressed) {
-            BlockPos pos = mc.player.getBlockPos();
+            BlockPos pos = mc.player.blockPosition();
             waypoints.add(new Waypoint("Waypoint " + (waypoints.size() + 1), pos));
-            mc.player.sendMessage(net.minecraft.text.Text.literal(
+            mc.player.displayClientMessage(net.minecraft.network.chat.Component.literal(
                     "§bWaypoint gesetzt: §f" + pos.getX() + ", " + pos.getY() + ", " + pos.getZ()), true);
         }
         wasAddPressed = pressed;
@@ -62,13 +62,13 @@ public class Waypoints extends Module implements HudRenderable {
 
     @Override
     public String getText() {
-        var player = MinecraftClient.getInstance().player;
+        var player = Minecraft.getInstance().player;
         if (player == null || waypoints.isEmpty()) return "Waypoints: none";
 
         Waypoint nearest = waypoints.get(0);
-        double nearestDist = player.getBlockPos().getSquaredDistance(nearest.pos());
+        double nearestDist = player.blockPosition().distSqr(nearest.pos());
         for (Waypoint wp : waypoints) {
-            double dist = player.getBlockPos().getSquaredDistance(wp.pos());
+            double dist = player.blockPosition().distSqr(wp.pos());
             if (dist < nearestDist) {
                 nearest = wp;
                 nearestDist = dist;

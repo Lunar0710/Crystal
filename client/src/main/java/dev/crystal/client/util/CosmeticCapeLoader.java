@@ -2,18 +2,17 @@ package dev.crystal.client.util;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.mojang.blaze3d.platform.NativeImage;
 import dev.crystal.client.CrystalClient;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.texture.NativeImage;
-import net.minecraft.client.texture.NativeImageBackedTexture;
-import net.minecraft.util.AssetInfo;
-import net.minecraft.util.Identifier;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.core.ClientAsset;
+import net.minecraft.resources.Identifier;
 
 /**
  * Loads whichever cape the launcher's Cosmetics page has equipped from
@@ -32,7 +31,7 @@ import java.util.concurrent.Executors;
  */
 public final class CosmeticCapeLoader {
 
-    private static final Identifier TEXTURE_ID = Identifier.of("crystal", "cosmetics/equipped_cape");
+    private static final Identifier TEXTURE_ID = Identifier.fromNamespaceAndPath("crystal", "cosmetics/equipped_cape");
     private static final SimpleTextureAsset ASSET = new SimpleTextureAsset(TEXTURE_ID);
 
     private static final long CHECK_INTERVAL_MS = 1000;
@@ -52,7 +51,7 @@ public final class CosmeticCapeLoader {
 
     // Animation state, only touched on the render thread.
     private static NativeImage strip = null;
-    private static NativeImageBackedTexture animated = null;
+    private static DynamicTexture animated = null;
     private static int frames = 1;
     private static int fps = 10;
     private static int shownFrame = -1;
@@ -65,7 +64,7 @@ public final class CosmeticCapeLoader {
      * player — so the actual filesystem check is throttled to once a second
      * rather than stat-ing the file on every single call.
      */
-    public static AssetInfo.TextureAsset getEquippedCape() {
+    public static ClientAsset.Texture getEquippedCape() {
         long now = System.currentTimeMillis();
         if (now - lastCheckedAt >= CHECK_INTERVAL_MS && !checkInFlight) {
             lastCheckedAt = now;
@@ -84,7 +83,7 @@ public final class CosmeticCapeLoader {
         if (strip == null || animated == null || frames <= 1) return;
         int frame = (int) ((now * fps / 1000L) % frames);
         if (frame == shownFrame) return;
-        NativeImage target = animated.getImage();
+        NativeImage target = animated.getPixels();
         if (target == null) return;
         int frameH = strip.getHeight() / frames;
         try {
@@ -153,10 +152,10 @@ public final class CosmeticCapeLoader {
             NativeImage image = NativeImage.read(bytes);
             int[] animation = readAnimation(image);
 
-            MinecraftClient mc = MinecraftClient.getInstance();
+            Minecraft mc = Minecraft.getInstance();
             mc.execute(() -> {
                 if (registered) {
-                    mc.getTextureManager().destroyTexture(TEXTURE_ID);
+                    mc.getTextureManager().release(TEXTURE_ID);
                 }
                 if (strip != null) {
                     strip.close();
@@ -171,11 +170,11 @@ public final class CosmeticCapeLoader {
                     strip = image;
                     NativeImage frame = new NativeImage(image.getWidth(), image.getHeight() / frames, true);
                     image.copyRect(frame, 0, 0, 0, 0, frame.getWidth(), frame.getHeight(), false, false);
-                    animated = new NativeImageBackedTexture(() -> TEXTURE_ID.toString(), frame);
-                    mc.getTextureManager().registerTexture(TEXTURE_ID, animated);
+                    animated = new DynamicTexture(() -> TEXTURE_ID.toString(), frame);
+                    mc.getTextureManager().register(TEXTURE_ID, animated);
                 } else {
                     frames = 1;
-                    mc.getTextureManager().registerTexture(TEXTURE_ID, new NativeImageBackedTexture(() -> TEXTURE_ID.toString(), image));
+                    mc.getTextureManager().register(TEXTURE_ID, new DynamicTexture(() -> TEXTURE_ID.toString(), image));
                 }
                 registered = true;
             });
@@ -188,7 +187,7 @@ public final class CosmeticCapeLoader {
         }
     }
 
-    private record SimpleTextureAsset(Identifier texturePath) implements AssetInfo.TextureAsset {
+    private record SimpleTextureAsset(Identifier texturePath) implements ClientAsset.Texture {
         @Override
         public Identifier id() { return texturePath; }
     }

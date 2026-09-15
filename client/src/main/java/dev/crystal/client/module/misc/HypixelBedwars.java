@@ -1,11 +1,11 @@
 package dev.crystal.client.module.misc;
 
 import dev.crystal.client.module.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.scoreboard.Scoreboard;
-import net.minecraft.scoreboard.ScoreboardDisplaySlot;
-import net.minecraft.scoreboard.ScoreboardEntry;
-import net.minecraft.scoreboard.ScoreboardObjective;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.scores.DisplaySlot;
+import net.minecraft.world.scores.Objective;
+import net.minecraft.world.scores.PlayerScoreEntry;
+import net.minecraft.world.scores.Scoreboard;
 
 /**
  * Reads whatever the server's own sidebar scoreboard sends — Hypixel doesn't
@@ -22,14 +22,14 @@ public class HypixelBedwars extends HudModule {
 
     @Override
     public String getText() {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc.getCurrentServerEntry() == null || !mc.getCurrentServerEntry().address.toLowerCase().contains("hypixel")) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.getCurrentServer() == null || !mc.getCurrentServer().ip.toLowerCase().contains("hypixel")) {
             return "";
         }
-        if (mc.player == null || mc.getNetworkHandler() == null) return "";
+        if (mc.player == null || mc.getConnection() == null) return "";
 
-        Scoreboard scoreboard = mc.getNetworkHandler().getScoreboard();
-        ScoreboardObjective objective = scoreboard.getObjectiveForSlot(ScoreboardDisplaySlot.SIDEBAR);
+        Scoreboard scoreboard = mc.getConnection().scoreboard();
+        Objective objective = scoreboard.getDisplayObjective(DisplaySlot.SIDEBAR);
         if (objective == null) return "";
 
         String title = objective.getDisplayName().getString();
@@ -37,9 +37,9 @@ public class HypixelBedwars extends HudModule {
 
         int bedsStanding = 0;
         int bedsDestroyed = 0;
-        for (ScoreboardEntry entry : scoreboard.getScoreboardEntries(objective)) {
-            if (entry.hidden()) continue;
-            String line = entry.name().getString();
+        for (PlayerScoreEntry entry : scoreboard.listPlayerScores(objective)) {
+            if (entry.isHidden()) continue;
+            String line = entry.ownerName().getString();
             // Hypixel marks a broken bed with a red X-style icon in the sidebar line.
             if (line.contains("❤") || line.toLowerCase().contains("bed")) {
                 if (line.contains("✗") || line.contains("X ")) bedsDestroyed++;

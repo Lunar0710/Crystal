@@ -1,12 +1,11 @@
 package dev.crystal.client.module;
 
 import dev.crystal.client.event.EventBus;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.util.InputUtil;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.Collections;
 import java.util.List;
+import net.minecraft.client.Minecraft;
 
 public abstract class Module {
 
@@ -17,7 +16,7 @@ public abstract class Module {
     private boolean enabled = false;
     private int keybind = GLFW.GLFW_KEY_UNKNOWN;
 
-    protected final MinecraftClient mc = MinecraftClient.getInstance();
+    protected final Minecraft mc = Minecraft.getInstance();
 
     public Module(String name, String description, ModuleCategory category) {
         this.name = name;

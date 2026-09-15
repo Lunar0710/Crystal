@@ -2,7 +2,7 @@ package dev.crystal.client.module.movement;
 
 import dev.crystal.client.module.Module;
 import dev.crystal.client.module.ModuleCategory;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 /** Thin wrapper around vanilla's own Auto Jump accessibility option — restores it on disable so it doesn't stay stuck on. */
 public class AutoJump extends Module {
@@ -15,13 +15,13 @@ public class AutoJump extends Module {
 
     @Override
     public void onEnable() {
-        var option = MinecraftClient.getInstance().options.getAutoJump();
-        previousValue = option.getValue();
-        option.setValue(true);
+        var option = Minecraft.getInstance().options.autoJump();
+        previousValue = option.get();
+        option.set(true);
     }
 
     @Override
     public void onDisable() {
-        MinecraftClient.getInstance().options.getAutoJump().setValue(previousValue);
+        Minecraft.getInstance().options.autoJump().set(previousValue);
     }
 }

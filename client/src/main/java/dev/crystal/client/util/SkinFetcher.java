@@ -2,15 +2,8 @@ package dev.crystal.client.util;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.mojang.blaze3d.platform.NativeImage;
 import dev.crystal.client.CrystalClient;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.texture.NativeImage;
-import net.minecraft.client.texture.NativeImageBackedTexture;
-import net.minecraft.entity.player.PlayerSkinType;
-import net.minecraft.entity.player.SkinTextures;
-import net.minecraft.util.AssetInfo;
-import net.minecraft.util.Identifier;
-
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -19,6 +12,12 @@ import java.net.http.HttpResponse;
 import java.util.Base64;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.core.ClientAsset;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.entity.player.PlayerModelType;
+import net.minecraft.world.entity.player.PlayerSkin;
 
 /**
  * Resolves a Minecraft username to its real skin (via Mojang's public APIs)
@@ -29,19 +28,19 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class SkinFetcher {
 
     private static final HttpClient HTTP = HttpClient.newHttpClient();
-    private static final Map<String, SkinTextures> CACHE = new ConcurrentHashMap<>();
+    private static final Map<String, PlayerSkin> CACHE = new ConcurrentHashMap<>();
     private static final Map<String, Boolean> IN_FLIGHT = new ConcurrentHashMap<>();
 
     private SkinFetcher() {}
 
     /** Non-blocking: returns the cached skin if ready, otherwise kicks off a fetch and returns null. */
-    public static SkinTextures getOrFetch(String username) {
+    public static PlayerSkin getOrFetch(String username) {
         // Minecraft names only. Anything else can't exist, would break the
         // texture identifier, and shouldn't be put into the request URL.
         if (username == null || !VALID_NAME.matcher(username).matches()) return null;
 
         String key = username.toLowerCase(java.util.Locale.ROOT);
-        SkinTextures cached = CACHE.get(key);
+        PlayerSkin cached = CACHE.get(key);
         if (cached != null) return cached;
 
         // This is called every frame. A failed lookup (typo, unknown name, Mojang
@@ -53,7 +52,7 @@ public final class SkinFetcher {
         if (IN_FLIGHT.putIfAbsent(key, true) == null) {
             Thread.ofVirtual().start(() -> {
                 try {
-                    SkinTextures result = fetchBlocking(key);
+                    PlayerSkin result = fetchBlocking(key);
                     if (result != null) {
                         CACHE.put(key, result);
                         FAILED_AT.remove(key);
@@ -75,7 +74,7 @@ public final class SkinFetcher {
     private static final long RETRY_AFTER_MS = 60_000;
     private static final Map<String, Long> FAILED_AT = new ConcurrentHashMap<>();
 
-    private static SkinTextures fetchBlocking(String username) throws IOException, InterruptedException {
+    private static PlayerSkin fetchBlocking(String username) throws IOException, InterruptedException {
         String uuid = getJson("https://api.mojang.com/users/profiles/minecraft/" + username)
                 .get("id").getAsString();
 
@@ -91,26 +90,26 @@ public final class SkinFetcher {
         byte[] pngBytes = HTTP.send(HttpRequest.newBuilder(URI.create(skinUrl)).build(),
                 HttpResponse.BodyHandlers.ofByteArray()).body();
 
-        Identifier textureId = Identifier.of("crystal", "skins/" + username);
+        Identifier textureId = Identifier.fromNamespaceAndPath("crystal", "skins/" + username);
         registerTexture(textureId, pngBytes);
 
-        return SkinTextures.create(
+        return PlayerSkin.insecure(
                 new SimpleTextureAsset(textureId),
                 null,
                 null,
-                slim ? PlayerSkinType.SLIM : PlayerSkinType.WIDE
+                slim ? PlayerModelType.SLIM : PlayerModelType.WIDE
         );
     }
 
-    private record SimpleTextureAsset(Identifier texturePath) implements AssetInfo.TextureAsset {
+    private record SimpleTextureAsset(Identifier texturePath) implements ClientAsset.Texture {
         @Override
         public Identifier id() { return texturePath; }
     }
 
     private static void registerTexture(Identifier id, byte[] pngBytes) throws IOException {
         NativeImage image = NativeImage.read(pngBytes);
-        MinecraftClient mc = MinecraftClient.getInstance();
-        mc.execute(() -> mc.getTextureManager().registerTexture(id, new NativeImageBackedTexture(() -> id.toString(), image)));
+        Minecraft mc = Minecraft.getInstance();
+        mc.execute(() -> mc.getTextureManager().register(id, new DynamicTexture(() -> id.toString(), image)));
     }
 
     private static JsonObject getJson(String url) throws IOException, InterruptedException {

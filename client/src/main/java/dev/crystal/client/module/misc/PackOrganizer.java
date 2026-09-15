@@ -1,6 +1,7 @@
 package dev.crystal.client.module.misc;
 
 import dev.crystal.client.event.events.TickEvent;
+import com.mojang.blaze3d.platform.InputConstants;
 import dev.crystal.client.CrystalClient;
 import dev.crystal.client.module.ButtonSetting;
 import dev.crystal.client.module.HiddenTextSetting;
@@ -8,16 +9,14 @@ import dev.crystal.client.module.KeybindSetting;
 import dev.crystal.client.module.Module;
 import dev.crystal.client.module.ModuleCategory;
 import dev.crystal.client.module.Setting;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.resource.ResourcePackManager;
-import net.minecraft.resource.ResourcePackProfile;
-import net.minecraft.text.Text;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Consumer;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.packs.repository.Pack;
+import net.minecraft.server.packs.repository.PackRepository;
 
 /**
  * Three resource pack sets. "Save" stores the packs that are on right now in a
@@ -51,8 +50,8 @@ public class PackOrganizer extends Module {
     }
 
     public void save(int slot) {
-        ResourcePackManager manager = mc.getResourcePackManager();
-        slotPacks[slot] = String.join("\n", manager.getEnabledIds());
+        PackRepository manager = mc.getResourcePackRepository();
+        slotPacks[slot] = String.join("\n", manager.getSelectedIds());
         notify("Set " + (slot + 1) + " gespeichert (" + describe(slot) + ")");
         CrystalClient.getInstance().getConfigManager().save();
     }
@@ -62,41 +61,41 @@ public class PackOrganizer extends Module {
             notify("Set " + (slot + 1) + " ist leer. Erst speichern.");
             return;
         }
-        ResourcePackManager manager = mc.getResourcePackManager();
-        manager.scanPacks();
+        PackRepository manager = mc.getResourcePackRepository();
+        manager.reload();
         List<String> wanted = new ArrayList<>(Arrays.asList(slotPacks[slot].split("\n")));
         // A pack that was deleted since saving is skipped instead of failing the switch.
-        wanted.removeIf(id -> manager.getProfile(id) == null);
-        manager.setEnabledProfiles(wanted);
-        mc.options.refreshResourcePacks(manager);
+        wanted.removeIf(id -> manager.getPack(id) == null);
+        manager.setSelected(wanted);
+        mc.options.updateResourcePacks(manager);
         notify("Set " + (slot + 1) + " geladen");
     }
 
     /** Pack names in a slot, for the button label and chat message. */
     private String describe(int slot) {
         if (slotPacks[slot].isEmpty()) return "leer";
-        ResourcePackManager manager = mc.getResourcePackManager();
+        PackRepository manager = mc.getResourcePackRepository();
         List<String> names = new ArrayList<>();
         for (String id : slotPacks[slot].split("\n")) {
             if (id.equals("vanilla") || id.startsWith("fabric") || id.startsWith("crystal:")) continue;
-            ResourcePackProfile profile = manager.getProfile(id);
-            names.add(profile != null ? profile.getDisplayName().getString() : id.replace("file/", ""));
+            Pack profile = manager.getPack(id);
+            names.add(profile != null ? profile.getTitle().getString() : id.replace("file/", ""));
         }
         return names.isEmpty() ? "Standard" : String.join(", ", names);
     }
 
     private void checkKeys() {
-        if (mc.currentScreen != null) return;
+        if (mc.screen != null) return;
         for (int i = 0; i < SLOTS; i++) {
-            boolean down = slotKeys[i] > 0 && InputUtil.isKeyPressed(mc.getWindow(), slotKeys[i]);
+            boolean down = slotKeys[i] > 0 && InputConstants.isKeyDown(mc.getWindow(), slotKeys[i]);
             if (down && !keyWasDown[i]) load(i);
             keyWasDown[i] = down;
         }
     }
 
     private void notify(String message) {
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client.player != null) client.player.sendMessage(Text.literal("[Crystal] " + message), true);
+        Minecraft client = Minecraft.getInstance();
+        if (client.player != null) client.player.displayClientMessage(Component.literal("[Crystal] " + message), true);
     }
 
     @Override

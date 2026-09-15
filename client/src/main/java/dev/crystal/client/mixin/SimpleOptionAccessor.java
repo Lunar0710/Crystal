@@ -1,6 +1,6 @@
 package dev.crystal.client.mixin;
 
-import net.minecraft.client.option.SimpleOption;
+import net.minecraft.client.OptionInstance;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
@@ -16,7 +16,7 @@ import org.spongepowered.asm.mixin.gen.Accessor;
  * original value must always be restored on disable so vanilla's own options
  * screen doesn't end up displaying something it can never produce itself.
  */
-@Mixin(SimpleOption.class)
+@Mixin(OptionInstance.class)
 public interface SimpleOptionAccessor {
 
     @Accessor("value")
