@@ -42,8 +42,10 @@ interface ModrinthVersion {
 }
 
 const api = (window as any).crystal
-const GAME_VERSION = '1.21.11'
-const LOADER = 'fabric'
+/** Default for new instances: the newest version Crystal runs on. */
+const DEFAULT_VERSION = '1.21.11'
+
+interface VersionOption { id: string; fabric: boolean; crystal: boolean }
 
 const CONTENT_TABS: { id: ContentType; label: string; upload: string }[] = [
   { id: 'mod',          label: 'Mods',           upload: '.jar hinzufügen' },
@@ -83,7 +85,7 @@ export function Instances() {
   useEffect(refresh, [])
 
   async function importInstance() {
-    const imported = await api?.importInstance(GAME_VERSION)
+    const imported = await api?.importInstance(DEFAULT_VERSION)
     if (imported) {
       refresh()
       notify({ type: 'success', message: `${imported.name} importiert` })
@@ -240,6 +242,17 @@ function CreateInstance({ onDone, onCancel }: { onDone: (created: Instance | nul
   const [mode, setMode] = useState<'empty' | 'modpack'>('empty')
   const [name, setName] = useState('')
   const [useCrystal, setUseCrystal] = useState(true)
+  const [versionOptions, setVersionOptions] = useState<VersionOption[]>([])
+  const [gameVersion, setGameVersion] = useState(DEFAULT_VERSION)
+  const currentOption = versionOptions.find(v => v.id === gameVersion)
+  // Crystal needs its own build for the version; Fabric-less versions start plain vanilla.
+  const crystalAvailable = currentOption ? currentOption.crystal : gameVersion === DEFAULT_VERSION
+  const loader = currentOption && !currentOption.fabric ? 'vanilla' : 'fabric'
+
+  useEffect(() => {
+    api?.getVersionOptions?.().then((list: VersionOption[]) => { if (list?.length) setVersionOptions(list) })
+  }, [])
+  useEffect(() => { if (!crystalAvailable) setUseCrystal(false) }, [crystalAvailable])
   const [query, setQuery] = useState('')
   const [packs, setPacks] = useState<ModrinthHit[]>([])
   const [loading, setLoading] = useState(false)
@@ -258,7 +271,7 @@ function CreateInstance({ onDone, onCancel }: { onDone: (created: Instance | nul
     if (!name.trim()) setName(hit.title)
     setPackVersions(undefined)
     setPackVersionId(undefined)
-    const list: ModrinthVersion[] = (await api?.getModpackVersions(hit.project_id, GAME_VERSION)) || []
+    const list: ModrinthVersion[] = (await api?.getModpackVersions(hit.project_id, gameVersion)) || []
     // Ignore a late answer for a pack the user has already clicked away from.
     if (selectedIdRef.current !== hit.project_id) return
     setPackVersions(list)
@@ -267,13 +280,13 @@ function CreateInstance({ onDone, onCancel }: { onDone: (created: Instance | nul
 
   async function searchPacks(q: string) {
     setLoading(true)
-    const hits = await api?.searchModpacks(q, GAME_VERSION)
+    const hits = await api?.searchModpacks(q, gameVersion)
     setPacks(hits || [])
     setLoading(false)
   }
 
   async function createBase(): Promise<Instance | null> {
-    const created = await api?.createInstance({ name: name.trim(), version: GAME_VERSION, loader: LOADER, gameDir: '', useCrystalClient: useCrystal })
+    const created = await api?.createInstance({ name: name.trim(), version: gameVersion, loader, gameDir: '', useCrystalClient: useCrystal && crystalAvailable })
     if (!created) notify({ type: 'error', message: 'Instanz konnte nicht angelegt werden.' })
     return created ?? null
   }
@@ -289,7 +302,7 @@ function CreateInstance({ onDone, onCancel }: { onDone: (created: Instance | nul
     } else if (created) {
       notify({ type: 'success', message: `${created.name} angelegt` })
     }
-    if (created && withPerfPack && mode === 'empty') await installPack(created)
+    if (created && withPerfPack && mode === 'empty' && loader === 'fabric') await installPack(created)
     setWorking(false)
     onDone(created)
   }
@@ -354,6 +367,31 @@ function CreateInstance({ onDone, onCancel }: { onDone: (created: Instance | nul
         </div>
 
         <div className="space-y-1.5">
+          <label htmlFor="instance-version" className="crystal-label">Minecraft-Version</label>
+          <div className="relative">
+            <select
+              id="instance-version"
+              value={gameVersion}
+              onChange={e => { setGameVersion(e.target.value); setPacks([]); setSelected(null) }}
+              className="crystal-input w-full appearance-none pr-9 cursor-pointer text-[13px]"
+            >
+              {(versionOptions.length ? versionOptions : [{ id: DEFAULT_VERSION, fabric: true, crystal: true }]).map(v => (
+                <option key={v.id} value={v.id}>
+                  {v.id}{v.crystal ? '  ·  Crystal' : v.fabric ? '  ·  Fabric' : '  ·  nur Vanilla'}
+                </option>
+              ))}
+            </select>
+            <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-crystal-muted pointer-events-none" />
+          </div>
+          {!crystalAvailable && (
+            <p className="text-xs text-crystal-muted">
+              Crystal gibt es für {gameVersion} noch nicht, die Module kommen Version für Version dazu.
+              {loader === 'vanilla' ? ' Für diese Version gibt es auch kein Fabric, sie startet als reines Vanilla.' : ' Mods über Fabric gehen schon.'}
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-1.5">
           <span className="crystal-label">Starten als</span>
           <div className="grid grid-cols-2 gap-2">
             {[
@@ -363,6 +401,7 @@ function CreateInstance({ onDone, onCancel }: { onDone: (created: Instance | nul
               <button
                 key={opt.title}
                 onClick={() => setUseCrystal(opt.v)}
+                disabled={opt.v && !crystalAvailable}
                 aria-pressed={useCrystal === opt.v}
                 className={`text-left px-3 py-2.5 rounded-lg border transition-colors ${
                   useCrystal === opt.v ? 'border-crystal-accent bg-crystal-accent/[0.06]' : 'border-crystal-border hover:border-crystal-muted/50'
@@ -375,7 +414,7 @@ function CreateInstance({ onDone, onCancel }: { onDone: (created: Instance | nul
           </div>
         </div>
 
-        {mode === 'empty' && (
+        {mode === 'empty' && loader === 'fabric' && (
           <label className="flex items-start gap-2.5 cursor-pointer">
             <input type="checkbox" checked={withPerfPack} onChange={e => setWithPerfPack(e.target.checked)} className="mt-0.5 accent-crystal-accent" />
             <span>
@@ -411,7 +450,7 @@ function CreateInstance({ onDone, onCancel }: { onDone: (created: Instance | nul
 
             <div className="max-h-64 overflow-y-auto rounded-lg border border-crystal-border divide-y divide-crystal-border">
               {loading && <p className="px-3 py-6 text-xs text-crystal-muted text-center">Suche…</p>}
-              {!loading && packs.length === 0 && <p className="px-3 py-6 text-xs text-crystal-muted text-center">Keine Modpacks für {GAME_VERSION} gefunden.</p>}
+              {!loading && packs.length === 0 && <p className="px-3 py-6 text-xs text-crystal-muted text-center">Keine Modpacks für {gameVersion} gefunden.</p>}
               {!loading && packs.map(hit => (
                 <button
                   key={hit.project_id}
@@ -486,6 +525,8 @@ function InstanceDetail({ instance, onBack }: { instance: Instance; onBack: () =
   const [switching, setSwitching] = useState<string | null>(null)
 
   const tabDef = CONTENT_TABS.find(t => t.id === tab)!
+  const GAME_VERSION = instance.version
+  const LOADER = instance.loader === 'vanilla' ? 'fabric' : instance.loader
 
   function refreshFiles() {
     api?.listContent(instance.id, tab).then((list: ContentFile[]) => setFiles(list || []))
@@ -828,7 +869,7 @@ function VersionPicker({ versions, value, onChange, action, hint }: {
       {!versions ? (
         <span className="text-xs text-crystal-muted">Lade Versionen…</span>
       ) : versions.length === 0 ? (
-        <span className="text-xs text-crystal-muted">Keine Version für {GAME_VERSION} gefunden.</span>
+        <span className="text-xs text-crystal-muted">Keine passende Version für diese Minecraft-Version gefunden.</span>
       ) : (
         <>
           <div className="relative">

@@ -55,6 +55,7 @@ contextBridge.exposeInMainWorld('crystal', {
 
   // Minecraft
   getVersions:      () => ipcRenderer.invoke('minecraft:getVersions'),
+  getVersionOptions: () => ipcRenderer.invoke('minecraft:versionOptions'),
   launchGame:       (opts: object) => ipcRenderer.invoke('minecraft:launch', opts),
   tryWithCrystal:   (instanceId: string) => ipcRenderer.invoke('tryCrystal:run', instanceId),
   selectGameDir:    () => ipcRenderer.invoke('minecraft:selectDir'),

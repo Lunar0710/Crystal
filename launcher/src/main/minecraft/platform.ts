@@ -78,9 +78,9 @@ export function javaInJdk(jdkDir: string): string {
 }
 
 /** Adoptium download for this machine, or null on an OS/arch it doesn't build for. */
-export function adoptiumJdk(major: number): { url: string; archive: 'zip' | 'tar.gz' } | null {
+export function adoptiumJdk(major: number, forceX64 = false): { url: string; archive: 'zip' | 'tar.gz' } | null {
   const osName = process.platform === 'win32' ? 'windows' : process.platform === 'darwin' ? 'mac' : process.platform === 'linux' ? 'linux' : null
-  const arch = process.arch === 'x64' ? 'x64' : process.arch === 'arm64' ? 'aarch64' : null
+  const arch = forceX64 || process.arch === 'x64' ? 'x64' : process.arch === 'arm64' ? 'aarch64' : null
   if (!osName || !arch) return null
   return {
     url: `https://api.adoptium.net/v3/binary/latest/${major}/ga/${osName}/${arch}/jdk/hotspot/normal/eclipse?project=jdk`,

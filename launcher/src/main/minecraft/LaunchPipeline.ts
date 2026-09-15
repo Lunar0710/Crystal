@@ -7,7 +7,8 @@ import extract from 'extract-zip'
 import { AuthProfile } from '../auth/AuthManager'
 import { logger } from '../logs/Logger'
 import { crystalRoot } from '../paths'
-import { nativesSuffix, platformJvmArgs, rulesAllow, OsRule } from './platform'
+import { mojangOs, nativesSuffix, rulesAllow, OsRule } from './platform'
+import { fabricMetaFor } from './versions'
 
 // Electron/Node 18+ ships a global fetch; not covered by this tsconfig's
 // ES2020-only lib, so declared locally instead of pulling in a DOM lib.
@@ -40,6 +41,8 @@ type Rule = OsRule
 interface LibraryDownload { path: string; url: string; sha1?: string }
 interface LibraryArtifact {
   downloads?: { artifact?: LibraryDownload; classifiers?: Record<string, LibraryDownload> }
+  /** Old versions (before 1.19): which classifier holds this OS's natives, e.g. { osx: "natives-osx" }. */
+  natives?: Record<string, string>
   name: string
   /** Maven repository root — present on Fabric's entries instead of `downloads`. */
   url?: string
@@ -108,22 +111,25 @@ export class LaunchPipeline {
     let mainClass = versionJson.mainClass
     let extraLibraries: LibraryArtifact[] = []
     let extraClasspathJars: string[] = []
+    let loaderProfile: any = null
 
     if (opts.loader === 'fabric') {
       emit('launch:progress', { step: 'Resolving Fabric loader...', percent: 12 })
-      const loaders = await this.getJson<{ loader: { version: string } }[]>(
-        `https://meta.fabricmc.net/v2/versions/loader/${opts.version}`
-      )
-      if (loaders.length === 0) {
-        emit('launch:error', `No Fabric loader available for ${opts.version}`)
+      // Official Fabric from 1.14, Legacy Fabric for 1.8.9 to 1.13.2.
+      const meta = fabricMetaFor(opts.version)
+      const loaders = meta
+        ? await this.getJson<{ loader: { version: string } }[]>(`${meta}/v2/versions/loader/${opts.version}`).catch(() => [])
+        : []
+      if (!meta || loaders.length === 0) {
+        emit('launch:error', `Für Minecraft ${opts.version} gibt es kein Fabric. Wähle Vanilla oder eine andere Version.`)
         return false
       }
       const loaderVersion = loaders[0].loader.version
-      const profile = await this.getJson<any>(
-        `https://meta.fabricmc.net/v2/versions/loader/${opts.version}/${loaderVersion}/profile/json`
+      loaderProfile = await this.getJson<any>(
+        `${meta}/v2/versions/loader/${opts.version}/${loaderVersion}/profile/json`
       )
-      mainClass = profile.mainClass
-      extraLibraries = profile.libraries || []
+      mainClass = loaderProfile.mainClass
+      extraLibraries = loaderProfile.libraries || []
     }
 
     emit('launch:progress', { step: 'Downloading client jar...', percent: 18 })
@@ -149,6 +155,17 @@ export class LaunchPipeline {
       if (total > 0) emit('launch:progress', { step: `Downloading assets (${done}/${total})...`, percent: 58 + Math.round((done / total) * 27) })
     })
 
+    // Mojang's logging config. For 1.8.9 to 1.18 it is also the Log4Shell fix:
+    // without it a chat message on a server could run code on this PC.
+    const loggingArgs: string[] = []
+    const logging = versionJson.logging?.client
+    if (logging?.file?.url && logging.file.id && typeof logging.argument === 'string') {
+      const logConfig = path.join(ASSETS_DIR(), 'log_configs', path.basename(logging.file.id))
+      fs.mkdirSync(path.dirname(logConfig), { recursive: true })
+      await this.downloadIfMissing(logging.file.url, logConfig)
+      loggingArgs.push(logging.argument.replace('${path}', logConfig))
+    }
+
     emit('launch:progress', { step: 'Launching Minecraft...', percent: 92 })
 
     const classpath = [clientJarPath, ...libPaths, ...extraClasspathJars].join(path.delimiter)
@@ -162,16 +179,15 @@ export class LaunchPipeline {
       '-XX:+UseG1GC', '-XX:+ParallelRefProcEnabled', '-XX:MaxGCPauseMillis=40',
       '-XX:+UnlockExperimentalVMOptions', '-XX:G1NewSizePercent=20', '-XX:G1ReservePercent=20',
       '-XX:G1HeapRegionSize=16M', '-XX:+DisableExplicitGC', '-XX:+PerfDisableSharedMem',
-      ...platformJvmArgs(),
-      `-Djava.library.path=${nativesDir}`,
+      ...loggingArgs,
       // Tells the in-game client where the launcher keeps cosmetics/theme files,
       // so a moved data folder doesn't silently break cape and theme sync.
       `-Dcrystal.root=${crystalRoot()}`,
       ...(opts.extraJvmArgs ?? []),
-      '-cp', classpath,
+      ...this.buildJvmArgs(versionJson, loaderProfile, nativesDir, classpath, opts.version),
     ]
 
-    const gameArgs = [...this.buildGameArgs(versionJson, opts), ...(opts.extraGameArgs ?? [])]
+    const gameArgs = [...this.buildGameArgs(versionJson, opts), ...this.loaderGameArgs(loaderProfile), ...(opts.extraGameArgs ?? [])]
 
     const logPath = path.join(opts.gameDir, 'crystal-launch.log')
     const logStream = fs.createWriteStream(logPath, { flags: 'w' })
@@ -293,6 +309,57 @@ export class LaunchPipeline {
     }
   }
 
+  /**
+   * The version's own JVM arguments. Newer versions list them (macOS window
+   * thread, native access flags on 26.x, library path); versions before 1.13
+   * list none and just need the library path and classpath. The library path
+   * always points at the natives this launcher unpacked.
+   */
+  private buildJvmArgs(versionJson: any, loaderProfile: any, nativesDir: string, classpath: string, version: string): string[] {
+    const values: Record<string, string> = {
+      natives_directory: nativesDir,
+      launcher_name: 'crystal-launcher',
+      launcher_version: '1',
+      classpath,
+      classpath_separator: path.delimiter,
+      library_directory: LIBRARIES_DIR(),
+      version_name: version,
+    }
+    const fromLoader = this.flattenArgs(loaderProfile?.arguments?.jvm, values)
+    const raw: unknown[] | undefined = versionJson.arguments?.jvm
+    if (!Array.isArray(raw)) {
+      return [...fromLoader, `-Djava.library.path=${nativesDir}`, '-cp', classpath]
+    }
+    const args = this.flattenArgs(raw, values).map(arg =>
+      arg.startsWith('-Djava.library.path=') ? `-Djava.library.path=${nativesDir}` : arg)
+    if (!args.includes('-cp') && !args.includes('-classpath')) args.push('-cp', classpath)
+    // Loader flags go before the classpath pair so "-cp" keeps its value right after it.
+    const cp = args.indexOf('-cp') >= 0 ? args.indexOf('-cp') : args.indexOf('-classpath')
+    return [...args.slice(0, cp), ...fromLoader, ...args.slice(cp)]
+  }
+
+  /** Strings and rule-gated { rules, value } entries of an arguments list, placeholders filled in. */
+  private flattenArgs(raw: unknown, values: Record<string, string>): string[] {
+    if (!Array.isArray(raw)) return []
+    const out: string[] = []
+    for (const entry of raw) {
+      if (typeof entry === 'string') {
+        out.push(this.substitute(entry, values))
+      } else if (entry && typeof entry === 'object') {
+        const { rules, value } = entry as { rules?: Rule[]; value?: string | string[] }
+        if (!this.rulesAllow(rules)) continue
+        for (const v of Array.isArray(value) ? value : value ? [value] : []) out.push(this.substitute(v, values))
+      }
+    }
+    return out
+  }
+
+  /** Extra game arguments a Fabric/Legacy Fabric profile adds (usually none). */
+  private loaderGameArgs(loaderProfile: any): string[] {
+    const raw = loaderProfile?.arguments?.game
+    return Array.isArray(raw) ? raw.filter((a: unknown): a is string => typeof a === 'string') : []
+  }
+
   private buildGameArgs(versionJson: any, opts: LaunchPipelineOptions): string[] {
     const placeholders: Record<string, string> = {
       auth_player_name: opts.profile.username,
@@ -306,6 +373,9 @@ export class LaunchPipeline {
       version_type: versionJson.type || 'release',
       clientid: '',
       auth_xuid: '',
+      // 1.8.9 to 1.12 read this as JSON; an empty value makes them crash on start.
+      user_properties: '{}',
+      auth_session: opts.profile.accessToken,
     }
 
     // Modern versions describe game args as a structured list (with OS/feature
@@ -343,15 +413,20 @@ export class LaunchPipeline {
       // (name ending in ":natives-windows", ":natives-macos-arm64", ...);
       // older ones use a classifiers map keyed the same way.
       const isNative = lib.name?.includes(nativesSuffix())
-      const classifier = lib.downloads?.classifiers?.[nativesSuffix()]
+      // Before 1.19 the natives sit in a classifier named by the "natives" map
+      // ("natives-osx" on old versions, "natives-macos" later, sometimes with ${arch}).
+      const classifierName = lib.natives?.[mojangOs()]?.replace('${arch}', process.arch === 'ia32' ? '32' : '64')
+      const classifier = classifierName ? lib.downloads?.classifiers?.[classifierName] : undefined
 
       const artifact = lib.downloads?.artifact
       if (artifact?.url && artifact.path) {
         const dest = path.join(LIBRARIES_DIR(), artifact.path)
         fs.mkdirSync(path.dirname(dest), { recursive: true })
         await this.downloadIfMissing(artifact.url, dest)
+        // LWJGL 3.3+ can load its natives straight from the jar, so native jars
+        // go on the classpath as well as being unpacked (26.x relies on that).
         if (isNative) natives.push(dest)
-        else classpath.push(dest)
+        classpath.push(dest)
       } else if (lib.name && lib.url) {
         // Fabric's meta API describes libraries as Maven coordinates plus a
         // repository root instead of a prebuilt download entry — without this

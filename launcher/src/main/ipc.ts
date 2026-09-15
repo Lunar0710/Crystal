@@ -256,7 +256,7 @@ export function registerIpcHandlers(store: Store) {
       return { ok: true, message: `RAM auf ${fix.ram} MB gesetzt.` }
     }
     if (fix?.kind === 'install-fabric-api') {
-      const result = await modrinth.install(instanceId, 'fabric-api', '1.21.11', 'fabric', 'mod')
+      const result = await modrinth.install(instanceId, 'fabric-api', instances.get(instanceId)?.version ?? '1.21.11', 'fabric', 'mod')
       return result.success
         ? { ok: true, message: `${result.fileName} installiert.` }
         : { ok: false, message: result.error || 'Installation fehlgeschlagen.' }
@@ -266,6 +266,15 @@ export function registerIpcHandlers(store: Store) {
 
   // Minecraft
   ipcMain.handle('minecraft:getVersions', () => minecraft.fetchAllVersions())
+  // Every supported release, newest first, with what exists for it.
+  ipcMain.handle('minecraft:versionOptions', async () => {
+    const list = await minecraft.fetchAllVersions().catch(() => [])
+    return list.map(v => ({
+      id: v.id,
+      fabric: minecraft.getSupportedLoaders(v.id).includes('fabric'),
+      crystal: minecraft.hasCrystalFor(v.id),
+    }))
+  })
   ipcMain.handle('minecraft:launch', async (_e, rawOpts) => {
     const win = BrowserWindow.getFocusedWindow()
     // Extra JVM/game arguments are for the automated tests only; a page must
@@ -295,11 +304,11 @@ export function registerIpcHandlers(store: Store) {
     // the performance pack once. Only once: a mod the player removes afterwards
     // stays removed. A failed download never blocks the launch.
     const perfKey = `perfPackAuto.${opts.instanceId}`
-    if (opts.injectCrystal && opts.version === '1.21.11' && opts.instanceId
+    if (opts.injectCrystal && typeof opts.version === 'string' && opts.version.startsWith('1.21') && opts.instanceId
         && store.get('autoPerformancePack') !== false && !store.get(perfKey)) {
       win?.webContents.send('launch:progress', { step: 'Performance-Mods werden installiert...', percent: 2 })
       try {
-        const result = await modrinth.installPerformancePack(opts.instanceId, '1.21.11')
+        const result = await modrinth.installPerformancePack(opts.instanceId, opts.version)
         if (result.failed.length === 0) store.set(perfKey, true)
       } catch (err) {
         logger.warn('client', 'Performance-Paket beim Start fehlgeschlagen', String(err))
@@ -396,7 +405,7 @@ export function registerIpcHandlers(store: Store) {
   ipcMain.handle('modrinth:identifyFile', (_e, instanceId: string, type: ContentType, fileName: string) =>
     modrinth.identifyFile(instanceId, type, fileName))
   ipcMain.handle('perfpack:status', (_e, instanceId: string) => modrinth.performancePackStatus(instanceId))
-  ipcMain.handle('perfpack:install', (_e, instanceId: string) => modrinth.installPerformancePack(instanceId, '1.21.11'))
+  ipcMain.handle('perfpack:install', (_e, instanceId: string) => modrinth.installPerformancePack(instanceId, instances.get(instanceId)?.version ?? '1.21.11'))
   ipcMain.handle('modrinth:identifyFolder', (_e, instanceId: string, type: ContentType) =>
     modrinth.identifyFolder(instanceId, type))
   ipcMain.handle('modrinth:switchVersion', (_e, instanceId: string, type: ContentType, fileName: string, versionId: string) =>

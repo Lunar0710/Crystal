@@ -11,6 +11,7 @@ import { LaunchPipeline } from './LaunchPipeline'
 import { logger } from '../logs/Logger'
 import { crystalPath, isPlainFileName } from '../paths'
 import { adoptiumJdk, extractTarGz, javaCandidates, javaInJdk } from './platform'
+import { compareVersions, downloadJavaMajor, fabricMetaFor, isSupportedVersion, javaFits, needsX64JavaOnArmMac } from './versions'
 
 // Electron/Node 18+ ships a global fetch; not covered by this tsconfig's
 // ES2020-only lib, so declared locally instead of pulling in a DOM lib.
@@ -50,9 +51,8 @@ export interface VersionInfo {
 }
 
 const VERSION_MANIFEST_URL = 'https://launchermeta.mojang.com/mc/game/version_manifest_v2.json'
-// Matches the version the Crystal client mod is compiled against
-// (see client/gradle.properties minecraft_version).
-const SUPPORTED_VERSIONS = ['1.21.11']
+/** The one Minecraft version the unsuffixed client jar (crystal-client-X.jar) is built for. */
+const LEGACY_JAR_MC_VERSION = '1.21.11'
 
 export class MinecraftManager {
   private store: Store
@@ -74,28 +74,28 @@ export class MinecraftManager {
     if (this.versionCache) return this.versionCache
 
     const manifest = await this.httpGetJson<{ versions: VersionInfo[] }>(VERSION_MANIFEST_URL)
-    const supported = manifest.versions.filter(v => SUPPORTED_VERSIONS.includes(v.id))
+    // Every release from 1.8.9 to 26.2.
+    const supported = manifest.versions.filter(v => v.type === 'release' && isSupportedVersion(v.id))
 
     this.versionCache = supported
     return supported
   }
 
-  // Determines which mod loader options apply to a given MC version.
-  // Fabric supports 1.14+, Forge supports the whole 1.8.9+ range.
+  // Mod loaders that exist for a version: Fabric from 1.14, Legacy Fabric on
+  // 1.8.9, 1.9.4, 1.10.2, 1.11.2, 1.12.2 and 1.13.2. Forge isn't launched yet.
   getSupportedLoaders(version: string): Array<'vanilla' | 'fabric' | 'forge'> {
-    const loaders: Array<'vanilla' | 'fabric' | 'forge'> = ['vanilla', 'forge']
-    if (this.compareVersions(version, '1.14') >= 0) loaders.push('fabric')
+    const loaders: Array<'vanilla' | 'fabric' | 'forge'> = ['vanilla']
+    if (fabricMetaFor(version)) loaders.push('fabric')
     return loaders
   }
 
+  /** Whether a Crystal client build exists for this Minecraft version. */
+  hasCrystalFor(version: string): boolean {
+    return this.findBundledCrystalJar(version) !== null
+  }
+
   private compareVersions(a: string, b: string): number {
-    const pa = a.split('.').map(Number)
-    const pb = b.split('.').map(Number)
-    for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-      const diff = (pa[i] || 0) - (pb[i] || 0)
-      if (diff !== 0) return diff
-    }
-    return 0
+    return compareVersions(a, b)
   }
 
   private httpGetJson<T>(url: string): Promise<T> {
@@ -122,8 +122,8 @@ export class MinecraftManager {
     const javaPath = await this.ensureJava(opts.version, emit)
     if (!javaPath) {
       emit('launch:error',
-        'Es konnte keine passende Java-Version gefunden oder heruntergeladen werden.\n\n' +
-        'Prüfe deine Internetverbindung, oder installiere Java 21 manuell (adoptium.net).')
+        `Es konnte kein Java ${downloadJavaMajor(opts.version)} für Minecraft ${opts.version} gefunden oder heruntergeladen werden.\n\n` +
+        `Prüfe deine Internetverbindung, oder installiere Java ${downloadJavaMajor(opts.version)} manuell (adoptium.net).`)
       return false
     }
 
@@ -139,7 +139,13 @@ export class MinecraftManager {
     fs.mkdirSync(modsDir, { recursive: true })
 
     if (opts.injectCrystal) {
-      if (!this.injectCrystalMod(modsDir)) {
+      if (!this.hasCrystalFor(opts.version) && this.findBundledCrystalJar(LEGACY_JAR_MC_VERSION)) {
+        emit('launch:error',
+          `Crystal gibt es für Minecraft ${opts.version} noch nicht. Die Crystal-Module kommen Version für Version dazu.\n\n` +
+          'Starte diese Instanz so lange ohne Crystal ("Vanilla + Mods"), oder nimm eine Version mit Crystal.')
+        return false
+      }
+      if (!this.injectCrystalMod(modsDir, opts.version)) {
         emit('launch:error',
           'Crystal-Client-Mod nicht gefunden.\n\n' +
           `Gesucht in: ${this.resolveCrystalModSourceDir()}\n\n` +
@@ -194,11 +200,16 @@ export class MinecraftManager {
 
   /** Version of the client mod jar that ships with this launcher, or null if none is bundled. */
   getBundledClientVersion(): string | null {
-    const jar = this.findBundledCrystalJar()
-    return jar ? this.extractJarVersion(path.basename(jar)) : null
+    const jar = this.findBundledCrystalJar(LEGACY_JAR_MC_VERSION)
+    return jar ? this.parseJarName(path.basename(jar))?.mod ?? null : null
   }
 
-  private findBundledCrystalJar(): string | null {
+  /**
+   * The newest client jar built for this Minecraft version. Jars are named
+   * crystal-client-<mod>+<mc>.jar (one per Minecraft version); the older
+   * crystal-client-<mod>.jar without "+<mc>" is the 1.21.11 build.
+   */
+  private findBundledCrystalJar(mcVersion: string): string | null {
     const dir = this.resolveCrystalModSourceDir()
     if (!fs.existsSync(dir)) return null
 
@@ -206,20 +217,22 @@ export class MinecraftManager {
     // one version sitting here — directory order isn't guaranteed, so always
     // pick the newest by version number rather than whichever readdir returns first.
     const jars = fs.readdirSync(dir)
-      .filter(f => f.startsWith(CRYSTAL_MOD_MARKER) && f.endsWith('.jar') && !f.endsWith('-sources.jar'))
-      .sort((a, b) => this.compareVersions(this.extractJarVersion(a), this.extractJarVersion(b)))
+      .map(f => ({ f, info: this.parseJarName(f) }))
+      .filter((j): j is { f: string; info: { mod: string; mc: string } } => j.info !== null && j.info.mc === mcVersion)
+      .sort((a, b) => this.compareVersions(a.info.mod, b.info.mod))
 
     const jar = jars[jars.length - 1]
-    return jar ? path.join(dir, jar) : null
+    return jar ? path.join(dir, jar.f) : null
   }
 
-  private extractJarVersion(fileName: string): string {
-    const match = fileName.match(/^crystal-client-([\d.]+)\.jar$/)
-    return match ? match[1] : '0'
+  private parseJarName(fileName: string): { mod: string; mc: string } | null {
+    if (!fileName.startsWith(CRYSTAL_MOD_MARKER) || !fileName.endsWith('.jar') || fileName.endsWith('-sources.jar')) return null
+    const match = fileName.match(/^crystal-client-([\d.]+)(?:\+([\d.]+))?\.jar$/)
+    return match ? { mod: match[1], mc: match[2] ?? LEGACY_JAR_MC_VERSION } : null
   }
 
-  private injectCrystalMod(modsDir: string): boolean {
-    const source = this.findBundledCrystalJar()
+  private injectCrystalMod(modsDir: string, mcVersion: string): boolean {
+    const source = this.findBundledCrystalJar(mcVersion)
     if (!source) return false
 
     this.removeCrystalMod(modsDir)
@@ -303,21 +316,25 @@ export class MinecraftManager {
    * happens once per machine.
    */
   private async ensureJava(version: string, emit: (event: string, data: unknown) => void): Promise<string | null> {
-    const bundledDir = crystalPath('jdk', '21')
+    const major = downloadJavaMajor(version)
+    const forceX64 = needsX64JavaOnArmMac(version)
+    const bundledDir = crystalPath('jdk', forceX64 ? `${major}-x64` : String(major))
     // Check our own previously-downloaded copy first — no point re-validating
     // it every launch, and it can't be some unrelated stale Java 8 install.
     if (fs.existsSync(javaInJdk(bundledDir))) return javaInJdk(bundledDir)
 
-    const existing = this.findJava(version)
+    // An installed Java only counts on the matching architecture; on Apple
+    // Silicon old versions need the x64 one, so those always use our own copy.
+    const existing = forceX64 ? null : this.findJava(version)
     if (existing) return existing
 
-    const download = adoptiumJdk(21)
+    const download = adoptiumJdk(major, forceX64)
     if (!download) {
       logger.error('client', `Kein Java-Download für ${process.platform}/${process.arch} verfügbar`)
       return null
     }
 
-    emit('launch:progress', { step: 'Lade Java 21 herunter (einmalig)...', percent: 5 })
+    emit('launch:progress', { step: `Lade Java ${major} herunter (einmalig)...`, percent: 5 })
 
     try {
       const res = await fetch(download.url)
@@ -328,12 +345,12 @@ export class MinecraftManager {
 
       const cacheDir = crystalPath('cache')
       fs.mkdirSync(cacheDir, { recursive: true })
-      const archivePath = path.join(cacheDir, `temurin-21-${process.platform}-${process.arch}.${download.archive}`)
+      const archivePath = path.join(cacheDir, `temurin-${major}-${process.platform}-${forceX64 ? 'x64' : process.arch}.${download.archive}`)
       fs.writeFileSync(archivePath, Buffer.from(await res.arrayBuffer()))
 
-      emit('launch:progress', { step: 'Installiere Java 21...', percent: 15 })
+      emit('launch:progress', { step: `Installiere Java ${major}...`, percent: 15 })
 
-      const extractDir = crystalPath('jdk', '21-extract')
+      const extractDir = crystalPath('jdk', `${major}-extract`)
       fs.rmSync(extractDir, { recursive: true, force: true })
       fs.mkdirSync(extractDir, { recursive: true })
       if (download.archive === 'zip') await extract(archivePath, { dir: extractDir })
@@ -359,7 +376,7 @@ export class MinecraftManager {
         return null
       }
 
-      logger.info('client', `Java 21 automatisch installiert unter ${bundledDir}`)
+      logger.info('client', `Java ${major} automatisch installiert unter ${bundledDir}`)
       return bundledJava
     } catch (err) {
       logger.error('client', 'Automatische Java-Installation fehlgeschlagen', err)
@@ -385,16 +402,7 @@ export class MinecraftManager {
     return first === 1 ? parseInt(match[2] || '0', 10) : first
   }
 
-  private requiredJavaMajor(version: string): number {
-    // 1.17+ requires Java 16+, 1.18+ requires Java 17+, 1.20.5+ requires Java 21.
-    if (this.compareVersions(version, '1.20.5') >= 0) return 21
-    if (this.compareVersions(version, '1.18') >= 0) return 17
-    if (this.compareVersions(version, '1.17') >= 0) return 16
-    return 8
-  }
-
   private findJava(version: string): string | null {
-    const required = this.requiredJavaMajor(version)
     const candidates = javaCandidates()
 
     // Existence alone isn't enough — a stale Java 8 on JAVA_HOME/PATH would
@@ -403,7 +411,7 @@ export class MinecraftManager {
     for (const candidate of candidates) {
       if (candidate !== 'java' && !fs.existsSync(candidate)) continue
       const major = this.getJavaMajorVersion(candidate)
-      if (major !== null && major >= required) return candidate
+      if (major !== null && javaFits(version, major)) return candidate
     }
     return null
   }
