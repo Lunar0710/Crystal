@@ -506,6 +506,8 @@ export function registerIpcHandlers(store: Store) {
     const dir = crystalPath('cosmetics')
     fs.mkdirSync(dir, { recursive: true })
     const target = path.join(dir, 'equipped_cape.png')
+    // A still cape: drop the animation description of a previous animated one.
+    fs.rmSync(path.join(dir, 'equipped_cape.json'), { force: true })
 
     if (!dataUrl) {
       fs.rm(target, { force: true }, () => {})
@@ -537,6 +539,23 @@ export function registerIpcHandlers(store: Store) {
     if (width !== targetW || height !== targetH) {
       logger.info('launcher', `Cape von ${width}x${height} auf ${targetW}x${targetH} skaliert`)
     }
+    return true
+  })
+
+  // Animated cape: a vertical strip of cape textures plus how to play it.
+  // The game reads equipped_cape.json to know it is a strip (CosmeticCapeLoader).
+  ipcMain.handle('cosmetics:syncCapeAnimation', (_e, dataUrl: string, frames: number, fps: number) => {
+    if (typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/png;base64,')) return false
+    const n = Math.floor(Number(frames)), speed = Math.floor(Number(fps))
+    if (!(n > 1 && n <= 64 && speed >= 1 && speed <= 30)) return false
+    const image = nativeImage.createFromDataURL(dataUrl)
+    if (image.isEmpty()) return false
+    const { width, height } = image.getSize()
+    if (height % n !== 0 || width !== (height / n) * 2 || width > 1024) return false
+    const dir = crystalPath('cosmetics')
+    fs.mkdirSync(dir, { recursive: true })
+    fs.writeFileSync(path.join(dir, 'equipped_cape.png'), image.toPNG())
+    fs.writeFileSync(path.join(dir, 'equipped_cape.json'), JSON.stringify({ frames: n, fps: speed }))
     return true
   })
 

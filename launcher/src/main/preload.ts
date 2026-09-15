@@ -106,6 +106,7 @@ contextBridge.exposeInMainWorld('crystal', {
   getLoadout:  () => ipcRenderer.invoke('cosmetics:getLoadout'),
   setLoadout:  (loadout: unknown) => ipcRenderer.invoke('cosmetics:setLoadout', loadout),
   syncEquippedCape: (dataUrl: string | null) => ipcRenderer.invoke('cosmetics:syncCape', dataUrl),
+  syncCapeAnimation: (dataUrl: string, frames: number, fps: number) => ipcRenderer.invoke('cosmetics:syncCapeAnimation', dataUrl, frames, fps),
   syncLoadout: (items: unknown) => ipcRenderer.invoke('cosmetics:syncLoadout', items),
 
   // Cosmetics / capes

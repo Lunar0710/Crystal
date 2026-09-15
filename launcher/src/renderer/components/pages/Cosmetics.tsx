@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react'
 import { Check, Upload, Trash2, X, Lock } from 'lucide-react'
 import { Page, PageHeader, EmptyState } from '../ui/Page'
 import { notify } from '../../store/notificationStore'
-import { BUILTIN_CAPES, CAPE_CATEGORIES, CapeCategory, capeTextureUrl, capePreviewUrl, isCapeTexture, pictureToCapeTexture, canUseCape } from '../../data/capes'
+import { BUILTIN_CAPES, CAPE_CATEGORIES, CapeCategory, capeTextureUrl, capePreviewUrl, isCapeTexture, pictureToCapeTexture, canUseCape, capeFrameUrls, capeAnimationStrip } from '../../data/capes'
+import { ANIMATION_FRAMES, ANIMATION_FPS } from '../../data/animatedCapes'
 import {
   SLOTS, CosmeticSlot, NonCapeSlot, COSMETICS_BY_SLOT, EMPTY_LOADOUT,
   EquippedCosmetics, findCosmetic, syncLoadoutToGame,
@@ -137,10 +138,27 @@ export function Cosmetics() {
   // equipped cape changes (including on load), push the actual PNG bytes out
   // to a file the Java mod reads. Skipped while a custom cape's thumbnail
   // hasn't loaded yet, so we don't briefly sync "no cape" over a real one.
+  const equippedDef = loadout.cape?.startsWith('builtin:') ? BUILTIN_CAPES.find(c => `builtin:${c.id}` === loadout.cape) : undefined
+  const animatedDef = equippedDef?.animate ? equippedDef : undefined
+
   useEffect(() => {
     if (loadout.cape?.startsWith('custom:') && !equippedCapeUrl) return
+    // Animated capes go to the game as a strip of frames instead.
+    if (animatedDef) {
+      api?.syncCapeAnimation(capeAnimationStrip(animatedDef), ANIMATION_FRAMES, ANIMATION_FPS)
+      return
+    }
     api?.syncEquippedCape(equippedCapeUrl)
-  }, [equippedCapeUrl])
+  }, [equippedCapeUrl, animatedDef?.id])
+
+  // The 3D preview plays animated capes at the same speed as the game.
+  const [frame, setFrame] = useState(0)
+  useEffect(() => {
+    if (!animatedDef) return
+    const timer = setInterval(() => setFrame(f => (f + 1) % ANIMATION_FRAMES), 1000 / ANIMATION_FPS)
+    return () => clearInterval(timer)
+  }, [animatedDef?.id])
+  const previewCapeUrl = animatedDef ? capeFrameUrls(animatedDef)[frame] ?? equippedCapeUrl : equippedCapeUrl
 
   // Hats, masks, wings… reach the game the same way: the resolved colours and
   // shapes go to a file the Java client reads. Rank-locked items are flagged so
@@ -206,7 +224,7 @@ export function Cosmetics() {
               <SkinPreview3D
                 skinDataUrl={skinDataUrl}
                 slim={skinSlim}
-                capeUrl={equippedCapeUrl}
+                capeUrl={previewCapeUrl}
                 hat={findCosmetic('hat', loadout.hat)}
                 bandana={findCosmetic('bandana', loadout.bandana)}
                 mask={findCosmetic('mask', loadout.mask)}

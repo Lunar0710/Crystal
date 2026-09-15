@@ -1,7 +1,8 @@
 import { HD_ART } from './hdCapes'
+import { ANIMATED_ART, ANIMATION_FRAMES, type AnimatedPainter } from './animatedCapes'
 import { meetsRank, type RankId } from './ranks'
 
-export type CapeCategory = 'art' | 'team' | 'plus' | 'emblem' | 'anime' | 'internet' | 'themed' | 'solid' | 'gradient' | 'pattern' | 'pixel' | 'neon'
+export type CapeCategory = 'animated' | 'art' | 'team' | 'plus' | 'emblem' | 'anime' | 'internet' | 'themed' | 'solid' | 'gradient' | 'pattern' | 'pixel' | 'neon'
 
 type Painter = (ctx: CanvasRenderingContext2D, w: number, h: number) => void
 
@@ -15,6 +16,8 @@ export interface CapeDef {
   requiredRank?: RankId
   /** Only this exact rank (and the Owner) may use it, instead of this rank and everything above. */
   exactRank?: boolean
+  /** Animated capes: draws the moment t (0..1) of a seamless loop, in 160x256 space. */
+  animate?: AnimatedPainter
   /** Resolution multiplier for detailed (non-pixel) capes: the painter gets a 10*hd x 16*hd canvas. */
   hd?: number
 }
@@ -52,6 +55,10 @@ export function capeTextureUrl(cape: CapeDef): string {
  * times k. Shared by built-in capes and pictures turned into capes.
  */
 function sheetFromDesign(design: HTMLCanvasElement, k: number): string {
+  return sheetCanvas(design, k).toDataURL('image/png')
+}
+
+function sheetCanvas(design: HTMLCanvasElement, k: number): HTMLCanvasElement {
 
   const sheet = document.createElement('canvas')
   sheet.width = TEX_W * k
@@ -74,7 +81,45 @@ function sheetFromDesign(design: HTMLCanvasElement, k: number): string {
   ctx.drawImage(design, 0, 0)
   ctx.restore()
 
-  return sheet.toDataURL('image/png')
+  return sheet
+}
+
+/** One animation frame of an animated cape as a cape texture canvas (64x32 times k). */
+function animatedFrame(cape: CapeDef, t: number, k: number): HTMLCanvasElement {
+  const design = document.createElement('canvas')
+  design.width = CAPE_W * k
+  design.height = CAPE_H * k
+  const ctx = design.getContext('2d')!
+  ctx.imageSmoothingEnabled = true
+  // The painters work in the 160x256 space of the HD capes.
+  ctx.scale((CAPE_W * k) / 160, (CAPE_H * k) / 256)
+  cape.animate!(ctx, 160, 256, t)
+  return sheetCanvas(design, k)
+}
+
+const frameCache = new Map<string, string[]>()
+
+/** Every frame as its own cape texture, for the launcher's 3D preview. */
+export function capeFrameUrls(cape: CapeDef, k = 8): string[] {
+  if (!cape.animate) return []
+  const key = cape.id + '@' + k
+  const cached = frameCache.get(key)
+  if (cached) return cached
+  const urls = Array.from({ length: ANIMATION_FRAMES }, (_, i) => animatedFrame(cape, i / ANIMATION_FRAMES, k).toDataURL('image/png'))
+  frameCache.set(key, urls)
+  return urls
+}
+
+/** All frames stacked top to bottom in one PNG: what the game reads for an animated cape. */
+export function capeAnimationStrip(cape: CapeDef, k = 8): string {
+  const strip = document.createElement('canvas')
+  strip.width = TEX_W * k
+  strip.height = TEX_H * k * ANIMATION_FRAMES
+  const ctx = strip.getContext('2d')!
+  for (let i = 0; i < ANIMATION_FRAMES; i++) {
+    ctx.drawImage(animatedFrame(cape, i / ANIMATION_FRAMES, k), 0, TEX_H * k * i)
+  }
+  return strip.toDataURL('image/png')
 }
 
 /** Sheet width/height 2:1 means the file already is a cape texture. */
@@ -1184,6 +1229,10 @@ const TEAM_CAPES: { id: string; name: string; rank: RankId | null; rows: string[
 ]
 
 export const BUILTIN_CAPES: CapeDef[] = [
+  ...ANIMATED_ART.map((a, i): CapeDef => ({
+    id: `animated-${i}`, name: a.name, category: 'animated', glow: a.glow, hd: 16, requiredRank: 'crystal_plus',
+    animate: a.animate, paint: (ctx, w, h) => { ctx.save(); ctx.scale(w / 160, h / 256); a.animate(ctx, 160, 256, 0); ctx.restore() },
+  })),
   ...HD_ART.map((a, i): CapeDef => ({
     id: `art-${i}`, name: a.name, category: 'art', paint: a.paint, glow: a.glow, hd: 16, requiredRank: 'crystal_plus',
   })),
@@ -1244,6 +1293,7 @@ export function canUseCape(rank: RankId | null | undefined, cape: CapeDef): bool
 }
 
 export const CAPE_CATEGORIES: { id: CapeCategory; label: string }[] = [
+  { id: 'animated', label: 'Animiert (Crystal+)' },
   { id: 'art', label: 'HD (Crystal+)' },
   { id: 'team', label: 'Team' },
   { id: 'plus', label: 'Crystal+' },
