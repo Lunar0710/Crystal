@@ -35,9 +35,11 @@ public class MixinCapeFeatureRenderer {
 
     // Matches vanilla's cape cuboid (10 wide, 16 tall) and the visible face's
     // texture rect on the classic 64x32 cape layout: a 10x16 block at (1,1).
+    // The texture is 64 wide but 32 tall (vanilla's cuboid halves its V scale
+    // for exactly that reason), so V is measured in 32nds.
     private static final float CAPE_W = 10f;
     private static final float CAPE_H = 16f;
-    private static final float U0 = 1f / 64f, U1 = 11f / 64f, V0 = 1f / 64f, V1 = 17f / 64f;
+    private static final float U0 = 1f / 64f, U1 = 11f / 64f, V0 = 1f / 32f, V1 = 17f / 32f;
     private static final int COLS = 5, ROWS = 9;
 
     @Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/command/OrderedRenderCommandQueue;ILnet/minecraft/client/render/entity/state/PlayerEntityRenderState;FF)V",
@@ -65,8 +67,10 @@ public class MixinCapeFeatureRenderer {
         // CosmeticsFeatureRenderer's wings/backpack anchor to).
         PlayerEntityModel bodyModel = ((CapeFeatureRenderer) (Object) this).getContextModel();
         bodyModel.body.applyTransform(matrices);
-        // Then the cape's own attachment, same as vanilla: translate(0,0,2) -> rotateY(180°) -> the lean/sway.
-        matrices.translate(0f, 0f, 2f);
+        // Then the cape's own attachment, same as vanilla: 2 pixels behind the
+        // body -> rotateY(180°) -> the lean/sway. applyTransform works in
+        // blocks, so the 2px offset is 2/16 here; only the mesh below is in pixels.
+        matrices.translate(0f, 0f, 2f / 16f);
         matrices.multiply(new Quaternionf().rotateY((float) Math.PI));
         matrices.multiply(new Quaternionf()
                 .rotateY(-(float) Math.PI)
