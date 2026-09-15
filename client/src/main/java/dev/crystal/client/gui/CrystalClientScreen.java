@@ -197,23 +197,29 @@ public class CrystalClientScreen extends Screen {
         for (String l : labels) natural += textRenderer.getWidth(l) + 14;
 
         int tabsX1 = px + 50;
-        int sw = Math.min(120, pw / 5);
-        int roomForTabs = closeBox.x1 - 6 - sw - 8 - tabsX1;
-        int minTabs = Math.round(natural * 0.8f);
-        if (roomForTabs < minTabs) sw = Math.max(56, sw - (minTabs - roomForTabs));
+        int gaps = 2 * (labels.length - 1);
+        int fullSearch = Math.min(120, pw / 5);
+        // Too narrow for tabs and a full search field: the field shrinks to its
+        // icon. Clicking it (or typing) opens it over the tabs until it's empty again.
+        boolean collapsed = closeBox.x1 - 6 - fullSearch - 8 - tabsX1 < Math.round(natural * 0.7f) + gaps;
+        boolean searchOpen = !collapsed || searchFocused || search.length() > 0;
+        int sw = !collapsed ? fullSearch : searchOpen ? closeBox.x1 - 6 - tabsX1 : 18;
         searchBox = new Box(closeBox.x1 - 6 - sw, py + 8, closeBox.x1 - 6, py + 26);
         boolean searchHover = searchBox.contains(mx, my);
         GuiRender.roundedRect(ctx, searchBox.x1, searchBox.y1, searchBox.x2, searchBox.y2, searchFocused ? 0x66000000 : searchHover ? 0x1AFFFFFF : 0x40000000);
         GuiRender.roundedOutline(ctx, searchBox.x1, searchBox.y1, searchBox.x2, searchBox.y2, searchFocused ? colAccent : GuiRender.withAlpha(colBorder, 0xAA));
         drawIcon(ctx, ICON_SEARCH, searchBox.x1 + 6, searchBox.y1 + 6, searchFocused ? colAccent : colMuted, 1);
-        boolean empty = search.length() == 0;
-        String caret = searchFocused && System.currentTimeMillis() / 500 % 2 == 0 ? "_" : "";
-        ctx.drawText(textRenderer, GuiRender.trimToWidth(empty ? "Suchen" : search.toString(), sw - 26) + (empty ? "" : caret),
-                searchBox.x1 + 16, searchBox.y1 + 5, empty ? colMuted : colText, false);
+        if (sw > 40) {
+            boolean empty = search.length() == 0;
+            String caret = searchFocused && System.currentTimeMillis() / 500 % 2 == 0 ? "_" : "";
+            ctx.drawText(textRenderer, GuiRender.trimToWidth(empty ? "Suchen" : search.toString(), sw - 26) + (empty ? "" : caret),
+                    searchBox.x1 + 16, searchBox.y1 + 5, empty ? colMuted : colText, false);
+        }
+        if (collapsed && searchOpen) return; // the open search covers the tab row
 
         // Tabs in between, shrinking the font if they don't fit.
-        int tabsX2 = searchBox.x1 - 8;
-        float fs = natural <= tabsX2 - tabsX1 ? 1f : Math.max(0.7f, (tabsX2 - tabsX1) / (float) natural);
+        int tabsX2 = searchBox.x1 - 6;
+        float fs = natural + gaps <= tabsX2 - tabsX1 ? 1f : Math.max(0.6f, (tabsX2 - tabsX1 - gaps) / (float) natural);
         int tx = tabsX1;
         for (int i = 0; i < labels.length; i++) {
             boolean isActiveTab = i == order.size();
