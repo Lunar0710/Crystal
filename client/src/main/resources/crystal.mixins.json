@@ -33,7 +33,8 @@
     "MixinLabelCommands",
     "MixinClientPlayerInteractionManager",
     "MixinItemEntityRenderer",
-    "MixinItemEntityRenderState"
+    "MixinItemEntityRenderState",
+    "MixinPlayerEntityModel"
   ],
   "injectors": {
     "defaultRequire": 1

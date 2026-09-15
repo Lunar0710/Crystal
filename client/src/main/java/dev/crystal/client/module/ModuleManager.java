@@ -130,6 +130,7 @@ public class ModuleManager {
         register(new dev.crystal.client.module.render.MotionBlur());
         register(new dev.crystal.client.module.render.WorldEditCUI());
         register(new dev.crystal.client.module.misc.MumbleLink());
+        register(new dev.crystal.client.module.render.Skins3D());
     }
 
     /** Module by its class, for hot paths. Filled once at registration; modules are never replaced. */

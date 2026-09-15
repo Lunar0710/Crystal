@@ -96,6 +96,8 @@ function writeTestSettings(gameDir) {
       ParticleChanger: { enabled: true },
       BetterSounds: { enabled: true },
       ServerAddress: { enabled: true },
+      '3D Skins': { enabled: true },
+      WorldEditCUI: { enabled: true },
     },
   }, null, 2))
 

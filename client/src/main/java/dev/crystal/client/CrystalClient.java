@@ -129,6 +129,8 @@ public class CrystalClient implements ClientModInitializer {
                     if (renderer instanceof net.minecraft.client.render.entity.PlayerEntityRenderer<?> player) {
                         helper.register(new dev.crystal.client.render.CosmeticsFeatureRenderer(
                                 (net.minecraft.client.render.entity.feature.FeatureRendererContext) player));
+                        helper.register(new dev.crystal.client.render.Skins3DFeatureRenderer(
+                                (net.minecraft.client.render.entity.feature.FeatureRendererContext) player));
                     }
                 });
     }
