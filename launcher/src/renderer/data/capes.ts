@@ -1,8 +1,9 @@
 import { HD_ART } from './hdCapes'
+import { HD_COLLECTION } from './hdCapeCollection'
 import { ANIMATED_ART, ANIMATION_FRAMES, type AnimatedPainter } from './animatedCapes'
 import { meetsRank, type RankId } from './ranks'
 
-export type CapeCategory = 'animated' | 'art' | 'team' | 'plus' | 'emblem' | 'anime' | 'internet' | 'themed' | 'solid' | 'gradient' | 'pattern' | 'pixel' | 'neon'
+export type CapeCategory = 'animated' | 'art' | 'collection' | 'team' | 'plus' | 'emblem' | 'anime' | 'internet' | 'themed' | 'solid' | 'gradient' | 'pattern' | 'pixel' | 'neon'
 
 type Painter = (ctx: CanvasRenderingContext2D, w: number, h: number) => void
 
@@ -1236,6 +1237,9 @@ export const BUILTIN_CAPES: CapeDef[] = [
   ...HD_ART.map((a, i): CapeDef => ({
     id: `art-${i}`, name: a.name, category: 'art', paint: a.paint, glow: a.glow, hd: 16, requiredRank: 'crystal_plus',
   })),
+  ...HD_COLLECTION.map((a, i): CapeDef => ({
+    id: `collection-${i}`, name: a.name, category: 'collection', paint: a.paint, glow: a.glow, hd: 16, requiredRank: 'crystal_plus',
+  })),
   ...TEAM_CAPES.map((c): CapeDef => ({
     id: c.id, name: c.name, category: 'team', paint: pixelMap(c.rows, c.palette), glow: c.glow,
     requiredRank: c.rank ?? 'media', exactRank: c.rank !== null,
@@ -1295,6 +1299,7 @@ export function canUseCape(rank: RankId | null | undefined, cape: CapeDef): bool
 export const CAPE_CATEGORIES: { id: CapeCategory; label: string }[] = [
   { id: 'animated', label: 'Animiert (Crystal+)' },
   { id: 'art', label: 'HD (Crystal+)' },
+  { id: 'collection', label: 'HD-Sammlung (Crystal+)' },
   { id: 'team', label: 'Team' },
   { id: 'plus', label: 'Crystal+' },
   { id: 'emblem', label: 'Embleme' },

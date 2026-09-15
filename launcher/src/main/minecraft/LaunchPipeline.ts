@@ -488,7 +488,24 @@ export class LaunchPipeline {
     }
   }
 
-  private downloadIfMissing(url: string, dest: string, redirects = 0): Promise<void> {
+  /**
+   * Downloads a file unless it's already there. A dropped or timed-out
+   * connection is retried twice before the launch gives up: a single network
+   * hiccup among thousands of asset files shouldn't cost the player the launch.
+   */
+  private async downloadIfMissing(url: string, dest: string): Promise<void> {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await this.downloadOnce(url, dest)
+      } catch (err) {
+        const message = String((err as Error)?.message ?? err)
+        if (attempt >= 3 || /HTTP 4dd/.test(message)) throw err
+        await new Promise(resolve => setTimeout(resolve, 1500 * attempt))
+      }
+    }
+  }
+
+  private downloadOnce(url: string, dest: string, redirects = 0): Promise<void> {
     if (fs.existsSync(dest) && fs.statSync(dest).size > 0) return Promise.resolve()
 
     return new Promise((resolve, reject) => {
@@ -500,7 +517,7 @@ export class LaunchPipeline {
           res.resume()
           file.close(() => {
             fs.rmSync(dest, { force: true })
-            this.downloadIfMissing(new URL(location, url).toString(), dest, redirects + 1).then(resolve, reject)
+            this.downloadOnce(new URL(location, url).toString(), dest, redirects + 1).then(resolve, reject)
           })
           return
         }
