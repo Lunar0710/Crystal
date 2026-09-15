@@ -312,13 +312,22 @@ export function registerIpcHandlers(store: Store) {
     // Minimised windows are throttled by Chromium, which leaves more CPU/GPU for
     // the game. Only a window we minimised gets brought back afterwards.
     let minimizedByLaunch = false
+    let playStartedAt = 0
     return minecraft.launch({ ...opts, profile }, (event, data) => {
+      if (event === 'launch:started') playStartedAt = Date.now()
       if (event === 'launch:started' && win && store.get('minimizeOnLaunch') !== false && !win.isMinimized()) {
         win.minimize()
         minimizedByLaunch = true
       }
       // Back to the idle line once the game is gone, however it ended.
       if (event === 'launch:exit' || event === 'launch:error') {
+        // Playtime for the profile card: only sessions that actually started count.
+        if (playStartedAt > 0) {
+          const played = Date.now() - playStartedAt
+          playStartedAt = 0
+          store.set('stats.playtimeMs', (Number(store.get('stats.playtimeMs')) || 0) + played)
+          store.set('stats.sessions', (Number(store.get('stats.sessions')) || 0) + 1)
+        }
         discord.idle()
         // After a crash this also puts the auto-fix panel in front of the user.
         if (minimizedByLaunch && win && !win.isDestroyed() && win.isMinimized()) win.restore()
@@ -532,6 +541,31 @@ export function registerIpcHandlers(store: Store) {
   })
 
   // Launcher's own logs (separate from per-instance game logs)
+  // Profile card
+  ipcMain.handle('stats:get', () => ({
+    playtimeMs: Number(store.get('stats.playtimeMs')) || 0,
+    sessions: Number(store.get('stats.sessions')) || 0,
+  }))
+  ipcMain.handle('profileCard:copy', (_e, dataUrl: string) => {
+    if (typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/png;base64,')) return false
+    const image = nativeImage.createFromDataURL(dataUrl)
+    if (image.isEmpty()) return false
+    require('electron').clipboard.writeImage(image)
+    return true
+  })
+  ipcMain.handle('profileCard:save', async (_e, dataUrl: string) => {
+    if (typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/png;base64,')) return false
+    const win = BrowserWindow.getFocusedWindow()
+    const result = await dialog.showSaveDialog(win!, {
+      title: 'Profil-Karte speichern',
+      defaultPath: 'crystal-profil.png',
+      filters: [{ name: 'PNG', extensions: ['png'] }],
+    })
+    if (result.canceled || !result.filePath) return false
+    fs.writeFileSync(result.filePath, Buffer.from(dataUrl.split(',')[1], 'base64'))
+    return true
+  })
+
   // Favourite servers
   ipcMain.handle('servers:list', () => servers.list())
   ipcMain.handle('servers:add', (_e, name: string, address: string) => servers.add(name, address))

@@ -8,6 +8,7 @@ import {
   EquippedCosmetics, findCosmetic, syncLoadoutToGame,
 } from '../../data/cosmetics'
 import { SkinPreview3D } from '../ui/SkinPreview3D'
+import { ProfileCardDialog } from '../ui/ProfileCardDialog'
 import { RankId, RANKS, meetsRank, lockLabel } from '../../data/ranks'
 
 interface CustomCape {
@@ -34,6 +35,7 @@ export function Cosmetics() {
   const [loadingSkin, setLoadingSkin] = useState(false)
   const [rank, setRank] = useState<RankId>('member')
   const [rankLoaded, setRankLoaded] = useState(false)
+  const [showCard, setShowCard] = useState(false)
 
   useEffect(() => {
     api?.getRank().then((r: RankId) => { setRank(r); setRankLoaded(true) })
@@ -176,7 +178,26 @@ export function Cosmetics() {
       <PageHeader
         title="Cosmetics"
         description="Alles, was du hier ausrüstest, siehst du genau so auch im Spiel. Andere Spieler sehen es nicht."
+        actions={
+          <button onClick={() => setShowCard(true)} className="crystal-btn-ghost text-[13px]">
+            Profil-Karte
+          </button>
+        }
       />
+
+      {showCard && (
+        <ProfileCardDialog
+          onClose={() => setShowCard(false)}
+          data={{
+            username: skinUser || 'Spieler',
+            rank,
+            skinDataUrl,
+            slim: skinSlim,
+            capeUrl: equippedCapeUrl,
+            capeName: equippedLabel('cape'),
+          }}
+        />
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-[272px_minmax(0,1fr)] gap-6 items-start">
         <aside className="lg:sticky lg:top-4 space-y-3">
