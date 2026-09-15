@@ -32,8 +32,8 @@ public class MixinItemEntityRenderer {
     }
 
     @Redirect(method = "render(Lnet/minecraft/client/render/entity/state/ItemEntityRenderState;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/command/OrderedRenderCommandQueue;Lnet/minecraft/client/render/state/CameraRenderState;)V",
-            at = @At(value = "INVOKE", target = "Lnet/minecraft/util/math/MathHelper;sin(F)F"))
-    private float crystal$bob(float value) {
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/util/math/MathHelper;sin(D)F"))
+    private float crystal$bob(double value) {
         // sin() = -1 makes vanilla's "sin * 0.1 + 0.1" bob offset exactly 0.
         return crystal$items2D() != null || crystal$physics() != null ? -1f : MathHelper.sin(value);
     }
@@ -57,11 +57,13 @@ public class MixinItemEntityRenderer {
         matrices.multiply(spin);
     }
 
+    @org.spongepowered.asm.mixin.Unique
     private static Items2D crystal$items2D() {
         CrystalClient client = CrystalClient.getInstance();
         return client == null ? null : client.getModuleManager().getEnabled(Items2D.class);
     }
 
+    @org.spongepowered.asm.mixin.Unique
     private static ItemPhysics crystal$physics() {
         CrystalClient client = CrystalClient.getInstance();
         return client == null ? null : client.getModuleManager().getEnabled(ItemPhysics.class);
