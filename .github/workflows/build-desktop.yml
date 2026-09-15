@@ -1,7 +1,7 @@
 # Builds and tests the launcher on macOS and Linux. Those installers can't be
 # made on Windows (a .dmg needs macOS), so GitHub's own machines do it.
 #
-# Runs on pushes to the OS-update branch and by hand (Actions tab > Run
+# Runs on pushes to main and the OS-update branch, and by hand (Actions tab > Run
 # workflow). Installers are attached to the run as downloadable artifacts;
 # nothing is published to a release from here.
 name: Build macOS + Linux
@@ -9,7 +9,7 @@ name: Build macOS + Linux
 on:
   workflow_dispatch:
   push:
-    branches: [os-update-1.1.6]
+    branches: [os-update-1.1.6, main]
 
 jobs:
   # Starts Minecraft 1.21.11 with Crystal through the launcher's real launch
