@@ -4,6 +4,8 @@
 // textures, fails on a mixin/startup crash or after a timeout.
 //
 // Usage: node scripts/smoke-launch.cjs   (after `npm run build:main` and the client jar build)
+// Other versions: CRYSTAL_SMOKE_VERSION=1.8.9 CRYSTAL_SMOKE_LOADER=vanilla|fabric
+// (Crystal itself is only injected for 1.21.11, the version it is built for).
 const path = require('path')
 const fs = require('fs')
 const os = require('os')
@@ -33,7 +35,13 @@ setCrystalRoot(dataRoot)
 const Store = require(path.join(launcherRoot, 'node_modules/electron-store'))
 const { MinecraftManager } = require(path.join(launcherRoot, 'dist/main/minecraft/MinecraftManager.js'))
 
-const SUCCESS = [/Created: \d+x\d+x\d+ minecraft:textures\/atlas\/blocks/]
+const VERSION = process.env.CRYSTAL_SMOKE_VERSION || '1.21.11'
+const LOADER = process.env.CRYSTAL_SMOKE_LOADER || 'fabric'
+const WITH_CRYSTAL = VERSION === '1.21.11' && LOADER === 'fabric'
+// The block texture atlas is built once the game has really loaded. 1.13+ logs
+// "Created: 1024x512x4 minecraft:textures/atlas/blocks.png-atlas", 1.8.9 to
+// 1.12 "Created: 512x512 textures-atlas".
+const SUCCESS = [/Created: \d+x\d+(x\d+)? (minecraft:textures\/atlas\/blocks|textures-atlas)/]
 const FAILURE = [/MixinApplyError/, /InvalidInjectionException/, /Mixin transformation of .* failed/, /Exception in thread "main"/, /Crash report saved/, /Incompatible mods found/]
 // Counted from the game process start; asset downloads before that can take minutes on CI.
 const GAME_TIMEOUT_MS = 8 * 60 * 1000
@@ -59,7 +67,7 @@ const finish = (code, message) => {
 
 console.log(`platform=${process.platform} arch=${process.arch} dataRoot=${dataRoot}`)
 manager.launch(
-  { version: '1.21.11', instanceId: 'smoke', gameDir, username: profile.username, profile, maxRam: 2048, loader: 'fabric', injectCrystal: true },
+  { version: VERSION, instanceId: 'smoke', gameDir, username: profile.username, profile, maxRam: 2048, loader: LOADER, injectCrystal: WITH_CRYSTAL },
   (event, data) => {
     if (event === 'launch:started') { pid = data.pid; gameStartedAt = Date.now(); console.log('[started] pid', pid) }
     else if (event === 'launch:progress' && data.step !== lastProgress) { lastProgress = data.step; console.log('[progress]', data.step) }
@@ -80,7 +88,9 @@ const timer = setInterval(() => {
   if (SUCCESS.every(r => r.test(text))) {
     clearInterval(timer)
     const header = text.split('\n').filter(l => l.startsWith('#')).join('\n')
-    return finish(0, `PASS: Minecraft + Crystal loaded on ${process.platform}/${process.arch}\n${header}\nCrystal loaded: ${/Crystal Client loaded successfully/.test(text)}`)
+    const crystalOk = /Crystal Client loaded successfully/.test(text)
+    if (WITH_CRYSTAL && !crystalOk) return finish(1, `FAIL: Minecraft ${VERSION} loaded but Crystal did not\n${header}`)
+    return finish(0, `PASS: Minecraft ${VERSION} (${LOADER}${WITH_CRYSTAL ? ' + Crystal' : ''}) loaded on ${process.platform}/${process.arch}\n${header}`)
   }
   // GitHub's macOS machines are VMs without a GPU: Minecraft gets through
   // Java, libraries, natives, Fabric and Crystal, then GLFW can't create an

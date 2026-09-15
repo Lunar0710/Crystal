@@ -91,6 +91,51 @@ jobs:
             ${{ runner.temp }}/crystal-world/instances/smoke-world/crash-reports/
           if-no-files-found: ignore
 
+  # Starts Minecraft through the launcher on versions across the whole range
+  # Crystal supports (1.8.9 to 26.2): each one needs a different Java, argument
+  # format or natives layout, so each gets a real launch on Linux.
+  versions:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { version: "1.8.9", loader: vanilla }
+          - { version: "1.8.9", loader: fabric }
+          - { version: "1.12.2", loader: vanilla }
+          - { version: "1.16.5", loader: fabric }
+          - { version: "1.20.1", loader: fabric }
+          - { version: "26.2", loader: vanilla }
+          - { version: "26.2", loader: fabric }
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: launcher/package-lock.json
+
+      - name: Build launcher (main process)
+        working-directory: launcher
+        run: |
+          npm ci
+          npm run build:main
+
+      - name: Linux display for the game window
+        # LWJGL 2 (1.8.9 to 1.12) reads the screen modes through xrandr.
+        run: sudo apt-get update && sudo apt-get install -y xvfb libgl1-mesa-dri libglx-mesa0 x11-xserver-utils libxrandr2 libxxf86vm1
+
+      - name: Launch Minecraft ${{ matrix.version }} (${{ matrix.loader }})
+        working-directory: launcher
+        env:
+          CRYSTAL_SMOKE_VERSION: ${{ matrix.version }}
+          CRYSTAL_SMOKE_LOADER: ${{ matrix.loader }}
+        run: |
+          unset JAVA_HOME
+          xvfb-run -a -s "-screen 0 1280x720x24" node scripts/smoke-launch.cjs
+
   build:
     strategy:
       fail-fast: false
