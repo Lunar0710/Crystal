@@ -9,6 +9,7 @@ import { Instances } from './components/pages/Instances'
 import { Cosmetics } from './components/pages/Cosmetics'
 import { Logs } from './components/pages/Logs'
 import { Screenshots } from './components/pages/Screenshots'
+import { Servers } from './components/pages/Servers'
 import { Friends } from './components/pages/Friends'
 import { News } from './components/pages/News'
 import { Settings } from './components/pages/Settings'
@@ -32,6 +33,7 @@ export default function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/launch" element={<Launch />} />
             <Route path="/instances" element={<Instances />} />
+            <Route path="/servers" element={<Servers />} />
             <Route path="/cosmetics" element={<Cosmetics />} />
             <Route path="/logs" element={<Logs />} />
             <Route path="/screenshots" element={<Screenshots />} />

@@ -190,7 +190,7 @@ function ViewerButton({ onClick, icon, label, danger }: { onClick: () => void; i
       aria-label={label}
       className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12px] text-white/85 hover:text-white ${danger ? 'hover:bg-red-500/30' : 'hover:bg-white/10'}`}
     >
-      {icon}<span className="hidden sm:inline">{label}</span>
+      {icon}<span>{label}</span>
     </button>
   )
 }

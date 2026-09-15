@@ -24,6 +24,7 @@ import { TryCrystalService } from './minecraft/TryCrystalService'
 import { CustomClientInstaller } from './minecraft/CustomClientInstaller'
 import { CrashDoctor } from './minecraft/CrashDoctor'
 import { ScreenshotService } from './screenshots/ScreenshotService'
+import { ServerListService, isValidServerAddress } from './servers/ServerListService'
 import { crystalPath, crystalRoot, defaultCrystalRoot, setCrystalRoot, canUseAsRoot } from './paths'
 
 export function registerIpcHandlers(store: Store) {
@@ -56,6 +57,7 @@ export function registerIpcHandlers(store: Store) {
   const clientInstaller = new CustomClientInstaller(instances)
   const crashDoctor = new CrashDoctor(instances)
   const screenshots = new ScreenshotService(instances)
+  const servers = new ServerListService(store)
 
   // A snapshot left over from a previous run means that attempt never finished.
   tryCrystal.recoverInterrupted()
@@ -264,8 +266,13 @@ export function registerIpcHandlers(store: Store) {
 
   // Minecraft
   ipcMain.handle('minecraft:getVersions', () => minecraft.fetchAllVersions())
-  ipcMain.handle('minecraft:launch', async (_e, opts) => {
+  ipcMain.handle('minecraft:launch', async (_e, rawOpts) => {
     const win = BrowserWindow.getFocusedWindow()
+    // Extra JVM/game arguments are for the automated tests only; a page must
+    // never be able to pass its own. Joining a server is the one supported
+    // extra, and only with an address that is a plain host[:port].
+    const { extraJvmArgs: _jvm, extraGameArgs: _game, joinServer, ...opts } = rawOpts ?? {}
+    if (isValidServerAddress(joinServer)) opts.extraGameArgs = ['--quickPlayMultiplayer', joinServer]
     // Renews an expired Microsoft token first; a stale one gets every
     // multiplayer join rejected with "Invalid session".
     const { profile, error: sessionError } = await auth.ensureFreshProfile()
@@ -525,6 +532,12 @@ export function registerIpcHandlers(store: Store) {
   })
 
   // Launcher's own logs (separate from per-instance game logs)
+  // Favourite servers
+  ipcMain.handle('servers:list', () => servers.list())
+  ipcMain.handle('servers:add', (_e, name: string, address: string) => servers.add(name, address))
+  ipcMain.handle('servers:remove', (_e, id: string) => servers.remove(id))
+  ipcMain.handle('servers:ping', (_e, address: string) => servers.ping(address))
+
   // Screenshots from every instance
   ipcMain.handle('screenshots:list', () => screenshots.list())
   ipcMain.handle('screenshots:thumb', (_e, instanceId: string, fileName: string) => screenshots.thumbnail(instanceId, fileName))

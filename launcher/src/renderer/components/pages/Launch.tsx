@@ -38,7 +38,9 @@ const DEFAULT_RAM = 4096
 
 export function Launch() {
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
+  // Set by the Server page's "Beitreten": the game starts straight onto that server.
+  const joinServer = searchParams.get('join')
   const [instances, setInstances] = useState<Instance[]>([])
   const [instanceId, setInstanceId] = useState<string>('')
   const [externalClients, setExternalClients] = useState<ExternalClient[]>([])
@@ -190,6 +192,7 @@ export function Launch() {
       maxRam,
       instanceId: instance.id,
       injectCrystal: instance.useCrystalClient,
+      joinServer: joinServer || undefined,
     })
   }
 
@@ -198,6 +201,23 @@ export function Launch() {
   return (
     <Page>
       <PageHeader title="Starten" description="Wähle Konto und Instanz, dann kann es losgehen." />
+
+      {joinServer && (
+        <div className="crystal-card mb-5 px-4 py-3 flex items-center gap-3">
+          <Play size={15} className="text-crystal-accent shrink-0" />
+          <p className="text-[13px] text-crystal-text flex-1 min-w-0 truncate">
+            Nach dem Start direkt auf <span className="font-semibold">{joinServer}</span>
+          </p>
+          <button
+            onClick={() => { const next = new URLSearchParams(searchParams); next.delete('join'); setSearchParams(next) }}
+            className="text-crystal-muted hover:text-crystal-text"
+            aria-label="Server-Beitritt abbrechen"
+            title="Nicht direkt beitreten"
+          >
+            <X size={15} />
+          </button>
+        </div>
+      )}
 
       <div className="space-y-6">
         <section>
