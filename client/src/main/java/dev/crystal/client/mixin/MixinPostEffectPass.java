@@ -6,6 +6,7 @@ import com.mojang.blaze3d.buffers.Std140Builder;
 import com.mojang.blaze3d.systems.RenderSystem;
 import dev.crystal.client.CrystalClient;
 import dev.crystal.client.module.render.ColorSaturation;
+import dev.crystal.client.module.render.MotionBlur;
 import net.minecraft.client.gl.Framebuffer;
 import net.minecraft.client.gl.PostEffectPass;
 import net.minecraft.client.render.FrameGraphBuilder;
@@ -33,6 +34,7 @@ import java.util.Map;
 public class MixinPostEffectPass {
 
     private static final String BLOCK = "CrystalColorGrade";
+    private static final String BLUR_BLOCK = "CrystalMotionBlur";
 
     @Shadow @Final private Map<String, GpuBuffer> uniformBuffers;
 
@@ -44,8 +46,20 @@ public class MixinPostEffectPass {
 
     @Inject(method = "render", at = @At("HEAD"))
     private void crystal$updateColorGrade(FrameGraphBuilder builder, Map<Identifier, Handle<Framebuffer>> handles, GpuBufferSlice slice, CallbackInfo ci) {
+        if (CrystalClient.getInstance() == null) return;
+        GpuBuffer blurBuffer = uniformBuffers.get(BLUR_BLOCK);
+        if (blurBuffer != null) {
+            MotionBlur blur = CrystalClient.getInstance().getModuleManager().get(MotionBlur.class);
+            if (blur != null) {
+                try (MemoryStack stack = MemoryStack.stackPush()) {
+                    var data = Std140Builder.onStack(stack, 4).putFloat(blur.getBlend()).get();
+                    RenderSystem.getDevice().createCommandEncoder().writeToBuffer(blurBuffer.slice(), data);
+                }
+            }
+        }
+
         GpuBuffer buffer = uniformBuffers.get(BLOCK);
-        if (buffer == null || CrystalClient.getInstance() == null) return;
+        if (buffer == null) return;
 
         ColorSaturation module = CrystalClient.getInstance().getModuleManager().get(ColorSaturation.class);
         if (module == null) return;

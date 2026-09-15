@@ -124,6 +124,10 @@ public class ModuleManager {
         register(new dev.crystal.client.module.render.ParticleChanger());
         register(new dev.crystal.client.module.render.BetterSounds());
         register(new dev.crystal.client.module.misc.PackOrganizer());
+        register(new dev.crystal.client.module.render.Items2D());
+        register(new dev.crystal.client.module.render.ItemPhysics());
+        register(new dev.crystal.client.module.render.GlintColorizer());
+        register(new dev.crystal.client.module.render.MotionBlur());
     }
 
     /** Module by its class, for hot paths. Filled once at registration; modules are never replaced. */

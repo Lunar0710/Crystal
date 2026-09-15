@@ -85,6 +85,17 @@ function writeTestSettings(gameDir) {
     modules: {
       ColorSaturation: { enabled: true, settings: { Saturation: 1.7, Hue: 40, Brightness: 1.0, Contrast: 1.1 } },
       ArmorDisplay: { enabled: true, settings: { Style: 'Icons', Background: true } },
+      // Modules added in 1.1.8, switched on so a broken mixin or shader shows up here.
+      MotionBlur: { enabled: true, settings: { Strength: 40 } },
+      TextStyle: { enabled: true, settings: { Font: 'Smooth' } },
+      ShinyPots: { enabled: true },
+      HitColor: { enabled: true },
+      GlintColorizer: { enabled: true },
+      NameTags: { enabled: true },
+      ItemPhysics: { enabled: true },
+      ParticleChanger: { enabled: true },
+      BetterSounds: { enabled: true },
+      ServerAddress: { enabled: true },
     },
   }, null, 2))
 

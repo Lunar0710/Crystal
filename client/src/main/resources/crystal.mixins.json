@@ -31,7 +31,9 @@
     "MixinEntityRenderer",
     "MixinLivingEntityRenderer",
     "MixinLabelCommands",
-    "MixinClientPlayerInteractionManager"
+    "MixinClientPlayerInteractionManager",
+    "MixinItemEntityRenderer",
+    "MixinItemEntityRenderState"
   ],
   "injectors": {
     "defaultRequire": 1

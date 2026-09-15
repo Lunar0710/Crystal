@@ -81,6 +81,9 @@ public class CrystalClient implements ClientModInitializer {
         // Hats, masks, wings etc. from the launcher's Cosmetics page, on the player model.
         registerCosmeticsRenderer();
 
+        // Colour grading and motion blur post effects.
+        dev.crystal.client.util.PostEffects.register();
+
         // No-op unless started by the launcher's automated world test.
         dev.crystal.client.util.SmokeTest.registerIfRequested();
 
