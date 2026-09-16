@@ -40,7 +40,7 @@ export function Dashboard() {
     <Page wide>
       <PageHeader
         title={username ? `Hallo, ${username}` : 'Willkommen bei Crystal'}
-        description={`Minecraft 1.21.11 mit Fabric${clientVersion ? `, Crystal Client ${clientVersion}` : ''}.`}
+        description={`Minecraft 1.8.9 bis 26.2${clientVersion ? `, Crystal Client ${clientVersion}` : ''}.`}
         actions={
           <button onClick={() => playInstance()} className="crystal-btn-primary px-5">
             <Play size={14} fill="currentColor" /> Spielen

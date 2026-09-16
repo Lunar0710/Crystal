@@ -12,7 +12,8 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
+import net.minecraft.resources.Identifier;
 import net.minecraft.network.chat.Component;
 
 import static com.mojang.brigadier.arguments.StringArgumentType.getString;
@@ -71,9 +72,9 @@ public class CrystalClient implements ClientModInitializer {
             eventBus.post(new dev.crystal.client.event.events.TickEvent(client));
         });
 
-        HudRenderCallback.EVENT.register((drawContext, tickCounter) -> {
-            hud.render(drawContext, tickCounter.getGameTimeDeltaPartialTick(true));
-        });
+        // Drawn after every vanilla HUD element, on top of them.
+        HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(MOD_ID, "hud"),
+                (drawContext, tickCounter) -> hud.render(drawContext, tickCounter.getGameTimeDeltaPartialTick(true)));
 
         // Block outline, hitboxes and chunk borders draw in world space.
         dev.crystal.client.render.WorldRenderHandler.register();
@@ -124,8 +125,13 @@ public class CrystalClient implements ClientModInitializer {
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     private static void registerCosmeticsRenderer() {
+        //? if >=26 {
+        /*net.fabricmc.fabric.api.client.rendering.v1.LivingEntityRenderLayerRegistrationCallback.EVENT.register(
+                (entityType, renderer, helper, context) -> {
+        *///?} else {
         net.fabricmc.fabric.api.client.rendering.v1.LivingEntityFeatureRendererRegistrationCallback.EVENT.register(
                 (entityType, renderer, helper, context) -> {
+        //?}
                     if (renderer instanceof net.minecraft.client.renderer.entity.player.AvatarRenderer<?> player) {
                         helper.register(new dev.crystal.client.render.CosmeticsFeatureRenderer(
                                 (net.minecraft.client.renderer.entity.RenderLayerParent) player));

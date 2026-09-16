@@ -303,7 +303,17 @@ public class CrystalClientScreen extends Screen {
             GuiRender.scaledText(ctx, label, x + 7, y + 7, 0.75f, capturing ? colAccent : colMuted);
         }
 
-        if (gear != null && (hovered || openModule == module)) {
+        boolean showGear = gear != null && (hovered || openModule == module);
+        if (module.isPlusOnly() && !showGear) {
+            // Crystal+ tag in the top right corner, with a lock while it isn't unlocked.
+            boolean locked = module.isLocked();
+            int tw = GuiRender.scaledWidth("Crystal+", 0.75f) + (locked ? 13 : 8);
+            GuiRender.roundedRect(ctx, x + w - 4 - tw, y + 4, x + w - 4, y + 14, GuiRender.withAlpha(COL_PLUS, 0x30));
+            if (locked) drawIcon(ctx, ICON_LOCK, x + w - 1 - tw, y + 5, COL_PLUS, 1);
+            GuiRender.scaledText(ctx, "Crystal+", x + w - tw + (locked ? 5 : 0), y + 7, 0.75f, COL_PLUS);
+        }
+
+        if (showGear) {
             boolean gearHover = gear.contains(mx, my);
             GuiRender.roundedRect(ctx, gear.x1, gear.y1, gear.x2, gear.y2, gearHover ? GuiRender.withAlpha(colAccent, 0x55) : 0x1AFFFFFF);
             drawIcon(ctx, ICON_GEAR, gear.x1 + 3, gear.y1 + 3, gearHover ? colText : colMuted, 1);
@@ -312,9 +322,9 @@ public class CrystalClientScreen extends Screen {
         int barColor = GuiRender.blend(0x22FFFFFF, GuiRender.withAlpha(COL_ON, 0x3A), on);
         if (bar.contains(mx, my) && contentBox.contains(mx, my)) barColor = GuiRender.blend(barColor, 0xFFFFFFFF, 0.1f);
         GuiRender.roundedRect(ctx, bar.x1, bar.y1, bar.x2, bar.y2, barColor);
-        String status = enabled ? "AN" : "AUS";
+        String status = module.isLocked() ? "Nur Crystal+" : enabled ? "AN" : "AUS";
         ctx.drawString(font, status, bar.x1 + (bar.x2 - bar.x1 - font.width(status)) / 2, bar.y1 + 2,
-                GuiRender.blend(colMuted, COL_ON, on), false);
+                module.isLocked() ? COL_PLUS : GuiRender.blend(colMuted, COL_ON, on), false);
     }
 
     // ---------------------------------------------------------------- settings view

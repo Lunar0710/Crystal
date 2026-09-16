@@ -27,7 +27,8 @@ Module._load = function (request, ...rest) {
   return originalLoad.call(this, request, ...rest)
 }
 
-const VERSION = '1.21.11'
+// CRYSTAL_SMOKE_VERSION picks the Minecraft version (a Crystal jar for it must be built).
+const VERSION = process.env.CRYSTAL_SMOKE_VERSION || '1.21.11'
 const dataRoot = process.env.CRYSTAL_SMOKE_ROOT || fs.mkdtempSync(path.join(os.tmpdir(), 'crystal-smoke-'))
 const { setCrystalRoot } = require(path.join(launcherRoot, 'dist/main/paths.js'))
 setCrystalRoot(dataRoot)
@@ -35,15 +36,17 @@ const platform = require(path.join(launcherRoot, 'dist/main/minecraft/platform.j
 const Store = require(path.join(launcherRoot, 'node_modules/electron-store'))
 const { MinecraftManager } = require(path.join(launcherRoot, 'dist/main/minecraft/MinecraftManager.js'))
 
+const { requiredJavaMajor } = require(path.join(launcherRoot, 'dist/main/minecraft/versions.js'))
 const log = (...a) => console.log('[smoke-world]', ...a)
 const { prepareOptions, threadDump } = require('./smoke-common.cjs')
 
-function findJava21() {
+/** A Java new enough to run this version's server. */
+function findServerJava() {
   for (const candidate of platform.javaCandidates()) {
     if (candidate !== 'java' && !fs.existsSync(candidate)) continue
     const out = spawnSync(candidate, ['-version'], { encoding: 'utf8' })
     const m = ((out.stderr || '') + (out.stdout || '')).match(/version "(\d+)/)
-    if (m && parseInt(m[1], 10) >= 21) return candidate
+    if (m && parseInt(m[1], 10) >= requiredJavaMajor(VERSION)) return candidate
   }
   return null
 }
@@ -171,9 +174,11 @@ function stripedCapePng() {
 }
 
 ;(async () => {
-  log(`platform=${process.platform} dataRoot=${dataRoot}`)
-  const java = findJava21()
-  if (!java) throw new Error('no Java 21 found for the world generator')
+  log(`platform=${process.platform} dataRoot=${dataRoot} version=${VERSION}`)
+  // Without a new enough Java installed, use the one the launcher downloads for this version.
+  const java = findServerJava()
+    || await new MinecraftManager(new Store({ cwd: dataRoot, name: 'smoke-store' })).ensureJava(VERSION, () => {})
+  if (!java) throw new Error(`no Java ${requiredJavaMajor(VERSION)} found for the world generator`)
 
   const worldDir = await generateWorld(java)
   const gameDir = path.join(dataRoot, 'instances', 'smoke-world')

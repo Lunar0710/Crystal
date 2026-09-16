@@ -21,6 +21,6 @@ public class ItemCounter extends HudModule {
         for (ItemStack stack : player.getInventory().getNonEquipmentItems()) {
             if (ItemStack.isSameItemSameComponents(stack, held)) total += stack.getCount();
         }
-        return held.getItem().getName().getString() + ": " + total;
+        return held.getItem().getName(held).getString() + ": " + total;
     }
 }

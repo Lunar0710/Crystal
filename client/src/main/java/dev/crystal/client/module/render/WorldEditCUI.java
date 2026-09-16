@@ -125,16 +125,16 @@ public class WorldEditCUI extends Module {
     }
 
     /** Called from WorldRenderHandler after entities are drawn. */
-    public void render(PoseStack matrices, VertexConsumer lines, Vec3 camera) {
+    public void render(PoseStack.Pose entry, VertexConsumer lines, Vec3 camera) {
         if ("polygon2d".equals(shape) && polygon.stream().filter(p -> p != null).count() >= 2) {
             List<int[]> points = polygon.stream().filter(p -> p != null).toList();
             double bottom = minY, top = maxY + 1;
             for (int i = 0; i < points.size(); i++) {
                 int[] a = points.get(i), b = points.get((i + 1) % points.size());
                 double ax = a[0] + 0.5, az = a[1] + 0.5, bx = b[0] + 0.5, bz = b[1] + 0.5;
-                line(matrices, lines, camera, ax, bottom, az, bx, bottom, bz, boxColor);
-                line(matrices, lines, camera, ax, top, az, bx, top, bz, boxColor);
-                line(matrices, lines, camera, ax, bottom, az, ax, top, az, gridColor);
+                line(entry, lines, camera, ax, bottom, az, bx, bottom, bz, boxColor);
+                line(entry, lines, camera, ax, top, az, bx, top, bz, boxColor);
+                line(entry, lines, camera, ax, bottom, az, ax, top, az, gridColor);
             }
             return;
         }
@@ -145,17 +145,17 @@ public class WorldEditCUI extends Module {
         if (b == null) b = a;
         double x1 = Math.min(a[0], b[0]), y1 = Math.min(a[1], b[1]), z1 = Math.min(a[2], b[2]);
         double x2 = Math.max(a[0], b[0]) + 1, y2 = Math.max(a[1], b[1]) + 1, z2 = Math.max(a[2], b[2]) + 1;
-        box(matrices, lines, camera, x1 - 0.005, y1 - 0.005, z1 - 0.005, x2 + 0.005, y2 + 0.005, z2 + 0.005, boxColor);
+        box(entry, lines, camera, x1 - 0.005, y1 - 0.005, z1 - 0.005, x2 + 0.005, y2 + 0.005, z2 + 0.005, boxColor);
         // The two clicked blocks themselves, so you can see which corner is which.
-        if (corners[0] != null) blockMarker(matrices, lines, camera, corners[0], 0xFF22C55E);
-        if (corners[1] != null) blockMarker(matrices, lines, camera, corners[1], gridColor);
+        if (corners[0] != null) blockMarker(entry, lines, camera, corners[0], 0xFF22C55E);
+        if (corners[1] != null) blockMarker(entry, lines, camera, corners[1], gridColor);
     }
 
-    private void blockMarker(PoseStack m, VertexConsumer lines, Vec3 cam, int[] p, int color) {
+    private void blockMarker(PoseStack.Pose m, VertexConsumer lines, Vec3 cam, int[] p, int color) {
         box(m, lines, cam, p[0] + 0.02, p[1] + 0.02, p[2] + 0.02, p[0] + 0.98, p[1] + 0.98, p[2] + 0.98, color);
     }
 
-    private void box(PoseStack m, VertexConsumer l, Vec3 c, double x1, double y1, double z1, double x2, double y2, double z2, int color) {
+    private void box(PoseStack.Pose m, VertexConsumer l, Vec3 c, double x1, double y1, double z1, double x2, double y2, double z2, int color) {
         line(m, l, c, x1, y1, z1, x2, y1, z1, color); line(m, l, c, x1, y2, z1, x2, y2, z1, color);
         line(m, l, c, x1, y1, z2, x2, y1, z2, color); line(m, l, c, x1, y2, z2, x2, y2, z2, color);
         line(m, l, c, x1, y1, z1, x1, y2, z1, color); line(m, l, c, x2, y1, z1, x2, y2, z1, color);
@@ -164,9 +164,8 @@ public class WorldEditCUI extends Module {
         line(m, l, c, x1, y2, z1, x1, y2, z2, color); line(m, l, c, x2, y2, z1, x2, y2, z2, color);
     }
 
-    private void line(PoseStack matrices, VertexConsumer lines, Vec3 cam,
+    private void line(PoseStack.Pose entry, VertexConsumer lines, Vec3 cam,
                       double x1, double y1, double z1, double x2, double y2, double z2, int color) {
-        PoseStack.Pose entry = matrices.last();
         Vector3f normal = new Vector3f((float) (x2 - x1), (float) (y2 - y1), (float) (z2 - z1)).normalize();
         lines.addVertex(entry, (float) (x1 - cam.x), (float) (y1 - cam.y), (float) (z1 - cam.z)).setColor(color).setNormal(entry, normal).setLineWidth(lineWidth);
         lines.addVertex(entry, (float) (x2 - cam.x), (float) (y2 - cam.y), (float) (z2 - cam.z)).setColor(color).setNormal(entry, normal).setLineWidth(lineWidth);

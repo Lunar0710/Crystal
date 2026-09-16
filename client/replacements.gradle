@@ -1,0 +1,50 @@
+// Renames Mojang made in 26.1, applied to the source Stonecutter generates for
+// those versions. Each regex pair is forward (1.21.11 -> 26.x) then reverse.
+def at26 = stonecutter.current.parsed.matches('>=26')
+
+stonecutter.replacements.regex(at26) {
+    // GUI drawing became "render state extraction".
+    replace '\\bGuiGraphics\\b', 'GuiGraphicsExtractor', '\\bGuiGraphicsExtractor\\b', 'GuiGraphics'
+    replace '\\.drawString\\(', '.text(', '\\.text\\(', '.drawString('
+    replace '\\.drawCenteredString\\(', '.centeredText(', '\\.centeredText\\(', '.drawCenteredString('
+    replace '\\.renderItem\\(', '.item(', '\\.item\\(', '.renderItem('
+    // Screen.render(GuiGraphics, int, int, float); the lookahead leaves the type to the rule above.
+    replace 'void render\\((?=GuiGraphics\\w* \\w+, int)', 'void extractRenderState(', 'void extractRenderState\\((?=GuiGraphics\\w* \\w+, int)', 'void render('
+    replace '\\brenderBackground\\(', 'extractBackground(', '\\bextractBackground\\(', 'renderBackground('
+    replace '\\brenderPanorama\\(', 'extractPanorama(', '\\bextractPanorama\\(', 'renderPanorama('
+    replace 'super\\.render\\(', 'super.extractRenderState(', 'super\\.extractRenderState\\(', 'super.render('
+    // Mixin targets: widget/overlay render() and the scroll area's scrollbar check.
+    replace 'method = "render"', 'method = "extractRenderState"', 'method = "extractRenderState"', 'method = "render"'
+    replace '\\bscrollbarVisible\\(\\)', 'scrollable()', '\\bscrollable\\(\\)', 'scrollbarVisible()'
+    // HUD parts (mixin targets in the in-game HUD).
+    replace '"render(OverlayMessage|Title|Crosshair)"', '"extract$1"', '"extract(OverlayMessage|Title|Crosshair)"', '"render$1"'
+
+    // Screens are owned by Minecraft.gui now.
+    replace '\\.setScreen\\(', '.gui.setScreen(', '\\.gui\\.setScreen\\(', '.setScreen('
+    // Reading the open screen goes through Screens.current, which is null-safe during startup.
+    replace '([\\w.]+(?:\\(\\))?)\\.screen\\b(?![.(])', 'dev.crystal.client.util.Screens.current($1)',
+            'dev\\.crystal\\.client\\.util\\.Screens\\.current\\(([\\w.]+(?:\\(\\))?)\\)', '$1.screen'
+
+    replace '\\.getOverlay\\(\\)', '.gui.overlay()', '\\.gui\\.overlay\\(\\)', '.getOverlay()'
+    replace '\\.getMainRenderTarget\\(\\)', '.gameRenderer.mainRenderTarget()', '\\.gameRenderer\\.mainRenderTarget\\(\\)', '.getMainRenderTarget()'
+
+    // Chat and action bar messages to the local player.
+    replace '\\.displayClientMessage\\(([^;]*), true\\);', '.sendOverlayMessage($1);', '\\.sendOverlayMessage\\(([^;]*)\\);', '.displayClientMessage($1, true);'
+    replace '\\.displayClientMessage\\(([^;]*), false\\);', '.sendSystemMessage($1);', '\\.sendSystemMessage\\(([^;]*)\\);', '.displayClientMessage($1, false);'
+
+    // Day time comes from the world clock.
+    replace '\\.getDayTime\\(\\)', '.getOverworldClockTime()', '\\.getOverworldClockTime\\(\\)', '.getDayTime()'
+
+    replace 'PayloadTypeRegistry\\.playS2C\\(\\)', 'PayloadTypeRegistry.clientboundPlay()', 'PayloadTypeRegistry\\.clientboundPlay\\(\\)', 'PayloadTypeRegistry.playS2C()'
+    replace 'PayloadTypeRegistry\\.playC2S\\(\\)', 'PayloadTypeRegistry.serverboundPlay()', 'PayloadTypeRegistry\\.serverboundPlay\\(\\)', 'PayloadTypeRegistry.playC2S()'
+    replace '\\bentityCutoutNoCull\\(', 'entityCutout(', '\\bentityCutout\\(', 'entityCutoutNoCull('
+
+    replace '\\bClientCommandManager\\b', 'ClientCommands', '\\bClientCommands\\b', 'ClientCommandManager'
+    replace '\\bClickType\\b', 'ContainerInput', '\\bContainerInput\\b', 'ClickType'
+
+    // Moved packages.
+    replace 'net([./])minecraft([./])client([./])GuiMessage', 'net$1minecraft$2client$3multiplayer$3chat$3GuiMessage',
+            'net([./])minecraft([./])client([./])multiplayer[./]chat[./]GuiMessage', 'net$1minecraft$2client$3GuiMessage'
+    replace 'renderer([./])state([./])(CameraRenderState|BlockOutlineRenderState)', 'renderer$1state$2level$2$3',
+            'renderer([./])state([./])level[./](CameraRenderState|BlockOutlineRenderState)', 'renderer$1state$2$3'
+}

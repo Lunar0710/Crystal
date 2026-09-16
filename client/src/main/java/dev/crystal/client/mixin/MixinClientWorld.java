@@ -22,6 +22,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(Level.class)
 public class MixinClientWorld {
 
+    // From 26.1 on the sky reads the world clocks instead; see MixinClientClockManager.
+    //? if <26 {
     @Inject(method = "getDayTime", at = @At("RETURN"), cancellable = true)
     private void onGetTimeOfDay(CallbackInfoReturnable<Long> cir) {
         if (CrystalClient.getInstance() == null) return;
@@ -30,6 +32,7 @@ public class MixinClientWorld {
         TimeChanger module = CrystalClient.getInstance().getModuleManager().getEnabled(TimeChanger.class);
         if (module != null) cir.setReturnValue(module.getOverrideTicks());
     }
+    //?}
 
     // These three are queried constantly (rain rendering, sky, lighting), so
     // they stay allocation-free: one map probe, no Optional or lambdas.

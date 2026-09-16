@@ -1,6 +1,7 @@
 package dev.crystal.client.module;
 
 import dev.crystal.client.event.EventBus;
+import dev.crystal.client.util.CrystalProfile;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.Collections;
@@ -34,10 +35,20 @@ public abstract class Module {
     }
 
     public void toggle() {
+        if (!enabled && isLocked()) return;
         setEnabled(!enabled);
     }
 
-    public boolean isEnabled() { return enabled; }
+    /** Switched on and allowed to run: a Crystal+ module counts as off without Crystal+. */
+    public boolean isEnabled() { return enabled && !isLocked(); }
+
+    /** The saved on/off switch, kept while a Crystal+ module is locked so it comes back with Crystal+. */
+    public boolean isSwitchedOn() { return enabled; }
+
+    public boolean isPlusOnly() { return PlusModules.NAMES.contains(name); }
+
+    /** A Crystal+ module while the player doesn't have Crystal+. */
+    public boolean isLocked() { return isPlusOnly() && !CrystalProfile.hasPerks(); }
     public String getName() { return name; }
     public String getDescription() { return description; }
     public ModuleCategory getCategory() { return category; }

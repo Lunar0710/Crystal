@@ -5,7 +5,7 @@
 //
 // Usage: node scripts/smoke-launch.cjs   (after `npm run build:main` and the client jar build)
 // Other versions: CRYSTAL_SMOKE_VERSION=1.8.9 CRYSTAL_SMOKE_LOADER=vanilla|fabric
-// (Crystal itself is only injected for 1.21.11, the version it is built for).
+// (Crystal is injected with Fabric whenever client/build/libs has a jar for that version).
 const path = require('path')
 const fs = require('fs')
 const os = require('os')
@@ -37,7 +37,6 @@ const { MinecraftManager } = require(path.join(launcherRoot, 'dist/main/minecraf
 
 const VERSION = process.env.CRYSTAL_SMOKE_VERSION || '1.21.11'
 const LOADER = process.env.CRYSTAL_SMOKE_LOADER || 'fabric'
-const WITH_CRYSTAL = VERSION === '1.21.11' && LOADER === 'fabric'
 // The block texture atlas is built once the game has really loaded. 1.13+ logs
 // "Created: 1024x512x4 minecraft:textures/atlas/blocks.png-atlas", 1.8.9 to
 // 1.12 "Created: 512x512 textures-atlas".
@@ -54,6 +53,7 @@ prepareOptions(gameDir)
 
 const store = new Store({ cwd: dataRoot, name: 'smoke-store' })
 const manager = new MinecraftManager(store)
+const WITH_CRYSTAL = LOADER === 'fabric' && manager.hasCrystalFor(VERSION)
 const profile = { username: 'CrystalSmoke', uuid: '00196142-0019-3019-8001-00196142c1a5', accessToken: 'offline', type: 'offline' }
 
 let pid = null
@@ -65,7 +65,7 @@ const finish = (code, message) => {
   setTimeout(() => process.exit(code), 1000)
 }
 
-console.log(`platform=${process.platform} arch=${process.arch} dataRoot=${dataRoot}`)
+console.log(`platform=${process.platform} arch=${process.arch} dataRoot=${dataRoot} version=${VERSION} loader=${LOADER} crystal=${WITH_CRYSTAL}`)
 manager.launch(
   { version: VERSION, instanceId: 'smoke', gameDir, username: profile.username, profile, maxRam: 2048, loader: LOADER, injectCrystal: WITH_CRYSTAL },
   (event, data) => {

@@ -10,7 +10,11 @@ import dev.crystal.client.module.Setting;
 import dev.crystal.client.module.SliderSetting;
 import java.io.InputStream;
 import java.util.List;
+//? if >=26 {
+/*import net.minecraft.client.renderer.feature.ItemFeatureRenderer;
+*///?} else {
 import net.minecraft.client.renderer.entity.ItemRenderer;
+//?}
 import net.minecraft.client.renderer.texture.AbstractTexture;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.Identifier;
@@ -26,7 +30,11 @@ import net.minecraft.resources.Identifier;
  */
 public class GlintColorizer extends Module {
 
+    //? if >=26 {
+    /*private static final Identifier[] GLINTS = {ItemFeatureRenderer.ENCHANTED_GLINT_ITEM, ItemFeatureRenderer.ENCHANTED_GLINT_ARMOR};
+    *///?} else {
     private static final Identifier[] GLINTS = {ItemRenderer.ENCHANTED_GLINT_ITEM, ItemRenderer.ENCHANTED_GLINT_ARMOR};
+    //?}
 
     private int color = 0xFF5B8AF5;
     private float strength = 100f;

@@ -25,7 +25,7 @@ public class Cooldowns extends HudModule {
         String item = null;
         if (player.getCooldowns().isOnCooldown(held)) {
             float progress = 1f - player.getCooldowns().getCooldownPercent(held, 0f);
-            item = held.getItem().getName().getString() + ": " + Math.round(progress * 100) + "%";
+            item = held.getItem().getName(held).getString() + ": " + Math.round(progress * 100) + "%";
         }
 
         if (attack == null && item == null) return "";

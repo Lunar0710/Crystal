@@ -30,6 +30,6 @@ public class ItemTracker extends HudModule {
         for (ItemStack stack : player.getInventory().getNonEquipmentItems()) {
             if (stack.is(tracked)) total += stack.getCount();
         }
-        return tracked.getName().getString() + ": " + total;
+        return tracked.getName(tracked.getDefaultInstance()).getString() + ": " + total;
     }
 }

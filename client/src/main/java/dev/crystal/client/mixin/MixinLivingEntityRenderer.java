@@ -18,10 +18,18 @@ public class MixinLivingEntityRenderer {
     private void crystal$ownNametag(LivingEntity entity, double squaredDistance, CallbackInfoReturnable<Boolean> cir) {
         if (cir.getReturnValueZ()) return;
         Minecraft mc = Minecraft.getInstance();
-        if (entity != mc.player || mc.options.getCameraType().isFirstPerson() || !Minecraft.renderNames()) return;
+        if (entity != mc.player || mc.options.getCameraType().isFirstPerson() || !namesVisible(mc)) return;
         CrystalClient client = CrystalClient.getInstance();
         if (client == null) return;
         NameTags module = client.getModuleManager().getEnabled(NameTags.class);
         if (module != null && module.isShowOwn() && !entity.isInvisible()) cir.setReturnValue(true);
+    }
+
+    private static boolean namesVisible(Minecraft mc) {
+        //? if >=26 {
+        /*return !mc.gui.hud.isHidden();
+        *///?} else {
+        return Minecraft.renderNames();
+        //?}
     }
 }

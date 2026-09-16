@@ -81,14 +81,25 @@ jobs:
             node scripts/smoke-world.cjs
           fi
 
+      # Same test on the newest version, which has its own Crystal build.
+      - name: Play a test world on 26.2
+        if: always() && runner.os == 'Linux'
+        working-directory: launcher
+        env:
+          CRYSTAL_SMOKE_ROOT: ${{ runner.temp }}/crystal-world-26
+          CRYSTAL_SMOKE_VERSION: "26.2"
+        run: |
+          mkdir -p "$CRYSTAL_SMOKE_ROOT"
+          xvfb-run -a -s "-screen 0 1280x720x24" node scripts/smoke-world.cjs
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: world-test-${{ matrix.os }}
           path: |
-            ${{ runner.temp }}/crystal-world/instances/smoke-world/screenshots/
-            ${{ runner.temp }}/crystal-world/instances/smoke-world/crystal-launch.log
-            ${{ runner.temp }}/crystal-world/instances/smoke-world/crash-reports/
+            ${{ runner.temp }}/crystal-world*/instances/smoke-world/screenshots/
+            ${{ runner.temp }}/crystal-world*/instances/smoke-world/crystal-launch.log
+            ${{ runner.temp }}/crystal-world*/instances/smoke-world/crash-reports/
           if-no-files-found: ignore
 
   # Starts Minecraft through the launcher on versions across the whole range

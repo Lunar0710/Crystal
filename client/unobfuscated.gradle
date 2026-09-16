@@ -1,8 +1,8 @@
-// Build for one obfuscated Minecraft version (1.14.4 to 1.21.11), run once per
-// entry in settings.gradle. 26.x uses unobfuscated.gradle instead.
+// Build for Minecraft 26.x. These versions ship with readable names, so Loom
+// needs no mappings and no remapping step; otherwise the same as build.gradle.
 plugins {
     id 'dev.kikugie.stonecutter'
-    id 'net.fabricmc.fabric-loom-remap'
+    id 'net.fabricmc.fabric-loom'
 }
 
 apply from: rootProject.file('replacements.gradle')
@@ -10,7 +10,6 @@ apply from: rootProject.file('replacements.gradle')
 def mc = stonecutter.current.version
 def javaVersion = (project.property('java_version') as String).toInteger()
 
-// crystal-client-<mod>+<mc>.jar: the launcher picks the jar by the part after "+".
 version = "${rootProject.property('mod_version')}+${mc}"
 group = rootProject.property('maven_group')
 base { archivesName = rootProject.property('archives_base_name') }
@@ -21,9 +20,8 @@ repositories {
 
 dependencies {
     minecraft "com.mojang:minecraft:${mc}"
-    mappings loom.officialMojangMappings()
-    modImplementation "net.fabricmc:fabric-loader:${rootProject.property('loader_version')}"
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.property('fabric_version')}"
+    implementation "net.fabricmc:fabric-loader:${rootProject.property('loader_version')}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${project.property('fabric_version')}"
 }
 
 processResources {
@@ -39,12 +37,10 @@ java {
 
 tasks.withType(JavaCompile).configureEach { it.options.release = javaVersion }
 
-// Every version's jar also lands in the shared client/build/libs, where the
-// launcher (and its installer build) looks for them.
 tasks.named('build') {
     doLast {
         copy {
-            from tasks.named('remapJar')
+            from tasks.named('jar')
             into rootProject.layout.buildDirectory.dir('libs')
         }
     }

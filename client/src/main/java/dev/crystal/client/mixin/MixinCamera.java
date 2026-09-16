@@ -9,6 +9,11 @@ import net.minecraft.world.entity.Entity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
+//? if >=26 {
+/*import dev.crystal.client.util.FovControl;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+*///?}
 
 /**
  * Freelook and Snaplook change where the camera looks by replacing the yaw and
@@ -24,7 +29,19 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 @Mixin(Camera.class)
 public class MixinCamera {
 
-    @Redirect(method = "setup", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;getViewYRot(F)F"))
+    //? if >=26 {
+    /*private static final String ALIGN = "alignWithEntity";
+
+    @Inject(method = "calculateFov", at = @At("RETURN"), cancellable = true)
+    private void crystal$fov(CallbackInfoReturnable<Float> cir) {
+        float fov = FovControl.adjust(cir.getReturnValue());
+        if (fov != cir.getReturnValue()) cir.setReturnValue(fov);
+    }
+    *///?} else {
+    private static final String ALIGN = "setup";
+    //?}
+
+    @Redirect(method = ALIGN, at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;getViewYRot(F)F"))
     private float crystal$cameraYaw(Entity entity, float tickDelta) {
         float yaw = entity.getViewYRot(tickDelta);
         if (!isLocalPlayer(entity)) return yaw;
@@ -36,7 +53,7 @@ public class MixinCamera {
         return snaplook != null ? snaplook.snap(yaw) : yaw;
     }
 
-    @Redirect(method = "setup", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;getViewXRot(F)F"))
+    @Redirect(method = ALIGN, at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;getViewXRot(F)F"))
     private float crystal$cameraPitch(Entity entity, float tickDelta) {
         float pitch = entity.getViewXRot(tickDelta);
         if (!isLocalPlayer(entity)) return pitch;

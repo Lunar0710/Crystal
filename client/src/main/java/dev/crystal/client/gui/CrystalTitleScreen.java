@@ -62,7 +62,7 @@ public class CrystalTitleScreen extends Screen {
         // Options and the Crystal menu share a row: wide button plus a square one.
         int square = BUTTON_H;
         buttons.add(new MenuButton(x, y + step * 2, BUTTON_W - square - GAP, BUTTON_H, Component.translatable("menu.options"),
-                () -> minecraft.setScreen(new OptionsScreen(this, minecraft.options)), false));
+                () -> minecraft.setScreen(new OptionsScreen(this, minecraft.options/*? if >=26 {*//*, false*//*?}*/)), false));
         buttons.add(new MenuButton(x + BUTTON_W - square, y + step * 2, square, BUTTON_H, Component.literal("C"),
                 () -> minecraft.setScreen(new CrystalClientScreen()), false));
 

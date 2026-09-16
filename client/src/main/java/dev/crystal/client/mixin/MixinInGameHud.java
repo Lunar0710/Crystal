@@ -17,14 +17,24 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
+//? if >=26 {
+/*import net.minecraft.client.gui.Hud;
+*///?} else {
 import net.minecraft.client.gui.Gui;
+//?}
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.scores.Objective;
 import net.minecraft.world.scores.PlayerScoreEntry;
 
+// The in-game HUD; 26.1 split it out of Gui into Hud.
+//? if >=26 {
+/*@Mixin(Hud.class)
+*///?} else {
 @Mixin(Gui.class)
+//?}
 public class MixinInGameHud {
 
     @Shadow private Component overlayMessageString;
@@ -55,8 +65,7 @@ public class MixinInGameHud {
 
         ci.cancel();
 
-        Gui self = (Gui) (Object) this;
-        Font textRenderer = self.getFont();
+        Font textRenderer = Minecraft.getInstance().font;
 
         // Same fade curve as vanilla: fully visible, then fading out over the last 20 ticks.
         int alpha = overlayMessageTime > 20 ? 255 : Math.max(0, overlayMessageTime * 255 / 20);
@@ -88,8 +97,7 @@ public class MixinInGameHud {
 
         ci.cancel();
 
-        Gui self = (Gui) (Object) this;
-        Font textRenderer = self.getFont();
+        Font textRenderer = Minecraft.getInstance().font;
         float remaining = titleTime - tickCounter.getGameTimeDeltaPartialTick(false);
 
         int alpha;
@@ -151,8 +159,7 @@ public class MixinInGameHud {
 
         ci.cancel();
 
-        Gui self = (Gui) (Object) this;
-        Font textRenderer = self.getFont();
+        Font textRenderer = Minecraft.getInstance().font;
 
         // Copy, filter, sort and measure the sidebar at most every 50 ms (one
         // server tick) instead of every frame. On servers with a full

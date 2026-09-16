@@ -46,7 +46,9 @@ public final class SmokeTest {
                 server.execute(() -> {
                     ServerPlayer sp = server.getPlayerList().getPlayer(uuid);
                     if (sp == null) return;
+                    //? if <26 {
                     sp.level().setDayTime(6000);
+                    //?}
                     // No helmet, so hat and mask cosmetics stay visible in the screenshot.
                     equip(sp, EquipmentSlot.CHEST, new ItemStack(Items.DIAMOND_CHESTPLATE), 0.5f);
                     equip(sp, EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS), 0.8f);

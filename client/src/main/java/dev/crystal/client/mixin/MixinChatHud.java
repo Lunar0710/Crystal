@@ -18,9 +18,19 @@ import net.minecraft.client.GuiMessageTag;
 import net.minecraft.client.gui.components.ChatComponent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MessageSignature;
+//? if >=26 {
+/*import net.minecraft.client.multiplayer.chat.GuiMessageSource;
+*///?}
 
 @Mixin(ChatComponent.class)
 public class MixinChatHud {
+
+    /** The addMessage overload every chat line goes through; 26.1 added a source parameter. */
+    //? if >=26 {
+    /*private static final String ADD_MESSAGE = "addMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/multiplayer/chat/GuiMessageSource;Lnet/minecraft/client/multiplayer/chat/GuiMessageTag;)V";
+    *///?} else {
+    private static final String ADD_MESSAGE = "addMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/GuiMessageTag;)V";
+    //?}
 
     @Shadow @Final private List<GuiMessage.Line> trimmedMessages;
     @Shadow @Final private List<GuiMessage> allMessages;
@@ -36,7 +46,7 @@ public class MixinChatHud {
      * line with "(x2)", "(x3)"... instead of filling the chat; timestamps and
      * name highlighting are added here too.
      */
-    @ModifyVariable(method = "addMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/GuiMessageTag;)V",
+    @ModifyVariable(method = ADD_MESSAGE,
             at = @At("HEAD"), argsOnly = true, ordinal = 0)
     private Component crystal$decorate(Component message) {
         crystal$rowsBefore = trimmedMessages.size();
@@ -60,18 +70,21 @@ public class MixinChatHud {
         return chat.decorate(message, crystal$repeat);
     }
 
-    @Inject(method = "addMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/GuiMessageTag;)V",
-            at = @At("TAIL"))
-    private void crystal$countRows(Component message, MessageSignature signature, GuiMessageTag indicator, CallbackInfo ci) {
+    @Inject(method = ADD_MESSAGE, at = @At("TAIL"))
+    private void crystal$countRows(CallbackInfo ci) {
         crystal$lastRows = Math.max(0, trimmedMessages.size() - crystal$rowsBefore);
     }
 
     @Inject(
-        method = "addMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/GuiMessageTag;)V",
+        method = ADD_MESSAGE,
         at = @At("HEAD"),
         cancellable = true
     )
+    //? if >=26 {
+    /*private void onAddMessage(Component message, MessageSignature signature, GuiMessageSource source, GuiMessageTag indicator, CallbackInfo ci) {
+    *///?} else {
     private void onAddMessage(Component message, MessageSignature signature, GuiMessageTag indicator, CallbackInfo ci) {
+    //?}
         if (CrystalClient.getInstance() == null) return;
 
         ChatFilter filter = CrystalClient.getInstance().getModuleManager().getModuleByName("ChatFilter")

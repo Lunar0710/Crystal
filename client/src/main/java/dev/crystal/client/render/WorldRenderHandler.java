@@ -1,21 +1,16 @@
 package dev.crystal.client.render;
 
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexConsumer;
 import dev.crystal.client.CrystalClient;
 import dev.crystal.client.module.Module;
 import dev.crystal.client.module.hud.TNTCountdown;
 import dev.crystal.client.module.render.BlockOutline;
 import dev.crystal.client.module.render.ChunkBorders;
 import dev.crystal.client.module.render.Hitbox;
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
+import dev.crystal.client.module.render.WorldEditCUI;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.ShapeRenderer;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
-import net.minecraft.client.renderer.state.BlockOutlineRenderState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.PrimedTnt;
@@ -25,48 +20,85 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.joml.Quaternionf;
+//? if >=26 {
+/*import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
+import net.minecraft.network.chat.Component;
+*///?} else {
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
+import net.minecraft.client.renderer.ShapeRenderer;
+//?}
+import net.minecraft.client.renderer.state.BlockOutlineRenderState;
+import net.minecraft.client.renderer.state.CameraRenderState;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 
 /**
  * Central hook for everything Crystal draws in world space (block outline,
- * hitboxes, chunk borders).
+ * hitboxes, chunk borders, WorldEdit selection, TNT timers).
  *
- * All of it goes through {@link ShapeRenderer#renderShape} on the vanilla
- * line layer — the same call vanilla's own block outline uses — so the lines
- * respect depth, line width and the active render pipeline exactly like
- * vanilla geometry does.
+ * Outlines use the vanilla line layer, the same one vanilla's own block
+ * outline uses, so they respect depth and line width like vanilla geometry.
+ * Up to 1.21.11 they are drawn straight into the frame's buffers; from 26.1
+ * on the world is drawn from submitted nodes, so they are submitted instead.
  */
 public final class WorldRenderHandler {
+
+    /** The frame being drawn: its pose stack plus Fabric's per-version render context. */
+    //? if >=26 {
+    /*private record Ctx(PoseStack poseStack, LevelRenderContext level) {
+        CameraRenderState camera() { return level.levelState().cameraRenderState; }
+    }
+    *///?} else {
+    private record Ctx(PoseStack poseStack, WorldRenderContext level) {
+        CameraRenderState camera() { return level.worldState().cameraRenderState; }
+    }
+    //?}
 
     private WorldRenderHandler() {}
 
     public static void register() {
-        // Returning false cancels vanilla's own outline so ours replaces it
-        // rather than double-drawing on top of it.
-        WorldRenderEvents.BEFORE_BLOCK_OUTLINE.register((context, outlineState) -> {
-            BlockOutline module = module("BlockOutline", BlockOutline.class);
-            if (module == null || outlineState == null) return true;
+        //? if >=26 {
+        /*LevelRenderEvents.BEFORE_BLOCK_OUTLINE.register((context, outlineState) -> beforeOutline(new Ctx(context.poseStack(), context), outlineState));
+        LevelRenderEvents.COLLECT_SUBMITS.register(context -> afterEntities(new Ctx(context.poseStack(), context)));
+        *///?} else {
+        WorldRenderEvents.BEFORE_BLOCK_OUTLINE.register((context, outlineState) -> beforeOutline(new Ctx(context.matrices(), context), outlineState));
+        WorldRenderEvents.AFTER_ENTITIES.register(context -> afterEntities(new Ctx(context.matrices(), context)));
+        //?}
+    }
 
-            drawBlockOutline(context, outlineState, module);
-            return false;
-        });
+    /** Returning false cancels vanilla's own outline so ours replaces it rather than double-drawing. */
+    private static boolean beforeOutline(Ctx ctx, BlockOutlineRenderState outlineState) {
+        BlockOutline module = module("BlockOutline", BlockOutline.class);
+        if (module == null || outlineState == null) return true;
 
-        WorldRenderEvents.AFTER_ENTITIES.register(context -> {
-            Hitbox hitbox = module("Hitbox", Hitbox.class);
-            if (hitbox != null) drawHitboxes(context, hitbox);
+        drawBlockOutline(ctx, outlineState, module);
+        return false;
+    }
 
-            ChunkBorders borders = module("ChunkBorders", ChunkBorders.class);
-            if (borders != null) drawChunkBorders(context, borders);
+    private static void afterEntities(Ctx ctx) {
+        Hitbox hitbox = module("Hitbox", Hitbox.class);
+        if (hitbox != null) drawHitboxes(ctx, hitbox);
 
-            dev.crystal.client.module.render.WorldEditCUI worldEdit = module("WorldEditCUI", dev.crystal.client.module.render.WorldEditCUI.class);
-            if (worldEdit != null) worldEdit.render(context.matrices(), context.consumers().getBuffer(RenderTypes.lines()), cameraPos(context));
+        ChunkBorders borders = module("ChunkBorders", ChunkBorders.class);
+        if (borders != null) drawChunkBorders(ctx, borders);
 
-            TNTCountdown tnt = module("TNTCountdown", TNTCountdown.class);
-            if (tnt != null) drawTntCountdowns(context, tnt);
-        });
+        WorldEditCUI worldEdit = module("WorldEditCUI", WorldEditCUI.class);
+        if (worldEdit != null) {
+            Vec3 camera = cameraPos(ctx);
+            //? if >=26 {
+            /*ctx.level().submitNodeCollector().submitCustomGeometry(ctx.poseStack(), RenderTypes.lines(),
+                    (pose, lines) -> worldEdit.render(pose, lines, camera));
+            *///?} else {
+            worldEdit.render(ctx.poseStack().last(), ctx.level().consumers().getBuffer(RenderTypes.lines()), camera);
+            //?}
+        }
+
+        TNTCountdown tnt = module("TNTCountdown", TNTCountdown.class);
+        if (tnt != null) drawTntCountdowns(ctx, tnt);
     }
 
     /** The enabled instance of a module, or null when it's off — every draw path starts here. */
@@ -75,26 +107,35 @@ public final class WorldRenderHandler {
         return CrystalClient.getInstance().getModuleManager().getEnabled(type);
     }
 
-    private static void drawBlockOutline(WorldRenderContext context, BlockOutlineRenderState state, BlockOutline module) {
+    /** The edges of {@code shape}, offset by (x, y, z) from the camera. */
+    private static void outline(Ctx ctx, VoxelShape shape, double x, double y, double z, int color, float width) {
+        //? if >=26 {
+        /*PoseStack poseStack = ctx.poseStack();
+        poseStack.pushPose();
+        poseStack.translate(x, y, z);
+        ctx.level().submitNodeCollector().submitShapeOutline(poseStack, shape, RenderTypes.lines(), color, width, false);
+        poseStack.popPose();
+        *///?} else {
+        VertexConsumer consumer = ctx.level().consumers().getBuffer(RenderTypes.lines());
+        ShapeRenderer.renderShape(ctx.poseStack(), consumer, shape, x, y, z, color, width);
+        //?}
+    }
+
+    private static void drawBlockOutline(Ctx ctx, BlockOutlineRenderState state, BlockOutline module) {
         VoxelShape shape = state.shape();
         if (shape.isEmpty()) return;
 
         BlockPos pos = state.pos();
-        Vec3 camera = cameraPos(context);
-        VertexConsumer consumer = context.consumers().getBuffer(RenderTypes.lines());
-
-        ShapeRenderer.renderShape(
-                context.matrices(), consumer, shape,
-                pos.getX() - camera.x, pos.getY() - camera.y, pos.getZ() - camera.z,
+        Vec3 camera = cameraPos(ctx);
+        outline(ctx, shape, pos.getX() - camera.x, pos.getY() - camera.y, pos.getZ() - camera.z,
                 module.getOutlineColor(), module.getLineWidth());
     }
 
-    private static void drawHitboxes(WorldRenderContext context, Hitbox module) {
+    private static void drawHitboxes(Ctx ctx, Hitbox module) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null) return;
 
-        Vec3 camera = cameraPos(context);
-        VertexConsumer consumer = context.consumers().getBuffer(RenderTypes.lines());
+        Vec3 camera = cameraPos(ctx);
         double maxDistanceSq = module.getRange() * module.getRange();
 
         for (Entity entity : mc.level.entitiesForRendering()) {
@@ -103,8 +144,7 @@ public final class WorldRenderHandler {
             if (entity.distanceToSqr(mc.player) > maxDistanceSq) continue;
 
             AABB box = entity.getBoundingBox();
-            ShapeRenderer.renderShape(
-                    context.matrices(), consumer, hitboxShape(box.getXsize(), box.getYsize(), box.getZsize()),
+            outline(ctx, hitboxShape(box.getXsize(), box.getYsize(), box.getZsize()),
                     box.minX - camera.x, box.minY - camera.y, box.minZ - camera.z,
                     module.colorFor(entity), module.getLineWidth());
         }
@@ -129,12 +169,11 @@ public final class WorldRenderHandler {
         return shape;
     }
 
-    private static void drawChunkBorders(WorldRenderContext context, ChunkBorders module) {
+    private static void drawChunkBorders(Ctx ctx, ChunkBorders module) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) return;
 
-        Vec3 camera = cameraPos(context);
-        VertexConsumer consumer = context.consumers().getBuffer(RenderTypes.lines());
+        Vec3 camera = cameraPos(ctx);
 
         // The 16x16 column the player is standing in, from world bottom to top.
         int chunkX = mc.player.blockPosition().getX() >> 4;
@@ -145,9 +184,7 @@ public final class WorldRenderHandler {
         double maxY = minY + (mc.level != null ? mc.level.getHeight() : 384);
 
         VoxelShape column = Shapes.box(0, 0, 0, 16, maxY - minY, 16);
-        ShapeRenderer.renderShape(
-                context.matrices(), consumer, column,
-                minX - camera.x, minY - camera.y, minZ - camera.z,
+        outline(ctx, column, minX - camera.x, minY - camera.y, minZ - camera.z,
                 module.getBorderColor(), module.getLineWidth());
     }
 
@@ -157,14 +194,13 @@ public final class WorldRenderHandler {
      * camera's own orientation quaternion, then draw through the "see through"
      * text layer so it isn't hidden behind blocks (nametags do the same).
      */
-    private static void drawTntCountdowns(WorldRenderContext context, TNTCountdown module) {
+    private static void drawTntCountdowns(Ctx ctx, TNTCountdown module) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null) return;
 
-        Vec3 camera = cameraPos(context);
-        Quaternionf cameraOrientation = context.worldState().cameraRenderState.orientation;
+        Vec3 camera = cameraPos(ctx);
+        Quaternionf cameraOrientation = ctx.camera().orientation;
         Font textRenderer = mc.font;
-        MultiBufferSource consumers = context.consumers();
 
         for (Entity entity : mc.level.entitiesForRendering()) {
             if (!(entity instanceof PrimedTnt tnt)) continue;
@@ -174,7 +210,7 @@ public final class WorldRenderHandler {
             String label = (tenths / 10) + "." + (tenths % 10) + "s";
             int textWidth = textRenderer.width(label);
 
-            PoseStack matrices = context.matrices();
+            PoseStack matrices = ctx.poseStack();
             matrices.pushPose();
             matrices.translate(
                     entity.getX() - camera.x,
@@ -183,14 +219,20 @@ public final class WorldRenderHandler {
             matrices.mulPose(cameraOrientation);
             matrices.scale(-0.025f * module.getScale(), -0.025f * module.getScale(), 0.025f * module.getScale());
 
+            //? if >=26 {
+            /*ctx.level().submitNodeCollector().submitText(matrices, -textWidth / 2f, 0,
+                    Component.literal(label).getVisualOrderText(), false, Font.DisplayMode.SEE_THROUGH,
+                    0xF000F0, module.getColor(), 0, 0);
+            *///?} else {
             textRenderer.drawInBatch(label, -textWidth / 2f, 0, module.getColor(), false,
-                    matrices.last().pose(), consumers, Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
+                    matrices.last().pose(), ctx.level().consumers(), Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
+            //?}
 
             matrices.popPose();
         }
     }
 
-    private static Vec3 cameraPos(WorldRenderContext context) {
-        return context.worldState().cameraRenderState.pos;
+    private static Vec3 cameraPos(Ctx ctx) {
+        return ctx.camera().pos;
     }
 }

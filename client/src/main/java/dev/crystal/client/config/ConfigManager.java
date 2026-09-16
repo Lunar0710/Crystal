@@ -28,7 +28,7 @@ public class ConfigManager {
 
         for (Module module : CrystalClient.getInstance().getModuleManager().getModules()) {
             JsonObject mObj = new JsonObject();
-            mObj.addProperty("enabled", module.isEnabled());
+            mObj.addProperty("enabled", module.isSwitchedOn());
             mObj.addProperty("keybind", module.getKeybind());
 
             if (!module.settings().isEmpty()) {

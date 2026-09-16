@@ -25,6 +25,7 @@ export function Settings() {
   const [discordConnected, setDiscordConnected] = useState(false)
   const [discordConfigured, setDiscordConfigured] = useState(true)
   const [versions, setVersions] = useState<{ launcher?: string; client?: string | null }>({})
+  const [crystalVersions, setCrystalVersions] = useState<string[] | null>(null)
   const [dataRoot, setDataRoot] = useState<{ current?: string; default?: string }>({})
   const [systemMb, setSystemMb] = useState<number | null>(null)
   const [minimizeOnLaunch, setMinimizeOnLaunch] = useState(true)
@@ -35,6 +36,8 @@ export function Settings() {
     api?.getSetting('autoPerformancePack').then((v: boolean | undefined) => setAutoPerformancePack(v !== false))
     api?.getDataRoot().then((r: { current: string; default: string }) => r && setDataRoot(r))
     api?.getVersionInfo().then((v: { launcher: string; client: string | null }) => v && setVersions(v))
+    api?.getVersionOptions?.().then((list: { id: string; crystal: boolean }[]) =>
+      setCrystalVersions((list || []).filter(o => o.crystal).map(o => o.id)))
     api?.isDiscordEnabled().then((v: boolean) => setDiscordEnabled(!!v))
     api?.isDiscordConnected().then((v: boolean) => setDiscordConnected(!!v))
     api?.isDiscordConfigured().then((v: boolean) => setDiscordConfigured(!!v))
@@ -275,7 +278,12 @@ export function Settings() {
       <Section title="Über Crystal">
         <Field label="Launcher"><span className="font-mono text-xs text-crystal-text">{versions.launcher ?? '…'}</span></Field>
         <Field label="Client-Mod"><span className="font-mono text-xs text-crystal-text">{versions.client ?? 'nicht gebündelt'}</span></Field>
-        <Field label="Minecraft"><span className="font-mono text-xs text-crystal-text">1.21.11 mit Fabric</span></Field>
+        <Field label="Minecraft"><span className="font-mono text-xs text-crystal-text">1.8.9 bis 26.2</span></Field>
+        <Field label="Crystal-Module auf">
+          <span className="font-mono text-xs text-crystal-text">
+            {crystalVersions === null ? '…' : crystalVersions.length ? crystalVersions.join(', ') : 'keiner Version'}
+          </span>
+        </Field>
       </Section>
     </Page>
   )
