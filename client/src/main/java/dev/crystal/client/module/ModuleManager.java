@@ -35,6 +35,7 @@ public class ModuleManager {
         register(new AutoRespawn());
         register(new InventoryCleanup());
         register(new AutoTool());
+        register(new KeyPearls());
         register(new Cooldowns());
         register(new PotionEffectsDisplay());
         register(new SaturationDisplay());

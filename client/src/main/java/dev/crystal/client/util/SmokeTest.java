@@ -54,6 +54,7 @@ public final class SmokeTest {
                     equip(sp, EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS), 0.8f);
                     equip(sp, EquipmentSlot.FEET, new ItemStack(Items.GOLDEN_BOOTS), 0.3f);
                     equip(sp, EquipmentSlot.MAINHAND, new ItemStack(Items.NETHERITE_SWORD), 0.2f);
+                    sp.getInventory().setItem(3, new ItemStack(Items.ENDER_PEARL, 16));
                 });
             }
         }
@@ -103,6 +104,23 @@ public final class SmokeTest {
         if (worldTicks == 285) {
             Screenshot.grab(mc.gameDirectory, base + "-back.png", mc.getMainRenderTarget(), 1,
                     msg -> CrystalClient.LOGGER.info("[Crystal] Smoke screenshot: {}", msg.getString()));
+        }
+
+        // KeyPearls: one press throws a pearl from slot 4 and returns to slot 1.
+        if (worldTicks == 290) {
+            CrystalClient.getInstance().getModuleManager().getModuleByName("KeyPearls")
+                    .filter(m -> m instanceof dev.crystal.client.module.player.KeyPearls)
+                    .map(m -> (dev.crystal.client.module.player.KeyPearls) m)
+                    .ifPresent(k -> {
+                        k.setEnabled(true);
+                        k.pressForTest();
+                    });
+        }
+        if (worldTicks == 300) {
+            int pearls = mc.player.getInventory().getItem(3).getCount();
+            int slot = mc.player.getInventory().getSelectedSlot();
+            boolean ok = pearls == 15 && slot == 0;
+            CrystalClient.LOGGER.info("[Crystal] KeyPearls test {}: pearls={} slot={}", ok ? "PASS" : "FAILED", pearls, slot);
         }
 
         if (worldTicks == 310) {
