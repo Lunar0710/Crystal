@@ -6,8 +6,13 @@ import dev.crystal.client.module.EnumSetting;
 import dev.crystal.client.module.Module;
 import dev.crystal.client.module.ModuleCategory;
 import dev.crystal.client.module.Setting;
+//? if >=1.21.11 {
 import net.fabricmc.fabric.api.resource.v1.ResourceLoader;
 import net.fabricmc.fabric.api.resource.v1.pack.PackActivationType;
+//?} else {
+/*import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
+import net.fabricmc.fabric.api.resource.ResourcePackActivationType;
+*///?}
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -45,10 +50,17 @@ public class TextStyle extends Module {
 
     public static void registerPacks() {
         var crystal = FabricLoader.getInstance().getModContainer(CrystalClient.MOD_ID).orElseThrow();
+        //? if >=1.21.11 {
         ResourceLoader.registerBuiltinPack(Identifier.fromNamespaceAndPath(CrystalClient.MOD_ID, "smooth_font"), crystal,
                 Component.literal("Crystal: Smooth Font"), PackActivationType.NORMAL);
         ResourceLoader.registerBuiltinPack(Identifier.fromNamespaceAndPath(CrystalClient.MOD_ID, "mono_font"), crystal,
                 Component.literal("Crystal: Mono Font"), PackActivationType.NORMAL);
+        //?} else {
+        /*ResourceManagerHelper.registerBuiltinResourcePack(Identifier.fromNamespaceAndPath(CrystalClient.MOD_ID, "smooth_font"), crystal,
+                Component.literal("Crystal: Smooth Font"), ResourcePackActivationType.NORMAL);
+        ResourceManagerHelper.registerBuiltinResourcePack(Identifier.fromNamespaceAndPath(CrystalClient.MOD_ID, "mono_font"), crystal,
+                Component.literal("Crystal: Mono Font"), ResourcePackActivationType.NORMAL);
+        *///?}
     }
 
     /** The font that should be showing right now. */

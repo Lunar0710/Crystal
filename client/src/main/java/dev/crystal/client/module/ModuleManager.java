@@ -122,6 +122,7 @@ public class ModuleManager {
         register(new dev.crystal.client.module.render.HitColor());
         register(new dev.crystal.client.module.render.NameTags());
         register(new dev.crystal.client.module.render.TeamView());
+        register(new dev.crystal.client.module.render.CrystalLogo());
         register(new dev.crystal.client.module.render.ParticleChanger());
         register(new dev.crystal.client.module.render.BetterSounds());
         register(new dev.crystal.client.module.misc.PackOrganizer());

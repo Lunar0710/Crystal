@@ -167,8 +167,14 @@ public class WorldEditCUI extends Module {
     private void line(PoseStack.Pose entry, VertexConsumer lines, Vec3 cam,
                       double x1, double y1, double z1, double x2, double y2, double z2, int color) {
         Vector3f normal = new Vector3f((float) (x2 - x1), (float) (y2 - y1), (float) (z2 - z1)).normalize();
+        // Line width is a vertex attribute from 1.21.11 on.
+        //? if >=1.21.11 {
         lines.addVertex(entry, (float) (x1 - cam.x), (float) (y1 - cam.y), (float) (z1 - cam.z)).setColor(color).setNormal(entry, normal).setLineWidth(lineWidth);
         lines.addVertex(entry, (float) (x2 - cam.x), (float) (y2 - cam.y), (float) (z2 - cam.z)).setColor(color).setNormal(entry, normal).setLineWidth(lineWidth);
+        //?} else {
+        /*lines.addVertex(entry, (float) (x1 - cam.x), (float) (y1 - cam.y), (float) (z1 - cam.z)).setColor(color).setNormal(entry, normal);
+        lines.addVertex(entry, (float) (x2 - cam.x), (float) (y2 - cam.y), (float) (z2 - cam.z)).setColor(color).setNormal(entry, normal);
+        *///?}
     }
 
     @Override

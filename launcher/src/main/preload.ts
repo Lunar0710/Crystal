@@ -101,6 +101,9 @@ contextBridge.exposeInMainWorld('crystal', {
   listIcons:      () => ipcRenderer.invoke('branding:list'),
   getCurrentIcon: () => ipcRenderer.invoke('branding:getCurrent'),
   setCurrentIcon: (id: string) => ipcRenderer.invoke('branding:setCurrent', id),
+  getLogo:        () => ipcRenderer.invoke('branding:getLogo'),
+  pickLogo:       () => ipcRenderer.invoke('branding:pickLogo'),
+  resetLogo:      () => ipcRenderer.invoke('branding:resetLogo'),
 
   // Skin preview + cosmetics loadout
   fetchSkin:   (username: string) => ipcRenderer.invoke('skin:fetch', username),

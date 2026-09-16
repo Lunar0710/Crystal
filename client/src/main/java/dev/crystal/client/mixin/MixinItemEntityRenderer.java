@@ -26,14 +26,25 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(ItemEntityRenderer.class)
 public class MixinItemEntityRenderer {
 
+    /** Mth.sin took a float before 1.21.11. */
+    //? if >=1.21.11 {
+    private static final String SIN = "Lnet/minecraft/util/Mth;sin(D)F";
+    //?} else {
+    /*private static final String SIN = "Lnet/minecraft/util/Mth;sin(F)F";
+    *///?}
+
     @Inject(method = "extractRenderState(Lnet/minecraft/world/entity/item/ItemEntity;Lnet/minecraft/client/renderer/entity/state/ItemEntityRenderState;F)V", at = @At("TAIL"))
     private void crystal$rememberGround(ItemEntity entity, ItemEntityRenderState state, float tickProgress, CallbackInfo ci) {
         ((ItemGroundState) state).crystal$setOnGround(entity.onGround());
     }
 
     @Redirect(method = "submit(Lnet/minecraft/client/renderer/entity/state/ItemEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/CameraRenderState;)V",
-            at = @At(value = "INVOKE", target = "Lnet/minecraft/util/Mth;sin(D)F"))
+            at = @At(value = "INVOKE", target = SIN))
+    //? if >=1.21.11 {
     private float crystal$bob(double value) {
+    //?} else {
+    /*private float crystal$bob(float value) {
+    *///?}
         // sin() = -1 makes vanilla's "sin * 0.1 + 0.1" bob offset exactly 0.
         return crystal$items2D() != null || crystal$physics() != null ? -1f : Mth.sin(value);
     }

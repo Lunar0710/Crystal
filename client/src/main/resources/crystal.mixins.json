@@ -18,6 +18,7 @@
     "MixinClientWorld",
     "MixinBossBarHud",
     "MixinPlayerListHud",
+    "MixinTabListName",
     "MixinMouseScroll",
     "MixinDrawContext",
     "MixinAtmosphericFogModifier",

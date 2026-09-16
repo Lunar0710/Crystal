@@ -117,7 +117,11 @@ public final class WorldRenderHandler {
         poseStack.popPose();
         *///?} else {
         VertexConsumer consumer = ctx.level().consumers().getBuffer(RenderTypes.lines());
+        //? if >=1.21.11 {
         ShapeRenderer.renderShape(ctx.poseStack(), consumer, shape, x, y, z, color, width);
+        //?} else {
+        /*ShapeRenderer.renderShape(ctx.poseStack(), consumer, shape, x, y, z, color);
+        *///?}
         //?}
     }
 

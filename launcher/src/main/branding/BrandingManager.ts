@@ -1,6 +1,8 @@
 import { app, BrowserWindow, nativeImage } from 'electron'
 import Store from 'electron-store'
 import path from 'path'
+import fs from 'fs'
+import { crystalPath } from '../paths'
 
 export interface IconVariant {
   id: string
@@ -50,9 +52,45 @@ export class BrandingManager {
   }
 
   apply(win: BrowserWindow | null, id?: string) {
-    const iconPath = this.getIconPath(id)
-    const image = nativeImage.createFromPath(iconPath)
+    const custom = this.customLogoImage()
+    const image = custom ?? nativeImage.createFromPath(this.getIconPath(id))
     if (!image.isEmpty()) win?.setIcon(image)
+  }
+
+  // ---- Own logo: an uploaded picture shown in the title bar and as the window icon.
+
+  private customLogoFile(): string {
+    return crystalPath('branding', 'logo.png')
+  }
+
+  private customLogoImage(): Electron.NativeImage | null {
+    const file = this.customLogoFile()
+    if (!fs.existsSync(file)) return null
+    const image = nativeImage.createFromPath(file)
+    return image.isEmpty() ? null : image
+  }
+
+  /** The uploaded logo as a data URL, or null when the default wordmark is used. */
+  getCustomLogo(): string | null {
+    return this.customLogoImage()?.toDataURL() ?? null
+  }
+
+  /** Stores the picture at `source`, scaled down to at most 256px tall. False when it isn't a readable image. */
+  setCustomLogo(win: BrowserWindow | null, source: string): boolean {
+    let image = nativeImage.createFromPath(source)
+    if (image.isEmpty()) return false
+    const { height } = image.getSize()
+    if (height > 256) image = image.resize({ height: 256, quality: 'best' })
+    const file = this.customLogoFile()
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.writeFileSync(file, image.toPNG())
+    this.apply(win)
+    return true
+  }
+
+  clearCustomLogo(win: BrowserWindow | null): void {
+    fs.rmSync(this.customLogoFile(), { force: true })
+    this.apply(win)
   }
 
   setCurrent(win: BrowserWindow | null, id: string): boolean {

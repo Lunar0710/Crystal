@@ -1,50 +1,72 @@
-// Renames Mojang made in 26.1, applied to the source Stonecutter generates for
-// those versions. Each regex pair is forward (1.21.11 -> 26.x) then reverse.
+// Text replacements Stonecutter applies to the source it generates per version.
+//
+// The source in src/ is always written for 1.21.11 (the active version), and
+// Stonecutter applies a group's forward rules when its condition holds and its
+// reverse rules when it doesn't. Reverse rules would therefore rewrite correct
+// 1.21.11 code for every other version (method = "extractRenderState" turning
+// into "render" on 1.21.10, for example). Nothing here ever converts back to
+// 1.21.11, so every reverse rule is a pattern that never matches.
+def forward = { builder, String from, String to ->
+    builder.replace from, to, '(?!)' + from, to
+}
+
+// Renames Mojang made in 26.1.
 def at26 = stonecutter.current.parsed.matches('>=26')
 
 stonecutter.replacements.regex(at26) {
+    def r = { String from, String to -> forward(delegate, from, to) }
     // GUI drawing became "render state extraction".
-    replace '\\bGuiGraphics\\b', 'GuiGraphicsExtractor', '\\bGuiGraphicsExtractor\\b', 'GuiGraphics'
-    replace '\\.drawString\\(', '.text(', '\\.text\\(', '.drawString('
-    replace '\\.drawCenteredString\\(', '.centeredText(', '\\.centeredText\\(', '.drawCenteredString('
-    replace '\\.renderItem\\(', '.item(', '\\.item\\(', '.renderItem('
+    r '\\bGuiGraphics\\b', 'GuiGraphicsExtractor'
+    r '\\.drawString\\(', '.text('
+    r '\\.drawCenteredString\\(', '.centeredText('
+    r '\\.renderItem\\(', '.item('
     // Screen.render(GuiGraphics, int, int, float); the lookahead leaves the type to the rule above.
-    replace 'void render\\((?=GuiGraphics\\w* \\w+, int)', 'void extractRenderState(', 'void extractRenderState\\((?=GuiGraphics\\w* \\w+, int)', 'void render('
-    replace '\\brenderBackground\\(', 'extractBackground(', '\\bextractBackground\\(', 'renderBackground('
-    replace '\\brenderPanorama\\(', 'extractPanorama(', '\\bextractPanorama\\(', 'renderPanorama('
-    replace 'super\\.render\\(', 'super.extractRenderState(', 'super\\.extractRenderState\\(', 'super.render('
+    r 'void render\\((?=GuiGraphics\\w* \\w+, int)', 'void extractRenderState('
+    r '\\brenderBackground\\(', 'extractBackground('
+    r '\\brenderPanorama\\(', 'extractPanorama('
+    r 'super\\.render\\(', 'super.extractRenderState('
     // Mixin targets: widget/overlay render() and the scroll area's scrollbar check.
-    replace 'method = "render"', 'method = "extractRenderState"', 'method = "extractRenderState"', 'method = "render"'
-    replace '\\bscrollbarVisible\\(\\)', 'scrollable()', '\\bscrollable\\(\\)', 'scrollbarVisible()'
+    r 'method = "render"', 'method = "extractRenderState"'
+    r '\\bscrollbarVisible\\(\\)', 'scrollable()'
     // HUD parts (mixin targets in the in-game HUD).
-    replace '"render(OverlayMessage|Title|Crosshair)"', '"extract$1"', '"extract(OverlayMessage|Title|Crosshair)"', '"render$1"'
+    r '"render(OverlayMessage|Title|Crosshair)"', '"extract$1"'
 
     // Screens are owned by Minecraft.gui now.
-    replace '\\.setScreen\\(', '.gui.setScreen(', '\\.gui\\.setScreen\\(', '.setScreen('
+    r '\\.setScreen\\(', '.gui.setScreen('
     // Reading the open screen goes through Screens.current, which is null-safe during startup.
-    replace '([\\w.]+(?:\\(\\))?)\\.screen\\b(?![.(])', 'dev.crystal.client.util.Screens.current($1)',
-            'dev\\.crystal\\.client\\.util\\.Screens\\.current\\(([\\w.]+(?:\\(\\))?)\\)', '$1.screen'
+    r '([\\w.]+(?:\\(\\))?)\\.screen\\b(?![.(])', 'dev.crystal.client.util.Screens.current($1)'
 
-    replace '\\.getOverlay\\(\\)', '.gui.overlay()', '\\.gui\\.overlay\\(\\)', '.getOverlay()'
-    replace '\\.getMainRenderTarget\\(\\)', '.gameRenderer.mainRenderTarget()', '\\.gameRenderer\\.mainRenderTarget\\(\\)', '.getMainRenderTarget()'
+    r '\\.getOverlay\\(\\)', '.gui.overlay()'
+    r '\\.getMainRenderTarget\\(\\)', '.gameRenderer.mainRenderTarget()'
 
     // Chat and action bar messages to the local player.
-    replace '\\.displayClientMessage\\(([^;]*), true\\);', '.sendOverlayMessage($1);', '\\.sendOverlayMessage\\(([^;]*)\\);', '.displayClientMessage($1, true);'
-    replace '\\.displayClientMessage\\(([^;]*), false\\);', '.sendSystemMessage($1);', '\\.sendSystemMessage\\(([^;]*)\\);', '.displayClientMessage($1, false);'
+    r '\\.displayClientMessage\\(([^;]*), true\\);', '.sendOverlayMessage($1);'
+    r '\\.displayClientMessage\\(([^;]*), false\\);', '.sendSystemMessage($1);'
 
     // Day time comes from the world clock.
-    replace '\\.getDayTime\\(\\)', '.getOverworldClockTime()', '\\.getOverworldClockTime\\(\\)', '.getDayTime()'
+    r '\\.getDayTime\\(\\)', '.getOverworldClockTime()'
 
-    replace 'PayloadTypeRegistry\\.playS2C\\(\\)', 'PayloadTypeRegistry.clientboundPlay()', 'PayloadTypeRegistry\\.clientboundPlay\\(\\)', 'PayloadTypeRegistry.playS2C()'
-    replace 'PayloadTypeRegistry\\.playC2S\\(\\)', 'PayloadTypeRegistry.serverboundPlay()', 'PayloadTypeRegistry\\.serverboundPlay\\(\\)', 'PayloadTypeRegistry.playC2S()'
-    replace '\\bentityCutoutNoCull\\(', 'entityCutout(', '\\bentityCutout\\(', 'entityCutoutNoCull('
+    r 'PayloadTypeRegistry\\.playS2C\\(\\)', 'PayloadTypeRegistry.clientboundPlay()'
+    r 'PayloadTypeRegistry\\.playC2S\\(\\)', 'PayloadTypeRegistry.serverboundPlay()'
+    r '\\bentityCutoutNoCull\\(', 'entityCutout('
 
-    replace '\\bClientCommandManager\\b', 'ClientCommands', '\\bClientCommands\\b', 'ClientCommandManager'
-    replace '\\bClickType\\b', 'ContainerInput', '\\bContainerInput\\b', 'ClickType'
+    r '\\bClientCommandManager\\b', 'ClientCommands'
+    r '\\bClickType\\b', 'ContainerInput'
 
     // Moved packages.
-    replace 'net([./])minecraft([./])client([./])GuiMessage', 'net$1minecraft$2client$3multiplayer$3chat$3GuiMessage',
-            'net([./])minecraft([./])client([./])multiplayer[./]chat[./]GuiMessage', 'net$1minecraft$2client$3GuiMessage'
-    replace 'renderer([./])state([./])(CameraRenderState|BlockOutlineRenderState)', 'renderer$1state$2level$2$3',
-            'renderer([./])state([./])level[./](CameraRenderState|BlockOutlineRenderState)', 'renderer$1state$2$3'
+    r 'net([./])minecraft([./])client([./])GuiMessage', 'net$1minecraft$2client$3multiplayer$3chat$3GuiMessage'
+    r 'renderer([./])state([./])(CameraRenderState|BlockOutlineRenderState)', 'renderer$1state$2level$2$3'
+}
+
+// Names Mojang changed in 1.21.11, for the versions before it.
+def before1_21_11 = stonecutter.current.parsed.matches('<1.21.11')
+
+stonecutter.replacements.regex(before1_21_11) {
+    def r = { String from, String to -> forward(delegate, from, to) }
+    r '\\bIdentifier\\b', 'ResourceLocation'
+    r '\\.identifier\\(\\)', '.location()'
+    r 'net\\.minecraft\\.client\\.renderer\\.rendertype\\.RenderTypes?\\b', 'net.minecraft.client.renderer.RenderType'
+    r '\\bRenderTypes\\.', 'RenderType.'
+    r 'net([./])minecraft([./])client([./])model([./])player([./])', 'net$1minecraft$2client$3model$4'
+    r '\\.hasControlDownWithQuirk\\(\\)', '.hasControlDown()'
 }

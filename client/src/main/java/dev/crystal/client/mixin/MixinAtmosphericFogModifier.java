@@ -17,7 +17,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class MixinAtmosphericFogModifier {
 
     @Inject(method = "setupFog", at = @At("TAIL"))
+    //? if >=1.21.11 {
     private void onApplyStartEndModifier(FogData fogData, Camera camera, ClientLevel world, float viewDistance, DeltaTracker tickCounter, CallbackInfo ci) {
+    //?} else {
+    /*private void onApplyStartEndModifier(FogData fogData, net.minecraft.world.entity.Entity entity, net.minecraft.core.BlockPos pos, ClientLevel world, float viewDistance, DeltaTracker tickCounter, CallbackInfo ci) {
+    *///?}
         if (CrystalClient.getInstance() == null) return;
 
         FogCustomizer module = CrystalClient.getInstance().getModuleManager().getEnabled(FogCustomizer.class);

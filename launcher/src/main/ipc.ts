@@ -440,15 +440,32 @@ export function registerIpcHandlers(store: Store) {
   ipcMain.handle('externalClients:rename', (_e, id: string, name: string) => externalClients.rename(id, name))
   ipcMain.handle('externalClients:launch', (_e, id: string) => externalClients.launch(id))
 
-  // Branding / app icon — gated to staff-tier ranks (owner, co_owner, admin,
-  // staff, developer). Not Crystal+, that's a perk tier, not a staff privilege.
-  const STAFF_RANKS = ['owner', 'co_owner', 'admin', 'staff', 'developer']
+  // Branding: app icon and own logo, for every rank except Member.
+  const canBrand = () => { const rank = auth.getRank(); return !!rank && rank !== 'member' }
   ipcMain.handle('branding:list', () => branding.list())
   ipcMain.handle('branding:getCurrent', () => branding.getCurrentId())
   ipcMain.handle('branding:setCurrent', (_e, id: string) => {
-    if (!STAFF_RANKS.includes(auth.getRank())) return false
+    if (!canBrand()) return false
     const win = BrowserWindow.getFocusedWindow()
     return branding.setCurrent(win, id)
+  })
+  // Without a rank the default wordmark shows, even if a logo was saved earlier.
+  ipcMain.handle('branding:getLogo', () => (canBrand() ? branding.getCustomLogo() : null))
+  ipcMain.handle('branding:pickLogo', async () => {
+    if (!canBrand()) return { ok: false, error: 'Ein eigenes Logo gibt es ab Crystal+ und für das Team.' }
+    const win = BrowserWindow.getFocusedWindow()
+    const result = await dialog.showOpenDialog(win!, {
+      title: 'Logo auswählen',
+      properties: ['openFile'],
+      filters: [{ name: 'Bild', extensions: ['png', 'jpg', 'jpeg'] }],
+    })
+    if (result.canceled || !result.filePaths[0]) return { ok: false }
+    if (!branding.setCustomLogo(win, result.filePaths[0])) return { ok: false, error: 'Das Bild konnte nicht gelesen werden.' }
+    return { ok: true, logo: branding.getCustomLogo() }
+  })
+  ipcMain.handle('branding:resetLogo', () => {
+    branding.clearCustomLogo(BrowserWindow.getFocusedWindow())
+    return true
   })
 
   // Skin preview (Mojang lookup happens in main to dodge CORS/CSP)

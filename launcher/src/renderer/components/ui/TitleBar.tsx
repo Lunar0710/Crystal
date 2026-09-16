@@ -1,11 +1,23 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { Minus, Square, X } from 'lucide-react'
 import { CrystalWordmark } from '../../theme/CrystalWordmark'
 
 const api = (window as any).crystal
 const isMac = api?.platform === 'darwin'
 
+/** Fired by the settings page when the own logo changes. */
+export const LOGO_CHANGED = 'crystal:logo-changed'
+
 export function TitleBar() {
+  const [logo, setLogo] = useState<string | null>(null)
+
+  useEffect(() => {
+    const load = () => api?.getLogo?.().then((l: string | null) => setLogo(l ?? null))
+    load()
+    window.addEventListener(LOGO_CHANGED, load)
+    return () => window.removeEventListener(LOGO_CHANGED, load)
+  }, [])
+
   return (
     <div
       className={`flex items-stretch justify-between h-9 bg-crystal-panel border-b border-crystal-border select-none ${isMac ? 'pl-[78px]' : 'pl-3.5'}`}
@@ -14,7 +26,9 @@ export function TitleBar() {
       onDoubleClick={isMac ? () => api?.maximize() : undefined}
     >
       <div className="flex items-center">
-        <CrystalWordmark size={13} className="text-crystal-text" />
+        {logo
+          ? <img src={logo} alt="Logo" className="h-5 max-w-[160px] object-contain" draggable={false} />
+          : <CrystalWordmark size={13} className="text-crystal-text" />}
       </div>
 
       {/* Full-height, square-edged buttons like the native Windows caption controls.

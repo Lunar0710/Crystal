@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Check, Lock } from 'lucide-react'
+import { Check, Lock, Upload, RotateCcw } from 'lucide-react'
 import { notify } from '../../store/notificationStore'
 import { useThemeStore } from '../../store/themeStore'
 import { themes } from '../../theme/themes'
@@ -9,9 +9,9 @@ import { COSMETICS_BY_SLOT } from '../../data/cosmetics'
 import { RankBadge } from '../ui/RankBadge'
 import { LogoMark, LogoVariantId } from '../../theme/logoVariants'
 import { Page, PageHeader, Section, Field, Switch } from '../ui/Page'
+import { LOGO_CHANGED } from '../ui/TitleBar'
 
 const api = (window as any).crystal
-const STAFF_RANKS: RankId[] = ['owner', 'co_owner', 'admin', 'staff', 'developer']
 
 export function Settings() {
   const { theme, setTheme } = useThemeStore()
@@ -80,17 +80,37 @@ export function Settings() {
     api?.isDiscordConnected().then((c: boolean) => setDiscordConnected(!!c))
   }
 
+  const [logo, setLogo] = useState<string | null>(null)
+  useEffect(() => { api?.getLogo?.().then((l: string | null) => setLogo(l ?? null)) }, [rank])
+
+  async function pickLogo() {
+    const result = await api?.pickLogo()
+    if (result?.ok) {
+      setLogo(result.logo ?? null)
+      window.dispatchEvent(new Event(LOGO_CHANGED))
+      notify({ type: 'success', message: 'Logo aktualisiert' })
+    } else if (result?.error) {
+      notify({ type: 'error', message: result.error })
+    }
+  }
+
+  async function resetLogo() {
+    await api?.resetLogo()
+    setLogo(null)
+    window.dispatchEvent(new Event(LOGO_CHANGED))
+  }
+
   async function changeIcon(id: LogoVariantId) {
     const ok = await api?.setCurrentIcon(id)
     if (ok) {
       setCurrentIcon(id)
       notify({ type: 'success', message: 'App-Icon aktualisiert' })
     } else {
-      notify({ type: 'error', message: 'Dafür brauchst du einen Team-Rang.' })
+      notify({ type: 'error', message: 'Dafür brauchst du einen Rang (ab Crystal+).' })
     }
   }
 
-  const canEditIcon = STAFF_RANKS.includes(rank)
+  const canEditIcon = !!rank && rank !== 'member'
 
   return (
     <Page>
@@ -233,7 +253,20 @@ export function Settings() {
       {rank === 'owner' && <RankManagementSection />}
 
       {canEditIcon && (
-        <Section title="App-Icon" description={`Als ${RANKS[rank].label} kannst du das Icon für alle Launcher-Fenster ändern.`}>
+        <Section title="Logo" description={`Als ${RANKS[rank].label} kannst du das Logo oben links und das App-Icon ändern.`}>
+          <div className="p-3 flex items-center gap-3 border-b border-crystal-border">
+            <div className="h-10 w-28 rounded-md bg-crystal-panel flex items-center justify-center overflow-hidden">
+              {logo
+                ? <img src={logo} alt="Eigenes Logo" className="max-h-8 max-w-[100px] object-contain" />
+                : <span className="text-[11px] text-crystal-muted">Standard</span>}
+            </div>
+            <button onClick={pickLogo} className="crystal-btn-primary text-xs py-1.5"><Upload size={12} /> Eigenes Logo</button>
+            {logo && (
+              <button onClick={resetLogo} className="crystal-btn-ghost border border-crystal-border text-crystal-text text-xs py-1.5">
+                <RotateCcw size={12} /> Zurücksetzen
+              </button>
+            )}
+          </div>
           <div className="p-2 grid grid-cols-2 gap-1">
             {icons.map(icon => (
               <button

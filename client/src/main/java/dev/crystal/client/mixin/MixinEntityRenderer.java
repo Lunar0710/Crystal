@@ -1,6 +1,7 @@
 package dev.crystal.client.mixin;
 
 import dev.crystal.client.CrystalClient;
+import dev.crystal.client.module.render.CrystalLogo;
 import dev.crystal.client.module.render.NameTags;
 import dev.crystal.client.module.render.TeamView;
 import net.minecraft.client.renderer.entity.EntityRenderer;
@@ -12,7 +13,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/** NameTags health and TeamView markers, added to a player's label as its render state is built. */
+/** NameTags health, TeamView markers and the Crystal logo, added to a player's label as its render state is built. */
 @Mixin(EntityRenderer.class)
 public class MixinEntityRenderer {
 
@@ -26,5 +27,9 @@ public class MixinEntityRenderer {
         if (tags != null) state.nameTag = tags.decorate(state.nameTag, player);
         TeamView team = client.getModuleManager().getEnabled(TeamView.class);
         if (team != null) state.nameTag = team.decorate(state.nameTag, player);
+        CrystalLogo logo = client.getModuleManager().getEnabled(CrystalLogo.class);
+        if (logo != null && logo.isInNametag() && CrystalLogo.usesCrystal(player.getUUID())) {
+            state.nameTag = CrystalLogo.withLogo(state.nameTag);
+        }
     }
 }
