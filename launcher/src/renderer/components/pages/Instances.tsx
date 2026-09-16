@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import { notify } from '../../store/notificationStore'
 import { ClientInstallPanel } from '../ui/ClientInstallPanel'
+import { ModProfileBar } from '../ui/ModProfileBar'
 import { Page, PageHeader, EmptyState, Switch } from '../ui/Page'
 
 type ContentType = 'mod' | 'resourcepack' | 'shader'
@@ -682,6 +683,9 @@ function InstanceDetail({ instance, onBack }: { instance: Instance; onBack: () =
 
       {view === 'installed' ? (
         <div className="space-y-3">
+          {tab === 'mod' && files && files.length > 0 && (
+            <ModProfileBar instanceId={instance.id} onChanged={refreshFiles} />
+          )}
           {files && files.length > 0 && (
             <div className="relative">
               <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-crystal-muted" />

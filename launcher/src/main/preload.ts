@@ -150,6 +150,10 @@ contextBridge.exposeInMainWorld('crystal', {
   installContentFile: (instanceId: string, type: string) => ipcRenderer.invoke('content:installFromDisk', instanceId, type),
   removeContent:      (instanceId: string, type: string, fileName: string) => ipcRenderer.invoke('content:remove', instanceId, type, fileName),
   toggleContent:      (instanceId: string, type: string, fileName: string) => ipcRenderer.invoke('content:toggle', instanceId, type, fileName),
+  listModProfiles:    (instanceId: string) => ipcRenderer.invoke('modProfiles:list', instanceId),
+  saveModProfile:     (instanceId: string, name: string) => ipcRenderer.invoke('modProfiles:save', instanceId, name),
+  applyModProfile:    (instanceId: string, name: string) => ipcRenderer.invoke('modProfiles:apply', instanceId, name),
+  deleteModProfile:   (instanceId: string, name: string) => ipcRenderer.invoke('modProfiles:delete', instanceId, name),
   openContentFolder:  (instanceId: string, type: string) => ipcRenderer.invoke('content:openFolder', instanceId, type),
 
   // Modrinth

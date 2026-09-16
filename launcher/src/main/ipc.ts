@@ -386,6 +386,10 @@ export function registerIpcHandlers(store: Store) {
   ipcMain.handle('content:list', (_e, instanceId: string, type: ContentType) => content.list(instanceId, type))
   ipcMain.handle('content:installFromDisk', (_e, instanceId: string, type: ContentType) => content.installFromDisk(instanceId, type))
   ipcMain.handle('content:remove', (_e, instanceId: string, type: ContentType, fileName: string) => content.remove(instanceId, type, fileName))
+  ipcMain.handle('modProfiles:list', (_e, instanceId: string) => content.listProfiles(instanceId))
+  ipcMain.handle('modProfiles:save', (_e, instanceId: string, name: string) => content.saveProfile(instanceId, name))
+  ipcMain.handle('modProfiles:apply', (_e, instanceId: string, name: string) => content.applyProfile(instanceId, name))
+  ipcMain.handle('modProfiles:delete', (_e, instanceId: string, name: string) => content.deleteProfile(instanceId, name))
   ipcMain.handle('content:toggle', (_e, instanceId: string, type: ContentType, fileName: string) => content.toggle(instanceId, type, fileName))
   ipcMain.handle('content:openFolder', (_e, instanceId: string, type: ContentType) => {
     const dir = content.contentDir(instanceId, type)

@@ -27,6 +27,23 @@ const EXTENSIONS: Record<ContentType, string[]> = {
 }
 
 const DISABLED_SUFFIX = '.disabled'
+const PROFILES_FILE = 'crystal-mod-profiles.json'
+/** The launcher adds and removes the Crystal jar itself; profiles leave it alone. */
+const MANAGED_MOD = /^crystal-client-/
+
+export interface ModProfiles {
+  active: string | null
+  profiles: { name: string; mods: number }[]
+}
+
+interface ProfilesFile {
+  active: string | null
+  profiles: Record<string, string[]>
+}
+
+export function isValidProfileName(name: unknown): name is string {
+  return typeof name === 'string' && name.trim().length > 0 && name.trim().length <= 32
+}
 
 /**
  * Reads and writes an instance's content straight off disk — the mods,
@@ -98,6 +115,74 @@ export class ContentManager {
     if (!fs.existsSync(target)) return false
     fs.unlinkSync(target)
     return true
+  }
+
+  // ---- Mod profiles: named sets of enabled mods, switched by enabling/disabling files.
+
+  private readProfiles(instanceId: string): ProfilesFile {
+    try {
+      const raw = JSON.parse(fs.readFileSync(path.join(this.instanceDir(instanceId), PROFILES_FILE), 'utf8'))
+      const profiles: Record<string, string[]> = {}
+      for (const [name, mods] of Object.entries(raw?.profiles ?? {})) {
+        if (isValidProfileName(name) && Array.isArray(mods)) profiles[name] = mods.filter((m): m is string => typeof m === 'string')
+      }
+      return { active: typeof raw?.active === 'string' && profiles[raw.active] ? raw.active : null, profiles }
+    } catch {
+      return { active: null, profiles: {} }
+    }
+  }
+
+  private writeProfiles(instanceId: string, data: ProfilesFile): void {
+    const dir = this.instanceDir(instanceId)
+    fs.mkdirSync(dir, { recursive: true })
+    fs.writeFileSync(path.join(dir, PROFILES_FILE), JSON.stringify(data, null, 2))
+  }
+
+  listProfiles(instanceId: string): ModProfiles {
+    const data = this.readProfiles(instanceId)
+    return {
+      active: data.active,
+      profiles: Object.entries(data.profiles)
+        .map(([name, mods]) => ({ name, mods: mods.length }))
+        .sort((a, b) => a.name.localeCompare(b.name, 'de')),
+    }
+  }
+
+  /** Saves the mods that are enabled right now under this name, and makes it the active profile. */
+  saveProfile(instanceId: string, name: string): ModProfiles | null {
+    if (!isValidProfileName(name)) return null
+    const enabled = this.list(instanceId, 'mod')
+      .filter(f => f.enabled && !MANAGED_MOD.test(f.fileName))
+      .map(f => f.fileName)
+    const data = this.readProfiles(instanceId)
+    data.profiles[name.trim()] = enabled
+    data.active = name.trim()
+    this.writeProfiles(instanceId, data)
+    return this.listProfiles(instanceId)
+  }
+
+  /** Enables exactly the profile's mods and disables every other one. */
+  applyProfile(instanceId: string, name: string): ModProfiles | null {
+    const data = this.readProfiles(instanceId)
+    const wanted = data.profiles[name]
+    if (!wanted) return null
+    const keep = new Set(wanted)
+    for (const file of this.list(instanceId, 'mod')) {
+      if (MANAGED_MOD.test(file.fileName)) continue
+      const base = file.enabled ? file.fileName : file.fileName.slice(0, -DISABLED_SUFFIX.length)
+      if (keep.has(base) !== file.enabled) this.toggle(instanceId, 'mod', file.fileName)
+    }
+    data.active = name
+    this.writeProfiles(instanceId, data)
+    return this.listProfiles(instanceId)
+  }
+
+  deleteProfile(instanceId: string, name: string): ModProfiles {
+    const data = this.readProfiles(instanceId)
+    delete data.profiles[name]
+    if (data.active === name) data.active = null
+    this.writeProfiles(instanceId, data)
+    return this.listProfiles(instanceId)
   }
 
   /** Enable/disable by renaming — the same convention every Minecraft launcher uses. */
