@@ -33,13 +33,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(CapeLayer.class)
 public class MixinCapeFeatureRenderer {
 
-    // Matches vanilla's cape cuboid (10 wide, 16 tall) and the visible face's
-    // texture rect on the classic 64x32 cape layout: a 10x16 block at (1,1).
-    // The texture is 64 wide but 32 tall (vanilla's cuboid halves its V scale
-    // for exactly that reason), so V is measured in 32nds.
+    // Matches vanilla's cape cuboid (10 wide, 16 tall, 1 deep) and its texture
+    // layout on the classic 64x32 cape: outer face at (1,1), inner face at
+    // (12,1), side edges in the 1px columns next to them, top edge at (1,0),
+    // bottom edge at (11,0). The texture is 64 wide but 32 tall (vanilla's
+    // cuboid halves its V scale for exactly that reason), so V is in 32nds.
     private static final float CAPE_W = 10f;
     private static final float CAPE_H = 16f;
-    private static final float U0 = 1f / 64f, U1 = 11f / 64f, V0 = 1f / 32f, V1 = 17f / 32f;
+    private static final float TEX_W = 64f, TEX_H = 32f;
     private static final int COLS = 5, ROWS = 9;
 
     @Inject(method = "submit(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;ILnet/minecraft/client/renderer/entity/state/AvatarRenderState;FF)V",
@@ -82,13 +83,15 @@ public class MixinCapeFeatureRenderer {
         RenderType layer = RenderTypes.entitySolid(cape.texturePath());
         float amplitude = flutter.getWaveAmplitude();
         float t = state.ageInTicks * flutter.getWaveSpeed() * 0.12f;
+        float thickness = flutter.getThickness();
 
         queue.submitCustomGeometry(matrices, layer, (entry, vc) ->
-                buildMesh(entry, vc, light, amplitude, t));
+                buildMesh(entry, vc, light, amplitude, t, thickness));
         matrices.popPose();
     }
 
-    private static void buildMesh(PoseStack.Pose entry, VertexConsumer vc, int light, float amplitude, float t) {
+    /** A wavy slab: outer and inner cloth surfaces plus the four edges joining them. */
+    private static void buildMesh(PoseStack.Pose entry, VertexConsumer vc, int light, float amplitude, float t, float thickness) {
         float[][] px = new float[COLS + 1][ROWS + 1];
         float[][] py = new float[COLS + 1][ROWS + 1];
         float[][] pz = new float[COLS + 1][ROWS + 1];
@@ -105,19 +108,60 @@ public class MixinCapeFeatureRenderer {
                 float across = Mth.sin(u * (float) Math.PI * 1.6f + t * 1.3f - v * 2.2f);
                 px[c][r] = -CAPE_W / 2f + u * CAPE_W + pin * amplitude * 0.9f * Mth.sin(phase * 0.8f + 1.1f);
                 py[c][r] = v * CAPE_H - pin * amplitude * 0.25f * (1f - Mth.cos(phase));
-                pz[c][r] = -1f + pin * amplitude * (0.7f * Mth.sin(phase) + 0.5f * across);
+                pz[c][r] = pin * amplitude * (0.7f * Mth.sin(phase) + 0.5f * across);
             }
         }
+        // Outer surface at z = -thickness, inner one at z = 0 (against the back).
+        float zo = -thickness;
         for (int c = 0; c < COLS; c++) {
             for (int r = 0; r < ROWS; r++) {
+                float ua = u(1 + 10f * c / COLS), ub = u(1 + 10f * (c + 1) / COLS);
+                float va = v(1 + 16f * r / ROWS), vb = v(1 + 16f * (r + 1) / ROWS);
                 quad(entry, vc, light,
-                        px[c][r], py[c][r], pz[c][r], U0 + (U1 - U0) * c / COLS, V0 + (V1 - V0) * r / ROWS,
-                        px[c + 1][r], py[c + 1][r], pz[c + 1][r], U0 + (U1 - U0) * (c + 1) / COLS, V0 + (V1 - V0) * r / ROWS,
-                        px[c + 1][r + 1], py[c + 1][r + 1], pz[c + 1][r + 1], U0 + (U1 - U0) * (c + 1) / COLS, V0 + (V1 - V0) * (r + 1) / ROWS,
-                        px[c][r + 1], py[c][r + 1], pz[c][r + 1], U0 + (U1 - U0) * c / COLS, V0 + (V1 - V0) * (r + 1) / ROWS);
+                        px[c][r], py[c][r], pz[c][r] + zo, ua, va,
+                        px[c + 1][r], py[c + 1][r], pz[c + 1][r] + zo, ub, va,
+                        px[c + 1][r + 1], py[c + 1][r + 1], pz[c + 1][r + 1] + zo, ub, vb,
+                        px[c][r + 1], py[c][r + 1], pz[c][r + 1] + zo, ua, vb);
+                // Inner face: mirrored, like the cuboid's opposite side.
+                float ia = u(22 - 10f * c / COLS), ib = u(22 - 10f * (c + 1) / COLS);
+                quad(entry, vc, light,
+                        px[c][r], py[c][r], pz[c][r], ia, va,
+                        px[c + 1][r], py[c + 1][r], pz[c + 1][r], ib, va,
+                        px[c + 1][r + 1], py[c + 1][r + 1], pz[c + 1][r + 1], ib, vb,
+                        px[c][r + 1], py[c][r + 1], pz[c][r + 1], ia, vb);
             }
         }
+        // Side edges (left at column 0, right at column COLS).
+        for (int r = 0; r < ROWS; r++) {
+            float va = v(1 + 16f * r / ROWS), vb = v(1 + 16f * (r + 1) / ROWS);
+            for (int side = 0; side < 2; side++) {
+                int c = side == 0 ? 0 : COLS;
+                float uIn = u(side == 0 ? 0 : 11), uOut = u(side == 0 ? 1 : 12);
+                quad(entry, vc, light,
+                        px[c][r], py[c][r], pz[c][r] + zo, uOut, va,
+                        px[c][r], py[c][r], pz[c][r], uIn, va,
+                        px[c][r + 1], py[c][r + 1], pz[c][r + 1], uIn, vb,
+                        px[c][r + 1], py[c][r + 1], pz[c][r + 1] + zo, uOut, vb);
+            }
+        }
+        // Top edge (row 0) and hem (row ROWS).
+        for (int c = 0; c < COLS; c++) {
+            quad(entry, vc, light,
+                    px[c][0], py[c][0], pz[c][0] + zo, u(1 + 10f * c / COLS), v(0),
+                    px[c + 1][0], py[c + 1][0], pz[c + 1][0] + zo, u(1 + 10f * (c + 1) / COLS), v(0),
+                    px[c + 1][0], py[c + 1][0], pz[c + 1][0], u(1 + 10f * (c + 1) / COLS), v(1),
+                    px[c][0], py[c][0], pz[c][0], u(1 + 10f * c / COLS), v(1));
+            int r = ROWS;
+            quad(entry, vc, light,
+                    px[c][r], py[c][r], pz[c][r] + zo, u(11 + 10f * c / COLS), v(0),
+                    px[c + 1][r], py[c + 1][r], pz[c + 1][r] + zo, u(11 + 10f * (c + 1) / COLS), v(0),
+                    px[c + 1][r], py[c + 1][r], pz[c + 1][r], u(11 + 10f * (c + 1) / COLS), v(1),
+                    px[c][r], py[c][r], pz[c][r], u(11 + 10f * c / COLS), v(1));
+        }
     }
+
+    private static float u(float texel) { return texel / TEX_W; }
+    private static float v(float texel) { return texel / TEX_H; }
 
     /** One cell, drawn both sides so the cape reads solid from front and back like the vanilla cuboid did. */
     private static void quad(PoseStack.Pose e, VertexConsumer vc, int light,

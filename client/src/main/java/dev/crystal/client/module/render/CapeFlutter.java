@@ -28,6 +28,7 @@ public class CapeFlutter extends Module {
     private boolean wavyCloth = true;
     private float waveAmplitude = 2f;
     private float waveSpeed = 1f;
+    private float thickness = 1.5f;
 
     public CapeFlutter() {
         super("CapeFlutter", "Capes flutter and ripple like cloth instead of hanging stiff", ModuleCategory.RENDER);
@@ -40,6 +41,8 @@ public class CapeFlutter extends Module {
     public boolean isWavyCloth() { return wavyCloth; }
     public float getWaveAmplitude() { return waveAmplitude; }
     public float getWaveSpeed() { return waveSpeed; }
+    /** Wavy cloth thickness in pixels; vanilla's cape is 1. */
+    public float getThickness() { return thickness; }
 
     /**
      * Adds the flutter lean/sway on top of whatever vanilla already computed
@@ -71,7 +74,8 @@ public class CapeFlutter extends Module {
                 new BooleanSetting("Only While Moving", () -> onlyWhileMoving, v -> onlyWhileMoving = v, false),
                 new BooleanSetting("Wavy Cloth", () -> wavyCloth, v -> wavyCloth = v, true),
                 new SliderSetting("Wave Amount", () -> waveAmplitude, v -> waveAmplitude = v, 0.2f, 4f, 0.1f, 1),
-                new SliderSetting("Wave Speed", () -> waveSpeed, v -> waveSpeed = v, 0.3f, 2.5f, 0.1f, 1)
+                new SliderSetting("Wave Speed", () -> waveSpeed, v -> waveSpeed = v, 0.3f, 2.5f, 0.1f, 1),
+                new SliderSetting("Thickness", () -> thickness, v -> thickness = v, 0.5f, 3f, 0.1f, 1)
         );
     }
 }
