@@ -24,12 +24,17 @@ import org.joml.Quaternionf;
 /*import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
 import net.minecraft.network.chat.Component;
-*///?} else {
+*///?} else if >=1.21.10 {
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
 import net.minecraft.client.renderer.ShapeRenderer;
-//?}
+//?} else {
+/*import com.mojang.blaze3d.vertex.VertexConsumer;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.ShapeRenderer;
+import net.minecraft.client.renderer.state.LevelRenderState;
+*///?}
 import net.minecraft.client.renderer.state.BlockOutlineRenderState;
 import net.minecraft.client.renderer.state.CameraRenderState;
 
@@ -44,6 +49,8 @@ import java.util.Map;
  * outline uses, so they respect depth and line width like vanilla geometry.
  * Up to 1.21.11 they are drawn straight into the frame's buffers; from 26.1
  * on the world is drawn from submitted nodes, so they are submitted instead.
+ * Fabric API for 1.21.9 has no world render events, so there
+ * MixinLevelRendererLegacy calls in from the block outline pass.
  */
 public final class WorldRenderHandler {
 
@@ -52,11 +59,28 @@ public final class WorldRenderHandler {
     /*private record Ctx(PoseStack poseStack, LevelRenderContext level) {
         CameraRenderState camera() { return level.levelState().cameraRenderState; }
     }
-    *///?} else {
+    *///?} else if >=1.21.10 {
     private record Ctx(PoseStack poseStack, WorldRenderContext level) {
         CameraRenderState camera() { return level.worldState().cameraRenderState; }
     }
-    //?}
+    //?} else {
+    /*private record Ctx(PoseStack poseStack, LegacyLevel level) {
+        CameraRenderState camera() { return level.worldState().cameraRenderState; }
+    }
+
+    // The two things the handler needs from a frame, like Fabric's context has them.
+    private record LegacyLevel(MultiBufferSource consumers, LevelRenderState worldState) {}
+
+    // One block outline pass (opaque, then translucent). Everything else is drawn
+    // once, in the opaque pass. Returns true to skip vanilla's outline.
+    public static boolean onLegacyOutlinePass(PoseStack poseStack, MultiBufferSource buffers, boolean translucent, LevelRenderState state) {
+        Ctx ctx = new Ctx(poseStack, new LegacyLevel(buffers, state));
+        if (!translucent) afterEntities(ctx);
+        BlockOutlineRenderState outline = state.blockOutlineRenderState;
+        if (outline == null || outline.isTranslucent() != translucent) return false;
+        return !beforeOutline(ctx, outline);
+    }
+    *///?}
 
     private WorldRenderHandler() {}
 
@@ -64,7 +88,7 @@ public final class WorldRenderHandler {
         //? if >=26 {
         /*LevelRenderEvents.BEFORE_BLOCK_OUTLINE.register((context, outlineState) -> beforeOutline(new Ctx(context.poseStack(), context), outlineState));
         LevelRenderEvents.COLLECT_SUBMITS.register(context -> afterEntities(new Ctx(context.poseStack(), context)));
-        *///?} else {
+        *///?} else if >=1.21.10 {
         WorldRenderEvents.BEFORE_BLOCK_OUTLINE.register((context, outlineState) -> beforeOutline(new Ctx(context.matrices(), context), outlineState));
         WorldRenderEvents.AFTER_ENTITIES.register(context -> afterEntities(new Ctx(context.matrices(), context)));
         //?}
