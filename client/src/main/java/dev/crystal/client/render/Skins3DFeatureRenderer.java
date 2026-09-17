@@ -3,6 +3,7 @@ package dev.crystal.client.render;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import dev.crystal.client.CrystalClient;
+import dev.crystal.client.compat.SkinCompat;
 import dev.crystal.client.module.render.Skins3D;
 import java.util.ArrayList;
 import java.util.List;
@@ -15,7 +16,6 @@ import net.minecraft.client.renderer.entity.state.AvatarRenderState;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.renderer.texture.OverlayTexture;
-import net.minecraft.world.entity.player.PlayerModelType;
 
 /**
  * 3D Skins: the outer skin layer (hat, jacket, sleeves, trousers) drawn as one
@@ -52,12 +52,22 @@ public class Skins3DFeatureRenderer extends RenderLayer<AvatarRenderState, Playe
         return module != null && state.distanceToCameraSq <= module.getRangeSquared();
     }
 
+    // Before 1.21.9 layers draw straight into the frame's buffers.
+    //? if <1.21.9 {
+    /*@Override
+    public void render(PoseStack matrices, net.minecraft.client.renderer.MultiBufferSource buffers, int light,
+                       AvatarRenderState state, float limbAngle, float limbDistance) {
+        submit(matrices, new SubmitNodeCollector(buffers), light, state, limbAngle, limbDistance);
+    }
+    *///?}
+
+    //? if >=1.21.9
     @Override
     public void submit(PoseStack matrices, SubmitNodeCollector queue, int light, AvatarRenderState state, float limbAngle, float limbDistance) {
         if (!activeFor(state)) return;
         PlayerModel model = getParentModel();
-        RenderType layer = RenderTypes.entityCutoutNoCull(state.skin.body().texturePath());
-        boolean slim = state.skin.model() == PlayerModelType.SLIM;
+        RenderType layer = RenderTypes.entityCutoutNoCull(SkinCompat.bodyTexture(state.skin));
+        boolean slim = SkinCompat.isSlim(state.skin);
         float size = CrystalClient.getInstance().getModuleManager().get(Skins3D.class).getVoxelSize();
 
         if (state.showHat) draw(matrices, queue, layer, light, model.head, HAT, size);

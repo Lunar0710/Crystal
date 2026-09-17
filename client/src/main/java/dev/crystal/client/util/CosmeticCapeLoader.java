@@ -11,7 +11,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
-import net.minecraft.core.ClientAsset;
 import net.minecraft.resources.Identifier;
 
 /**
@@ -32,7 +31,6 @@ import net.minecraft.resources.Identifier;
 public final class CosmeticCapeLoader {
 
     private static final Identifier TEXTURE_ID = Identifier.fromNamespaceAndPath("crystal", "cosmetics/equipped_cape");
-    private static final SimpleTextureAsset ASSET = new SimpleTextureAsset(TEXTURE_ID);
 
     private static final long CHECK_INTERVAL_MS = 1000;
     private static final int MAX_FRAMES = 64;
@@ -59,12 +57,12 @@ public final class CosmeticCapeLoader {
     private CosmeticCapeLoader() {}
 
     /**
-     * Returns the equipped cape's texture asset, or null when no cape is
+     * Returns the equipped cape's texture id, or null when no cape is
      * equipped. Called from getSkin(), which runs every frame for the local
      * player — so the actual filesystem check is throttled to once a second
      * rather than stat-ing the file on every single call.
      */
-    public static ClientAsset.Texture getEquippedCape() {
+    public static Identifier getEquippedCape() {
         long now = System.currentTimeMillis();
         if (now - lastCheckedAt >= CHECK_INTERVAL_MS && !checkInFlight) {
             lastCheckedAt = now;
@@ -75,7 +73,7 @@ public final class CosmeticCapeLoader {
             CHECKER.execute(CosmeticCapeLoader::checkFile);
         }
         if (fileExists) advanceAnimation(now);
-        return fileExists ? ASSET : null;
+        return fileExists ? TEXTURE_ID : null;
     }
 
     /** Copies the current frame out of the strip when it changed. Render thread. */
@@ -185,10 +183,5 @@ public final class CosmeticCapeLoader {
             CrystalClient.LOGGER.warn("[Crystal] Konnte Cosmetic-Cape nicht laden: {}", e.getMessage());
             fileExists = false;
         }
-    }
-
-    private record SimpleTextureAsset(Identifier texturePath) implements ClientAsset.Texture {
-        @Override
-        public Identifier id() { return texturePath; }
     }
 }

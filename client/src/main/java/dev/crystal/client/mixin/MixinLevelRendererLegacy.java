@@ -1,7 +1,7 @@
 package dev.crystal.client.mixin;
 
 import org.spongepowered.asm.mixin.Mixin;
-//? if <1.21.10 {
+//? if >=1.21.9 && <1.21.10 {
 /*import com.mojang.blaze3d.vertex.PoseStack;
 import dev.crystal.client.render.WorldRenderHandler;
 import net.minecraft.client.renderer.LevelRenderer;
@@ -17,7 +17,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * block outline pass hands its buffers to WorldRenderHandler. From 1.21.10 on
  * this is an empty mixin.
  */
-//? if <1.21.10 {
+//? if >=1.21.9 && <1.21.10 {
 /*@Mixin(LevelRenderer.class)
 public class MixinLevelRendererLegacy {
 

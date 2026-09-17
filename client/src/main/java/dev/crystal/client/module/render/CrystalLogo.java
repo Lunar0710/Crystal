@@ -7,6 +7,7 @@ import dev.crystal.client.module.ModuleCategory;
 import dev.crystal.client.module.Setting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
+//? if >=1.21.9
 import net.minecraft.network.chat.FontDescription;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.Identifier;
@@ -24,9 +25,13 @@ import java.util.UUID;
  */
 public class CrystalLogo extends Module {
 
+    //? if >=1.21.9 {
     private static final FontDescription ICON_FONT =
             new FontDescription.Resource(Identifier.fromNamespaceAndPath(CrystalClient.MOD_ID, "icons"));
-    private static final String LOGO_CHAR = "";
+    //?} else {
+    /*private static final Identifier ICON_FONT = Identifier.fromNamespaceAndPath(CrystalClient.MOD_ID, "icons");
+    *///?}
+    private static final String LOGO_CHAR = "\uE000";
 
     private boolean inNametag = true;
     private boolean inTabList = true;

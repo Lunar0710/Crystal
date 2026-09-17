@@ -6,10 +6,12 @@ import dev.crystal.client.CrystalClient;
 import dev.crystal.client.module.render.ItemPhysics;
 import dev.crystal.client.module.render.Items2D;
 import dev.crystal.client.util.ItemGroundState;
+//? if >=1.21.9 {
 import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.state.CameraRenderState;
+//?}
 import net.minecraft.client.renderer.entity.ItemEntityRenderer;
 import net.minecraft.client.renderer.entity.state.ItemEntityRenderState;
-import net.minecraft.client.renderer.state.CameraRenderState;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.item.ItemEntity;
 import org.joml.Quaternionfc;
@@ -26,6 +28,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(ItemEntityRenderer.class)
 public class MixinItemEntityRenderer {
 
+    /** The item's draw method; before 1.21.9 it drew into buffers and had no camera state. */
+    //? if >=1.21.9 {
+    private static final String DRAW = "submit(Lnet/minecraft/client/renderer/entity/state/ItemEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/CameraRenderState;)V";
+    //?} else {
+    /*private static final String DRAW = "render(Lnet/minecraft/client/renderer/entity/state/ItemEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V";
+    *///?}
+
     /** Mth.sin took a float before 1.21.11. */
     //? if >=1.21.11 {
     private static final String SIN = "Lnet/minecraft/util/Mth;sin(D)F";
@@ -38,8 +47,7 @@ public class MixinItemEntityRenderer {
         ((ItemGroundState) state).crystal$setOnGround(entity.onGround());
     }
 
-    @Redirect(method = "submit(Lnet/minecraft/client/renderer/entity/state/ItemEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/CameraRenderState;)V",
-            at = @At(value = "INVOKE", target = SIN))
+    @Redirect(method = DRAW, at = @At(value = "INVOKE", target = SIN))
     //? if >=1.21.11 {
     private float crystal$bob(double value) {
     //?} else {
@@ -49,10 +57,16 @@ public class MixinItemEntityRenderer {
         return crystal$items2D() != null || crystal$physics() != null ? -1f : Mth.sin(value);
     }
 
-    @Redirect(method = "submit(Lnet/minecraft/client/renderer/entity/state/ItemEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/CameraRenderState;)V",
-            at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/vertex/PoseStack;mulPose(Lorg/joml/Quaternionfc;)V"))
+    @Redirect(method = DRAW, at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/vertex/PoseStack;mulPose(Lorg/joml/Quaternionfc;)V"))
+    //? if >=1.21.9 {
     private void crystal$rotate(PoseStack matrices, Quaternionfc spin, ItemEntityRenderState state, PoseStack sameMatrices,
                                 SubmitNodeCollector queue, CameraRenderState camera) {
+        org.joml.Quaternionf cameraRotation = camera.orientation;
+    //?} else {
+    /*private void crystal$rotate(PoseStack matrices, Quaternionfc spin, ItemEntityRenderState state, PoseStack sameMatrices,
+                                net.minecraft.client.renderer.MultiBufferSource buffers, int light) {
+        org.joml.Quaternionf cameraRotation = net.minecraft.client.Minecraft.getInstance().gameRenderer.getMainCamera().rotation();
+    *///?}
         ItemPhysics physics = crystal$physics();
         if (physics != null && ((ItemGroundState) state).crystal$isOnGround()) {
             // Lying on the ground: a fixed random turn, then tipped flat.
@@ -61,7 +75,7 @@ public class MixinItemEntityRenderer {
             return;
         }
         if (crystal$items2D() != null) {
-            matrices.mulPose(camera.orientation);
+            matrices.mulPose(cameraRotation);
             matrices.mulPose(Axis.YP.rotationDegrees(180f));
             return;
         }

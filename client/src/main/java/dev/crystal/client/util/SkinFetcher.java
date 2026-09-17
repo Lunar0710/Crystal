@@ -4,6 +4,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mojang.blaze3d.platform.NativeImage;
 import dev.crystal.client.CrystalClient;
+import dev.crystal.client.compat.SkinCompat;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -14,9 +15,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
-import net.minecraft.core.ClientAsset;
 import net.minecraft.resources.Identifier;
-import net.minecraft.world.entity.player.PlayerModelType;
 import net.minecraft.world.entity.player.PlayerSkin;
 
 /**
@@ -93,17 +92,7 @@ public final class SkinFetcher {
         Identifier textureId = Identifier.fromNamespaceAndPath("crystal", "skins/" + username);
         registerTexture(textureId, pngBytes);
 
-        return PlayerSkin.insecure(
-                new SimpleTextureAsset(textureId),
-                null,
-                null,
-                slim ? PlayerModelType.SLIM : PlayerModelType.WIDE
-        );
-    }
-
-    private record SimpleTextureAsset(Identifier texturePath) implements ClientAsset.Texture {
-        @Override
-        public Identifier id() { return texturePath; }
+        return SkinCompat.of(textureId, slim);
     }
 
     private static void registerTexture(Identifier id, byte[] pngBytes) throws IOException {

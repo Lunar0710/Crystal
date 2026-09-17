@@ -58,6 +58,41 @@ stonecutter.replacements.regex(at26) {
     r 'renderer([./])state([./])(CameraRenderState|BlockOutlineRenderState)', 'renderer$1state$2level$2$3'
 }
 
+// 1.21.9 changed input events, player skins and entity drawing; for the versions before it.
+def before1_21_9 = stonecutter.current.parsed.matches('<1.21.9')
+
+stonecutter.replacements.regex(before1_21_9) {
+    def r = { String from, String to -> forward(delegate, from, to) }
+    // Input events: Crystal's own stand-ins (compat package) with the same calls.
+    r 'net\\.minecraft\\.client\\.input\\.(KeyEvent|MouseButtonEvent|CharacterEvent)', 'dev.crystal.client.compat.$1'
+    r 'boolean mouseClicked\\(MouseButtonEvent (\\w+), boolean (\\w+)\\) \\{',
+      'boolean mouseClicked(double crystal\$x, double crystal\$y, int crystal\$button) { MouseButtonEvent $1 = new MouseButtonEvent(crystal\$x, crystal\$y, crystal\$button); boolean $2 = false;'
+    r 'super\\.mouseClicked\\((\\w+), \\w+\\)', 'super.mouseClicked($1.x(), $1.y(), $1.button())'
+    r 'boolean mouseDragged\\(MouseButtonEvent (\\w+), double (\\w+), double (\\w+)\\) \\{',
+      'boolean mouseDragged(double crystal\$x, double crystal\$y, int crystal\$button, double $2, double $3) { MouseButtonEvent $1 = new MouseButtonEvent(crystal\$x, crystal\$y, crystal\$button);'
+    r 'super\\.mouseDragged\\((\\w+), (\\w+), (\\w+)\\)', 'super.mouseDragged($1.x(), $1.y(), $1.button(), $2, $3)'
+    r 'boolean mouseReleased\\(MouseButtonEvent (\\w+)\\) \\{',
+      'boolean mouseReleased(double crystal\$x, double crystal\$y, int crystal\$button) { MouseButtonEvent $1 = new MouseButtonEvent(crystal\$x, crystal\$y, crystal\$button);'
+    r 'super\\.mouseReleased\\((\\w+)\\)', 'super.mouseReleased($1.x(), $1.y(), $1.button())'
+    r 'boolean keyPressed\\(KeyEvent (\\w+)\\) \\{',
+      'boolean keyPressed(int crystal\$key, int crystal\$scan, int crystal\$mods) { KeyEvent $1 = new KeyEvent(crystal\$key, crystal\$scan, crystal\$mods);'
+    r 'super\\.keyPressed\\((\\w+)\\)', 'super.keyPressed($1.key(), $1.scancode(), $1.modifiers())'
+    r 'boolean charTyped\\(CharacterEvent (\\w+)\\) \\{',
+      'boolean charTyped(char crystal\$chr, int crystal\$mods) { CharacterEvent $1 = new CharacterEvent(crystal\$chr, crystal\$mods);'
+    r 'super\\.charTyped\\((\\w+)\\)', 'super.charTyped((char) $1.codepoint(), $1.modifiers())'
+
+    // Player rendering before the avatar/submit rework.
+    r '\\bAvatarRenderState\\b', 'PlayerRenderState'
+    r '(?:net\\.minecraft\\.client\\.renderer\\.)?\\bSubmitNodeCollector\\b', 'dev.crystal.client.compat.LegacySubmit'
+    r 'net\\.minecraft\\.world\\.entity\\.player\\.PlayerSkin\\b', 'net.minecraft.client.resources.PlayerSkin'
+
+    // Key state takes the raw GLFW window handle.
+    r 'InputConstants\\.isKeyDown\\(([\\w.]+)\\.getWindow\\(\\),', 'InputConstants.isKeyDown($1.getWindow().getWindow(),'
+    // Older authlib: GameProfile getters.
+    r 'getProfile\\(\\)\\.name\\(\\)', 'getProfile().getName()'
+    r 'getProfile\\(\\)\\.id\\(\\)', 'getProfile().getId()'
+}
+
 // Names Mojang changed in 1.21.11, for the versions before it.
 def before1_21_11 = stonecutter.current.parsed.matches('<1.21.11')
 

@@ -1,12 +1,13 @@
 package dev.crystal.client.mixin;
 
 import dev.crystal.client.CrystalClient;
+import dev.crystal.client.compat.SkinCompat;
 import dev.crystal.client.module.player.SkinChanger;
 import dev.crystal.client.util.CosmeticCapeLoader;
 import dev.crystal.client.util.SkinFetcher;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.AbstractClientPlayer;
-import net.minecraft.core.ClientAsset;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.PlayerSkin;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -36,16 +37,16 @@ public class MixinAbstractClientPlayerEntity {
             if (replacement != null) {
                 // Swap the skin and arm model only; the player's own cape and
                 // elytra texture used to vanish along with the old skin.
-                current = PlayerSkin.insecure(replacement.body(), current.cape(), current.elytra(), replacement.model());
+                current = SkinCompat.withBodyOf(current, replacement);
                 changed = true;
             }
         }
 
         // Cosmetics-page cape is independent of SkinChanger — applies whether
         // or not the skin itself was also swapped above.
-        ClientAsset.Texture cape = CosmeticCapeLoader.getEquippedCape();
+        Identifier cape = CosmeticCapeLoader.getEquippedCape();
         if (cape != null) {
-            current = PlayerSkin.insecure(current.body(), cape, current.elytra(), current.model());
+            current = SkinCompat.withCape(current, cape);
             changed = true;
         }
 

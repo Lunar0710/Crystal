@@ -7,13 +7,11 @@ import dev.crystal.client.module.ModuleCategory;
 import dev.crystal.client.module.Setting;
 import dev.crystal.client.module.SliderSetting;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Consumer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.ConnectScreen;
 import net.minecraft.client.gui.screens.DisconnectedScreen;
 import net.minecraft.client.multiplayer.ServerData;
-import net.minecraft.client.multiplayer.TransferState;
 import net.minecraft.client.multiplayer.resolver.ServerAddress;
 
 /**
@@ -67,8 +65,8 @@ public class AutoReconnect extends Module {
 
         attempted = true;
         ServerAddress address = ServerAddress.parseString(lastServer.ip);
-        ConnectScreen.startConnecting(mc.screen, mc, address, lastServer, false,
-                new TransferState(Map.of(), Map.of(), false));
+        // No transfer state, same as vanilla's own server list.
+        ConnectScreen.startConnecting(mc.screen, mc, address, lastServer, false, null);
     }
 
     @Override

@@ -18,10 +18,13 @@ public class MixinKeyboard {
     @Shadow private Minecraft minecraft;
 
     @Inject(method = "keyPress", at = @At("HEAD"))
+    //? if >=1.21.9 {
     private void onKey(long window, int action, KeyEvent input, CallbackInfo ci) {
-        if (action != GLFW.GLFW_PRESS) return;
-
         int key = input.key();
+    //?} else {
+    /*private void onKey(long window, int key, int scancode, int action, int modifiers, CallbackInfo ci) {
+    *///?}
+        if (action != GLFW.GLFW_PRESS) return;
 
         // Right Shift opens Crystal GUI
         if (key == GLFW.GLFW_KEY_RIGHT_SHIFT && minecraft.screen == null) {

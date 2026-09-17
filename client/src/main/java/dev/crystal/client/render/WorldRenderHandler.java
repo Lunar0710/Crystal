@@ -23,20 +23,30 @@ import org.joml.Quaternionf;
 //? if >=26 {
 /*import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
+import net.minecraft.client.renderer.state.CameraRenderState;
 import net.minecraft.network.chat.Component;
 *///?} else if >=1.21.10 {
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
 import net.minecraft.client.renderer.ShapeRenderer;
-//?} else {
+import net.minecraft.client.renderer.state.CameraRenderState;
+//?} else if >=1.21.9 {
 /*import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.ShapeRenderer;
-import net.minecraft.client.renderer.state.LevelRenderState;
-*///?}
 import net.minecraft.client.renderer.state.BlockOutlineRenderState;
 import net.minecraft.client.renderer.state.CameraRenderState;
+import net.minecraft.client.renderer.state.LevelRenderState;
+*///?} else {
+/*import com.mojang.blaze3d.vertex.VertexConsumer;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+import net.minecraft.client.renderer.ShapeRenderer;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.shapes.CollisionContext;
+*///?}
 
 import java.util.HashMap;
 import java.util.Map;
@@ -54,18 +64,24 @@ import java.util.Map;
  */
 public final class WorldRenderHandler {
 
-    /** The frame being drawn: its pose stack plus Fabric's per-version render context. */
+    // The frame being drawn: its pose stack plus the version's render context.
     //? if >=26 {
     /*private record Ctx(PoseStack poseStack, LevelRenderContext level) {
         CameraRenderState camera() { return level.levelState().cameraRenderState; }
+        Vec3 cameraPos() { return camera().pos; }
+        Quaternionf cameraRotation() { return camera().orientation; }
     }
     *///?} else if >=1.21.10 {
     private record Ctx(PoseStack poseStack, WorldRenderContext level) {
         CameraRenderState camera() { return level.worldState().cameraRenderState; }
+        Vec3 cameraPos() { return camera().pos; }
+        Quaternionf cameraRotation() { return camera().orientation; }
     }
-    //?} else {
+    //?} else if >=1.21.9 {
     /*private record Ctx(PoseStack poseStack, LegacyLevel level) {
         CameraRenderState camera() { return level.worldState().cameraRenderState; }
+        Vec3 cameraPos() { return camera().pos; }
+        Quaternionf cameraRotation() { return camera().orientation; }
     }
 
     // The two things the handler needs from a frame, like Fabric's context has them.
@@ -78,7 +94,12 @@ public final class WorldRenderHandler {
         if (!translucent) afterEntities(ctx);
         BlockOutlineRenderState outline = state.blockOutlineRenderState;
         if (outline == null || outline.isTranslucent() != translucent) return false;
-        return !beforeOutline(ctx, outline);
+        return !beforeOutline(ctx, outline.pos(), outline.shape());
+    }
+    *///?} else {
+    /*private record Ctx(PoseStack poseStack, WorldRenderContext level) {
+        Vec3 cameraPos() { return level.camera().getPosition(); }
+        Quaternionf cameraRotation() { return level.camera().rotation(); }
     }
     *///?}
 
@@ -86,20 +107,38 @@ public final class WorldRenderHandler {
 
     public static void register() {
         //? if >=26 {
-        /*LevelRenderEvents.BEFORE_BLOCK_OUTLINE.register((context, outlineState) -> beforeOutline(new Ctx(context.poseStack(), context), outlineState));
+        /*LevelRenderEvents.BEFORE_BLOCK_OUTLINE.register((context, outline) ->
+                outline == null || beforeOutline(new Ctx(context.poseStack(), context), outline.pos(), outline.shape()));
         LevelRenderEvents.COLLECT_SUBMITS.register(context -> afterEntities(new Ctx(context.poseStack(), context)));
         *///?} else if >=1.21.10 {
-        WorldRenderEvents.BEFORE_BLOCK_OUTLINE.register((context, outlineState) -> beforeOutline(new Ctx(context.matrices(), context), outlineState));
+        WorldRenderEvents.BEFORE_BLOCK_OUTLINE.register((context, outline) ->
+                outline == null || beforeOutline(new Ctx(context.matrices(), context), outline.pos(), outline.shape()));
         WorldRenderEvents.AFTER_ENTITIES.register(context -> afterEntities(new Ctx(context.matrices(), context)));
-        //?}
+        //?} else if <1.21.9 {
+        /*WorldRenderEvents.BEFORE_BLOCK_OUTLINE.register((context, hit) -> {
+            if (!(hit instanceof BlockHitResult blockHit) || hit.getType() != HitResult.Type.BLOCK) return true;
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.level == null) return true;
+            BlockPos pos = blockHit.getBlockPos();
+            Entity viewer = context.camera().getEntity();
+            VoxelShape shape = mc.level.getBlockState(pos).getShape(mc.level, pos,
+                    viewer == null ? CollisionContext.empty() : CollisionContext.of(viewer));
+            return beforeOutline(new Ctx(context.matrixStack(), context), pos, shape);
+        });
+        WorldRenderEvents.AFTER_ENTITIES.register(context -> afterEntities(new Ctx(context.matrixStack(), context)));
+        *///?}
     }
 
     /** Returning false cancels vanilla's own outline so ours replaces it rather than double-drawing. */
-    private static boolean beforeOutline(Ctx ctx, BlockOutlineRenderState outlineState) {
+    private static boolean beforeOutline(Ctx ctx, BlockPos pos, VoxelShape shape) {
         BlockOutline module = module("BlockOutline", BlockOutline.class);
-        if (module == null || outlineState == null) return true;
+        if (module == null) return true;
 
-        drawBlockOutline(ctx, outlineState, module);
+        if (!shape.isEmpty()) {
+            Vec3 camera = ctx.cameraPos();
+            outline(ctx, shape, pos.getX() - camera.x, pos.getY() - camera.y, pos.getZ() - camera.z,
+                    module.getOutlineColor(), module.getLineWidth());
+        }
         return false;
     }
 
@@ -112,7 +151,7 @@ public final class WorldRenderHandler {
 
         WorldEditCUI worldEdit = module("WorldEditCUI", WorldEditCUI.class);
         if (worldEdit != null) {
-            Vec3 camera = cameraPos(ctx);
+            Vec3 camera = ctx.cameraPos();
             //? if >=26 {
             /*ctx.level().submitNodeCollector().submitCustomGeometry(ctx.poseStack(), RenderTypes.lines(),
                     (pose, lines) -> worldEdit.render(pose, lines, camera));
@@ -149,21 +188,11 @@ public final class WorldRenderHandler {
         //?}
     }
 
-    private static void drawBlockOutline(Ctx ctx, BlockOutlineRenderState state, BlockOutline module) {
-        VoxelShape shape = state.shape();
-        if (shape.isEmpty()) return;
-
-        BlockPos pos = state.pos();
-        Vec3 camera = cameraPos(ctx);
-        outline(ctx, shape, pos.getX() - camera.x, pos.getY() - camera.y, pos.getZ() - camera.z,
-                module.getOutlineColor(), module.getLineWidth());
-    }
-
     private static void drawHitboxes(Ctx ctx, Hitbox module) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null) return;
 
-        Vec3 camera = cameraPos(ctx);
+        Vec3 camera = ctx.cameraPos();
         double maxDistanceSq = module.getRange() * module.getRange();
 
         for (Entity entity : mc.level.entitiesForRendering()) {
@@ -201,7 +230,7 @@ public final class WorldRenderHandler {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) return;
 
-        Vec3 camera = cameraPos(ctx);
+        Vec3 camera = ctx.cameraPos();
 
         // The 16x16 column the player is standing in, from world bottom to top.
         int chunkX = mc.player.blockPosition().getX() >> 4;
@@ -226,8 +255,8 @@ public final class WorldRenderHandler {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null) return;
 
-        Vec3 camera = cameraPos(ctx);
-        Quaternionf cameraOrientation = ctx.camera().orientation;
+        Vec3 camera = ctx.cameraPos();
+        Quaternionf cameraOrientation = ctx.cameraRotation();
         Font textRenderer = mc.font;
 
         for (Entity entity : mc.level.entitiesForRendering()) {
@@ -258,9 +287,5 @@ public final class WorldRenderHandler {
 
             matrices.popPose();
         }
-    }
-
-    private static Vec3 cameraPos(Ctx ctx) {
-        return ctx.camera().pos;
     }
 }

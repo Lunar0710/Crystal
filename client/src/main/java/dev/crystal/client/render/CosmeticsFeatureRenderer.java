@@ -38,6 +38,16 @@ public class CosmeticsFeatureRenderer extends RenderLayer<AvatarRenderState, Pla
         super(context);
     }
 
+    // Before 1.21.9 layers draw straight into the frame's buffers.
+    //? if <1.21.9 {
+    /*@Override
+    public void render(PoseStack matrices, net.minecraft.client.renderer.MultiBufferSource buffers, int light,
+                       AvatarRenderState state, float limbAngle, float limbDistance) {
+        submit(matrices, new SubmitNodeCollector(buffers), light, state, limbAngle, limbDistance);
+    }
+    *///?}
+
+    //? if >=1.21.9
     @Override
     public void submit(PoseStack matrices, SubmitNodeCollector queue, int light, AvatarRenderState state, float limbAngle, float limbDistance) {
         Minecraft mc = Minecraft.getInstance();

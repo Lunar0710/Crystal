@@ -132,7 +132,11 @@ public class CrystalClient implements ClientModInitializer {
         net.fabricmc.fabric.api.client.rendering.v1.LivingEntityFeatureRendererRegistrationCallback.EVENT.register(
                 (entityType, renderer, helper, context) -> {
         //?}
+                    //? if >=1.21.9 {
                     if (renderer instanceof net.minecraft.client.renderer.entity.player.AvatarRenderer<?> player) {
+                    //?} else {
+                    /*if (renderer instanceof net.minecraft.client.renderer.entity.player.PlayerRenderer player) {
+                    *///?}
                         helper.register(new dev.crystal.client.render.CosmeticsFeatureRenderer(
                                 (net.minecraft.client.renderer.entity.RenderLayerParent) player));
                         helper.register(new dev.crystal.client.render.Skins3DFeatureRenderer(

@@ -3,6 +3,8 @@ package dev.crystal.client.mixin;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import dev.crystal.client.CrystalClient;
+import dev.crystal.client.compat.SkinCompat;
+import net.minecraft.resources.Identifier;
 import dev.crystal.client.module.render.CapeFlutter;
 import net.minecraft.client.model.player.PlayerModel;
 import net.minecraft.client.renderer.SubmitNodeCollector;
@@ -43,11 +45,18 @@ public class MixinCapeFeatureRenderer {
     private static final float TEX_W = 64f, TEX_H = 32f;
     private static final int COLS = 5, ROWS = 9;
 
+    //? if >=1.21.9 {
     @Inject(method = "submit(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;ILnet/minecraft/client/renderer/entity/state/AvatarRenderState;FF)V",
             at = @At("HEAD"), cancellable = true)
     private void crystal$wavy(PoseStack matrices, SubmitNodeCollector queue, int light, AvatarRenderState state, float f, float g, CallbackInfo ci) {
+    //?} else {
+    /*@Inject(method = "render(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;ILnet/minecraft/client/renderer/entity/state/AvatarRenderState;FF)V",
+            at = @At("HEAD"), cancellable = true)
+    private void crystal$wavy(PoseStack matrices, net.minecraft.client.renderer.MultiBufferSource buffers, int light, AvatarRenderState state, float f, float g, CallbackInfo ci) {
+        SubmitNodeCollector queue = new SubmitNodeCollector(buffers);
+    *///?}
         if (state.isInvisible || !state.showCape) return;
-        var cape = state.skin.cape();
+        Identifier cape = SkinCompat.capeTexture(state.skin);
         if (cape == null) return;
 
         CrystalClient client = CrystalClient.getInstance();
@@ -80,7 +89,7 @@ public class MixinCapeFeatureRenderer {
                 .rotateY((180f - state.capeLean2 / 2f) * (float) (Math.PI / 180.0)));
         matrices.scale(1 / 16f, 1 / 16f, 1 / 16f);
 
-        RenderType layer = RenderTypes.entitySolid(cape.texturePath());
+        RenderType layer = RenderTypes.entitySolid(cape);
         float amplitude = flutter.getWaveAmplitude();
         float t = state.ageInTicks * flutter.getWaveSpeed() * 0.12f;
         float thickness = flutter.getThickness();
