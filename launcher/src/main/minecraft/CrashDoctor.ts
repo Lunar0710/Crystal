@@ -1,4 +1,5 @@
 import fs from 'fs'
+import os from 'os'
 import path from 'path'
 import { InstanceManager } from './InstanceManager'
 import { JarReader } from '../util/jarReader'
@@ -132,13 +133,32 @@ export class CrashDoctor {
       })
     }
 
-    if (/java\.lang\.OutOfMemoryError/i.test(log)) {
-      const raised = Math.min(16384, currentRam * 2)
+    // The JVM itself couldn't get memory from Windows (hs_err report): the
+    // whole system ran out, usually a small page file plus other programs.
+    if (/insufficient memory for the Java Runtime|Native memory allocation \((?:malloc|mmap)\) failed/i.test(log)) {
+      const lowered = Math.max(2048, Math.min(currentRam - 1024, Math.floor(currentRam * 0.75)))
+      push({
+        id: 'system-out-of-memory',
+        title: 'Windows hatte keinen freien Arbeitsspeicher mehr',
+        detail: `Minecraft durfte bis zu ${currentRam} MB nutzen, aber Windows konnte keinen Speicher mehr vergeben. `
+          + 'Schließe andere Programme (Browser, Discord, weitere Minecraft-Fenster) oder vergrößere die Auslagerungsdatei '
+          + '(Windows-Einstellungen, "Erweiterte Systemeinstellungen", Leistung, Virtueller Arbeitsspeicher: automatisch verwalten).',
+        fix: lowered < currentRam ? { kind: 'lower-ram', label: `Auf ${lowered} MB senken`, ram: lowered } : null,
+      })
+    }
+
+    // Minecraft's own heap was full. Only then can more RAM help, and never so
+    // much that Windows itself runs short (at least 4 GB stay free for it).
+    if (/java\.lang\.OutOfMemoryError/i.test(log) && !seen.has('system-out-of-memory')) {
+      const systemLimit = Math.floor((os.totalmem() / 1048576 - 4096) / 512) * 512
+      const raised = Math.min(16384, currentRam * 2, systemLimit)
       push({
         id: 'out-of-memory',
         title: 'Minecraft ist der Speicher ausgegangen',
-        detail: `Der Start lief mit ${currentRam} MB. Mehr RAM behebt das in den meisten Fällen.`,
-        fix: { kind: 'raise-ram', label: `Auf ${raised} MB erhöhen`, ram: raised },
+        detail: raised > currentRam
+          ? `Der Start lief mit ${currentRam} MB. Mehr RAM behebt das in den meisten Fällen.`
+          : `Der Start lief mit ${currentRam} MB, mehr gibt dein PC nicht sicher her. Entferne speicherhungrige Mods oder senke die Sichtweite.`,
+        fix: raised > currentRam ? { kind: 'raise-ram', label: `Auf ${raised} MB erhöhen`, ram: raised } : null,
       })
     }
 
