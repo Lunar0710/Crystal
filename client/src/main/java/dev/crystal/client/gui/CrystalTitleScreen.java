@@ -120,7 +120,7 @@ public class CrystalTitleScreen extends Screen {
             GuiRender.roundedRect(context, tx - 3, height - 14, tx + tw + 3, height - 2, GuiRender.withAlpha(accent, Math.round(0x40 * appear)));
             context.drawString(font, tag, tx, height - 12, GuiRender.withAlpha(accent, alpha), false);
         }
-        String version = "Crystal " + CrystalClient.VERSION + "  Minecraft 1.21.11";
+        String version = "Crystal " + CrystalClient.DISPLAY_VERSION + "  Minecraft 1.21.11";
         context.drawString(font, Component.literal(version), width - font.width(version) - 6, height - 12,
                 GuiRender.withAlpha(0xFF8A93A3, alpha), true);
     }

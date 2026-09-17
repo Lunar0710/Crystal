@@ -28,7 +28,7 @@ public class Watermark extends HudModule {
         String base = switch (style) {
             case STYLE_NAME -> CrystalClient.NAME;
             case STYLE_CUSTOM -> customText;
-            default -> CrystalClient.NAME + " v" + CrystalClient.VERSION;
+            default -> CrystalClient.NAME + " v" + CrystalClient.DISPLAY_VERSION;
         };
         if (!showFps) return base;
         return base + "  " + net.minecraft.client.Minecraft.getInstance().getFps() + " fps";
