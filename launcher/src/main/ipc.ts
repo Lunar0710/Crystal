@@ -1,4 +1,4 @@
-import { ipcMain, BrowserWindow, dialog, shell, nativeImage, app } from 'electron'
+import { ipcMain, BrowserWindow, dialog, shell, nativeImage, app, clipboard } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import os from 'os'
@@ -25,6 +25,7 @@ import { CustomClientInstaller } from './minecraft/CustomClientInstaller'
 import { CrashDoctor } from './minecraft/CrashDoctor'
 import { ScreenshotService } from './screenshots/ScreenshotService'
 import { ServerListService, isValidServerAddress } from './servers/ServerListService'
+import { StatsService } from './stats/StatsService'
 import { crystalPath, crystalRoot, defaultCrystalRoot, setCrystalRoot, canUseAsRoot } from './paths'
 
 export function registerIpcHandlers(store: Store) {
@@ -56,6 +57,7 @@ export function registerIpcHandlers(store: Store) {
   const tryCrystal = new TryCrystalService(store, instances, minecraft, auth)
   const clientInstaller = new CustomClientInstaller(instances)
   const crashDoctor = new CrashDoctor(instances)
+  const stats = new StatsService(store)
   const screenshots = new ScreenshotService(instances)
   const servers = new ServerListService(store)
 
@@ -202,8 +204,9 @@ export function registerIpcHandlers(store: Store) {
     }
   })
   ipcMain.handle('shell:openExternal', (_e, url: string) => {
-    // Only ever the project's own GitHub pages — never an arbitrary URL from the renderer.
-    if (typeof url === 'string' && url.startsWith('https://github.com/Lunar0710/Crystal')) shell.openExternal(url)
+    // Only the project's own GitHub pages and uploaded crash logs — never an arbitrary URL from the renderer.
+    if (typeof url !== 'string') return
+    if (url.startsWith('https://github.com/Lunar0710/Crystal') || /^https:\/\/mclo\.gs\/[A-Za-z0-9]+$/.test(url)) shell.openExternal(url)
   })
 
   // Data folder location. Existing instances keep their stored absolute path,
@@ -250,18 +253,77 @@ export function registerIpcHandlers(store: Store) {
     return crashDoctor.analyze(instanceId, `${fullLog}\n${errorMessage || ''}`, (store.get('maxRam') as number) || 4096)
   })
 
+  // The newest Modrinth version of an installed mod that fits this instance, or why there is none.
+  const MODRINTH_PROJECT = /^[A-Za-z0-9_-]{1,64}$/
+  async function replacementFor(instanceId: string, modFile: string) {
+    const known = await modrinth.identifyFile(instanceId, 'mod', modFile)
+    if (!known) return { error: 'Nicht auf Modrinth gefunden' }
+    const gameVersion = instances.get(instanceId)?.version ?? '1.21.11'
+    const versions = await modrinth.getVersions(known.projectId, gameVersion, 'fabric', 'mod')
+    const newest = versions[0]
+    if (!newest) return { error: `Keine Version für ${gameVersion}` }
+    if (newest.id === known.versionId) return { error: 'Schon die neueste passende Version' }
+    return { versionId: newest.id, label: newest.version_number }
+  }
+
+  ipcMain.handle('autofix:preview', async (_e, instanceId: string, fix: any) => {
+    if (fix?.kind !== 'update-mod' || typeof fix.modFile !== 'string') return null
+    return replacementFor(instanceId, fix.modFile)
+  })
+
   ipcMain.handle('autofix:apply', async (_e, instanceId: string, fix: any) => {
-    if (fix?.kind === 'lower-ram' || fix?.kind === 'raise-ram') {
-      store.set('maxRam', fix.ram)
-      return { ok: true, message: `RAM auf ${fix.ram} MB gesetzt.` }
+    const gameVersion = instances.get(instanceId)?.version ?? '1.21.11'
+    switch (fix?.kind) {
+      case 'lower-ram':
+      case 'raise-ram': {
+        const ram = Math.round(Number(fix.ram))
+        if (!Number.isFinite(ram) || ram < 512 || ram > 65536) return { ok: false, message: 'Ungültige RAM-Angabe.' }
+        store.set('maxRam', ram)
+        return { ok: true, message: `RAM auf ${ram} MB gesetzt.` }
+      }
+      case 'install-fabric-api':
+      case 'install-mod': {
+        const project = fix.kind === 'install-fabric-api' ? 'fabric-api' : fix.project
+        if (typeof project !== 'string' || !MODRINTH_PROJECT.test(project)) return { ok: false, message: 'Ungültiges Projekt.' }
+        const result = await modrinth.install(instanceId, project, gameVersion, 'fabric', 'mod')
+        return result.success
+          ? { ok: true, message: `${result.fileName} installiert.` }
+          : { ok: false, message: result.error || 'Installation fehlgeschlagen.' }
+      }
+      case 'update-mod': {
+        if (typeof fix.modFile !== 'string') return { ok: false, message: 'Keine Datei angegeben.' }
+        const target = await replacementFor(instanceId, fix.modFile)
+        if (!target.versionId) return { ok: false, message: target.error }
+        const result = await modrinth.switchVersion(instanceId, 'mod', fix.modFile, target.versionId)
+        return result.success
+          ? { ok: true, message: `Ersetzt durch ${result.fileName}.` }
+          : { ok: false, message: result.error || 'Ersetzen fehlgeschlagen.' }
+      }
+      case 'disable-mod':
+        return crashDoctor.disableMod(instanceId, fix.modFile)
+      default:
+        return { ok: false, message: 'Unbekannter Fix.' }
     }
-    if (fix?.kind === 'install-fabric-api') {
-      const result = await modrinth.install(instanceId, 'fabric-api', instances.get(instanceId)?.version ?? '1.21.11', 'fabric', 'mod')
-      return result.success
-        ? { ok: true, message: `${result.fileName} installiert.` }
-        : { ok: false, message: result.error || 'Installation fehlgeschlagen.' }
+  })
+
+  // Shares the launch log on mclo.gs (the usual Minecraft log paste site), only
+  // when the player clicks it. Tokens and the Windows user name are removed first.
+  ipcMain.handle('autofix:uploadLog', async (_e, instanceId: string) => {
+    const content = crashDoctor.shareableLog(instanceId)
+    if (!content) return { ok: false, message: 'Kein Log gefunden.' }
+    try {
+      const res = await fetch('https://api.mclo.gs/1/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ content }).toString(),
+      })
+      const json = await res.json() as { success?: boolean; url?: string; error?: string }
+      if (!json.success || !json.url) return { ok: false, message: json.error || `Upload fehlgeschlagen (HTTP ${res.status})` }
+      clipboard.writeText(json.url)
+      return { ok: true, url: json.url }
+    } catch (err) {
+      return { ok: false, message: err instanceof Error ? err.message : 'Upload fehlgeschlagen.' }
     }
-    return crashDoctor.applyFix(instanceId, fix)
   })
 
   // Minecraft
@@ -330,12 +392,22 @@ export function registerIpcHandlers(store: Store) {
       }
       // Back to the idle line once the game is gone, however it ended.
       if (event === 'launch:exit' || event === 'launch:error') {
-        // Playtime for the profile card: only sessions that actually started count.
+        // Playtime statistics: only sessions that actually started count.
         if (playStartedAt > 0) {
-          const played = Date.now() - playStartedAt
+          const instance = instances.get(opts.instanceId)
+          try {
+            stats.record({
+              start: playStartedAt,
+              end: Date.now(),
+              version: String(opts.version ?? '?'),
+              instanceId: String(opts.instanceId ?? ''),
+              instanceName: instance?.name ?? '',
+              crystal: !!opts.injectCrystal,
+            }, instance?.gameDir || crystalPath('instances', String(opts.instanceId ?? '')))
+          } catch (err) {
+            logger.warn('launcher', 'Spielzeit konnte nicht gespeichert werden', String(err))
+          }
           playStartedAt = 0
-          store.set('stats.playtimeMs', (Number(store.get('stats.playtimeMs')) || 0) + played)
-          store.set('stats.sessions', (Number(store.get('stats.sessions')) || 0) + 1)
         }
         discord.idle()
         // After a crash this also puts the auto-fix panel in front of the user.
@@ -591,6 +663,7 @@ export function registerIpcHandlers(store: Store) {
 
   // Launcher's own logs (separate from per-instance game logs)
   // Profile card
+  ipcMain.handle('stats:summary', () => stats.summary())
   ipcMain.handle('stats:get', () => ({
     playtimeMs: Number(store.get('stats.playtimeMs')) || 0,
     sessions: Number(store.get('stats.sessions')) || 0,

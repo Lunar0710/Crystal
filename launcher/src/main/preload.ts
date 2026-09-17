@@ -36,6 +36,8 @@ contextBridge.exposeInMainWorld('crystal', {
   // Autofix
   analyzeFailure: (instanceId: string, log: string) => ipcRenderer.invoke('autofix:analyze', instanceId, log),
   applyFix:       (instanceId: string, fix: unknown) => ipcRenderer.invoke('autofix:apply', instanceId, fix),
+  previewFix:     (instanceId: string, fix: unknown) => ipcRenderer.invoke('autofix:preview', instanceId, fix),
+  uploadCrashLog: (instanceId: string) => ipcRenderer.invoke('autofix:uploadLog', instanceId),
 
   // Rank management (server-side gated to the owner rank, see ipc.ts)
   listRankGrants:  () => ipcRenderer.invoke('ranks:list'),
@@ -61,6 +63,7 @@ contextBridge.exposeInMainWorld('crystal', {
   selectGameDir:    () => ipcRenderer.invoke('minecraft:selectDir'),
   getInstances:     () => ipcRenderer.invoke('instances:list'),
   getStats:         () => ipcRenderer.invoke('stats:get'),
+  getStatsSummary:  () => ipcRenderer.invoke('stats:summary'),
   copyProfileCard:  (dataUrl: string) => ipcRenderer.invoke('profileCard:copy', dataUrl),
   saveProfileCard:  (dataUrl: string) => ipcRenderer.invoke('profileCard:save', dataUrl),
   listServers:      () => ipcRenderer.invoke('servers:list'),

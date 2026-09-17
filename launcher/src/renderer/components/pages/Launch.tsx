@@ -3,6 +3,7 @@ import { Play, ChevronDown, Plus, ExternalLink, X, FlaskConical, CheckCircle2, R
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { notify } from '../../store/notificationStore'
 import { LoginPanel } from '../ui/LoginPanel'
+import { CrashDialog, type DetectedProblem } from '../ui/CrashDialog'
 import { Page, PageHeader, EmptyState } from '../ui/Page'
 
 interface ExternalClient {
@@ -26,13 +27,6 @@ interface Profile {
   type: 'microsoft' | 'offline'
 }
 
-interface DetectedProblem {
-  id: string
-  title: string
-  detail: string
-  fix: { kind: string; label: string; modFile?: string; ram?: number } | null
-}
-
 const api = (window as any).crystal
 const DEFAULT_RAM = 4096
 
@@ -53,7 +47,7 @@ export function Launch() {
   const [tryStatus, setTryStatus] = useState<{ ok: boolean; message: string } | null>(null)
   const [problems, setProblems] = useState<DetectedProblem[] | null>(null)
   const [lastError, setLastError] = useState<string | null>(null)
-  const [fixing, setFixing] = useState<string | null>(null)
+  const [crashOpen, setCrashOpen] = useState(false)
   const launchedInstanceRef = useRef<string | null>(null)
 
   function refreshInstances() {
@@ -103,24 +97,11 @@ export function Launch() {
         const target = launchedInstanceRef.current
         const found: DetectedProblem[] = target ? (await api?.analyzeFailure(target, msg)) || [] : []
         setProblems(found)
-        if (found.length === 0) notify({ type: 'error', title: 'Start fehlgeschlagen', message: msg })
+        setCrashOpen(true)
       }),
     ]
     return () => unsubs.forEach(u => u?.())
   }, [])
-
-  async function applyFix(problem: DetectedProblem) {
-    const target = launchedInstanceRef.current
-    if (!target || !problem.fix) return
-    setFixing(problem.id)
-    const result = await api?.applyFix(target, problem.fix)
-    setFixing(null)
-    notify({ type: result?.ok ? 'success' : 'error', title: 'Autofix', message: result?.message || 'Fehlgeschlagen' })
-    if (result?.ok) {
-      setProblems(prev => prev?.filter(p => p.id !== problem.id) ?? null)
-      if (problem.fix.kind === 'lower-ram' || problem.fix.kind === 'raise-ram') setMaxRam(problem.fix.ram!)
-    }
-  }
 
   const instance = instances.find(i => i.id === instanceId) ?? null
 
@@ -183,6 +164,7 @@ export function Launch() {
     setProgress({ step: 'Vorbereiten...', percent: 0 })
     setProblems(null)
     setLastError(null)
+    setCrashOpen(false)
     launchedInstanceRef.current = instance.id
 
     await api?.launchGame({
@@ -316,35 +298,29 @@ export function Launch() {
           )}
         </section>
 
-        {problems && problems.length > 0 && (
+        {problems !== null && lastError && launchedInstanceRef.current && (
           <section aria-live="polite">
-            <h2 className="text-[13px] font-semibold text-crystal-text mb-0.5 px-0.5">Start fehlgeschlagen</h2>
-            <p className="text-xs text-crystal-muted mb-2 px-0.5">
-              {problems.length === 1 ? 'Crystal hat die Ursache gefunden.' : `Crystal hat ${problems.length} Ursachen gefunden.`}
-            </p>
-            <div className="crystal-card divide-y divide-crystal-border">
-              {problems.map(p => (
-                <div key={p.id} className="flex items-start gap-3 px-4 py-3">
-                  <AlertTriangle size={15} strokeWidth={1.75} className="text-crystal-warning shrink-0 mt-0.5" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[13px] text-crystal-text">{p.title}</p>
-                    <p className="text-xs text-crystal-muted mt-0.5">{p.detail}</p>
-                  </div>
-                  {p.fix && (
-                    <button onClick={() => applyFix(p)} disabled={fixing === p.id} className="crystal-btn-primary text-xs px-3 py-1.5 shrink-0 disabled:opacity-60">
-                      {fixing === p.id ? 'Behebe…' : p.fix.label}
-                    </button>
-                  )}
-                </div>
-              ))}
-              {lastError && (
-                <details className="px-4 py-2.5 text-xs text-crystal-muted">
-                  <summary className="cursor-pointer hover:text-crystal-text select-none">Vollständige Fehlermeldung</summary>
-                  <pre className="mt-2 p-2.5 rounded-md bg-crystal-bg border border-crystal-border font-mono text-[11px] whitespace-pre-wrap break-all max-h-56 overflow-auto select-text">{lastError}</pre>
-                </details>
-              )}
-            </div>
+            <button onClick={() => setCrashOpen(true)} className="w-full crystal-card flex items-center gap-3 px-4 py-3 text-left hover:border-crystal-danger/60">
+              <AlertTriangle size={15} strokeWidth={1.75} className="text-crystal-danger shrink-0" />
+              <span className="flex-1 min-w-0">
+                <span className="block text-[13px] text-crystal-text">Start fehlgeschlagen</span>
+                <span className="block text-xs text-crystal-muted">
+                  {problems.length === 0 ? 'Fehlermeldung ansehen' : `${problems.length} Problem(e) gefunden, ansehen und beheben`}
+                </span>
+              </span>
+            </button>
           </section>
+        )}
+        {crashOpen && launchedInstanceRef.current && (
+          <CrashDialog
+            instanceId={launchedInstanceRef.current}
+            problems={problems ?? []}
+            errorText={lastError}
+            account={profile?.username ?? null}
+            onClose={() => setCrashOpen(false)}
+            onRelaunch={() => { setCrashOpen(false); launch() }}
+            onRamChanged={setMaxRam}
+          />
         )}
 
         <section>

@@ -76,7 +76,33 @@ const FATAL_PATTERNS: { pattern: RegExp; reason: string }[] = [
   { pattern: /Exception in thread "main"/, reason: 'Unbehandelte Exception beim Start.' },
   { pattern: /A fatal error has been detected by the Java Runtime Environment/, reason: 'JVM-Absturz (natives Modul).' },
   { pattern: /Could not reserve enough space for.*object heap/i, reason: 'Nicht genug Arbeitsspeicher für die gewählte RAM-Größe.' },
+  { pattern: /insufficient memory for the Java Runtime|Native memory allocation \((?:malloc|mmap)\) failed/i, reason: 'Windows hatte keinen freien Arbeitsspeicher mehr.' },
 ]
+
+/** Exit codes arrive unsigned on Windows; 4294967295 is -1. */
+function exitCodeText(code: number | null): string {
+  if (code === null) return 'unbekannt'
+  return String(code > 0x7fffffff ? code - 0x100000000 : code)
+}
+
+/**
+ * The JVM writes native crashes (out of memory, driver faults) to an
+ * hs_err_pid*.log in the game folder instead of the normal log. Returns the
+ * head of the newest one written since `since`, or ''.
+ */
+function nativeCrashReport(gameDir: string, since: number): string {
+  try {
+    const newest = fs.readdirSync(gameDir)
+      .filter(f => /^hs_err_pid\d+\.log$/.test(f))
+      .map(f => ({ f, t: fs.statSync(path.join(gameDir, f)).mtimeMs }))
+      .filter(x => x.t >= since)
+      .sort((a, b) => b.t - a.t)[0]
+    if (!newest) return ''
+    return fs.readFileSync(path.join(gameDir, newest.f), 'utf8').split('\n').slice(0, 30).join('\n')
+  } catch {
+    return ''
+  }
+}
 
 function findFatalReason(output: string): string | null {
   for (const { pattern, reason } of FATAL_PATTERNS) {
@@ -177,7 +203,9 @@ export class LaunchPipeline {
     const jvmArgs = [
       // Start with half the heap (1-4 GB). High render distances load chunks
       // faster than a small heap can grow, and every resize step is a GC pause.
-      `-Xmx${opts.maxRam}M`, `-Xms${Math.min(opts.maxRam, Math.max(1024, Math.min(4096, Math.floor(opts.maxRam / 2))))}M`,
+      // A small start heap: the JVM grows it when needed. Reserving half the
+      // maximum up front pushed systems with a small page file out of memory.
+      `-Xmx${opts.maxRam}M`, `-Xms${Math.min(opts.maxRam, 1024)}M`,
       // Tuned for smooth frames rather than raw throughput: the old 200 ms
       // pause target let the collector freeze the game for visible stutters.
       // A short target with a larger young generation spreads that work out.
@@ -195,6 +223,7 @@ export class LaunchPipeline {
     const gameArgs = [...this.buildGameArgs(versionJson, opts), ...this.loaderGameArgs(loaderProfile), ...(opts.extraGameArgs ?? [])]
 
     const logPath = path.join(opts.gameDir, 'crystal-launch.log')
+    const launchedAt = Date.now()
     const logStream = fs.createWriteStream(logPath, { flags: 'w' })
     const header =
       `# Crystal launch ${new Date().toISOString()}\n` +
@@ -263,10 +292,12 @@ export class LaunchPipeline {
       const reason =
         outcome.kind === 'spawn-failed' ? `Java konnte nicht gestartet werden: ${outcome.error}`
         : outcome.kind === 'fatal' ? `Minecraft konnte nicht starten:\n${outcome.reason}`
-        : `Minecraft hat sich beim Start beendet (Exit-Code ${outcome.code}).`
+        : `Minecraft hat sich beim Start beendet (Exit-Code ${exitCodeText(outcome.code)}).`
 
-      logger.error('client', reason, tail.slice(-4000))
-      emit('launch:error', `${reason}\n\nLog: ${logPath}\n\n${tail.slice(-1200)}`)
+      const native = nativeCrashReport(opts.gameDir, launchedAt)
+      const detail = native ? `${findFatalReason(native) ?? 'JVM-Absturz'}\n\n${native}` : tail.slice(-1200)
+      logger.error('client', reason, (native || tail).slice(-4000))
+      emit('launch:error', `${reason}\n\nLog: ${logPath}\n\n${detail}`)
       return false
     }
 
@@ -282,9 +313,10 @@ export class LaunchPipeline {
         logger.info('client', `Minecraft beendet (Exit-Code ${code})`)
         return
       }
-      const fatal = findFatalReason(tail) ?? `Exit-Code ${code}`
-      logger.error('client', `Minecraft ist nach dem Start abgestürzt: ${fatal}`, tail.slice(-4000))
-      emit('launch:error', `Minecraft ist abgestürzt:\n${fatal}\n\nLog: ${logPath}\n\n${tail.slice(-1200)}`)
+      const native = nativeCrashReport(opts.gameDir, launchedAt)
+      const fatal = findFatalReason(native) ?? findFatalReason(tail) ?? `Exit-Code ${exitCodeText(code)}`
+      logger.error('client', `Minecraft ist nach dem Start abgestürzt: ${fatal}`, (native || tail).slice(-4000))
+      emit('launch:error', `Minecraft ist abgestürzt:\n${fatal}\n\nLog: ${logPath}\n\n${native || tail.slice(-1200)}`)
     })
 
     logger.info('client', `Minecraft läuft (PID ${proc.pid})`)
