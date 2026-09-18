@@ -157,8 +157,28 @@ public final class SmokeTest {
             }
         }
 
-        // Done once every check has an answer (the screenshots end at tick 285).
-        if (!finished && worldTicks > 290 && keyPearlsResult != null && cullingResult != null) {
+        // Emotes (Crystal+): the wheel, then the player mid-dance from the front.
+        if (worldTicks == 300) {
+            CrystalClient.getInstance().getModuleManager().getModuleByName("Emotes").ifPresent(m -> m.setEnabled(true));
+            mc.setScreen(new dev.crystal.client.gui.EmoteWheelScreen(false));
+        }
+        if (worldTicks == 305) {
+            Screenshot.grab(mc.gameDirectory, base + "-emotes.png", mc.getMainRenderTarget(), 1,
+                    msg -> CrystalClient.LOGGER.info("[Crystal] Smoke screenshot: {}", msg.getString()));
+        }
+        if (worldTicks == 310) {
+            mc.setScreen(null);
+            mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
+            dev.crystal.client.emote.EmotePlayer.play(dev.crystal.client.emote.Emote.DANCE, false);
+        }
+        if (worldTicks == 322) {
+            CrystalClient.LOGGER.info("[Crystal] Emote playing: {}", dev.crystal.client.emote.EmotePlayer.isPlaying());
+            Screenshot.grab(mc.gameDirectory, base + "-dance.png", mc.getMainRenderTarget(), 1,
+                    msg -> CrystalClient.LOGGER.info("[Crystal] Smoke screenshot: {}", msg.getString()));
+        }
+
+        // Done once every check has an answer and the last screenshot is taken.
+        if (!finished && worldTicks > 325 && keyPearlsResult != null && cullingResult != null) {
             finished = true;
             CrystalClient.LOGGER.info("CRYSTAL_SMOKE_WORLD_DONE");
             mc.stop();

@@ -36,6 +36,7 @@ public class ModuleManager {
         register(new InventoryCleanup());
         register(new AutoTool());
         register(new KeyPearls());
+        register(new dev.crystal.client.module.player.Emotes());
         register(new Cooldowns());
         register(new PotionEffectsDisplay());
         register(new SaturationDisplay());

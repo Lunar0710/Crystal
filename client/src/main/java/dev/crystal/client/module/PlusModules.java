@@ -9,7 +9,8 @@ import java.util.Set;
 public final class PlusModules {
 
     public static final Set<String> NAMES = Set.of(
-            "KeyPearls"
+            "KeyPearls",
+            "Emotes"
     );
 
     private PlusModules() {}

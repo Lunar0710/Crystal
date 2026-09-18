@@ -1,5 +1,6 @@
 package dev.crystal.client.mixin;
 
+import dev.crystal.client.emote.EmotePlayer;
 import dev.crystal.client.render.Skins3DFeatureRenderer;
 import net.minecraft.client.model.player.PlayerModel;
 import net.minecraft.client.renderer.entity.state.AvatarRenderState;
@@ -8,9 +9,17 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/** 3D Skins: hides the flat outer layer while the voxel version is drawn instead. */
+/**
+ * 3D Skins: hides the flat outer layer while the voxel version is drawn instead.
+ * Emotes: poses the local player after vanilla has.
+ */
 @Mixin(PlayerModel.class)
 public class MixinPlayerEntityModel {
+
+    @Inject(method = "setupAnim(Lnet/minecraft/client/renderer/entity/state/AvatarRenderState;)V", at = @At("TAIL"))
+    private void crystal$emote(AvatarRenderState state, CallbackInfo ci) {
+        EmotePlayer.applyTo((PlayerModel) (Object) this, state.id);
+    }
 
     @Inject(method = "setupAnim(Lnet/minecraft/client/renderer/entity/state/AvatarRenderState;)V", at = @At("TAIL"))
     private void crystal$hideFlatLayer(AvatarRenderState state, CallbackInfo ci) {
