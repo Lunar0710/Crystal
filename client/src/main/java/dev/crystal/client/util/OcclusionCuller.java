@@ -32,7 +32,17 @@ public final class OcclusionCuller {
     private static final long FORGET_AFTER_MS = 2000;
     private static final long PASS_INTERVAL_MS = 40;
 
+    /** A standing camera re-checks everything this often, so an opened door or a broken wall still shows up quickly. */
+    private static final long STILL_REFRESH_MS = 250;
+    /** Camera movement below this (blocks) counts as standing still. */
+    private static final double STILL_DISTANCE = 0.05;
+
     private record Target(AABB box, long lastAsked) {}
+
+    /** Box each key had when it was last checked from the current camera position. */
+    private static final Map<Long, AABB> CHECKED = new ConcurrentHashMap<>();
+    private static Vec3 lastEye = null;
+    private static long lastFullPass = 0;
 
     private static final Map<Long, Target> TARGETS = new ConcurrentHashMap<>();
     private static final Map<Long, Boolean> HIDDEN = new ConcurrentHashMap<>();
@@ -49,6 +59,7 @@ public final class OcclusionCuller {
         if (!on) {
             TARGETS.clear();
             HIDDEN.clear();
+            CHECKED.clear();
             return;
         }
         if (worker == null || !worker.isAlive()) {
@@ -113,11 +124,22 @@ public final class OcclusionCuller {
         if (level == null) {
             TARGETS.clear();
             HIDDEN.clear();
+            CHECKED.clear();
             return;
         }
         Vec3 eye = camera;
         // Inside a block (spectator, suffocating) every ray starts blocked: cull nothing.
         boolean eyeInBlock = solid(level, BlockPos.containing(eye));
+
+        // Standing still: the answers from the last pass are still right, only
+        // new targets need rays. Everything is redone now and then for block changes.
+        boolean still = lastEye != null && lastEye.distanceToSqr(eye) < STILL_DISTANCE * STILL_DISTANCE
+                && now - lastFullPass < STILL_REFRESH_MS;
+        if (!still) {
+            CHECKED.clear();
+            lastEye = eye;
+            lastFullPass = now;
+        }
 
         for (var entry : TARGETS.entrySet()) {
             long key = entry.getKey();
@@ -125,11 +147,21 @@ public final class OcclusionCuller {
             if (now - target.lastAsked() > FORGET_AFTER_MS) {
                 TARGETS.remove(key);
                 HIDDEN.remove(key);
+                CHECKED.remove(key);
                 continue;
             }
+            // A mob walking out from behind a wall moves its box: that always gets rays.
+            AABB checkedBox = CHECKED.get(key);
+            if (still && checkedBox != null && sameBox(checkedBox, target.box())) continue;
             boolean hidden = !eyeInBlock && isOccluded(level, eye, target.box());
             if (hidden) HIDDEN.put(key, Boolean.TRUE); else HIDDEN.remove(key);
+            CHECKED.put(key, target.box());
         }
+    }
+
+    private static boolean sameBox(AABB a, AABB b) {
+        return Math.abs(a.minX - b.minX) < STILL_DISTANCE && Math.abs(a.minY - b.minY) < STILL_DISTANCE
+                && Math.abs(a.minZ - b.minZ) < STILL_DISTANCE;
     }
 
     private static boolean isOccluded(ClientLevel level, Vec3 eye, AABB box) {
