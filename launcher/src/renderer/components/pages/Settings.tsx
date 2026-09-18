@@ -376,6 +376,7 @@ function CrystalPlusSection({ unlocked }: { unlocked: boolean }) {
     { title: `${plusCapes} Capes`, detail: 'Handgezeichnet, im Spiel sichtbar.' },
     { title: `${plusCosmetics} Cosmetics`, detail: 'Hüte, Masken, Flügel und mehr, auch im Spiel.' },
     { title: 'HUD-Stile', detail: 'Glass, Neon, Pill, Gradient, Split und Rainbow als Hintergrund für jedes HUD-Modul.' },
+    { title: 'KeyPearls', detail: 'Wirft mit einer Taste eine Enderperle aus der Hotbar. Auf Hypixel aus, weil es dort als Makro gilt.' },
     { title: 'Emotes', detail: 'Winken, Jubeln, Tanzen und mehr über ein Rad auf einer Taste (vorerst nur für dich sichtbar).' },
     { title: 'Chroma-Text', detail: 'Farbverlauf für HUD-Module, der langsam durchläuft.' },
     { title: 'Crosshair-Formen', detail: 'Gap Cross, Kreis, X und Klammern, auf Wunsch in Chroma.' },
@@ -387,7 +388,7 @@ function CrystalPlusSection({ unlocked }: { unlocked: boolean }) {
       title="Crystal+"
       description={unlocked
         ? 'Alles hier ist für dich freigeschaltet. Die Extras im Spiel stellst du in den Modul-Einstellungen ein (Rechts-Shift).'
-        : 'Crystal+ ist rein kosmetisch. Es gibt keine Vorteile im Spiel gegenüber anderen Spielern.'}
+        : 'Crystal+ ist fast nur kosmetisch. Die einzige Spielhilfe ist KeyPearls, das auf Hypixel automatisch aus ist.'}
     >
       <ul className="divide-y divide-crystal-border">
         {perks.map(p => (
