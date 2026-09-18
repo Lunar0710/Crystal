@@ -85,6 +85,8 @@ export function Launch() {
     // after the game was already running still reaches the autofix panel.
     const unsubs = [
       api?.on('launch:progress', (data: { step: string; percent: number }) => setProgress(data)),
+      // The game still starts; this only says why it got less RAM than set.
+      api?.on('launch:notice', (message: string) => notify({ type: 'warning', title: 'Wenig freier Speicher', message })),
       api?.on('launch:started', () => {
         notify({ type: 'success', title: 'Crystal', message: 'Minecraft wurde gestartet' })
         setLaunching(false)

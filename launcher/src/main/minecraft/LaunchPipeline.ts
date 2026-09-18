@@ -9,6 +9,7 @@ import { logger } from '../logs/Logger'
 import { crystalRoot } from '../paths'
 import { mojangOs, nativesSuffix, rulesAllow, OsRule } from './platform'
 import { fabricMetaFor } from './versions'
+import { fitHeap, freeCommitMb } from './MemoryBudget'
 
 // Electron/Node 18+ ships a global fetch; not covered by this tsconfig's
 // ES2020-only lib, so declared locally instead of pulling in a DOM lib.
@@ -118,6 +119,9 @@ export class LaunchPipeline {
       return false
     }
 
+    // Asked now, answered while the downloads run; read right before the start.
+    const freeMemory = freeCommitMb()
+
     fs.mkdirSync(opts.gameDir, { recursive: true })
     fs.mkdirSync(VERSIONS_DIR(), { recursive: true })
     fs.mkdirSync(LIBRARIES_DIR(), { recursive: true })
@@ -199,13 +203,21 @@ export class LaunchPipeline {
 
     emit('launch:progress', { step: 'Launching Minecraft...', percent: 92 })
 
+    // Measured as late as possible: what is free right before the start counts.
+    const free = await freeMemory
+    const heap = fitHeap(opts.maxRam, free)
+    if (heap.notice) {
+      logger.warn('client', 'RAM für diesen Start gesenkt', { requested: opts.maxRam, used: heap.heapMb, freeCommitMb: free })
+      emit('launch:notice', heap.notice)
+    }
+
     const classpath = [clientJarPath, ...libPaths, ...extraClasspathJars].join(path.delimiter)
     const jvmArgs = [
       // Start with half the heap (1-4 GB). High render distances load chunks
       // faster than a small heap can grow, and every resize step is a GC pause.
       // A small start heap: the JVM grows it when needed. Reserving half the
       // maximum up front pushed systems with a small page file out of memory.
-      `-Xmx${opts.maxRam}M`, `-Xms${Math.min(opts.maxRam, 1024)}M`,
+      `-Xmx${heap.heapMb}M`, `-Xms${Math.min(heap.heapMb, 1024)}M`,
       // Tuned for smooth frames rather than raw throughput: the old 200 ms
       // pause target let the collector freeze the game for visible stutters.
       // A short target with a larger young generation spreads that work out.
@@ -242,7 +254,8 @@ export class LaunchPipeline {
       gameDir: opts.gameDir,
       mainClass,
       java: opts.javaPath,
-      maxRam: opts.maxRam,
+      maxRam: heap.heapMb,
+      freeCommitMb: free,
       classpathEntries: libPaths.length + 1,
     })
 

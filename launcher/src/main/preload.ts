@@ -191,7 +191,7 @@ contextBridge.exposeInMainWorld('crystal', {
   // matched nothing and every subscription leaked for the life of the window.
   on: (channel: string, cb: (...args: unknown[]) => void) => {
     const valid = [
-      'launch:progress', 'launch:error', 'launch:started', 'launch:exit',
+      'launch:progress', 'launch:error', 'launch:started', 'launch:exit', 'launch:notice',
       'update:available', 'update:progress', 'update:error',
       'tryCrystal:status',
     ]
