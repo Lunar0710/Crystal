@@ -992,6 +992,67 @@ const PLUS_CAPES: { name: string; rows: string[]; palette: Record<string, string
     ],
     palette: { '.': '#0a0716', p: '#5b2a8c', P: '#b57cff', M: '#ffffff', c: '#0e6b7a', C: '#5ee7f5', w: '#ffffff' },
   },
+  // Added in 1.3; after the older ones so their plus-<index> ids stay the same.
+  {
+    name: 'Sternennacht',
+    rows: [
+      'nnnnnnnnnn', 'n.w...mm.n', 'n....m...n', 'n.s..m...n',
+      'n....m...n', 'n.....mm.n', 'n.w......n', 'n....Y..sn',
+      'n...YYY..n', 'n....Y...n', 'n.s....w.n', 'n........n',
+      'n..w..s..n', 'n.s......n', 'n....w..sn', 'nnnnnnnnnn',
+    ],
+    palette: { '.': '#070a1f', n: '#1c2350', w: '#ffffff', s: '#9fb4ff', Y: '#ffe27a', m: '#e8e4ff' },
+  },
+  {
+    name: 'Lava',
+    rows: [
+      'kkkkkkkkkk', 'k..r....rk', 'k.rOr..r.k', 'krOYOr....',
+      'k.rOr...rk', 'k..r...rOr', 'k......rOk', 'k.r.....rk',
+      'krOr..r..k', 'kOYOrrOr.k', 'krOOOYOOrk', 'kOYYOOYOOk',
+      'OOYYYOYYOO', 'YYOYYYYOYY', 'YYYYYYYYYY', 'OOOOOOOOOO',
+    ],
+    palette: { '.': '#140605', k: '#2a0d08', r: '#8a1d0c', O: '#e8540f', Y: '#ffc23d' },
+  },
+  {
+    name: 'Kirschblüte',
+    rows: [
+      'bbbbbbbbbb', 'b..pp....b', 'b.pPPp..pb', 'b..pp..pPb',
+      'bb..tt..pb', 'b.ttt.....', 'b...t.pp.b', 'b...t.pPpb',
+      'b...tt.p.b', 'b..p.t...b', 'b.pPp.t..b', 'b..p..t..b',
+      'b.....tt.b', 'b......t.b', 'b...p...pb', 'bbbbbbbbbb',
+    ],
+    palette: { '.': '#fff1f5', b: '#f5a3c0', p: '#f57aa6', P: '#ffffff', t: '#6b3a2e' },
+  },
+  {
+    name: 'Blitz',
+    rows: [
+      'gggggggggg', 'g........g', 'g....yy..g', 'g...yy...g',
+      'g..yy....g', 'g.yyyyy..g', 'g...yy...g', 'g..yy....g',
+      'g.yyyyyy.g', 'g...yyy..g', 'g...yy...g', 'g..yy....g',
+      'g..y.....g', 'g.y......g', 'g........g', 'gggggggggg',
+    ],
+    palette: { '.': '#0c0e1a', g: '#3c4470', y: '#ffe600' },
+  },
+  {
+    name: 'Tiefsee',
+    rows: [
+      'cccccccccc', 'c~~~~~~~~c', 'c.~.....~c', 'c...o....c',
+      'c......o.c', 'c..ff....c', 'c.fFFf...c', 'c..ff..o.c',
+      'c.....o..c', 'c...j..o.c', 'c..jjj...c', 'c.j.j.j..c',
+      'c...j....c', 'c.s..s.s.c', 'csSsssSssc', 'cccccccccc',
+    ],
+    palette: { '.': '#021a2e', c: '#0b3b5c', '~': '#1f7aa8', o: '#8fe3ff', f: '#ff9a3d', F: '#ffd29a', j: '#c07dff', s: '#b39a6b', S: '#e6cf98' },
+  },
+  {
+    name: 'Smaragd',
+    rows: [
+      'eeeeeeeeee', 'e........e', 'e...gg...e', 'e..gGGg..e',
+      'e.gGWGGg.e', 'e.gGGGGg.e', 'e.gGGGGg.e', 'e.dgGGgd.e',
+      'e..dggd..e', 'e...dd...e', 'e........e', 'e.e.e.e.ee',
+      'e........e', 'e.eeeeee.e', 'e........e', 'eeeeeeeeee',
+    ],
+    palette: { '.': '#04140b', e: '#1f8f4e', g: '#2fd07a', G: '#7dffb4', W: '#ffffff', d: '#136b38' },
+  },
 ]
 
 // Pixel characters and meme symbols. Characters are Crystal's own designs and
