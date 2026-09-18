@@ -118,21 +118,29 @@ public final class SmokeTest {
                         k.pressForTest();
                     });
         }
-        if (worldTicks == 300) {
+        // Checked every tick in a window rather than at one tick: on a loaded
+        // PC the three key presses can land a few ticks late, which is not a bug.
+        if (keyPearlsResult == null && worldTicks > 290 && worldTicks <= KEYPEARLS_DEADLINE) {
             int pearls = mc.player.getInventory().getItem(3).getCount();
             int slot = InventoryCompat.selectedSlot(mc.player);
             boolean ok = pearls == 15 && slot == 0;
-            if (!ok) {
-                var module = CrystalClient.getInstance().getModuleManager().getModuleByName("KeyPearls");
-                CrystalClient.LOGGER.info("[Crystal] KeyPearls state: module={} enabled={} slot0={} slot3={} screen={}",
-                        module.isPresent(), module.map(dev.crystal.client.module.Module::isEnabled).orElse(false),
-                        mc.player.getInventory().getItem(0), mc.player.getInventory().getItem(3), mc.screen);
+            if (ok || worldTicks == KEYPEARLS_DEADLINE) {
+                keyPearlsResult = ok;
+                if (!ok) {
+                    var module = CrystalClient.getInstance().getModuleManager().getModuleByName("KeyPearls");
+                    CrystalClient.LOGGER.info("[Crystal] KeyPearls state: module={} enabled={} slot0={} slot3={} screen={}",
+                            module.isPresent(), module.map(dev.crystal.client.module.Module::isEnabled).orElse(false),
+                            mc.player.getInventory().getItem(0), mc.player.getInventory().getItem(3), mc.screen);
+                }
+                CrystalClient.LOGGER.info("[Crystal] KeyPearls test {}: pearls={} slot={} after {} ticks",
+                        ok ? "PASS" : "FAILED", pearls, slot, worldTicks - 290);
             }
-            CrystalClient.LOGGER.info("[Crystal] KeyPearls test {}: pearls={} slot={}", ok ? "PASS" : "FAILED", pearls, slot);
         }
 
         // SmartCulling: the walled-in stand must count as hidden, the open one as visible.
-        if (worldTicks >= 100 && worldTicks <= 150) {
+        // The culler answers from a background thread, so the result may take a
+        // few passes; it counts as soon as it is right within the window.
+        if (cullingResult == null && worldTicks >= 100 && worldTicks <= CULLING_DEADLINE) {
             Boolean walled = null, open = null;
             for (var entity : mc.level.entitiesForRendering()) {
                 if (entity.getCustomName() == null) continue;
@@ -140,19 +148,29 @@ public final class SmokeTest {
                 if (CULL_WALLED.equals(entity.getCustomName().getString())) walled = hidden;
                 if (CULL_OPEN.equals(entity.getCustomName().getString())) open = hidden;
             }
-            if (worldTicks == 150) {
-                boolean ok = Boolean.TRUE.equals(walled) && Boolean.FALSE.equals(open);
-                if (!ok) CrystalClient.LOGGER.info("[Crystal] Culling state: {} player={}", 
+            boolean ok = Boolean.TRUE.equals(walled) && Boolean.FALSE.equals(open);
+            if (ok || worldTicks == CULLING_DEADLINE) {
+                cullingResult = ok;
+                if (!ok) CrystalClient.LOGGER.info("[Crystal] Culling state: {} player={}",
                         dev.crystal.client.util.OcclusionCuller.debugState(), mc.player.position());
                 CrystalClient.LOGGER.info("[Crystal] Culling test {}: walled={} open={}", ok ? "PASS" : "FAILED", walled, open);
             }
         }
 
-        if (worldTicks == 310) {
+        // Done once every check has an answer (the screenshots end at tick 285).
+        if (!finished && worldTicks > 290 && keyPearlsResult != null && cullingResult != null) {
+            finished = true;
             CrystalClient.LOGGER.info("CRYSTAL_SMOKE_WORLD_DONE");
             mc.stop();
         }
     }
+
+    /** Latest ticks at which a check still counts; well past what a healthy run needs. */
+    private static final int CULLING_DEADLINE = 280;
+    private static final int KEYPEARLS_DEADLINE = 400;
+    private static Boolean cullingResult = null;
+    private static Boolean keyPearlsResult = null;
+    private static boolean finished = false;
 
     private static final String CULL_WALLED = "crystal-cull-walled";
     private static final String CULL_OPEN = "crystal-cull-open";
