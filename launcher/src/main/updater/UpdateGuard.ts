@@ -41,8 +41,11 @@ export class UpdateGuard {
     const attempts = (this.store.get('updater.startupAttempts') as number) || 0
     const lastGoodVersion = this.store.get('updater.lastGoodVersion') as string | undefined
 
-    // No pending update, or this is simply the first attempt at it — not broken (yet).
-    if (!pendingVersion || pendingVersion !== app.getVersion() || attempts < 1) {
+    // No pending update, or too few failed attempts yet — not broken.
+    // Two unconfirmed starts are needed: the installer's own relaunch and a
+    // second start can both land here before the window is up, and a build that
+    // merely starts slowly must never be rolled back.
+    if (!pendingVersion || pendingVersion !== app.getVersion() || attempts < 2) {
       this.store.set('updater.startupAttempts', attempts + 1)
       return { broken: false }
     }
@@ -69,6 +72,15 @@ export class UpdateGuard {
   }
 
   private getRepoConfig(): { owner: string; repo: string } | null {
+    // In a packaged build this is the only place owner/repo survive:
+    // electron-builder drops the "build" block from the package.json it puts
+    // into app.asar, so reading that would always come up empty. Written by
+    // electron-builder itself, next to the asar, and it is what
+    // electron-updater downloads from as well.
+    const fromUpdateYml = this.readRepoFromUpdateYml()
+    if (fromUpdateYml) return fromUpdateYml
+
+    // Unpackaged (npm run dev): no app-update.yml exists, but package.json is intact.
     try {
       const pkgPath = path.join(app.getAppPath(), 'package.json')
       const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'))
@@ -77,6 +89,25 @@ export class UpdateGuard {
       return { owner: publish.owner, repo: publish.repo }
     } catch (err) {
       logger.error('updater', 'package.json für Rollback-Konfiguration konnte nicht gelesen werden', err)
+      return null
+    }
+  }
+
+  /** owner/repo out of resources/app-update.yml — two plain "key: value" lines. */
+  private readRepoFromUpdateYml(): { owner: string; repo: string } | null {
+    try {
+      const ymlPath = path.join(process.resourcesPath, 'app-update.yml')
+      const yml = fs.readFileSync(ymlPath, 'utf8')
+      const value = (key: string) => yml
+        .split('\n')
+        .map(line => line.split(':'))
+        .find(parts => parts[0].trim() === key)?.[1]?.trim()
+      const owner = value('owner')
+      const repo = value('repo')
+      if (!owner || !repo || owner.startsWith('REPLACE_WITH_')) return null
+      return { owner, repo }
+    } catch {
+      // Not packaged, or no updater config in this build — the caller falls back.
       return null
     }
   }
