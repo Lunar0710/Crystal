@@ -9,6 +9,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import dev.crystal.client.compat.InventoryCompat;
 
 /**
  * Automated in-world check, used only by launcher/scripts/smoke-world.cjs.
@@ -119,8 +120,14 @@ public final class SmokeTest {
         }
         if (worldTicks == 300) {
             int pearls = mc.player.getInventory().getItem(3).getCount();
-            int slot = mc.player.getInventory().getSelectedSlot();
+            int slot = InventoryCompat.selectedSlot(mc.player);
             boolean ok = pearls == 15 && slot == 0;
+            if (!ok) {
+                var module = CrystalClient.getInstance().getModuleManager().getModuleByName("KeyPearls");
+                CrystalClient.LOGGER.info("[Crystal] KeyPearls state: module={} enabled={} slot0={} slot3={} screen={}",
+                        module.isPresent(), module.map(dev.crystal.client.module.Module::isEnabled).orElse(false),
+                        mc.player.getInventory().getItem(0), mc.player.getInventory().getItem(3), mc.screen);
+            }
             CrystalClient.LOGGER.info("[Crystal] KeyPearls test {}: pearls={} slot={}", ok ? "PASS" : "FAILED", pearls, slot);
         }
 
@@ -135,6 +142,8 @@ public final class SmokeTest {
             }
             if (worldTicks == 150) {
                 boolean ok = Boolean.TRUE.equals(walled) && Boolean.FALSE.equals(open);
+                if (!ok) CrystalClient.LOGGER.info("[Crystal] Culling state: {} player={}", 
+                        dev.crystal.client.util.OcclusionCuller.debugState(), mc.player.position());
                 CrystalClient.LOGGER.info("[Crystal] Culling test {}: walled={} open={}", ok ? "PASS" : "FAILED", walled, open);
             }
         }

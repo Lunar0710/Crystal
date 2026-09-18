@@ -2,6 +2,7 @@ package dev.crystal.client.module.hud;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.item.ItemStack;
+import dev.crystal.client.compat.InventoryCompat;
 
 public class ItemCounter extends HudModule {
 
@@ -18,7 +19,7 @@ public class ItemCounter extends HudModule {
         if (held.isEmpty()) return "Held: nothing";
 
         int total = 0;
-        for (ItemStack stack : player.getInventory().getNonEquipmentItems()) {
+        for (ItemStack stack : InventoryCompat.nonEquipmentItems(player)) {
             if (ItemStack.isSameItemSameComponents(stack, held)) total += stack.getCount();
         }
         return held.getItem().getName(held).getString() + ": " + total;

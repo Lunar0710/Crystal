@@ -4,6 +4,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import dev.crystal.client.compat.InventoryCompat;
 
 public class ItemTracker extends HudModule {
 
@@ -27,7 +28,7 @@ public class ItemTracker extends HudModule {
         if (player == null || tracked == Items.AIR) return "Tracking: none";
 
         int total = 0;
-        for (ItemStack stack : player.getInventory().getNonEquipmentItems()) {
+        for (ItemStack stack : InventoryCompat.nonEquipmentItems(player)) {
             if (stack.is(tracked)) total += stack.getCount();
         }
         return tracked.getName(tracked.getDefaultInstance()).getString() + ": " + total;

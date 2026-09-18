@@ -57,13 +57,21 @@ public class MixinItemEntityRenderer {
         return crystal$items2D() != null || crystal$physics() != null ? -1f : Mth.sin(value);
     }
 
+    //? if >=1.21.5 {
     @Redirect(method = DRAW, at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/vertex/PoseStack;mulPose(Lorg/joml/Quaternionfc;)V"))
+    //?} else {
+    /*@Redirect(method = DRAW, at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/vertex/PoseStack;mulPose(Lorg/joml/Quaternionf;)V"))
+    *///?}
     //? if >=1.21.9 {
     private void crystal$rotate(PoseStack matrices, Quaternionfc spin, ItemEntityRenderState state, PoseStack sameMatrices,
                                 SubmitNodeCollector queue, CameraRenderState camera) {
         org.joml.Quaternionf cameraRotation = camera.orientation;
-    //?} else {
+    //?} else if >=1.21.5 {
     /*private void crystal$rotate(PoseStack matrices, Quaternionfc spin, ItemEntityRenderState state, PoseStack sameMatrices,
+                                net.minecraft.client.renderer.MultiBufferSource buffers, int light) {
+        org.joml.Quaternionf cameraRotation = net.minecraft.client.Minecraft.getInstance().gameRenderer.getMainCamera().rotation();
+    *///?} else {
+    /*private void crystal$rotate(PoseStack matrices, org.joml.Quaternionf spin, ItemEntityRenderState state, PoseStack sameMatrices,
                                 net.minecraft.client.renderer.MultiBufferSource buffers, int light) {
         org.joml.Quaternionf cameraRotation = net.minecraft.client.Minecraft.getInstance().gameRenderer.getMainCamera().rotation();
     *///?}

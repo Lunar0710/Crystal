@@ -147,7 +147,11 @@ public class ScreenshotUploader extends Module {
         if (message.startsWith("Screenshot uploaded")) {
             String url = message.substring(message.lastIndexOf(' ') + 1);
             text = Component.literal("[Crystal] Screenshot uploaded: ")
+                    //? if >=1.21.5 {
                     .append(Component.literal(url).withStyle(s -> s.withClickEvent(new ClickEvent.OpenUrl(URI.create(url)))));
+                    //?} else {
+                    /*.append(Component.literal(url).withStyle(s -> s.withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, url))));
+                    *///?}
         }
         mc.player.displayClientMessage(text, false);
     }

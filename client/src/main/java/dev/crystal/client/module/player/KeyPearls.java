@@ -19,6 +19,7 @@ import org.lwjgl.glfw.GLFW;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.Consumer;
+import dev.crystal.client.compat.InventoryCompat;
 
 /**
  * Crystal+: one key throws an ender pearl from the hotbar.
@@ -75,7 +76,7 @@ public class KeyPearls extends Module {
 
         switch (step) {
             case SELECT_PEARL -> {
-                if (player.getInventory().getSelectedSlot() == pearlSlot) {
+                if (InventoryCompat.selectedSlot(player) == pearlSlot) {
                     press(mc.options.keyUse);
                     step = Step.THROW;
                 } else {
@@ -120,7 +121,7 @@ public class KeyPearls extends Module {
         if (player.getCooldowns().isOnCooldown(player.getInventory().getItem(slot))) return;
 
         pearlSlot = slot;
-        previousSlot = player.getInventory().getSelectedSlot();
+        previousSlot = InventoryCompat.selectedSlot(player);
         if (previousSlot == pearlSlot) {
             press(mc.options.keyUse);
             step = Step.THROW;

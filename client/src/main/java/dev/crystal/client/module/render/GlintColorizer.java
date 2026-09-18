@@ -18,6 +18,7 @@ import net.minecraft.client.renderer.entity.ItemRenderer;
 import net.minecraft.client.renderer.texture.AbstractTexture;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.Identifier;
+import dev.crystal.client.compat.TextureCompat;
 
 /**
  * Recolours the enchantment shimmer on items and armor.
@@ -32,9 +33,11 @@ public class GlintColorizer extends Module {
 
     //? if >=26 {
     /*private static final Identifier[] GLINTS = {ItemFeatureRenderer.ENCHANTED_GLINT_ITEM, ItemFeatureRenderer.ENCHANTED_GLINT_ARMOR};
-    *///?} else {
+    *///?} else if >=1.21.5 {
     private static final Identifier[] GLINTS = {ItemRenderer.ENCHANTED_GLINT_ITEM, ItemRenderer.ENCHANTED_GLINT_ARMOR};
-    //?}
+    //?} else {
+    /*private static final Identifier[] GLINTS = {ItemRenderer.ENCHANTED_GLINT_ITEM, ItemRenderer.ENCHANTED_GLINT_ENTITY};
+    *///?}
 
     private int color = 0xFF5B8AF5;
     private float strength = 100f;
@@ -69,7 +72,7 @@ public class GlintColorizer extends Module {
 
             NativeImage tinted = loadTinted(GLINTS[i]);
             if (tinted == null) continue;
-            DynamicTexture texture = new DynamicTexture(() -> "Crystal glint", tinted);
+            DynamicTexture texture = TextureCompat.create(() -> "Crystal glint", tinted);
             textures.register(GLINTS[i], texture);
             ours[i] = texture;
         }

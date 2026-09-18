@@ -14,6 +14,7 @@ import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
+import dev.crystal.client.compat.InventoryCompat;
 
 /** Switches to whichever hotbar slot mines the targeted block fastest, the moment mining starts. */
 public class AutoTool extends Module {
@@ -49,7 +50,7 @@ public class AutoTool extends Module {
 
         // Restore the slot we came from once mining stops, when asked to.
         if (!pressed && switchBack && previousSlot >= 0) {
-            player.getInventory().setSelectedSlot(previousSlot);
+            InventoryCompat.setSelectedSlot(player, previousSlot);
             mc.getConnection().send(new ServerboundSetCarriedItemPacket(previousSlot));
             previousSlot = -1;
         }
@@ -59,9 +60,9 @@ public class AutoTool extends Module {
                 mc.level.getBlockState(hit.getBlockPos())) <= 1.0f) return;
 
         BlockState state = mc.level.getBlockState(hit.getBlockPos());
-        var hotbar = player.getInventory().getNonEquipmentItems();
+        var hotbar = InventoryCompat.nonEquipmentItems(player);
 
-        int bestSlot = player.getInventory().getSelectedSlot();
+        int bestSlot = InventoryCompat.selectedSlot(player);
         float bestSpeed = hotbar.get(bestSlot).getDestroySpeed(state);
 
         // Only the 9 hotbar slots are switchable without opening the inventory.
@@ -76,9 +77,9 @@ public class AutoTool extends Module {
             }
         }
 
-        if (bestSlot != player.getInventory().getSelectedSlot()) {
-            if (switchBack && previousSlot < 0) previousSlot = player.getInventory().getSelectedSlot();
-            player.getInventory().setSelectedSlot(bestSlot);
+        if (bestSlot != InventoryCompat.selectedSlot(player)) {
+            if (switchBack && previousSlot < 0) previousSlot = InventoryCompat.selectedSlot(player);
+            InventoryCompat.setSelectedSlot(player, bestSlot);
             mc.getConnection().send(new ServerboundSetCarriedItemPacket(bestSlot));
         }
     }

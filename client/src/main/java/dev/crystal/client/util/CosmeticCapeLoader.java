@@ -12,6 +12,7 @@ import java.util.concurrent.Executors;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.Identifier;
+import dev.crystal.client.compat.TextureCompat;
 
 /**
  * Loads whichever cape the launcher's Cosmetics page has equipped from
@@ -168,11 +169,11 @@ public final class CosmeticCapeLoader {
                     strip = image;
                     NativeImage frame = new NativeImage(image.getWidth(), image.getHeight() / frames, true);
                     image.copyRect(frame, 0, 0, 0, 0, frame.getWidth(), frame.getHeight(), false, false);
-                    animated = new DynamicTexture(() -> TEXTURE_ID.toString(), frame);
+                    animated = TextureCompat.create(() -> TEXTURE_ID.toString(), frame);
                     mc.getTextureManager().register(TEXTURE_ID, animated);
                 } else {
                     frames = 1;
-                    mc.getTextureManager().register(TEXTURE_ID, new DynamicTexture(() -> TEXTURE_ID.toString(), image));
+                    mc.getTextureManager().register(TEXTURE_ID, TextureCompat.create(() -> TEXTURE_ID.toString(), image));
                 }
                 registered = true;
             });

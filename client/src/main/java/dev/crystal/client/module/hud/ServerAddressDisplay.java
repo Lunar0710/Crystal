@@ -9,6 +9,7 @@ import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.Identifier;
+import dev.crystal.client.compat.TextureCompat;
 
 /** The address of the server you're on, optionally with the server's logo in front. */
 public class ServerAddressDisplay extends HudModule {
@@ -50,7 +51,7 @@ public class ServerAddressDisplay extends HudModule {
             try {
                 NativeImage image = NativeImage.read(favicon);
                 // Replaces (and frees) the previous server's logo.
-                mc.getTextureManager().register(LOGO_ID, new DynamicTexture(LOGO_ID::toString, image));
+                mc.getTextureManager().register(LOGO_ID, TextureCompat.create(LOGO_ID::toString, image));
                 uploadFailed = false;
             } catch (Exception e) {
                 CrystalClient.LOGGER.warn("[Crystal] Server logo could not be read: {}", e.getMessage());

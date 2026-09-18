@@ -17,6 +17,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.PlayerSkin;
+import dev.crystal.client.compat.TextureCompat;
 
 /**
  * Resolves a Minecraft username to its real skin (via Mojang's public APIs)
@@ -98,7 +99,7 @@ public final class SkinFetcher {
     private static void registerTexture(Identifier id, byte[] pngBytes) throws IOException {
         NativeImage image = NativeImage.read(pngBytes);
         Minecraft mc = Minecraft.getInstance();
-        mc.execute(() -> mc.getTextureManager().register(id, new DynamicTexture(() -> id.toString(), image)));
+        mc.execute(() -> mc.getTextureManager().register(id, TextureCompat.create(() -> id.toString(), image)));
     }
 
     private static JsonObject getJson(String url) throws IOException, InterruptedException {

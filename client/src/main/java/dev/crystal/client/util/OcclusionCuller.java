@@ -68,6 +68,11 @@ public final class OcclusionCuller {
         camera = pos;
     }
 
+    /** State of the culler in one line, for the world test's failure output. */
+    public static String debugState() {
+        return "enabled=" + enabled + " camera=" + camera + " targets=" + TARGETS.size() + " hidden=" + HIDDEN.size();
+    }
+
     public static boolean isEntityHidden(int entityId, AABB box) {
         return isHidden(entityId, box);
     }
