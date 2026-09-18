@@ -143,7 +143,8 @@ public class KeyPearls extends Module {
         clicks.crystal$setClickCount(clicks.crystal$getClickCount() + 1);
     }
 
-    private static boolean onHypixel(Minecraft mc) {
+    /** Hypixel counts one key doing several actions as a macro; Crystal's automation stays off there. */
+    public static boolean onHypixel(Minecraft mc) {
         var server = mc.getCurrentServer();
         if (server == null) return false;
         String host = server.ip.toLowerCase(Locale.ROOT).split(":")[0];

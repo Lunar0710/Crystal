@@ -47,8 +47,14 @@ public abstract class Module {
 
     public boolean isPlusOnly() { return PlusModules.NAMES.contains(name); }
 
-    /** A Crystal+ module while the player doesn't have Crystal+. */
-    public boolean isLocked() { return isPlusOnly() && !CrystalProfile.hasPerks(); }
+    /** Only for the owner rank (OwnerModules): hidden and off for everyone else. */
+    public boolean isOwnerOnly() { return OwnerModules.NAMES.contains(name); }
+
+    /** A Crystal+ module without Crystal+, or an owner module without the owner rank. */
+    public boolean isLocked() {
+        if (isOwnerOnly() && !"owner".equals(CrystalProfile.rank())) return true;
+        return isPlusOnly() && !CrystalProfile.hasPerks();
+    }
     public String getName() { return name; }
     public String getDescription() { return description; }
     public ModuleCategory getCategory() { return category; }

@@ -109,10 +109,10 @@ function writeTestSettings(gameDir) {
     },
   }, null, 2))
 
-  // A Crystal+ profile, so perk-only code paths run in the test too.
+  // The owner rank (which includes Crystal+), so perk and owner-only modules run in the test too.
   const profileDir = path.join(dataRoot, 'config')
   fs.mkdirSync(profileDir, { recursive: true })
-  fs.writeFileSync(path.join(profileDir, 'profile.json'), JSON.stringify({ perks: true, rank: 'crystal_plus' }))
+  fs.writeFileSync(path.join(profileDir, 'profile.json'), JSON.stringify({ perks: true, rank: 'owner' }))
 
   const cosmeticsDir = path.join(dataRoot, 'cosmetics')
   fs.mkdirSync(cosmeticsDir, { recursive: true })
@@ -254,8 +254,9 @@ function stripedCapePng() {
   const pearls = /KeyPearls test PASS/.test(text)
   const culling = /Culling test PASS/.test(text)
   const peer = /Peer test PASS/.test(text)
-  const passed = done && pearls && culling && peer && fs.existsSync(shot)
-  console.log(`${passed ? 'PASS' : 'FAIL'}: world test finished=${done} keyPearls=${pearls} culling=${culling} peer=${peer} screenshot=${fs.existsSync(shot) ? shot : 'missing'}`)
+  const builder = /AutoBuilder test PASS/.test(text)
+  const passed = done && pearls && culling && peer && builder && fs.existsSync(shot)
+  console.log(`${passed ? 'PASS' : 'FAIL'}: world test finished=${done} keyPearls=${pearls} culling=${culling} peer=${peer} builder=${builder} screenshot=${fs.existsSync(shot) ? shot : 'missing'}`)
   console.log(problems.length ? `log problems:\n${problems.slice(0, 25).join('\n')}` : 'log problems: none')
   process.exit(passed ? 0 : 1)
 })().catch(err => { console.log('FAIL:', err.message); process.exit(1) })

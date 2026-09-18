@@ -200,8 +200,17 @@ public final class SmokeTest {
                     msg -> CrystalClient.LOGGER.info("[Crystal] Smoke screenshot: {}", msg.getString()));
         }
 
+        // AutoBuilder: a small build with every awkward case, in survival from the inventory.
+        if (worldTicks == 360) startBuilderTest(mc);
+        if (builderResult == null && worldTicks > 360 && worldTicks % 10 == 0) checkBuilderTest(mc);
+        if (worldTicks == BUILDER_SHOT_TICK) {
+            Screenshot.grab(mc.gameDirectory, base + "-builder.png", mc.getMainRenderTarget(), 1,
+                    msg -> CrystalClient.LOGGER.info("[Crystal] Smoke screenshot: {}", msg.getString()));
+        }
+
         // Done once every check has an answer and the last screenshot is taken.
-        if (!finished && worldTicks > (peerTest ? 355 : 325) && keyPearlsResult != null && cullingResult != null) {
+        if (!finished && worldTicks > Math.max(peerTest ? 355 : 325, BUILDER_SHOT_TICK) && keyPearlsResult != null
+                && cullingResult != null && builderResult != null) {
             finished = true;
             CrystalClient.LOGGER.info("CRYSTAL_SMOKE_WORLD_DONE");
             mc.stop();
@@ -246,6 +255,83 @@ public final class SmokeTest {
     }
 
     private static int peerEntityId = -1;
+
+    // ------------------------------------------------------------ auto builder
+
+    private static final int BUILDER_DEADLINE = 700;
+    private static final int BUILDER_SHOT_TICK = 460;
+    private static Boolean builderResult = null;
+    private static java.util.Map<net.minecraft.core.BlockPos, net.minecraft.world.level.block.state.BlockState> builderPlan;
+    private static net.minecraft.core.BlockPos builderSupportSpot;
+
+    /**
+     * Two blocks to the side of the player: a log lying along X, stairs facing
+     * east on top of it, a top slab and a furnace facing west next to them,
+     * and glass floating one block above the stairs, which needs a support
+     * that must be gone again at the end.
+     */
+    private static void startBuilderTest(Minecraft mc) {
+        var o = mc.player.blockPosition().offset(2, 0, 1);
+        var plan = new java.util.LinkedHashMap<net.minecraft.core.BlockPos, net.minecraft.world.level.block.state.BlockState>();
+        plan.put(o, net.minecraft.world.level.block.Blocks.OAK_LOG.defaultBlockState()
+                .setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.AXIS, net.minecraft.core.Direction.Axis.X));
+        plan.put(o.above(), net.minecraft.world.level.block.Blocks.STONE_BRICK_STAIRS.defaultBlockState()
+                .setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.HORIZONTAL_FACING, net.minecraft.core.Direction.EAST));
+        plan.put(o.east(), net.minecraft.world.level.block.Blocks.SMOOTH_STONE_SLAB.defaultBlockState()
+                .setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.SLAB_TYPE, net.minecraft.world.level.block.state.properties.SlabType.TOP));
+        plan.put(o.east().above(), net.minecraft.world.level.block.Blocks.FURNACE.defaultBlockState()
+                .setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.HORIZONTAL_FACING, net.minecraft.core.Direction.WEST));
+        plan.put(o.above(3), net.minecraft.world.level.block.Blocks.GLASS.defaultBlockState());
+        builderPlan = plan;
+        builderSupportSpot = o.above(2);
+
+        var server = mc.getSingleplayerServer();
+        var uuid = mc.player.getUUID();
+        if (server != null) server.execute(() -> {
+            ServerPlayer sp = server.getPlayerList().getPlayer(uuid);
+            if (sp == null) return;
+            // In the main inventory, not the hotbar, so the swap into the hotbar is tested too.
+            sp.getInventory().setItem(20, new ItemStack(Items.OAK_LOG, 4));
+            sp.getInventory().setItem(21, new ItemStack(Items.STONE_BRICK_STAIRS, 4));
+            sp.getInventory().setItem(22, new ItemStack(Items.SMOOTH_STONE_SLAB, 4));
+            sp.getInventory().setItem(23, new ItemStack(Items.FURNACE, 1));
+            sp.getInventory().setItem(24, new ItemStack(Items.GLASS, 4));
+            sp.getInventory().setItem(25, new ItemStack(Items.DIRT, 8));
+        });
+
+        CrystalClient.getInstance().getModuleManager().getModuleByName("AutoBuilder")
+                .filter(m -> m instanceof dev.crystal.client.module.player.AutoBuilder)
+                .map(m -> (dev.crystal.client.module.player.AutoBuilder) m)
+                .ifPresent(builder -> {
+                    builder.useSourceForTest(new dev.crystal.client.build.SchematicSource() {
+                        @Override public boolean available() { return true; }
+                        @Override public net.minecraft.world.level.block.state.BlockState expected(net.minecraft.core.BlockPos pos) {
+                            return builderPlan.get(pos);
+                        }
+                    });
+                    builder.setEnabled(true);
+                });
+    }
+
+    private static void checkBuilderTest(Minecraft mc) {
+        int right = 0;
+        StringBuilder wrong = new StringBuilder();
+        for (var entry : builderPlan.entrySet()) {
+            var have = mc.level.getBlockState(entry.getKey());
+            if (have == entry.getValue()) right++;
+            else wrong.append(" ").append(entry.getValue().getBlock().getName().getString()).append("=").append(have);
+        }
+        boolean supportGone = mc.level.getBlockState(builderSupportSpot).isAir();
+        boolean done = right == builderPlan.size() && supportGone;
+        if (done || worldTicks >= BUILDER_DEADLINE) {
+            builderResult = done;
+            String status = CrystalClient.getInstance().getModuleManager().getModuleByName("AutoBuilder")
+                    .map(m -> ((dev.crystal.client.module.player.AutoBuilder) m).status()).orElse("?");
+            CrystalClient.LOGGER.info("[Crystal] AutoBuilder test {}: {}/{} right, support gone={} ({}) after {} ticks{} [{}]",
+                    done ? "PASS" : "FAILED", right, builderPlan.size(), supportGone, mc.level.getBlockState(builderSupportSpot), worldTicks - 360,
+                    wrong.length() > 0 ? " wrong:" + wrong : "", status);
+        }
+    }
 
     private static final String CULL_WALLED = "crystal-cull-walled";
     private static final String CULL_OPEN = "crystal-cull-open";

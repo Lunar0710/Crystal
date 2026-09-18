@@ -31,6 +31,21 @@ public final class InventoryCompat {
         *///?}
     }
 
+    /**
+     * Swaps a main inventory slot (9-35) with a hotbar slot (0-8): the same
+     * as pressing that hotbar number over the item in the inventory screen.
+     * 26.1 renamed the call (and ClickType, see replacements.gradle).
+     */
+    public static void swapIntoHotbar(net.minecraft.client.Minecraft mc, int inventorySlot, int hotbarSlot) {
+        if (mc.gameMode == null || mc.player == null) return;
+        int container = mc.player.inventoryMenu.containerId;
+        //? if >=26 {
+        /*mc.gameMode.handleContainerInput(container, inventorySlot, hotbarSlot, net.minecraft.world.inventory.ClickType.SWAP, mc.player);
+        *///?} else {
+        mc.gameMode.handleInventoryMouseClick(container, inventorySlot, hotbarSlot, net.minecraft.world.inventory.ClickType.SWAP, mc.player);
+        //?}
+    }
+
     /** Everything carried that is not worn: hotbar and main inventory. */
     public static List<ItemStack> nonEquipmentItems(Player player) {
         //? if >=1.21.5 {
