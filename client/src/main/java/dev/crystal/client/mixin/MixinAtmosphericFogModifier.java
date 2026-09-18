@@ -1,5 +1,7 @@
 package dev.crystal.client.mixin;
 
+// Fog environments exist from 1.21.6 on; before that MixinFogRenderer handles the distances too.
+//? if >=1.21.6 {
 import dev.crystal.client.CrystalClient;
 import dev.crystal.client.module.render.FogCustomizer;
 import net.minecraft.client.Camera;
@@ -38,3 +40,8 @@ public class MixinAtmosphericFogModifier {
         fogData.environmentalEnd *= multiplier;
     }
 }
+//?} else {
+/*@org.spongepowered.asm.mixin.Mixin(net.minecraft.client.Minecraft.class)
+public class MixinAtmosphericFogModifier {
+}
+*///?}

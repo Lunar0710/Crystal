@@ -1,5 +1,7 @@
 package dev.crystal.client.mixin;
 
+// Post effect uniform buffers exist from 1.21.6 on; older versions get an empty mixin.
+//? if >=1.21.6 {
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.buffers.Std140Builder;
@@ -75,3 +77,8 @@ public class MixinPostEffectPass {
         }
     }
 }
+//?} else {
+/*@org.spongepowered.asm.mixin.Mixin(net.minecraft.client.Minecraft.class)
+public class MixinPostEffectPass {
+}
+*///?}

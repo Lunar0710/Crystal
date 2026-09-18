@@ -46,7 +46,7 @@ public final class SmokeTest {
                 server.execute(() -> {
                     ServerPlayer sp = server.getPlayerList().getPlayer(uuid);
                     if (sp == null) return;
-                    //? if <26 {
+                    //? if >=1.21.6 && <26 {
                     sp.level().setDayTime(6000);
                     //?}
                     // No helmet, so hat and mask cosmetics stay visible in the screenshot.
@@ -55,6 +55,7 @@ public final class SmokeTest {
                     equip(sp, EquipmentSlot.FEET, new ItemStack(Items.GOLDEN_BOOTS), 0.3f);
                     equip(sp, EquipmentSlot.MAINHAND, new ItemStack(Items.NETHERITE_SWORD), 0.2f);
                     sp.getInventory().setItem(3, new ItemStack(Items.ENDER_PEARL, 16));
+                    placeCullingTargets(server.overworld(), sp.blockPosition());
                 });
             }
         }
@@ -123,10 +124,52 @@ public final class SmokeTest {
             CrystalClient.LOGGER.info("[Crystal] KeyPearls test {}: pearls={} slot={}", ok ? "PASS" : "FAILED", pearls, slot);
         }
 
+        // SmartCulling: the walled-in stand must count as hidden, the open one as visible.
+        if (worldTicks >= 100 && worldTicks <= 150) {
+            Boolean walled = null, open = null;
+            for (var entity : mc.level.entitiesForRendering()) {
+                if (entity.getCustomName() == null) continue;
+                boolean hidden = dev.crystal.client.util.OcclusionCuller.isEntityHidden(entity.getId(), entity.getBoundingBox());
+                if (CULL_WALLED.equals(entity.getCustomName().getString())) walled = hidden;
+                if (CULL_OPEN.equals(entity.getCustomName().getString())) open = hidden;
+            }
+            if (worldTicks == 150) {
+                boolean ok = Boolean.TRUE.equals(walled) && Boolean.FALSE.equals(open);
+                CrystalClient.LOGGER.info("[Crystal] Culling test {}: walled={} open={}", ok ? "PASS" : "FAILED", walled, open);
+            }
+        }
+
         if (worldTicks == 310) {
             CrystalClient.LOGGER.info("CRYSTAL_SMOKE_WORLD_DONE");
             mc.stop();
         }
+    }
+
+    private static final String CULL_WALLED = "crystal-cull-walled";
+    private static final String CULL_OPEN = "crystal-cull-open";
+
+    /**
+     * Two armor stands 12 blocks behind the player (in view of the front
+     * camera): one inside a closed stone box, one in the open.
+     */
+    private static void placeCullingTargets(net.minecraft.server.level.ServerLevel level, net.minecraft.core.BlockPos player) {
+        net.minecraft.core.BlockPos walled = player.offset(-2, 0, -12);
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 2; dy++) {
+                for (int dz = -1; dz <= 1; dz++) {
+                    boolean inside = dx == 0 && dz == 0 && (dy == 0 || dy == 1);
+                    if (!inside) level.setBlockAndUpdate(walled.offset(dx, dy, dz), net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+                }
+            }
+        }
+        spawnStand(level, walled, CULL_WALLED);
+        spawnStand(level, player.offset(2, 0, -12), CULL_OPEN);
+    }
+
+    private static void spawnStand(net.minecraft.server.level.ServerLevel level, net.minecraft.core.BlockPos pos, String name) {
+        var stand = new net.minecraft.world.entity.decoration.ArmorStand(level, pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5);
+        stand.setCustomName(net.minecraft.network.chat.Component.literal(name));
+        level.addFreshEntity(stand);
     }
 
     /** Equips the item with the given fraction of its durability used up. */

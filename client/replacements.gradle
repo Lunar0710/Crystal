@@ -93,6 +93,22 @@ stonecutter.replacements.regex(before1_21_9) {
     r 'getProfile\\(\\)\\.id\\(\\)', 'getProfile().getId()'
 }
 
+// 1.21.6 moved GUI drawing to a 2D matrix stack; for the versions before it.
+def before1_21_6 = stonecutter.current.parsed.matches('<1.21.6')
+
+stonecutter.replacements.regex(before1_21_6) {
+    def r = { String from, String to -> forward(delegate, from, to) }
+    r '\\.pose\\(\\)\\.pushMatrix\\(\\)', '.pose().pushPose()'
+    r '\\.pose\\(\\)\\.popMatrix\\(\\)', '.pose().popPose()'
+    r '\\.pose\\(\\)\\.translate\\(([^;]*)\\);', '.pose().translate($1, 0f);'
+    r '\\.pose\\(\\)\\.scale\\(([^;]*)\\);', '.pose().scale($1, 1f);'
+    // Textured GUI quads take a render type factory instead of a pipeline.
+    r 'net\\.minecraft\\.client\\.renderer\\.RenderPipelines\\b', 'net.minecraft.client.renderer.RenderType'
+    r 'RenderPipelines\\.GUI_TEXTURED', 'RenderType::guiTextured'
+    // Screenshots have no scale argument yet.
+    r 'Screenshot\\.grab\\(([^,]+), ([^,]+), ([^,]+), 1,', 'Screenshot.grab($1, $2, $3,'
+}
+
 // Names Mojang changed in 1.21.11, for the versions before it.
 def before1_21_11 = stonecutter.current.parsed.matches('<1.21.11')
 

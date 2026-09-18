@@ -3,6 +3,10 @@ package dev.crystal.client.mixin;
 import dev.crystal.client.CrystalClient;
 import dev.crystal.client.module.render.CrystalLogo;
 import dev.crystal.client.module.render.NameTags;
+import dev.crystal.client.module.render.SmartCulling;
+import dev.crystal.client.util.OcclusionCuller;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.culling.Frustum;
 import dev.crystal.client.module.render.TeamView;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.state.EntityRenderState;
@@ -12,10 +16,26 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /** NameTags health, TeamView markers and the Crystal logo, added to a player's label as its render state is built. */
 @Mixin(EntityRenderer.class)
 public class MixinEntityRenderer {
+
+    /** SmartCulling: an entity fully behind walls is not drawn. */
+    @Inject(method = "shouldRender", at = @At("RETURN"), cancellable = true)
+    private void crystal$cull(Entity entity, Frustum frustum, double camX, double camY, double camZ,
+                              CallbackInfoReturnable<Boolean> cir) {
+        if (!cir.getReturnValueZ()) return;
+        CrystalClient client = CrystalClient.getInstance();
+        SmartCulling culling = client == null ? null : client.getModuleManager().get(SmartCulling.class);
+        if (culling == null || !culling.cullsEntities()) return;
+        // Never the player's own entity, what they ride, or glowing (outlined) entities.
+        Minecraft mc = Minecraft.getInstance();
+        if (entity == mc.getCameraEntity() || entity.isCurrentlyGlowing()
+                || (mc.player != null && (entity.hasPassenger(mc.player) || mc.player.hasPassenger(entity)))) return;
+        if (OcclusionCuller.isEntityHidden(entity.getId(), entity.getBoundingBox())) cir.setReturnValue(false);
+    }
 
     @Inject(method = "extractRenderState", at = @At("TAIL"))
     private void crystal$decorateLabel(Entity entity, EntityRenderState state, float tickProgress, CallbackInfo ci) {

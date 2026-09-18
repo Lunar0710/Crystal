@@ -7,12 +7,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import java.util.List;
-import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipComponent;
-import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipPositioner;
-import net.minecraft.resources.Identifier;
 
 /**
  * Translates the whole tooltip draw up/down by ScrollableTooltips' offset,
@@ -24,12 +19,15 @@ import net.minecraft.resources.Identifier;
 @Mixin(GuiGraphics.class)
 public class MixinDrawContext {
 
-    @Inject(
-        method = "setTooltipForNextFrameInternal(Lnet/minecraft/client/gui/Font;Ljava/util/List;IILnet/minecraft/client/gui/screens/inventory/tooltip/ClientTooltipPositioner;Lnet/minecraft/resources/Identifier;Z)V",
-        at = @At("HEAD")
-    )
-    private void onDrawTooltipStart(Font textRenderer, List<ClientTooltipComponent> components, int x, int y,
-                                     ClientTooltipPositioner positioner, Identifier texture, boolean bordered, CallbackInfo ci) {
+    /** Where tooltips are laid out; before 1.21.6 they were drawn right there. */
+    //? if >=1.21.6 {
+    private static final String TOOLTIP = "setTooltipForNextFrameInternal(Lnet/minecraft/client/gui/Font;Ljava/util/List;IILnet/minecraft/client/gui/screens/inventory/tooltip/ClientTooltipPositioner;Lnet/minecraft/resources/Identifier;Z)V";
+    //?} else {
+    /*private static final String TOOLTIP = "renderTooltipInternal(Lnet/minecraft/client/gui/Font;Ljava/util/List;IILnet/minecraft/client/gui/screens/inventory/tooltip/ClientTooltipPositioner;Lnet/minecraft/resources/Identifier;)V";
+    *///?}
+
+    @Inject(method = TOOLTIP, at = @At("HEAD"))
+    private void onDrawTooltipStart(CallbackInfo ci) {
         ScrollableTooltips module = scrollModule();
         if (module == null || module.getOffset() == 0f) return;
 
@@ -38,12 +36,8 @@ public class MixinDrawContext {
         self.pose().translate(0, module.getOffset());
     }
 
-    @Inject(
-        method = "setTooltipForNextFrameInternal(Lnet/minecraft/client/gui/Font;Ljava/util/List;IILnet/minecraft/client/gui/screens/inventory/tooltip/ClientTooltipPositioner;Lnet/minecraft/resources/Identifier;Z)V",
-        at = @At("RETURN")
-    )
-    private void onDrawTooltipEnd(Font textRenderer, List<ClientTooltipComponent> components, int x, int y,
-                                   ClientTooltipPositioner positioner, Identifier texture, boolean bordered, CallbackInfo ci) {
+    @Inject(method = TOOLTIP, at = @At("RETURN"))
+    private void onDrawTooltipEnd(CallbackInfo ci) {
         ScrollableTooltips module = scrollModule();
         if (module == null || module.getOffset() == 0f) return;
 

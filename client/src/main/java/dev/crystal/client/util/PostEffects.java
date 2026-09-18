@@ -24,6 +24,8 @@ public final class PostEffects {
     private PostEffects() {}
 
     public static void register() {
+        // The shaders use uniform blocks, which post effects support from 1.21.6 on.
+        //? if >=1.21.6
         CrystalClient.getInstance().getEventBus().subscribe(TickEvent.class, e -> tick(e.getClient()));
     }
 

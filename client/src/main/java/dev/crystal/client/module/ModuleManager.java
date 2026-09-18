@@ -61,6 +61,7 @@ public class ModuleManager {
         register(new ScrollableTooltips());
         register(new BlockOutline());
         register(new ChunkBorders());
+        //? if >=1.21.6
         register(new ColorSaturation());
         register(new Crosshair());
         register(new FogCustomizer());
@@ -123,12 +124,14 @@ public class ModuleManager {
         register(new dev.crystal.client.module.render.NameTags());
         register(new dev.crystal.client.module.render.TeamView());
         register(new dev.crystal.client.module.render.CrystalLogo());
+        register(new dev.crystal.client.module.render.SmartCulling());
         register(new dev.crystal.client.module.render.ParticleChanger());
         register(new dev.crystal.client.module.render.BetterSounds());
         register(new dev.crystal.client.module.misc.PackOrganizer());
         register(new dev.crystal.client.module.render.Items2D());
         register(new dev.crystal.client.module.render.ItemPhysics());
         register(new dev.crystal.client.module.render.GlintColorizer());
+        //? if >=1.21.6
         register(new dev.crystal.client.module.render.MotionBlur());
         register(new dev.crystal.client.module.render.WorldEditCUI());
         register(new dev.crystal.client.module.misc.MumbleLink());

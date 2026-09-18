@@ -12,6 +12,7 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+//? if >=1.21.6
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.minecraft.resources.Identifier;
 import net.minecraft.network.chat.Component;
@@ -73,8 +74,13 @@ public class CrystalClient implements ClientModInitializer {
         });
 
         // Drawn after every vanilla HUD element, on top of them.
+        //? if >=1.21.6 {
         HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(MOD_ID, "hud"),
                 (drawContext, tickCounter) -> hud.render(drawContext, tickCounter.getGameTimeDeltaPartialTick(true)));
+        //?} else {
+        /*net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback.EVENT.register(
+                (drawContext, tickCounter) -> hud.render(drawContext, tickCounter.getGameTimeDeltaPartialTick(true)));
+        *///?}
 
         // Block outline, hitboxes and chunk borders draw in world space.
         dev.crystal.client.render.WorldRenderHandler.register();

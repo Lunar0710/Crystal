@@ -20,6 +20,7 @@
     "MixinBossBarHud",
     "MixinPlayerListHud",
     "MixinTabListName",
+    "MixinBlockEntityCulling",
     "MixinMouseScroll",
     "MixinDrawContext",
     "MixinAtmosphericFogModifier",

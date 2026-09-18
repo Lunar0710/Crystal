@@ -205,7 +205,7 @@ function stripedCapePng() {
   }
   log('launching')
   const ok = await manager.launch({
-    version: VERSION, instanceId: 'smoke-world', gameDir, username: profile.username, profile, maxRam: 3072,
+    version: VERSION, instanceId: 'smoke-world', gameDir, username: profile.username, profile, maxRam: Number(process.env.CRYSTAL_SMOKE_RAM || 3072),
     loader: 'fabric', injectCrystal: true,
     extraJvmArgs: [`-Dcrystal.smoke.screenshot=${shotName}`],
     extraGameArgs: ['--quickPlaySingleplayer', 'smoke'],
