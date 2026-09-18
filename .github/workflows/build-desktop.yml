@@ -67,6 +67,12 @@ jobs:
       # Joins a generated test world with Crystal's test settings (colour
       # grading, armor HUD, cosmetics) and saves a screenshot to look at.
       # Linux only: it needs a real OpenGL window (Mesa under Xvfb).
+      # The world test starts a local Crystal server (server/) for the
+      # other-player check, which needs its own packages.
+      - name: Install Crystal server packages
+        if: runner.os == 'Linux'
+        run: npm ci --prefix server
+
       - name: Play a test world and take a screenshot
         if: runner.os == 'Linux'
         working-directory: launcher
