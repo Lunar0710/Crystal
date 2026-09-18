@@ -186,12 +186,7 @@ public class CrystalHUD {
         boolean crystalLook = module.isCrystalLook();
         if (module.hasBackground()) {
             int fill = module.getBackgroundColor();
-            switch (module.getEffectiveStyle()) {
-                case HudModule.STYLE_GLASS -> drawGlass(context, -4, -3, textWidth + 4, 11, fill);
-                case HudModule.STYLE_NEON -> drawNeon(context, -4, -3, textWidth + 4, 11, fill);
-                case HudModule.STYLE_PILL -> drawPill(context, -6, -3, textWidth + 6, 11, fill);
-                default -> context.fill(-3, -2, textWidth + 3, 10, fill);
-            }
+            drawStyled(context, module, -4, -3, textWidth + 4, 11, fill);
         } else if (crystalLook) {
             // 11px tall, so HUD lines on the default 12px rows keep a 1px gap.
             GuiRender.roundedRect(context, -3, -2, textWidth + 3, 9, 3, 0x9E0A0D15);
@@ -226,6 +221,50 @@ public class CrystalHUD {
         }
 
         context.pose().popMatrix();
+    }
+
+    /**
+     * A module's background in its style. The box is the styled one; the plain
+     * flat fill sits one pixel inside it, and the pill two pixels wider for its round ends.
+     */
+    private void drawStyled(GuiGraphics context, HudModule module, int x1, int y1, int x2, int y2, int fill) {
+        switch (module.getEffectiveStyle()) {
+            case HudModule.STYLE_GLASS -> drawGlass(context, x1, y1, x2, y2, fill);
+            case HudModule.STYLE_NEON -> drawNeon(context, x1, y1, x2, y2, fill);
+            case HudModule.STYLE_PILL -> drawPill(context, x1 - 2, y1, x2 + 2, y2, fill);
+            case HudModule.STYLE_GRADIENT -> drawGradient(context, x1, y1, x2, y2, fill);
+            case HudModule.STYLE_SPLIT -> drawSplit(context, x1, y1, x2, y2, fill);
+            case HudModule.STYLE_RAINBOW -> drawRainbow(context, module, x1, y1, x2, y2, fill);
+            default -> context.fill(x1 + 1, y1 + 1, x2 - 1, y2 - 1, fill);
+        }
+    }
+
+    /** Crystal+ "gradient": the accent colour fading down into the panel colour. */
+    private void drawGradient(GuiGraphics context, int x1, int y1, int x2, int y2, int fill) {
+        int accent = dev.crystal.client.CrystalClient.getInstance().getThemeManager().getAccent();
+        int alpha = fill >>> 24;
+        int top = (Math.max(alpha, 0x60) << 24) | (accent & 0x00FFFFFF);
+        GuiRender.roundedRect(context, x1, y1, x2, y2, fill);
+        context.fillGradient(x1 + 1, y1 + 1, x2 - 1, y2 - 1, top, fill);
+    }
+
+    /** Crystal+ "split": a solid accent bar on the left, the panel beside it. */
+    private void drawSplit(GuiGraphics context, int x1, int y1, int x2, int y2, int fill) {
+        int accent = dev.crystal.client.CrystalClient.getInstance().getThemeManager().getAccent();
+        context.fill(x1 + 2, y1, x2, y2, fill);
+        context.fill(x1, y1, x1 + 2, y2, GuiRender.withAlpha(accent, 0xFF));
+    }
+
+    /**
+     * Crystal+ "rainbow": the panel with an outline whose hue keeps turning,
+     * offset by the module's position like chroma text so several lines flow.
+     */
+    private void drawRainbow(GuiGraphics context, HudModule module, int x1, int y1, int x2, int y2, int fill) {
+        long period = 3000;
+        float hue = ((System.currentTimeMillis() + (long) (module.getY() * 12 + module.getX() * 4)) % period) / (float) period;
+        int color = 0xFF000000 | dev.crystal.client.util.ColorUtil.hsbToRgb(hue, 0.7f, 1f);
+        GuiRender.roundedRect(context, x1, y1, x2, y2, fill);
+        GuiRender.roundedOutline(context, x1, y1, x2, y2, color);
     }
 
     /** Crystal+ "neon": dark panel, accent outline and a soft accent bloom one pixel outside it. */
@@ -295,12 +334,7 @@ public class CrystalHUD {
 
         if (module.hasBackground()) {
             int fill = module.getBackgroundColor();
-            switch (module.getEffectiveStyle()) {
-                case HudModule.STYLE_GLASS -> drawGlass(context, -3, -3, totalW + 3, totalH + 3, fill);
-                case HudModule.STYLE_NEON -> drawNeon(context, -3, -3, totalW + 3, totalH + 3, fill);
-                case HudModule.STYLE_PILL -> drawPill(context, -5, -3, totalW + 5, totalH + 3, fill);
-                default -> context.fill(-2, -2, totalW + 2, totalH + 2, fill);
-            }
+            drawStyled(context, module, -3, -3, totalW + 3, totalH + 3, fill);
         }
 
         for (int i = 0; i < stacks.size(); i++) {

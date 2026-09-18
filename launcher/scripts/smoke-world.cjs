@@ -101,8 +101,18 @@ function writeTestSettings(gameDir) {
       ServerAddress: { enabled: true },
       '3D Skins': { enabled: true },
       WorldEditCUI: { enabled: true },
+      // Crystal+ HUD styles, one per line at the default top-left positions,
+      // so the screenshot shows each of them (the profile below unlocks them).
+      FPS: { enabled: true, settings: { Background: true, 'BG Opacity': 70, 'BG Style': 'Gradient (Crystal+)' } },
+      CPS: { enabled: true, settings: { Background: true, 'BG Opacity': 70, 'BG Style': 'Split (Crystal+)' } },
+      Coordinates: { enabled: true, settings: { Background: true, 'BG Opacity': 70, 'BG Style': 'Rainbow (Crystal+)' } },
     },
   }, null, 2))
+
+  // A Crystal+ profile, so perk-only code paths run in the test too.
+  const profileDir = path.join(dataRoot, 'config')
+  fs.mkdirSync(profileDir, { recursive: true })
+  fs.writeFileSync(path.join(profileDir, 'profile.json'), JSON.stringify({ perks: true, rank: 'crystal_plus' }))
 
   const cosmeticsDir = path.join(dataRoot, 'cosmetics')
   fs.mkdirSync(cosmeticsDir, { recursive: true })

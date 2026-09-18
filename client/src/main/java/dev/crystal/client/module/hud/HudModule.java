@@ -110,6 +110,9 @@ public abstract class HudModule extends Module implements HudRenderable {
     public static final String STYLE_GLASS = "Glass (Crystal+)";
     public static final String STYLE_NEON = "Neon (Crystal+)";
     public static final String STYLE_PILL = "Pill (Crystal+)";
+    public static final String STYLE_GRADIENT = "Gradient (Crystal+)";
+    public static final String STYLE_SPLIT = "Split (Crystal+)";
+    public static final String STYLE_RAINBOW = "Rainbow (Crystal+)";
 
     /**
      * Crystal: a small dark panel with the label ("FPS") in the accent colour.
@@ -163,7 +166,7 @@ public abstract class HudModule extends Module implements HudRenderable {
         all.add(new BooleanSetting("Background", () -> background, v -> background = v, false));
         all.add(new ColorSetting("BG Color", () -> backgroundColor, v -> backgroundColor = v, 0xFF000000));
         all.add(new SliderSetting("BG Opacity", () -> backgroundOpacity, v -> backgroundOpacity = v, 0f, 100f, 5f, 0));
-        all.add(new EnumSetting("BG Style", () -> backgroundStyle, v -> backgroundStyle = v, List.of(STYLE_FLAT, STYLE_GLASS, STYLE_NEON, STYLE_PILL)));
+        all.add(new EnumSetting("BG Style", () -> backgroundStyle, v -> backgroundStyle = v, List.of(STYLE_FLAT, STYLE_GLASS, STYLE_NEON, STYLE_PILL, STYLE_GRADIENT, STYLE_SPLIT, STYLE_RAINBOW)));
         all.add(new BooleanSetting("Chroma Text (Crystal+)", () -> chroma, v -> chroma = v, false));
         return all;
     }
