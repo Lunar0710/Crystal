@@ -11,8 +11,17 @@ const { spawnSync } = require('child_process')
 function prepareOptions(gameDir) {
   fs.mkdirSync(gameDir, { recursive: true })
   const file = path.join(gameDir, 'options.txt')
-  if (fs.existsSync(file)) return
+  if (fs.existsSync(file)) {
+    // Older test folders: the game must not pause when another window takes
+    // the focus mid-test, or later screenshots show the pause menu.
+    const text = fs.readFileSync(file, 'utf8')
+    if (!/^pauseOnLostFocus:false$/m.test(text)) {
+      fs.writeFileSync(file, text.replace(/^pauseOnLostFocus:.*\r?\n?/m, '') + 'pauseOnLostFocus:false\n')
+    }
+    return
+  }
   fs.writeFileSync(file, [
+    'pauseOnLostFocus:false',
     'onboardAccessibility:false',
     'skipMultiplayerWarning:true',
     'joinedFirstServer:true',

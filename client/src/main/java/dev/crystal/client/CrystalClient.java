@@ -73,7 +73,11 @@ public class CrystalClient implements ClientModInitializer {
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             eventBus.post(new dev.crystal.client.event.events.TickEvent(client));
+            dev.crystal.client.net.CrystalNet.tick(client);
         });
+
+        // Other Crystal players' emotes and cosmetics; off without a server address.
+        dev.crystal.client.net.CrystalNet.start();
 
         // Drawn after every vanilla HUD element, on top of them.
         //? if >=1.21.6 {

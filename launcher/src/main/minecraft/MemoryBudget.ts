@@ -54,11 +54,21 @@ export function fitHeap(requestedMb: number, freeCommitMb: number | null): HeapD
  */
 export function freeCommitMb(): Promise<number | null> {
   if (process.platform !== 'win32') return Promise.resolve(null)
+  // In the launcher: Electron reads it straight from Windows, instantly. On
+  // Windows its "swap" figures are the commit limit and what is left of it,
+  // the same number as FreeVirtualMemory below.
+  const electronInfo = (process as unknown as { getSystemMemoryInfo?: () => { swapFree?: number } }).getSystemMemoryInfo
+  if (typeof electronInfo === 'function') {
+    const swapFreeKb = electronInfo().swapFree
+    if (typeof swapFreeKb === 'number' && swapFreeKb > 0) return Promise.resolve(Math.floor(swapFreeKb / 1024))
+  }
+  // Plain Node (the automated tests): ask Windows through PowerShell, which
+  // takes a few seconds to start.
   return new Promise(resolve => {
     execFile(
       'powershell.exe',
       ['-NoProfile', '-NonInteractive', '-Command', '(Get-CimInstance Win32_OperatingSystem).FreeVirtualMemory'],
-      { timeout: 5000, windowsHide: true },
+      { timeout: 20000, windowsHide: true },
       (err, stdout) => {
         const kb = Number(String(stdout).trim())
         if (err || !Number.isFinite(kb) || kb <= 0) {

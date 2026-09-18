@@ -22,7 +22,14 @@ public class MixinAbstractClientPlayerEntity {
         if (CrystalClient.getInstance() == null) return;
 
         Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null || (Object) this != mc.player) return;
+        if (mc.player == null) return;
+        if ((Object) this != mc.player) {
+            // Another Crystal player's cape, by id from the Crystal server.
+            var peer = dev.crystal.client.net.PeerRegistry.get(((AbstractClientPlayer) (Object) this).getUUID());
+            Identifier peerCape = peer == null ? null : dev.crystal.client.net.PeerCapes.texture(peer.capeId());
+            if (peerCape != null) cir.setReturnValue(SkinCompat.withCape(cir.getReturnValue(), peerCape));
+            return;
+        }
 
         PlayerSkin current = cir.getReturnValue();
         boolean changed = false;

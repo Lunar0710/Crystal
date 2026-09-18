@@ -6,6 +6,7 @@ import com.mojang.math.Axis;
 import dev.crystal.client.util.CosmeticLoadout;
 import dev.crystal.client.util.CosmeticLoadout.Box;
 import dev.crystal.client.util.CosmeticLoadout.Item;
+import dev.crystal.client.net.PeerRegistry;
 import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.player.PlayerModel;
@@ -51,15 +52,24 @@ public class CosmeticsFeatureRenderer extends RenderLayer<AvatarRenderState, Pla
     @Override
     public void submit(PoseStack matrices, SubmitNodeCollector queue, int light, AvatarRenderState state, float limbAngle, float limbDistance) {
         Minecraft mc = Minecraft.getInstance();
-        // Own player only, same as the cape: the loadout lives on this PC.
-        if (mc.player == null || state.id != mc.player.getId() || state.isInvisible) return;
-        if (CosmeticLoadout.isEmpty()) return;
+        if (mc.player == null || state.isInvisible) return;
+        // Your own loadout comes from the launcher's file, other Crystal
+        // players' from the Crystal server (already checked for their rank there).
+        java.util.function.Function<String, Item> itemIn;
+        if (state.id == mc.player.getId()) {
+            if (CosmeticLoadout.isEmpty()) return;
+            itemIn = CosmeticLoadout::get;
+        } else {
+            PeerRegistry.Peer peer = PeerRegistry.forEntity(state.id);
+            if (peer == null || peer.items().isEmpty()) return;
+            itemIn = peer.items()::get;
+        }
 
         RenderType layer = RenderTypes.entityCutoutNoCull(WHITE);
         PlayerModel model = getParentModel();
 
         for (String slot : new String[]{CosmeticLoadout.HAT, CosmeticLoadout.BANDANA, CosmeticLoadout.MASK}) {
-            Item item = CosmeticLoadout.get(slot);
+            Item item = itemIn.apply(slot);
             if (item == null || item.boxes().isEmpty()) continue;
             matrices.pushPose();
             model.head.translateAndRotate(matrices);
@@ -70,8 +80,8 @@ public class CosmeticsFeatureRenderer extends RenderLayer<AvatarRenderState, Pla
             matrices.popPose();
         }
 
-        Item backpack = CosmeticLoadout.get(CosmeticLoadout.BACKPACK);
-        Item wings = CosmeticLoadout.get(CosmeticLoadout.WINGS);
+        Item backpack = itemIn.apply(CosmeticLoadout.BACKPACK);
+        Item wings = itemIn.apply(CosmeticLoadout.WINGS);
         if ((backpack != null && !backpack.boxes().isEmpty()) || (wings != null && !wings.boxes().isEmpty())) {
             matrices.pushPose();
             model.body.translateAndRotate(matrices);
@@ -81,7 +91,7 @@ public class CosmeticsFeatureRenderer extends RenderLayer<AvatarRenderState, Pla
             matrices.popPose();
         }
 
-        Item aura = CosmeticLoadout.get(CosmeticLoadout.AURA);
+        Item aura = itemIn.apply(CosmeticLoadout.AURA);
         if (aura != null) renderAura(matrices, queue, layer, aura, state.ageInTicks);
     }
 

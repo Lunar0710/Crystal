@@ -145,10 +145,11 @@ export function Cosmetics() {
     if (loadout.cape?.startsWith('custom:') && !equippedCapeUrl) return
     // Animated capes go to the game as a strip of frames instead.
     if (animatedDef) {
-      api?.syncCapeAnimation(capeAnimationStrip(animatedDef), ANIMATION_FRAMES, ANIMATION_FPS)
+      api?.syncCapeAnimation(capeAnimationStrip(animatedDef), ANIMATION_FRAMES, ANIMATION_FPS, animatedDef.id)
       return
     }
-    api?.syncEquippedCape(equippedCapeUrl)
+    // The id lets other Crystal players see a built-in cape; uploaded ones stay private.
+    api?.syncEquippedCape(equippedCapeUrl, equippedDef?.id ?? null)
   }, [equippedCapeUrl, animatedDef?.id])
 
   // The 3D preview plays animated capes at the same speed as the game.

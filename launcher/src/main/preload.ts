@@ -112,8 +112,12 @@ contextBridge.exposeInMainWorld('crystal', {
   fetchSkin:   (username: string) => ipcRenderer.invoke('skin:fetch', username),
   getLoadout:  () => ipcRenderer.invoke('cosmetics:getLoadout'),
   setLoadout:  (loadout: unknown) => ipcRenderer.invoke('cosmetics:setLoadout', loadout),
-  syncEquippedCape: (dataUrl: string | null) => ipcRenderer.invoke('cosmetics:syncCape', dataUrl),
-  syncCapeAnimation: (dataUrl: string, frames: number, fps: number) => ipcRenderer.invoke('cosmetics:syncCapeAnimation', dataUrl, frames, fps),
+  syncEquippedCape: (dataUrl: string | null, capeId?: string | null) => ipcRenderer.invoke('cosmetics:syncCape', dataUrl, capeId),
+  syncCapeAnimation: (dataUrl: string, frames: number, fps: number, capeId?: string | null) => ipcRenderer.invoke('cosmetics:syncCapeAnimation', dataUrl, frames, fps, capeId),
+  syncCapeId: (capeId: string | null) => ipcRenderer.invoke('cosmetics:syncCapeId', capeId),
+  capeCacheStatus: (count: number) => ipcRenderer.invoke('cosmetics:capeCacheStatus', count),
+  cacheCape: (id: string, dataUrl: string) => ipcRenderer.invoke('cosmetics:cacheCape', id, dataUrl),
+  capeCacheDone: (version: string) => ipcRenderer.invoke('cosmetics:capeCacheDone', version),
   syncLoadout: (items: unknown) => ipcRenderer.invoke('cosmetics:syncLoadout', items),
 
   // Cosmetics / capes

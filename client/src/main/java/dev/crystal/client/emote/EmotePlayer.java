@@ -2,14 +2,16 @@ package dev.crystal.client.emote;
 
 import dev.crystal.client.CrystalClient;
 import dev.crystal.client.module.player.Emotes;
+import dev.crystal.client.net.CrystalNet;
+import dev.crystal.client.net.PeerRegistry;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.player.PlayerModel;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * The emote the local player is doing right now. Only drawn on this client:
- * other players would need a Crystal server to be told about it.
+ * The emote the local player is doing right now, and the ones other Crystal
+ * players do (told by the Crystal server, see CrystalNet).
  *
  * An emote ends by itself, or as soon as the player walks, jumps or opens the
  * wheel again; moving is never blocked by an emote.
@@ -38,9 +40,11 @@ public final class EmotePlayer {
             cameraBefore = mc.options.getCameraType();
             mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
         }
+        CrystalNet.sendEmote(emote.name());
     }
 
     public static void stop() {
+        if (current != null) CrystalNet.sendEmote(null);
         current = null;
         startPos = null;
         if (cameraBefore != null) {
@@ -75,11 +79,22 @@ public final class EmotePlayer {
      * player, and not in first person, where the same model draws your hands.
      */
     public static void applyTo(PlayerModel model, int entityId) {
-        if (current == null) return;
         Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null || entityId != mc.player.getId() || mc.options.getCameraType().isFirstPerson()) return;
-        if (!moduleOn()) return;
-        current.apply(model, elapsed());
+        if (mc.player == null) return;
+        if (entityId == mc.player.getId()) {
+            if (current == null || mc.options.getCameraType().isFirstPerson() || !moduleOn()) return;
+            current.apply(model, elapsed());
+            return;
+        }
+        // Another Crystal player. Their own client decides when it ends; a
+        // one-off emote also stops here once its time is up, in case the
+        // "ended" message got lost.
+        PeerRegistry.Peer peer = PeerRegistry.forEntity(entityId);
+        if (peer == null || peer.emote() == null) return;
+        Emote emote = Emote.byName(peer.emote());
+        if (emote == null) return;
+        float t = (System.currentTimeMillis() - peer.emoteStartedAt()) / 1000f;
+        if (!emote.isOver(t)) emote.apply(model, t);
     }
 
     private static boolean moduleOn() {

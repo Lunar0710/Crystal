@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react'
 import { EquippedCosmetics, syncLoadoutToGame } from './data/cosmetics'
+import { fillCapeCache } from './data/capeCache'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { Sidebar } from './components/sidebar/Sidebar'
 import { TitleBar } from './components/ui/TitleBar'
@@ -20,7 +21,17 @@ import { UpdateBanner } from './components/ui/UpdateBanner'
 export default function App() {
   // Equipped cosmetics reach the game even if the Cosmetics page is never opened.
   useEffect(() => {
-    ;(window as any).crystal?.getLoadout().then((l: EquippedCosmetics | null) => l && syncLoadoutToGame(l))
+    const api = (window as any).crystal
+    api?.getLoadout().then((l: EquippedCosmetics | null) => {
+      if (!l) return
+      syncLoadoutToGame(l)
+      // Which built-in cape you wear, for other Crystal players (uploaded ones stay private).
+      api?.syncCapeId(l.cape?.startsWith('builtin:') ? l.cape.slice('builtin:'.length) : null)
+    })
+    // Pictures of every built-in cape for showing other players' capes; once
+    // per launcher version, a little after start so it doesn't slow it down.
+    const timer = setTimeout(() => { fillCapeCache().catch(() => {}) }, 8000)
+    return () => clearTimeout(timer)
   }, [])
 
   return (

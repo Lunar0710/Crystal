@@ -77,6 +77,12 @@ public enum Emote {
     }
 
     public String label() { return label; }
+
+    /** The emote with this name ("DANCE"), or null for an unknown one. */
+    public static Emote byName(String name) {
+        for (Emote e : values()) if (e.name().equals(name)) return e;
+        return null;
+    }
     public boolean isLooping() { return looping; }
     public boolean isOver(float t) { return !looping && t >= duration; }
 

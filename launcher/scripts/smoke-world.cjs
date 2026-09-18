@@ -213,11 +213,13 @@ function stripedCapePng() {
     log('performance pack', JSON.stringify(pack))
     if (pack.failed.length) throw new Error('performance pack install failed')
   }
+  // Another Crystal player via a local Crystal server (smoke-peer.cjs).
+  const peers = await require('./smoke-peer.cjs').startPeerTest(dataRoot, log)
   log('launching')
   const ok = await manager.launch({
     version: VERSION, instanceId: 'smoke-world', gameDir, username: profile.username, profile, maxRam: Number(process.env.CRYSTAL_SMOKE_RAM || 3072),
     loader: 'fabric', injectCrystal: true,
-    extraJvmArgs: [`-Dcrystal.smoke.screenshot=${shotName}`],
+    extraJvmArgs: [`-Dcrystal.smoke.screenshot=${shotName}`, ...peers.jvmArgs],
     extraGameArgs: ['--quickPlaySingleplayer', 'smoke'],
   }, (event, data) => {
     if (event === 'launch:started') pid = data.pid
@@ -241,6 +243,7 @@ function stripedCapePng() {
   })
   await new Promise(r => setTimeout(r, 4000))
   if (pid) { try { process.kill(pid) } catch {} }
+  peers.close()
 
   const text = fs.readFileSync(logPath, 'utf8')
   const problems = text.split('\n').filter(line =>
@@ -250,8 +253,9 @@ function stripedCapePng() {
   const done = /CRYSTAL_SMOKE_WORLD_DONE/.test(text)
   const pearls = /KeyPearls test PASS/.test(text)
   const culling = /Culling test PASS/.test(text)
-  const passed = done && pearls && culling && fs.existsSync(shot)
-  console.log(`${passed ? 'PASS' : 'FAIL'}: world test finished=${done} keyPearls=${pearls} culling=${culling} screenshot=${fs.existsSync(shot) ? shot : 'missing'}`)
+  const peer = /Peer test PASS/.test(text)
+  const passed = done && pearls && culling && peer && fs.existsSync(shot)
+  console.log(`${passed ? 'PASS' : 'FAIL'}: world test finished=${done} keyPearls=${pearls} culling=${culling} peer=${peer} screenshot=${fs.existsSync(shot) ? shot : 'missing'}`)
   console.log(problems.length ? `log problems:\n${problems.slice(0, 25).join('\n')}` : 'log problems: none')
   process.exit(passed ? 0 : 1)
 })().catch(err => { console.log('FAIL:', err.message); process.exit(1) })

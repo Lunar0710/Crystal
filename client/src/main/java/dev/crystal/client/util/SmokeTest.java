@@ -4,6 +4,7 @@ import dev.crystal.client.CrystalClient;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
+import net.minecraft.resources.Identifier;
 import net.minecraft.client.Screenshot;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EquipmentSlot;
@@ -177,8 +178,30 @@ public final class SmokeTest {
                     msg -> CrystalClient.LOGGER.info("[Crystal] Smoke screenshot: {}", msg.getString()));
         }
 
+        // Crystal server (only when the test started one): another Crystal
+        // player stands in front of us with their cape, hat and dance.
+        boolean peerTest = System.getProperty("crystal.server") != null;
+        if (peerTest && worldTicks == 330) spawnPeer(mc);
+        if (peerTest && worldTicks == 345) mc.setScreen(null);
+        if (peerTest && worldTicks == 350) {
+            var peer = dev.crystal.client.net.PeerRegistry.get(PEER_UUID);
+            // The cape the game hands the renderer for that player. Whether it
+            // is drawn then also depends on the player's own "show cape"
+            // setting, which a server sends and this stand-in doesn't have.
+            var entity = mc.level.getEntity(peerEntityId);
+            Identifier skinCape = entity instanceof net.minecraft.client.player.AbstractClientPlayer p
+                    ? dev.crystal.client.compat.SkinCompat.capeTexture(p.getSkin()) : null;
+            boolean capeOk = skinCape != null && skinCape.getPath().equals("peer_cape/plus-0");
+            CrystalClient.LOGGER.info("[Crystal] Peer test {}: connected={} peers={} cape={} skinCape={} items={} emote={}",
+                    peer != null && capeOk && !peer.items().isEmpty() && "DANCE".equals(peer.emote()) ? "PASS" : "FAILED",
+                    dev.crystal.client.net.CrystalNet.isConnected(), dev.crystal.client.net.PeerRegistry.size(),
+                    peer == null ? null : peer.capeId(), skinCape, peer == null ? null : peer.items().keySet(), peer == null ? null : peer.emote());
+            Screenshot.grab(mc.gameDirectory, base + "-peer.png", mc.getMainRenderTarget(), 1,
+                    msg -> CrystalClient.LOGGER.info("[Crystal] Smoke screenshot: {}", msg.getString()));
+        }
+
         // Done once every check has an answer and the last screenshot is taken.
-        if (!finished && worldTicks > 325 && keyPearlsResult != null && cullingResult != null) {
+        if (!finished && worldTicks > (peerTest ? 355 : 325) && keyPearlsResult != null && cullingResult != null) {
             finished = true;
             CrystalClient.LOGGER.info("CRYSTAL_SMOKE_WORLD_DONE");
             mc.stop();
@@ -191,6 +214,38 @@ public final class SmokeTest {
     private static Boolean cullingResult = null;
     private static Boolean keyPearlsResult = null;
     private static boolean finished = false;
+
+    /** The test peer's id: the test server derives it from the name (FAKE_AUTH in server.js). */
+    private static final java.util.UUID PEER_UUID = fakeUuid("PeerBot");
+
+    private static java.util.UUID fakeUuid(String name) {
+        try {
+            byte[] md5 = java.security.MessageDigest.getInstance("MD5").digest(("fake:" + name).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            String hex = java.util.HexFormat.of().formatHex(md5);
+            return java.util.UUID.fromString(hex.replaceFirst("(.{8})(.{4})(.{4})(.{4})(.{12})", "$1-$2-$3-$4-$5"));
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /** A client-side stand-in for the other Crystal player, three blocks in front of the camera. */
+    private static void spawnPeer(Minecraft mc) {
+        var peer = new net.minecraft.client.player.RemotePlayer(mc.level, new com.mojang.authlib.GameProfile(PEER_UUID, "PeerBot"));
+        var look = mc.player.getLookAngle();
+        // The front camera looks back at the player, so "in front" of it is
+        // behind the player; a step to the side keeps the player from hiding it.
+        peer.setPos(mc.player.getX() - look.x * 3 - look.z * 1.5, mc.player.getY(), mc.player.getZ() - look.z * 3 + look.x * 1.5);
+        // Back to the camera, so the screenshot shows the cape.
+        float away = mc.player.getYRot() + 180f;
+        peer.setYRot(away);
+        peer.setYHeadRot(away);
+        peer.yBodyRot = away;
+        peer.yBodyRotO = away;
+        mc.level.addEntity(peer);
+        peerEntityId = peer.getId();
+    }
+
+    private static int peerEntityId = -1;
 
     private static final String CULL_WALLED = "crystal-cull-walled";
     private static final String CULL_OPEN = "crystal-cull-open";

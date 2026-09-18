@@ -37,18 +37,28 @@ const textureCache = new Map<string, string>()
 export function capeTextureUrl(cape: CapeDef): string {
   const cached = textureCache.get(cape.id)
   if (cached) return cached
+  const url = drawCapeTexture(cape, cape.hd ?? 1)
+  textureCache.set(cape.id, url)
+  return url
+}
 
-  // Design pass at the cape's real resolution (times hd for detailed capes).
-  const k = cape.hd ?? 1
+/**
+ * The cape texture at most `maxK` times 64x32, not kept in memory. For the
+ * picture cache other players' capes are shown from in game (capeCache.ts).
+ */
+export function renderCapeTexture(cape: CapeDef, maxK: number): string {
+  return drawCapeTexture(cape, Math.min(cape.hd ?? 1, maxK))
+}
+
+function drawCapeTexture(cape: CapeDef, k: number): string {
+  // Design pass at the cape's real resolution (times k for detailed capes).
   const design = document.createElement('canvas')
   design.width = CAPE_W * k
   design.height = CAPE_H * k
   const designCtx = design.getContext('2d')!
   designCtx.imageSmoothingEnabled = k > 1
   cape.paint(designCtx, CAPE_W * k, CAPE_H * k)
-  const url = sheetFromDesign(design, k)
-  textureCache.set(cape.id, url)
-  return url
+  return sheetFromDesign(design, k)
 }
 
 /**

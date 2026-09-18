@@ -15,6 +15,7 @@ import { ExternalClientManager } from './minecraft/ExternalClientManager'
 import { BrandingManager } from './branding/BrandingManager'
 import { ModrinthService } from './minecraft/ModrinthService'
 import { CapeManager } from './cosmetics/CapeManager'
+import { crystalServerAddress, writeEquippedCapeId } from './cosmetics/CrystalServer'
 import { SkinService } from './cosmetics/SkinService'
 import { LogManager, setInstanceDirResolver, instanceDir } from './logs/LogManager'
 import { ClaudeService } from './claude/ClaudeService'
@@ -344,6 +345,8 @@ export function registerIpcHandlers(store: Store) {
     // extra, and only with an address that is a plain host[:port].
     const { extraJvmArgs: _jvm, extraGameArgs: _game, joinServer, ...opts } = rawOpts ?? {}
     if (isValidServerAddress(joinServer)) opts.extraGameArgs = ['--quickPlayMultiplayer', joinServer]
+    const crystalServer = crystalServerAddress(store)
+    if (crystalServer) opts.extraJvmArgs = [`-Dcrystal.server=${crystalServer}`]
     // Renews an expired Microsoft token first; a stale one gets every
     // multiplayer join rejected with "Invalid session".
     const { profile, error: sessionError } = await auth.ensureFreshProfile()
@@ -604,9 +607,10 @@ export function registerIpcHandlers(store: Store) {
   // the Java client reads — capes.ts's built-in designs only ever exist as
   // canvas data URLs inside the renderer, so this is the one place they
   // become a real file the in-game mod can load.
-  ipcMain.handle('cosmetics:syncCape', (_e, dataUrl: string | null) => {
+  ipcMain.handle('cosmetics:syncCape', (_e, dataUrl: string | null, capeId?: string | null) => {
     const dir = crystalPath('cosmetics')
     fs.mkdirSync(dir, { recursive: true })
+    writeEquippedCapeId(dir, capeId)
     const target = path.join(dir, 'equipped_cape.png')
     // A still cape: drop the animation description of a previous animated one.
     fs.rmSync(path.join(dir, 'equipped_cape.json'), { force: true })
@@ -646,7 +650,7 @@ export function registerIpcHandlers(store: Store) {
 
   // Animated cape: a vertical strip of cape textures plus how to play it.
   // The game reads equipped_cape.json to know it is a strip (CosmeticCapeLoader).
-  ipcMain.handle('cosmetics:syncCapeAnimation', (_e, dataUrl: string, frames: number, fps: number) => {
+  ipcMain.handle('cosmetics:syncCapeAnimation', (_e, dataUrl: string, frames: number, fps: number, capeId?: string | null) => {
     if (typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/png;base64,')) return false
     const n = Math.floor(Number(frames)), speed = Math.floor(Number(fps))
     if (!(n > 1 && n <= 64 && speed >= 1 && speed <= 30)) return false
@@ -658,6 +662,38 @@ export function registerIpcHandlers(store: Store) {
     fs.mkdirSync(dir, { recursive: true })
     fs.writeFileSync(path.join(dir, 'equipped_cape.png'), image.toPNG())
     fs.writeFileSync(path.join(dir, 'equipped_cape.json'), JSON.stringify({ frames: n, fps: speed }))
+    writeEquippedCapeId(dir, capeId)
+    return true
+  })
+
+  // Pictures of every built-in cape, so the game can show other Crystal
+  // players' capes from just an id (PeerCapes.java, capeCache.ts).
+  const capeCacheDir = () => crystalPath('cosmetics', 'cape-cache')
+  const capeCacheVersion = (count: number) => `${app.getVersion()}:${Math.floor(Number(count)) || 0}`
+  ipcMain.handle('cosmetics:syncCapeId', (_e, capeId: string | null) => {
+    const dir = crystalPath('cosmetics')
+    fs.mkdirSync(dir, { recursive: true })
+    writeEquippedCapeId(dir, capeId)
+    return true
+  })
+  ipcMain.handle('cosmetics:capeCacheStatus', (_e, count: number) => {
+    let version = ''
+    try { version = fs.readFileSync(path.join(capeCacheDir(), '.version'), 'utf8') } catch { /* not filled yet */ }
+    return { version, current: capeCacheVersion(count) }
+  })
+  ipcMain.handle('cosmetics:cacheCape', (_e, id: string, dataUrl: string) => {
+    if (typeof id !== 'string' || !/^[a-z]+-\d{1,4}$/.test(id)) return false
+    if (typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/png;base64,')) return false
+    const image = nativeImage.createFromDataURL(dataUrl)
+    const { width, height } = image.getSize()
+    if (image.isEmpty() || width > 1024 || width !== height * 2) return false
+    fs.mkdirSync(capeCacheDir(), { recursive: true })
+    fs.writeFileSync(path.join(capeCacheDir(), `${id}.png`), image.toPNG())
+    return true
+  })
+  ipcMain.handle('cosmetics:capeCacheDone', (_e, version: string) => {
+    if (typeof version !== 'string' || version.length > 64) return false
+    fs.writeFileSync(path.join(capeCacheDir(), '.version'), version)
     return true
   })
 

@@ -20,6 +20,7 @@ export function Settings() {
   const [icons, setIcons] = useState<{ id: LogoVariantId; name: string }[]>([])
   const [currentIcon, setCurrentIcon] = useState<LogoVariantId>('facet-hex')
   const [apiKey, setApiKey] = useState('')
+  const [crystalServer, setCrystalServer] = useState('')
   const [apiKeySaved, setApiKeySaved] = useState(false)
   const [maxRam, setMaxRam] = useState(4096)
   const [discordEnabled, setDiscordEnabled] = useState(true)
@@ -46,12 +47,24 @@ export function Settings() {
     api?.listIcons().then(setIcons)
     api?.getCurrentIcon().then((id: LogoVariantId) => id && setCurrentIcon(id))
     api?.getClaudeApiKey().then((k: string) => { setApiKey(k || ''); setApiKeySaved(!!k) })
+    api?.getSetting('crystalServer').then((v: string | undefined) => setCrystalServer(v || ''))
     Promise.all([api?.getSetting('maxRam'), api?.getSystemMemory()]).then(([saved, mem]: [number | undefined, { totalMb: number; suggestedMb: number } | undefined]) => {
       if (mem) setSystemMb(mem.totalMb)
       if (saved) setMaxRam(saved)
       else if (mem) setMaxRam(mem.suggestedMb)
     })
   }, [])
+
+  /** Same rule as the main process (CrystalServer.ts): ws:// or wss://, host, port, path. */
+  function saveCrystalServer() {
+    const value = crystalServer.trim()
+    if (value && !/^wss?:\/\/[A-Za-z0-9.-]+(:\d{1,5})?(\/[A-Za-z0-9._~/-]*)?$/.test(value)) {
+      notify({ type: 'error', title: 'Crystal-Server', message: 'Die Adresse muss mit ws:// oder wss:// beginnen, z. B. wss://crystal.example.com' })
+      return
+    }
+    api?.setSetting('crystalServer', value)
+    notify({ type: 'success', title: 'Crystal-Server', message: value ? 'Gilt ab dem nächsten Start von Minecraft.' : 'Zurück auf den Standard.' })
+  }
 
   async function pickDataRoot() {
     const result = await api?.pickDataRoot()
@@ -238,6 +251,21 @@ export function Settings() {
               : 'Discord wurde nicht gefunden. Der Status erscheint, sobald Discord läuft.'}
         >
           {discordConfigured && <Switch checked={discordEnabled} onChange={toggleDiscord} label="Discord-Status" />}
+        </Field>
+        <Field
+          label="Crystal-Server"
+          hint="Damit andere Crystal-Spieler deine Emotes und Cosmetics sehen und du ihre. Leer lassen für den Standard."
+        >
+          <div className="flex gap-2">
+            <input
+              value={crystalServer}
+              onChange={e => setCrystalServer(e.target.value)}
+              className="crystal-input w-56 font-mono text-xs"
+              placeholder="wss://…"
+              aria-label="Crystal-Server-Adresse"
+            />
+            <button onClick={saveCrystalServer} className="crystal-btn-primary text-xs">Speichern</button>
+          </div>
         </Field>
       </Section>
 

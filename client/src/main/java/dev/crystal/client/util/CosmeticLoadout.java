@@ -89,37 +89,45 @@ public final class CosmeticLoadout {
             long mtime = Files.getLastModifiedTime(file).toMillis();
             if (mtime == lastMtime) return;
 
-            JsonObject root = JsonParser.parseString(Files.readString(file)).getAsJsonObject();
-            java.util.HashMap<String, Item> parsed = new java.util.HashMap<>();
-            for (String slot : new String[]{HAT, BANDANA, MASK, WINGS, BACKPACK, AURA}) {
-                JsonElement el = root.get(slot);
-                if (el == null || !el.isJsonObject()) continue;
-                JsonObject o = el.getAsJsonObject();
-                int color = parseColor(o.has("color") ? o.get("color").getAsString() : "#ffffff");
-                int secondary = o.has("secondary") && !o.get("secondary").isJsonNull()
-                        ? parseColor(o.get("secondary").getAsString()) : color;
-                String variant = o.has("variant") && !o.get("variant").isJsonNull() ? o.get("variant").getAsString() : "";
-                boolean plus = o.has("plusOnly") && o.get("plusOnly").getAsBoolean();
-                String anchor = o.has("anchor") && !o.get("anchor").isJsonNull() ? o.get("anchor").getAsString() : "";
-                java.util.ArrayList<Box> boxes = new java.util.ArrayList<>();
-                if (o.has("boxes") && o.get("boxes").isJsonArray()) {
-                    for (JsonElement be : o.getAsJsonArray("boxes")) {
-                        if (!be.isJsonObject() || boxes.size() >= 64) continue;
-                        JsonObject b = be.getAsJsonObject();
-                        boxes.add(new Box(f(b, "x"), f(b, "y"), f(b, "z"), f(b, "w"), f(b, "h"), f(b, "d"), f(b, "rz"),
-                                parseColor(b.has("color") ? b.get("color").getAsString() : "#ffffff"),
-                                b.has("glow") && b.get("glow").getAsBoolean()));
-                    }
-                }
-                parsed.put(slot, new Item(color, secondary, variant, plus, anchor, List.copyOf(boxes)));
-            }
-            items = Map.copyOf(parsed);
+            items = parse(JsonParser.parseString(Files.readString(file)).getAsJsonObject());
             lastMtime = mtime;
         } catch (IOException | RuntimeException e) {
             CrystalClient.LOGGER.warn("[Crystal] loadout.json nicht lesbar: {}", e.getMessage());
         } finally {
             inFlight = false;
         }
+    }
+
+    /**
+     * Items from a loadout object as the launcher writes it. Also used for
+     * other Crystal players, whose loadout arrives the same way over the
+     * Crystal server.
+     */
+    public static Map<String, Item> parse(JsonObject root) {
+        java.util.HashMap<String, Item> parsed = new java.util.HashMap<>();
+        for (String slot : new String[]{HAT, BANDANA, MASK, WINGS, BACKPACK, AURA}) {
+            JsonElement el = root.get(slot);
+            if (el == null || !el.isJsonObject()) continue;
+            JsonObject o = el.getAsJsonObject();
+            int color = parseColor(o.has("color") ? o.get("color").getAsString() : "#ffffff");
+            int secondary = o.has("secondary") && !o.get("secondary").isJsonNull()
+                    ? parseColor(o.get("secondary").getAsString()) : color;
+            String variant = o.has("variant") && !o.get("variant").isJsonNull() ? o.get("variant").getAsString() : "";
+            boolean plus = o.has("plusOnly") && o.get("plusOnly").getAsBoolean();
+            String anchor = o.has("anchor") && !o.get("anchor").isJsonNull() ? o.get("anchor").getAsString() : "";
+            java.util.ArrayList<Box> boxes = new java.util.ArrayList<>();
+            if (o.has("boxes") && o.get("boxes").isJsonArray()) {
+                for (JsonElement be : o.getAsJsonArray("boxes")) {
+                    if (!be.isJsonObject() || boxes.size() >= 64) continue;
+                    JsonObject b = be.getAsJsonObject();
+                    boxes.add(new Box(f(b, "x"), f(b, "y"), f(b, "z"), f(b, "w"), f(b, "h"), f(b, "d"), f(b, "rz"),
+                            parseColor(b.has("color") ? b.get("color").getAsString() : "#ffffff"),
+                            b.has("glow") && b.get("glow").getAsBoolean()));
+                }
+            }
+            parsed.put(slot, new Item(color, secondary, variant, plus, anchor, List.copyOf(boxes)));
+        }
+        return Map.copyOf(parsed);
     }
 
     private static float f(JsonObject o, String key) {
