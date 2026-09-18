@@ -88,5 +88,18 @@ jobs:
           TITLE="$(head -n 1 .github/release-notes/${VERSION}.title)"
           test -f "$NOTES"
           ls -la dist
-          gh release create "$GITHUB_REF_NAME" dist/* --draft --title "$TITLE" --notes-file "$NOTES"
+          # A draft may already exist from a run whose upload failed; finish that one.
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" --title "$TITLE" --notes-file "$NOTES"
+          else
+            gh release create "$GITHUB_REF_NAME" --draft --title "$TITLE" --notes-file "$NOTES"
+          fi
+          # GitHub's upload endpoint sometimes answers 500; retry each file.
+          for f in dist/*; do
+            for attempt in 1 2 3 4; do
+              gh release upload "$GITHUB_REF_NAME" "$f" --clobber && break
+              echo "upload of $f failed (attempt $attempt), retrying"
+              sleep 15
+            done
+          done
           gh release edit "$GITHUB_REF_NAME" --draft=false --latest

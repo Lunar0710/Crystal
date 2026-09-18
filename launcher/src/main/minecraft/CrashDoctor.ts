@@ -245,7 +245,7 @@ export class CrashDoctor {
         detail: `Minecraft durfte bis zu ${currentRam} MB nutzen, aber Windows konnte keinen Speicher mehr vergeben. `
           + 'Schließe andere Programme (Browser, Discord, weitere Minecraft-Fenster) oder vergrößere die Auslagerungsdatei '
           + '(Windows-Einstellungen, "Erweiterte Systemeinstellungen", Leistung, Virtueller Arbeitsspeicher: automatisch verwalten).',
-        fix: lowered < currentRam ? { kind: 'lower-ram', label: `Auf ${lowered} MB`, ram: lowered } : null,
+        fix: lowered < currentRam ? { kind: 'lower-ram', label: `Auf ${lowered} MB senken`, ram: lowered } : null,
       })
     }
 
@@ -261,7 +261,7 @@ export class CrashDoctor {
         detail: raised > currentRam
           ? `Der Start lief mit ${currentRam} MB. Mehr RAM behebt das in den meisten Fällen.`
           : `Der Start lief mit ${currentRam} MB, mehr gibt dein PC nicht sicher her. Entferne speicherhungrige Mods oder senke die Sichtweite.`,
-        fix: raised > currentRam ? { kind: 'raise-ram', label: `Auf ${raised} MB`, ram: raised } : null,
+        fix: raised > currentRam ? { kind: 'raise-ram', label: `Auf ${raised} MB erhöhen`, ram: raised } : null,
       })
     }
 

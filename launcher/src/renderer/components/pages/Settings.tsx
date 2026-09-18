@@ -10,6 +10,7 @@ import { RankBadge } from '../ui/RankBadge'
 import { LogoMark, LogoVariantId } from '../../theme/logoVariants'
 import { Page, PageHeader, Section, Field, Switch } from '../ui/Page'
 import { LOGO_CHANGED } from '../ui/TitleBar'
+import { displayVersion } from '../../data/displayVersion'
 
 const api = (window as any).crystal
 
@@ -309,8 +310,8 @@ export function Settings() {
       </Section>
 
       <Section title="Über Crystal">
-        <Field label="Launcher"><span className="font-mono text-xs text-crystal-text">{versions.launcher ?? '…'}</span></Field>
-        <Field label="Client-Mod"><span className="font-mono text-xs text-crystal-text">{versions.client ?? 'nicht gebündelt'}</span></Field>
+        <Field label="Launcher"><span className="font-mono text-xs text-crystal-text">{versions.launcher ? displayVersion(versions.launcher) : '…'}</span></Field>
+        <Field label="Client-Mod"><span className="font-mono text-xs text-crystal-text">{versions.client ? displayVersion(versions.client) : 'nicht gebündelt'}</span></Field>
         <Field label="Minecraft"><span className="font-mono text-xs text-crystal-text">1.8.9 bis 26.2</span></Field>
         <Field label="Crystal-Module auf">
           <span className="font-mono text-xs text-crystal-text">
