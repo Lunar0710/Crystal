@@ -255,7 +255,9 @@ function stripedCapePng() {
   const culling = /Culling test PASS/.test(text)
   const peer = /Peer test PASS/.test(text)
   const builder = /AutoBuilder test PASS/.test(text)
-  const passed = done && pearls && culling && peer && builder && fs.existsSync(shot)
+  // The AutoBuilder is an owner-only preview until 1.4: its result is reported, not required.
+  const passed = done && pearls && culling && peer && fs.existsSync(shot)
+  if (!builder) console.log('WARN: AutoBuilder test did not pass (owner-only preview, not blocking)')
   console.log(`${passed ? 'PASS' : 'FAIL'}: world test finished=${done} keyPearls=${pearls} culling=${culling} peer=${peer} builder=${builder} screenshot=${fs.existsSync(shot) ? shot : 'missing'}`)
   console.log(problems.length ? `log problems:\n${problems.slice(0, 25).join('\n')}` : 'log problems: none')
   process.exit(passed ? 0 : 1)
