@@ -542,6 +542,16 @@ public final class SmokeTest {
             builderResult = false;
             return;
         }
+        // The house walks and climbs, which needs Litematica's schematic bounds;
+        // without Litematica (the CI world test) only the first part counts.
+        try {
+            Class.forName("fi.dy.masa.litematica.data.SchematicHolder");
+        } catch (ClassNotFoundException e) {
+            builderResult = Boolean.TRUE.equals(firstPartResult);
+            CrystalClient.LOGGER.info("[Crystal] AutoBuilder house skipped (no Litematica)");
+            CrystalClient.LOGGER.info("[Crystal] AutoBuilder test {}", builderResult ? "PASS" : "FAILED");
+            return;
+        }
         var c = mc.player.blockPosition().offset(24, 0, 0);
         houseCentre = c;
         var plan = new java.util.LinkedHashMap<net.minecraft.core.BlockPos, net.minecraft.world.level.block.state.BlockState>();
