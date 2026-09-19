@@ -250,6 +250,8 @@ public final class SmokeTest {
         peer.setYHeadRot(away);
         peer.yBodyRot = away;
         peer.yBodyRotO = away;
+        // 26.2 no longer hands out an ID on addEntity; one far from the server's range.
+        peer.setId(Integer.MAX_VALUE - 7);
         mc.level.addEntity(peer);
         peerEntityId = peer.getId();
     }
@@ -303,14 +305,124 @@ public final class SmokeTest {
                 .filter(m -> m instanceof dev.crystal.client.module.player.AutoBuilder)
                 .map(m -> (dev.crystal.client.module.player.AutoBuilder) m)
                 .ifPresent(builder -> {
-                    builder.useSourceForTest(new dev.crystal.client.build.SchematicSource() {
-                        @Override public boolean available() { return true; }
-                        @Override public net.minecraft.world.level.block.state.BlockState expected(net.minecraft.core.BlockPos pos) {
-                            return builderPlan.get(pos);
-                        }
-                    });
+                    // With Litematica installed the real path is tested: the plan
+                    // goes into a .litematic file, Litematica places it, and the
+                    // builder reads it back like any placement you made yourself.
+                    boolean litematica = placeWithLitematica(mc, plan, o);
+                    CrystalClient.LOGGER.info("[Crystal] AutoBuilder test source: {}", litematica ? "Litematica" : "built in");
+                    if (!litematica) {
+                        builder.useSourceForTest(new dev.crystal.client.build.SchematicSource() {
+                            @Override public boolean available() { return true; }
+                            @Override public net.minecraft.world.level.block.state.BlockState expected(net.minecraft.core.BlockPos pos) {
+                                return builderPlan.get(pos);
+                            }
+                        });
+                    }
                     builder.setEnabled(true);
                 });
+    }
+
+    /**
+     * Writes the plan as a .litematic (one region, the format Litematica
+     * saves), loads it into Litematica and places it at {@code origin}.
+     * False when Litematica isn't installed or any step fails.
+     */
+    private static boolean placeWithLitematica(Minecraft mc,
+            java.util.Map<net.minecraft.core.BlockPos, net.minecraft.world.level.block.state.BlockState> plan,
+            net.minecraft.core.BlockPos origin) {
+        try {
+            Class.forName("fi.dy.masa.litematica.data.SchematicHolder");
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
+        try {
+            int maxX = 0, maxY = 0, maxZ = 0;
+            for (var pos : plan.keySet()) {
+                maxX = Math.max(maxX, pos.getX() - origin.getX());
+                maxY = Math.max(maxY, pos.getY() - origin.getY());
+                maxZ = Math.max(maxZ, pos.getZ() - origin.getZ());
+            }
+            int sx = maxX + 1, sy = maxY + 1, sz = maxZ + 1;
+            var air = net.minecraft.world.level.block.Blocks.AIR.defaultBlockState();
+            var palette = new java.util.ArrayList<net.minecraft.world.level.block.state.BlockState>(java.util.List.of(air));
+            int[] cells = new int[sx * sy * sz];
+            for (var entry : plan.entrySet()) {
+                var rel = entry.getKey().subtract(origin);
+                int id = palette.indexOf(entry.getValue());
+                if (id < 0) { id = palette.size(); palette.add(entry.getValue()); }
+                // Litematica's order: x fastest, then z, then y.
+                cells[(rel.getY() * sz + rel.getZ()) * sx + rel.getX()] = id;
+            }
+            // Packed tightly, values may span two longs (LitematicaBitArray).
+            int bits = Math.max(2, 32 - Integer.numberOfLeadingZeros(palette.size() - 1));
+            long[] packed = new long[(int) (((long) cells.length * bits + 63) / 64)];
+            for (int i = 0; i < cells.length; i++) {
+                long bit = (long) i * bits;
+                int start = (int) (bit >> 6), end = (int) (((long) (i + 1) * bits - 1) >> 6), offset = (int) (bit & 63);
+                packed[start] |= (long) cells[i] << offset;
+                if (start != end) packed[end] |= (long) cells[i] >>> (64 - offset);
+            }
+
+            var paletteTag = new net.minecraft.nbt.ListTag();
+            for (var state : palette) paletteTag.add(net.minecraft.nbt.NbtUtils.writeBlockState(state));
+            var region = new net.minecraft.nbt.CompoundTag();
+            region.put("Position", vec(0, 0, 0));
+            region.put("Size", vec(sx, sy, sz));
+            region.put("BlockStatePalette", paletteTag);
+            region.putLongArray("BlockStates", packed);
+            for (String list : new String[]{"TileEntities", "Entities", "PendingBlockTicks", "PendingFluidTicks"}) {
+                region.put(list, new net.minecraft.nbt.ListTag());
+            }
+            var regions = new net.minecraft.nbt.CompoundTag();
+            regions.put("Test", region);
+
+            var meta = new net.minecraft.nbt.CompoundTag();
+            meta.putString("Name", "Crystal builder test");
+            meta.putString("Author", "Crystal");
+            meta.putString("Description", "");
+            meta.putInt("RegionCount", 1);
+            meta.putInt("TotalVolume", cells.length);
+            meta.putInt("TotalBlocks", plan.size());
+            meta.putLong("TimeCreated", System.currentTimeMillis());
+            meta.putLong("TimeModified", System.currentTimeMillis());
+            meta.put("EnclosingSize", vec(sx, sy, sz));
+
+            var root = new net.minecraft.nbt.CompoundTag();
+            root.putInt("Version", 7);
+            // The running game's own data version, taken from the tag the game writes.
+            var stamped = net.minecraft.nbt.NbtUtils.addCurrentDataVersion(new net.minecraft.nbt.CompoundTag());
+            root.put("MinecraftDataVersion", stamped.get("DataVersion").copy());
+            root.put("Metadata", meta);
+            root.put("Regions", regions);
+
+            var file = mc.gameDirectory.toPath().resolve("schematics").resolve("crystal-builder-test.litematic");
+            java.nio.file.Files.createDirectories(file.getParent());
+            net.minecraft.nbt.NbtIo.writeCompressed(root, file);
+
+            Object holder = Class.forName("fi.dy.masa.litematica.data.SchematicHolder").getMethod("getInstance").invoke(null);
+            Object schematic = holder.getClass().getMethod("getOrLoad", java.nio.file.Path.class).invoke(holder, file);
+            if (schematic == null) {
+                CrystalClient.LOGGER.warn("[Crystal] AutoBuilder test: Litematica could not load the schematic");
+                return false;
+            }
+            Object placement = Class.forName("fi.dy.masa.litematica.schematic.placement.SchematicPlacement")
+                    .getMethod("createFor", schematic.getClass(), net.minecraft.core.BlockPos.class, String.class, boolean.class, boolean.class)
+                    .invoke(null, schematic, origin, "Crystal builder test", true, true);
+            Object manager = Class.forName("fi.dy.masa.litematica.data.DataManager").getMethod("getSchematicPlacementManager").invoke(null);
+            manager.getClass().getMethod("addSchematicPlacement", placement.getClass(), boolean.class).invoke(manager, placement, false);
+            return true;
+        } catch (Exception e) {
+            CrystalClient.LOGGER.warn("[Crystal] AutoBuilder test: Litematica placement failed: {}", e.toString());
+            return false;
+        }
+    }
+
+    private static net.minecraft.nbt.CompoundTag vec(int x, int y, int z) {
+        var tag = new net.minecraft.nbt.CompoundTag();
+        tag.putInt("x", x);
+        tag.putInt("y", y);
+        tag.putInt("z", z);
+        return tag;
     }
 
     private static void checkBuilderTest(Minecraft mc) {
