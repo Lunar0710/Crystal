@@ -144,6 +144,11 @@ public class AutoBuilder extends Module {
         this.source = testSource;
     }
 
+    /** The world test runs with and without the single-layer display. */
+    public void setShowLayerForTest(boolean show) {
+        this.showLayer = show;
+    }
+
     /** The world test builds at a brisker pace than the default so it finishes in time. */
     public void setSpeedsForTest(float blocksPerSecond, float turnSpeed) {
         this.blocksPerSecond = blocksPerSecond;
@@ -313,6 +318,10 @@ public class AutoBuilder extends Module {
                 place(mc, player, plan, target.pos);
                 return true;
             }
+            // Something to click against is there, just not the right way
+            // round from where you stand: another spot helps, a support does
+            // not. Walking finds that spot; supports only once no walk gets there.
+            if (walk && hasClickableNeighbour(level, target.pos) && !unreachable.containsKey(target.pos)) continue;
             // A schematic neighbour still to come will give something to click
             // against (roofs grow inward from the walls): wait for it rather than
             // put in a support. Only for a while, in case two blocks wait on each other.
@@ -492,9 +501,12 @@ public class AutoBuilder extends Module {
         // With something to click against already there, the spot must also
         // let it be placed the right way round while looking at it.
         boolean checkPlan = hasClickableNeighbour(level, goalTarget.pos);
+        // Close to it first (then its neighbours are in reach too, fewer walks),
+        // at the edge of reach only when nothing closer can be walked to.
+        double[] margin = {1.5};
         java.util.function.Predicate<BlockPos> inReach = spot -> {
             Vec3 eye = new Vec3(spot.getX() + 0.5, spot.getY() + eyeHeight, spot.getZ() + 0.5);
-            if (eye.distanceTo(centre) > reach - 0.5) return false;
+            if (eye.distanceTo(centre) > reach - margin[0]) return false;
             if (stillToBuild(level, spot) || stillToBuild(level, spot.above())) return false;
             return !checkPlan || placeableFrom(level, player, goalTarget, eye);
         };
@@ -504,13 +516,18 @@ public class AutoBuilder extends Module {
         // only when no such spot can be walked to (the first layers, say).
         // Standing where a block of this layer still goes is fine there: it is
         // placed last, from a neighbour already built (step up onto it).
-        List<BlockPos> path = dev.crystal.client.build.Walker.findPath(level, player.blockPosition(), spot -> {
+        java.util.function.Predicate<BlockPos> onLayer = spot -> {
             if (spot.getY() != layerY && spot.getY() != layerY + 1) return false;
             if (spot.equals(goalTarget.pos) || spot.above().equals(goalTarget.pos)) return false;
             Vec3 eye = new Vec3(spot.getX() + 0.5, spot.getY() + eyeHeight, spot.getZ() + 0.5);
-            if (eye.distanceTo(centre) > reach - 0.5) return false;
+            if (eye.distanceTo(centre) > reach - margin[0]) return false;
             return !checkPlan || placeableFrom(level, player, goalTarget, eye);
-        }, goalTarget.pos);
+        };
+        List<BlockPos> path = dev.crystal.client.build.Walker.findPath(level, player.blockPosition(), onLayer, goalTarget.pos);
+        if (path == null) {
+            margin[0] = 0.5;
+            path = dev.crystal.client.build.Walker.findPath(level, player.blockPosition(), onLayer, goalTarget.pos);
+        }
         // Already standing there: nothing to walk.
         if (path != null && path.size() <= 1) return false;
         if (climbOnly) {
@@ -519,7 +536,14 @@ public class AutoBuilder extends Module {
             walker.start(path);
             return true;
         }
-        if (path == null) path = dev.crystal.client.build.Walker.findPath(level, player.blockPosition(), inReach, goalTarget.pos);
+        if (path == null) {
+            margin[0] = 1.5;
+            path = dev.crystal.client.build.Walker.findPath(level, player.blockPosition(), inReach, goalTarget.pos);
+        }
+        if (path == null) {
+            margin[0] = 0.5;
+            path = dev.crystal.client.build.Walker.findPath(level, player.blockPosition(), inReach, goalTarget.pos);
+        }
         if (TRACE) {
             CrystalClient.LOGGER.info("[Crystal] AutoBuilder walk to {} (layer {}) from {}: {}", goalTarget.pos.toShortString(), globalLayer,
                     player.blockPosition().toShortString(), path == null ? "no way" : path.size() + " steps");

@@ -362,6 +362,9 @@ public final class SmokeTest {
                         });
                     }
                     builder.setSpeedsForTest(4f, 30f);
+                    // CRYSTAL_SMOKE_SHOW_LAYER=0 runs the test with the single-layer display off.
+                    builder.setShowLayerForTest(!"0".equals(System.getenv("CRYSTAL_SMOKE_SHOW_LAYER")));
+                    CrystalClient.LOGGER.info("[Crystal] AutoBuilder test show layer: {}", !"0".equals(System.getenv("CRYSTAL_SMOKE_SHOW_LAYER")));
                     builder.setEnabled(true);
                 });
     }
