@@ -523,7 +523,7 @@ public final class SmokeTest {
 
     // ------------------------------------------------------------ auto builder, part 2: a house
 
-    private static final int HOUSE_TICKS = 3000;
+    private static final int HOUSE_TICKS = 3600;
     private static Boolean firstPartResult = null;
     private static int houseStart = -1;
     private static net.minecraft.core.BlockPos houseCentre;
@@ -534,7 +534,9 @@ public final class SmokeTest {
      * 24 blocks east, on cleared ground: stone brick walls three high with a
      * doorway and two windows, a 5x5 plank roof (it grows in from the walls)
      * and a wall torch inside, and a solid 3x3 cobblestone tower eight high
-     * next to it (144 blocks). The player starts nine blocks west
+     * next to it, and a row of observers, a dispenser, a dropper and a sticky
+     * piston in front, each facing its own way, and a hopper feeding a chest
+     * (154 blocks). The player starts nine blocks west
      * of it, so the builder has to walk there and inside for the middle of the
      * roof, and to climb the tower as it grows; checks that no layer is
      * started while a lower one is unfinished.
@@ -580,6 +582,23 @@ public final class SmokeTest {
                 for (int z = -3; z <= -1; z++) plan.put(c.offset(x, y, z), net.minecraft.world.level.block.Blocks.COBBLESTONE.defaultBlockState());
             }
         }
+        // A row of redstone blocks in front of the house, each facing its own
+        // way (the facing comes from where you look while placing), two apart
+        // so no observer sets off another.
+        var F = net.minecraft.world.level.block.state.properties.BlockStateProperties.FACING;
+        var D = new net.minecraft.core.Direction[] {net.minecraft.core.Direction.NORTH, net.minecraft.core.Direction.SOUTH,
+                net.minecraft.core.Direction.EAST, net.minecraft.core.Direction.WEST, net.minecraft.core.Direction.DOWN};
+        for (int i = 0; i < D.length; i++) {
+            plan.put(c.offset(-12 + 2 * i, 0, 4), net.minecraft.world.level.block.Blocks.OBSERVER.defaultBlockState().setValue(F, D[i]));
+        }
+        plan.put(c.offset(-2, 0, 4), net.minecraft.world.level.block.Blocks.DISPENSER.defaultBlockState().setValue(F, net.minecraft.core.Direction.UP));
+        plan.put(c.offset(0, 0, 4), net.minecraft.world.level.block.Blocks.DROPPER.defaultBlockState().setValue(F, net.minecraft.core.Direction.EAST));
+        plan.put(c.offset(2, 0, 4), net.minecraft.world.level.block.Blocks.STICKY_PISTON.defaultBlockState().setValue(F, net.minecraft.core.Direction.WEST));
+        // A hopper feeding a chest: placed against the chest, which a plain
+        // click would open, so the builder has to sneak.
+        plan.put(c.offset(4, 0, 3), net.minecraft.world.level.block.Blocks.CHEST.defaultBlockState());
+        plan.put(c.offset(4, 0, 2), net.minecraft.world.level.block.Blocks.HOPPER.defaultBlockState()
+                .setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.FACING_HOPPER, net.minecraft.core.Direction.SOUTH));
         plan.put(c.offset(0, 1, -1), net.minecraft.world.level.block.Blocks.WALL_TORCH.defaultBlockState()
                 .setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.HORIZONTAL_FACING, net.minecraft.core.Direction.SOUTH));
         builderPlan = plan;
@@ -604,6 +623,12 @@ public final class SmokeTest {
             sp.getInventory().add(new ItemStack(Items.DIRT, 64));
             sp.getInventory().add(new ItemStack(Items.COBBLESTONE, 64));
             sp.getInventory().add(new ItemStack(Items.COBBLESTONE, 16));
+            sp.getInventory().add(new ItemStack(Items.OBSERVER, 5));
+            sp.getInventory().add(new ItemStack(Items.DISPENSER, 1));
+            sp.getInventory().add(new ItemStack(Items.DROPPER, 1));
+            sp.getInventory().add(new ItemStack(Items.STICKY_PISTON, 1));
+            sp.getInventory().add(new ItemStack(Items.CHEST, 1));
+            sp.getInventory().add(new ItemStack(Items.HOPPER, 1));
         });
         boolean litematica = placeWithLitematica(mc, plan, c);
         CrystalClient.LOGGER.info("[Crystal] AutoBuilder house source: {}", litematica ? "Litematica" : "built in");

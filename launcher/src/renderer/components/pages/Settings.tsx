@@ -356,6 +356,8 @@ interface RankGrant {
   rank: RankId
   grantedAt: number
   expiresAt?: number
+  /** Tester, on top of the rank: may try test features such as the auto builder. */
+  tester?: boolean
 }
 
 const GRANT_DURATIONS: { label: string; ms: number | undefined }[] = [
@@ -455,6 +457,17 @@ function RankManagementSection() {
     }
   }
 
+  async function setTester(name: string, tester: boolean) {
+    setSaving(true)
+    const ok = await api?.setRankTester(name, tester)
+    setSaving(false)
+    if (ok) {
+      notify({ type: 'success', message: tester ? `${name} ist jetzt Tester` : `${name} ist kein Tester mehr` })
+      if (name === username.trim()) setUsername('')
+      refresh()
+    }
+  }
+
   async function revoke(name: string) {
     await api?.revokeRankGrant(name)
     refresh()
@@ -488,7 +501,7 @@ function RankManagementSection() {
         </div>
       )}
 
-      <div className="p-4 grid grid-cols-[minmax(0,1fr)_auto_auto_auto] gap-2">
+      <div className="p-4 grid grid-cols-[minmax(0,1fr)_auto_auto_auto_auto] gap-2">
         <input
           value={username}
           onChange={e => setUsername(e.target.value)}
@@ -511,6 +524,14 @@ function RankManagementSection() {
         <button onClick={grant} disabled={saving || !username.trim()} className="crystal-btn-primary text-[13px] disabled:opacity-50">
           Vergeben
         </button>
+        <button
+          onClick={() => setTester(username.trim(), true)}
+          disabled={saving || !username.trim()}
+          title="Darf Test-Funktionen wie den Auto-Builder ausprobieren, zusätzlich zu seinem Rang"
+          className="crystal-btn-ghost text-[13px] disabled:opacity-50"
+        >
+          Als Tester
+        </button>
       </div>
 
       {grants.length === 0 ? (
@@ -520,6 +541,16 @@ function RankManagementSection() {
           <div key={g.username} className="flex items-center gap-3 px-4 py-2.5">
             <RankBadge rank={g.rank} size="sm" />
             <span className="flex-1 min-w-0 text-[13px] text-crystal-text truncate">{g.username}</span>
+            <button
+              onClick={() => setTester(g.username, !g.tester)}
+              aria-pressed={!!g.tester}
+              title={g.tester ? 'Tester entziehen' : 'Zum Tester machen'}
+              className={`text-[11px] px-2 py-0.5 rounded-full border transition-colors ${g.tester
+                ? 'border-crystal-accent text-crystal-accent'
+                : 'border-crystal-border text-crystal-muted hover:text-crystal-text'}`}
+            >
+              Tester
+            </button>
             <span className="text-xs text-crystal-muted tabular">
               {g.expiresAt ? `bis ${new Date(g.expiresAt).toLocaleDateString('de-DE')}` : 'dauerhaft'}
             </span>

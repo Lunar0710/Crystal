@@ -43,6 +43,7 @@ contextBridge.exposeInMainWorld('crystal', {
   listRankGrants:  () => ipcRenderer.invoke('ranks:list'),
   grantRank:       (username: string, rank: string, durationMs?: number) => ipcRenderer.invoke('ranks:grant', username, rank, durationMs),
   revokeRankGrant: (username: string) => ipcRenderer.invoke('ranks:revoke', username),
+  setRankTester:   (username: string, tester: boolean) => ipcRenderer.invoke('ranks:setTester', username, tester),
   hasRankToken:    () => ipcRenderer.invoke('ranks:hasToken'),
   setRankToken:    (token: string) => ipcRenderer.invoke('ranks:setToken', token),
   publishRanks:    () => ipcRenderer.invoke('ranks:publishNow'),

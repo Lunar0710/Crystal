@@ -42,7 +42,10 @@ import java.util.Set;
 public final class PlacementPlanner {
 
     /** A click that places the block: which face of which neighbour, where, and the look it needs. */
-    public record Plan(BlockPos clickPos, Direction face, Vec3 hit, float yaw, float pitch, boolean needsRotation, boolean exact) {
+    public record Plan(BlockPos clickPos, Direction face, Vec3 hit, float yaw, float pitch, boolean needsRotation, boolean exact, boolean sneak) {
+        public Plan(BlockPos clickPos, Direction face, Vec3 hit, float yaw, float pitch, boolean needsRotation, boolean exact) {
+            this(clickPos, face, hit, yaw, pitch, needsRotation, exact, false);
+        }
         public BlockHitResult hitResult() {
             return new BlockHitResult(hit, face, clickPos, false);
         }
@@ -76,14 +79,17 @@ public final class PlacementPlanner {
         try {
             for (Direction toNeighbour : Direction.values()) {
                 BlockPos neighbour = target.relative(toNeighbour);
-                if (!clickable(level, neighbour)) continue;
+                // Chests, hoppers, doors, repeaters and the like open or change on
+                // a click: against those the click is made sneaking, as by hand.
+                boolean sneak = !clickable(level, neighbour);
+                if (sneak && !solidToClick(level, neighbour)) continue;
                 Direction face = toNeighbour.getOpposite();
                 for (Vec3 point : facePoints(neighbour, face)) {
                     if (point.distanceTo(eye) > reach) continue;
                     BlockHitResult ray = sight(level, player, eye, point);
                     if (ray == null || !ray.getBlockPos().equals(neighbour) || ray.getDirection() != face) continue;
                     float[] look = aim(eye, ray.getLocation());
-                    candidates.add(simulate(level, player, block, want, stack, neighbour, face, ray.getLocation(), look[0], look[1], false));
+                    candidates.add(simulate(level, player, block, want, stack, neighbour, face, ray.getLocation(), look[0], look[1], sneak));
                 }
             }
         } finally {
@@ -113,7 +119,8 @@ public final class PlacementPlanner {
             int score = 0;
             for (Property<?> property : decided) if (c.result.getValue(property).equals(want.getValue(property))) score++;
             // Equal score: the smallest turn from where you look now.
-            float turn = Math.abs(net.minecraft.util.Mth.wrapDegrees(c.yaw - yaw0)) + Math.abs(c.pitch - pitch0);
+            // Not sneaking when both work.
+            float turn = Math.abs(net.minecraft.util.Mth.wrapDegrees(c.yaw - yaw0)) + Math.abs(c.pitch - pitch0) + (c.rotate ? 1000f : 0f);
             if (score > bestScore || (score == bestScore && turn < bestTurn)) {
                 best = c;
                 bestScore = score;
@@ -123,7 +130,7 @@ public final class PlacementPlanner {
         // Exact means the result is what the schematic wants, not just the best
         // of what these clicks allow: with only the ground to click, every
         // candidate gives an upright log, and none of them is right.
-        return new Plan(best.clickPos, best.face, best.hit, best.yaw, best.pitch, true, sameOrientation(best.result, want));
+        return new Plan(best.clickPos, best.face, best.hit, best.yaw, best.pitch, true, sameOrientation(best.result, want), best.rotate);
     }
 
     /** What the crosshair would be on looking from {@code eye} at {@code point}, or null for nothing. */
@@ -261,7 +268,15 @@ public final class PlacementPlanner {
         }
     }
 
+    /** {@code rotate} here means: clicked sneaking. */
     private record Candidate(BlockPos clickPos, Direction face, Vec3 hit, float yaw, float pitch, boolean rotate, BlockState result) {}
+
+    /** Something a click can be made against at all (sneaking if it would open or change). */
+    public static boolean solidToClick(Level level, BlockPos pos) {
+        if (!level.hasChunkAt(pos)) return false;
+        BlockState state = level.getBlockState(pos);
+        return !state.isAir() && !state.canBeReplaced() && state.getFluidState().isEmpty();
+    }
 
     private static Candidate simulate(Level level, LocalPlayer player, Block block, BlockState want, ItemStack stack,
                                       BlockPos neighbour, Direction face, Vec3 hit, float yaw, float pitch, boolean rotate) {

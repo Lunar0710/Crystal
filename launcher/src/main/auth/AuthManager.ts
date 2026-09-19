@@ -36,6 +36,11 @@ export interface RankGrant {
   grantedAt: number
   /** Absent means permanent. Expired grants are dropped the next time getGrants() reads the store. */
   expiresAt?: number
+  /**
+   * Tester, on top of the rank: unlocks features still being tried out (the
+   * auto builder) in the game. A tester without a rank is a grant with rank 'member'.
+   */
+  tester?: boolean
 }
 
 export class AuthManager {
@@ -277,6 +282,31 @@ export class AuthManager {
     return (this.store.get('account.rank') as RankId) || 'member'
   }
 
+  /** Whether the logged-in player may try test features: the owner, and anyone marked tester. */
+  isTester(): boolean {
+    if (this.getRank() === 'owner') return true
+    const profile = this.getStoredProfile()
+    if (!profile) return false
+    const key = profile.username.toLowerCase()
+    return !!(this.getGrants()[key]?.tester || this.getRemoteGrant(key)?.tester)
+  }
+
+  /** Only ever call this after confirming the caller is the owner — see ipc.ts. */
+  setTester(username: string, tester: boolean): void {
+    const grants = this.getGrants()
+    const key = username.toLowerCase()
+    const grant = grants[key]
+    if (grant) {
+      if (tester) grant.tester = true
+      else delete grant.tester
+      // A tester-only entry has nothing left once the tester mark goes.
+      if (!tester && grant.rank === 'member') delete grants[key]
+    } else if (tester) {
+      grants[key] = { username, rank: 'member', grantedAt: Date.now(), tester: true }
+    }
+    this.store.set('account.rankGrants', grants)
+  }
+
   /** Published grants mirrored from the repo by RankSyncService — expired ones are ignored. */
   private getRemoteGrant(usernameKey: string): RankGrant | null {
     const remote = (this.store.get('ranks.remoteCache') as Record<string, RankGrant>) || {}
@@ -310,11 +340,14 @@ export class AuthManager {
    */
   grantRank(username: string, rank: RankId, durationMs?: number): void {
     const grants = this.getGrants()
+    const previous = grants[username.toLowerCase()]
     grants[username.toLowerCase()] = {
       username,
       rank,
       grantedAt: Date.now(),
       ...(durationMs ? { expiresAt: Date.now() + durationMs } : {}),
+      // A new rank keeps the tester mark.
+      ...(previous?.tester ? { tester: true } : {}),
     }
     this.store.set('account.rankGrants', grants)
   }

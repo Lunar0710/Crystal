@@ -1,6 +1,6 @@
 {
   "name": "crystal-launcher",
-  "version": "1.3.2",
+  "version": "1.3.3",
   "description": "Crystal Client Launcher",
   "main": "dist/main/index.js",
   "scripts": {

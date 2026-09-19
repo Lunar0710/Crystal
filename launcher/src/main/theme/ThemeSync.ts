@@ -56,10 +56,10 @@ const PERK_RANKS = ['owner', 'co_owner', 'admin', 'staff', 'developer', 'media',
  * perks can unlock there too. Like ranks in general this is cosmetic, not a
  * security boundary: it only decides which visual extras are offered.
  */
-export function syncProfileToClient(rank: string) {
+export function syncProfileToClient(rank: string, tester = false) {
   const configDir = crystalPath('config')
   fs.mkdirSync(configDir, { recursive: true })
-  const next = JSON.stringify({ rank, perks: PERK_RANKS.includes(rank) }, null, 2)
+  const next = JSON.stringify({ rank, perks: PERK_RANKS.includes(rank), tester }, null, 2)
   const file = path.join(configDir, 'profile.json')
   // Only rewrite on change: the client watches the file's timestamp.
   if (fs.existsSync(file) && fs.readFileSync(file, 'utf8') === next) return

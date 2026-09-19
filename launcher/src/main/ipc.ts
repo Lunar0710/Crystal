@@ -42,7 +42,7 @@ export function registerIpcHandlers(store: Store) {
   rankSync.fetchRemoteGrants()
   rankSync.startAutoRefresh()
   const syncProfile = () => {
-    try { syncProfileToClient(auth.getRank()) } catch (err) { logger.warn('launcher', 'Rang konnte nicht an den Client übergeben werden', String(err)) }
+    try { syncProfileToClient(auth.getRank(), auth.isTester()) } catch (err) { logger.warn('launcher', 'Rang konnte nicht an den Client übergeben werden', String(err)) }
   }
   rankSync.ready().then(syncProfile)
   setInterval(syncProfile, 3 * 60 * 1000).unref?.()
@@ -125,6 +125,13 @@ export function registerIpcHandlers(store: Store) {
     auth.grantRank(username.trim(), rank as any, durationMs)
     // Publishing is what makes the rank visible on the other person's own
     // machine — without it the grant would only ever apply to this install.
+    await rankSync.publish(auth.getGrants())
+    return true
+  })
+  ipcMain.handle('ranks:setTester', async (_e, username: string, tester: boolean) => {
+    if (auth.getRank() !== 'owner') return false
+    if (!username?.trim()) return false
+    auth.setTester(username.trim(), !!tester)
     await rankSync.publish(auth.getGrants())
     return true
   })

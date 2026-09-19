@@ -56,7 +56,7 @@ import java.util.function.Consumer;
  * nothing to place against get a temporary support block that is broken again
  * afterwards.
  *
- * Owner only for now (OwnerModules) and off on Hypixel.
+ * Only for the owner and testers for now (OwnerModules), and off on Hypixel.
  */
 public class AutoBuilder extends Module {
 
@@ -122,8 +122,7 @@ public class AutoBuilder extends Module {
     /** Pillaring up (jump, place a filler block under the feet): the feet height to reach, or MIN_VALUE. */
     private int pillarTop = Integer.MIN_VALUE;
     private BlockPos pillarBase = null;
-    // Showing only the layer being built in Litematica. Always on for now: without
-    // it the builder can still start a higher layer too early (world test).
+    // Showing only the layer being built in Litematica.
     private boolean showLayer = true;
     private int shownLayer = Integer.MIN_VALUE, topLayer = Integer.MIN_VALUE;
     private long layerShownAt = 0L;
@@ -173,6 +172,7 @@ public class AutoBuilder extends Module {
         if (breaking != null && mc.gameMode != null) mc.gameMode.stopDestroyBlock();
         afterTurn = null;
         turning = false;
+        setSneak(mc, false);
         dev.crystal.client.build.SmoothLook.stop();
         walker.stop(mc);
         unreachable.clear();
@@ -249,9 +249,10 @@ public class AutoBuilder extends Module {
             }
             if (step(mc, player)) budget -= 1f;
             else if (walk && --walkCooldown <= 0) {
-                // Nothing to do in reach: off to the nearest block of the lowest open layer.
+                // Nothing to do in reach: off to the nearest block of the lowest open
+                // layer, or once all is built, back to supports still standing.
                 walkCooldown = 20;
-                startWalk(mc, player, false);
+                if (!startWalk(mc, player, false) && globalLayer == Integer.MAX_VALUE) walkToSupport(mc, player);
             }
         }
 
@@ -280,15 +281,21 @@ public class AutoBuilder extends Module {
         // one only when everything left below is waiting for a neighbour (an
         // upside-down stair needs the block above it), never past missing items.
         waiting = 0;
+        int elsewhere = 0;
         layer = targets.get(0).pos.getY();
         // Everything in reach is above the lowest open layer: that layer comes first (walk there).
         if (layer > globalLayer) return false;
+        // Work in reach while the whole schematic shows none: Litematica is still
+        // loading it, and the lowest layer isn't known yet. Nothing until it is.
+        if (globalLayer == Integer.MAX_VALUE && !source.bounds().isEmpty()) return false;
         for (Target target : targets) {
             if (target.pos.getY() != layer) {
                 if (!missing.isEmpty()) break;
                 // Above the lowest open layer of the whole build only when all
                 // left down here waits for a neighbour from above.
                 if (target.pos.getY() > globalLayer && waiting == 0) break;
+                // Nor while something down here only needs you to stand elsewhere.
+                if (elsewhere > 0) break;
                 layer = target.pos.getY();
             }
             BlockState current = level.getBlockState(target.pos);
@@ -328,7 +335,10 @@ public class AutoBuilder extends Module {
             // Something to click against is there, just not the right way
             // round from where you stand: another spot helps, a support does
             // not. Walking finds that spot; supports only once no walk gets there.
-            if (walk && hasClickableNeighbour(level, target.pos) && !unreachable.containsKey(target.pos)) continue;
+            if (walk && hasClickableNeighbour(level, target.pos) && !unreachable.containsKey(target.pos)) {
+                elsewhere++;
+                continue;
+            }
             // A schematic neighbour still to come will give something to click
             // against (roofs grow inward from the walls): wait for it rather than
             // put in a support. Only for a while, in case two blocks wait on each other.
@@ -450,9 +460,12 @@ public class AutoBuilder extends Module {
                         boolean secondSlab = isDoubleSlab(want) && have.getBlock() == want.getBlock();
                         if (!adjust && !secondSlab && !have.canBeReplaced()) continue;
                         Item item = want.getBlock().asItem();
-                        if (!adjust && (item == Items.AIR || !has(Minecraft.getInstance(), player, item))) continue;
+                        if (!adjust && item == Items.AIR) continue;
                         if (unreachable.containsKey(pos)) continue;
+                        // Open even without the item: the build never goes on above a
+                        // layer missing blocks (the report says what's missing).
                         layerOpen = true;
+                        if (!adjust && !has(Minecraft.getInstance(), player, item)) continue;
                         if (skip.contains(pos)) continue;
                         double distance = pos.distToCenterSqr(player.position());
                         // The spot you stand in last: it needs you to step off first.
@@ -660,7 +673,7 @@ public class AutoBuilder extends Module {
     }
 
     private static boolean hasClickableNeighbour(Level level, BlockPos pos) {
-        for (Direction dir : Direction.values()) if (PlacementPlanner.clickable(level, pos.relative(dir))) return true;
+        for (Direction dir : Direction.values()) if (PlacementPlanner.solidToClick(level, pos.relative(dir))) return true;
         return false;
     }
 
@@ -702,6 +715,26 @@ public class AutoBuilder extends Module {
             } else {
                 source.showAllLayers();
                 shownLayer = Integer.MIN_VALUE;
+            }
+        }
+    }
+
+    /** Walks within reach of a finished support that is still standing, so it gets broken. */
+    private void walkToSupport(Minecraft mc, LocalPlayer player) {
+        Level level = mc.level;
+        double reach = player.blockInteractionRange();
+        double eyeHeight = player.getEyeHeight();
+        for (BlockPos support : supports) {
+            if (level.getBlockState(support).isAir() || !supportDone(level, support)) continue;
+            Vec3 centre = Vec3.atCenterOf(support);
+            if (centre.distanceTo(player.getEyePosition()) <= reach - 0.5) continue;
+            List<BlockPos> path = dev.crystal.client.build.Walker.findPath(level, player.blockPosition(), spot -> {
+                if (spot.getX() == support.getX() && spot.getZ() == support.getZ() && spot.getY() > support.getY()) return false;
+                return new Vec3(spot.getX() + 0.5, spot.getY() + eyeHeight, spot.getZ() + 0.5).distanceTo(centre) <= reach - 1.0;
+            }, support);
+            if (path != null && path.size() > 1) {
+                walker.start(path);
+                return;
             }
         }
     }
@@ -760,14 +793,27 @@ public class AutoBuilder extends Module {
      * head stays where it ended up, like after placing by hand.
      */
     private void place(Minecraft mc, LocalPlayer player, Plan plan, BlockPos target) {
+        // Against a chest, hopper, door and the like: sneaking, pressed while
+        // turning so the server has it by the click (it comes with the player's tick).
+        if (plan.sneak()) setSneak(mc, true);
         turnThen(player, plan.yaw(), plan.pitch(), SETTLE_TICKS, () -> {
             // The world may have changed while turning (a support broken, a
             // block placed by someone else): a click on air would put the
             // block in the wrong spot, so only click what is still there.
             Level level = mc.level;
-            boolean againstBlock = plan.clickPos().equals(target) || PlacementPlanner.clickable(level, plan.clickPos());
+            boolean againstBlock = plan.clickPos().equals(target)
+                    || (plan.sneak() ? PlacementPlanner.solidToClick(level, plan.clickPos()) : PlacementPlanner.clickable(level, plan.clickPos()));
             if (againstBlock && player.getEyePosition().distanceTo(plan.hit()) <= player.blockInteractionRange()) click(mc, plan);
+            setSneak(mc, false);
         });
+    }
+
+    private boolean sneakHeld = false;
+
+    private void setSneak(Minecraft mc, boolean down) {
+        if (!down && !sneakHeld) return;
+        mc.options.keyShift.setDown(down);
+        sneakHeld = down;
     }
 
     private void turnThen(LocalPlayer player, float yaw, float pitch, int settle, Runnable action) {
@@ -791,6 +837,7 @@ public class AutoBuilder extends Module {
         if (player != turningPlayer) {
             afterTurn = null;
             turning = false;
+            setSneak(Minecraft.getInstance(), false);
             dev.crystal.client.build.SmoothLook.stop();
             return;
         }
@@ -1002,6 +1049,7 @@ public class AutoBuilder extends Module {
                 new SliderSetting("Blöcke pro Sekunde", () -> blocksPerSecond, v -> blocksPerSecond = v, 0.5f, 20f, 0.5f, 1),
                 new SliderSetting("Drehgeschwindigkeit", () -> turnSpeed, v -> turnSpeed = v, 3f, 90f, 1f, 0),
                 new BooleanSetting("Laufen", () -> walk, v -> walk = v, true),
+                new BooleanSetting("Nur aktuelle Schicht zeigen", () -> showLayer, v -> showLayer = v, true),
                 new BooleanSetting("Stützblöcke", () -> useSupports, v -> useSupports = v, true),
                 new SliderSetting("Hotbar-Slot", () -> (float) (hotbarSlot + 1), v -> hotbarSlot = Math.round(v) - 1, 1f, 9f, 1f, 0)
         );

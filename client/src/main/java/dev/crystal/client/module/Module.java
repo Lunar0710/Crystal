@@ -47,12 +47,12 @@ public abstract class Module {
 
     public boolean isPlusOnly() { return PlusModules.NAMES.contains(name); }
 
-    /** Only for the owner rank (OwnerModules): hidden and off for everyone else. */
+    /** A test feature (OwnerModules): only the owner and testers see it, hidden and off for everyone else. */
     public boolean isOwnerOnly() { return OwnerModules.NAMES.contains(name); }
 
-    /** A Crystal+ module without Crystal+, or an owner module without the owner rank. */
+    /** A Crystal+ module without Crystal+, or a test feature for someone who is neither owner nor tester. */
     public boolean isLocked() {
-        if (isOwnerOnly() && !"owner".equals(CrystalProfile.rank())) return true;
+        if (isOwnerOnly() && !"owner".equals(CrystalProfile.rank()) && !CrystalProfile.isTester()) return true;
         return isPlusOnly() && !CrystalProfile.hasPerks();
     }
     public String getName() { return name; }

@@ -29,6 +29,7 @@ public final class CrystalProfile {
 
     private static volatile boolean perks = false;
     private static volatile String rank = "member";
+    private static volatile boolean tester = false;
     private static volatile long lastCheck = 0;
     private static volatile long lastMtime = -1;
     private static volatile boolean inFlight = false;
@@ -45,6 +46,12 @@ public final class CrystalProfile {
         return rank;
     }
 
+    /** Marked tester in the launcher: may try test features (OwnerModules). */
+    public static boolean isTester() {
+        refreshIfDue();
+        return tester;
+    }
+
     private static void refreshIfDue() {
         long now = System.currentTimeMillis();
         if (now - lastCheck < CHECK_INTERVAL_MS || inFlight) return;
@@ -59,6 +66,7 @@ public final class CrystalProfile {
             if (!Files.exists(file)) {
                 perks = false;
                 rank = "member";
+                tester = false;
                 return;
             }
             long mtime = Files.getLastModifiedTime(file).toMillis();
@@ -66,6 +74,7 @@ public final class CrystalProfile {
             JsonObject root = JsonParser.parseString(Files.readString(file)).getAsJsonObject();
             perks = root.has("perks") && root.get("perks").getAsBoolean();
             rank = root.has("rank") ? root.get("rank").getAsString() : "member";
+            tester = root.has("tester") && root.get("tester").getAsBoolean();
             lastMtime = mtime;
         } catch (IOException | RuntimeException e) {
             CrystalClient.LOGGER.warn("[Crystal] profile.json nicht lesbar: {}", e.getMessage());
