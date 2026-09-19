@@ -48,8 +48,6 @@ public final class PlacementPlanner {
         }
     }
 
-    private static final float[] YAWS = {0f, 90f, 180f, -90f};
-    private static final float[] PITCHES = {0f, -90f, 90f};
 
     private PlacementPlanner() {}
 
@@ -58,9 +56,19 @@ public final class PlacementPlanner {
      * or null when no neighbouring block can be clicked (it needs a support).
      */
     public static Plan plan(Level level, LocalPlayer player, BlockPos target, BlockState want, ItemStack stack) {
+        return plan(level, player, target, want, stack, player.getEyePosition());
+    }
+
+    /**
+     * The same from an eye position of choice (a spot the builder could walk
+     * to). Every click looks straight at the spot clicked and is checked with
+     * a ray from the eye: the crosshair is on that face of that block, nothing
+     * in between, as when you place by hand. Several spots on each face are
+     * tried, since where you look decides the facing of many blocks.
+     */
+    public static Plan plan(Level level, LocalPlayer player, BlockPos target, BlockState want, ItemStack stack, Vec3 eye) {
         if (!(stack.getItem() instanceof BlockItem blockItem)) return null;
         Block block = blockItem.getBlock();
-        Vec3 eye = player.getEyePosition();
         double reach = player.blockInteractionRange();
 
         float yaw0 = player.getYRot(), pitch0 = player.getXRot();
@@ -70,18 +78,12 @@ public final class PlacementPlanner {
                 BlockPos neighbour = target.relative(toNeighbour);
                 if (!clickable(level, neighbour)) continue;
                 Direction face = toNeighbour.getOpposite();
-                for (Vec3 hit : hitPoints(neighbour, face)) {
-                    if (hit.distanceTo(eye) > reach) continue;
-                    // Looking right at the spot clicked, the way you would; the
-                    // straight compass looks only when the block needs a facing
-                    // that this look doesn't give.
-                    float[] look = aim(eye, hit);
-                    candidates.add(simulate(level, player, block, want, stack, neighbour, face, hit, look[0], look[1], false));
-                    for (float yaw : YAWS) {
-                        for (float pitch : PITCHES) {
-                            candidates.add(simulate(level, player, block, want, stack, neighbour, face, hit, yaw, pitch, true));
-                        }
-                    }
+                for (Vec3 point : facePoints(neighbour, face)) {
+                    if (point.distanceTo(eye) > reach) continue;
+                    BlockHitResult ray = sight(level, player, eye, point);
+                    if (ray == null || !ray.getBlockPos().equals(neighbour) || ray.getDirection() != face) continue;
+                    float[] look = aim(eye, ray.getLocation());
+                    candidates.add(simulate(level, player, block, want, stack, neighbour, face, ray.getLocation(), look[0], look[1], false));
                 }
             }
         } finally {
@@ -106,22 +108,49 @@ public final class PlacementPlanner {
 
         Candidate best = null;
         int bestScore = -1;
+        float bestTurn = Float.MAX_VALUE;
         for (Candidate c : candidates) {
             int score = 0;
             for (Property<?> property : decided) if (c.result.getValue(property).equals(want.getValue(property))) score++;
-            // Equal score: prefer looking at the spot, then clicking from below (the steadiest face).
-            boolean better = score > bestScore
-                    || (score == bestScore && best != null && best.rotate && !c.rotate)
-                    || (score == bestScore && best != null && best.rotate == c.rotate && c.face == Direction.UP && best.face != Direction.UP);
-            if (better) {
+            // Equal score: the smallest turn from where you look now.
+            float turn = Math.abs(net.minecraft.util.Mth.wrapDegrees(c.yaw - yaw0)) + Math.abs(c.pitch - pitch0);
+            if (score > bestScore || (score == bestScore && turn < bestTurn)) {
                 best = c;
                 bestScore = score;
+                bestTurn = turn;
             }
         }
         // Exact means the result is what the schematic wants, not just the best
         // of what these clicks allow: with only the ground to click, every
         // candidate gives an upright log, and none of them is right.
         return new Plan(best.clickPos, best.face, best.hit, best.yaw, best.pitch, true, sameOrientation(best.result, want));
+    }
+
+    /** What the crosshair would be on looking from {@code eye} at {@code point}, or null for nothing. */
+    private static BlockHitResult sight(Level level, LocalPlayer player, Vec3 eye, Vec3 point) {
+        Vec3 through = point.add(point.subtract(eye).normalize().scale(0.05));
+        BlockHitResult hit = level.clip(new net.minecraft.world.level.ClipContext(eye, through,
+                net.minecraft.world.level.ClipContext.Block.OUTLINE, net.minecraft.world.level.ClipContext.Fluid.NONE, player));
+        return hit.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK ? hit : null;
+    }
+
+    /** A 3x3 grid on the face, a little in from the edges (half and corner matter for slabs and stairs). */
+    private static List<Vec3> facePoints(BlockPos neighbour, Direction face) {
+        List<Vec3> points = new ArrayList<>(9);
+        Vec3 centre = Vec3.atCenterOf(neighbour).add(face.getStepX() * 0.5, face.getStepY() * 0.5, face.getStepZ() * 0.5);
+        double[] offsets = {0, -0.3, 0.3};
+        for (double a : offsets) {
+            for (double b : offsets) {
+                double x = 0, y = 0, z = 0;
+                switch (face.getAxis()) {
+                    case X -> { y = a; z = b; }
+                    case Y -> { x = a; z = b; }
+                    case Z -> { x = a; y = b; }
+                }
+                points.add(centre.add(x, y, z));
+            }
+        }
+        return points;
     }
 
     /** Yaw and pitch that look from {@code eye} straight at {@code point}. */
@@ -171,15 +200,13 @@ public final class PlacementPlanner {
                 BlockPos neighbour = target.relative(toNeighbour);
                 if (!level.getBlockState(neighbour).canBeReplaced() || !spotFree.test(neighbour)) continue;
                 Direction face = toNeighbour.getOpposite();
-                for (Vec3 hit : hitPoints(neighbour, face)) {
+                // Looking at the support-to-be, as the click on it will.
+                for (Vec3 hit : facePoints(neighbour, face)) {
                     if (hit.distanceTo(eye) > reach) continue;
-                    for (float yaw : YAWS) {
-                        for (float pitch : PITCHES) {
-                            BlockState result = simulateInto(player, block, want, stack, target, face, hit, yaw, pitch);
-                            if (result != null && result.getBlock() == want.getBlock() && sameOrientation(result, want)) {
-                                return neighbour;
-                            }
-                        }
+                    float[] look = aim(eye, hit);
+                    BlockState result = simulateInto(player, block, want, stack, target, face, hit, look[0], look[1]);
+                    if (result != null && result.getBlock() == want.getBlock() && sameOrientation(result, want)) {
+                        return neighbour;
                     }
                 }
             }
@@ -249,13 +276,6 @@ public final class PlacementPlanner {
             result = null;
         }
         return new Candidate(neighbour, face, hit, yaw, pitch, rotate, result);
-    }
-
-    /** Face centre, plus the upper and lower half of side faces (slabs and stairs read the half). */
-    private static List<Vec3> hitPoints(BlockPos neighbour, Direction face) {
-        Vec3 centre = Vec3.atCenterOf(neighbour).add(face.getStepX() * 0.5, face.getStepY() * 0.5, face.getStepZ() * 0.5);
-        if (face.getAxis() == Direction.Axis.Y) return List.of(centre);
-        return List.of(centre, centre.add(0, 0.25, 0), centre.add(0, -0.25, 0));
     }
 
     /**

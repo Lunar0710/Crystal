@@ -19,4 +19,16 @@ public interface SchematicSource {
     default java.util.List<BlockPos[]> bounds() {
         return java.util.List.of();
     }
+
+    /**
+     * Show only this layer of the schematic, so you see what is being built.
+     * The source may then only know that layer (Litematica loads just what it
+     * shows). False if the source can't.
+     */
+    default boolean showOnlyLayer(int y) {
+        return false;
+    }
+
+    /** Back to however the layers were shown before. */
+    default void showAllLayers() {}
 }

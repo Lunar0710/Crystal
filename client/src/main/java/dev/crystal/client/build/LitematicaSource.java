@@ -62,6 +62,53 @@ public final class LitematicaSource implements SchematicSource {
         }
     }
 
+    // The layer display as you had it, restored when the builder stops.
+    private Object savedMode, savedAxis;
+    private int savedSingle;
+    private boolean layerChanged;
+
+    private Object layerRange() throws ReflectiveOperationException {
+        return Class.forName("fi.dy.masa.litematica.data.DataManager").getMethod("getRenderLayerRange").invoke(null);
+    }
+
+    @Override
+    public boolean showOnlyLayer(int y) {
+        try {
+            Object range = layerRange();
+            Class<?> modeType = Class.forName("fi.dy.masa.malilib.util.LayerMode");
+            if (!layerChanged) {
+                savedMode = range.getClass().getMethod("getLayerMode").invoke(range);
+                savedAxis = range.getClass().getMethod("getAxis").invoke(range);
+                savedSingle = (Integer) range.getClass().getMethod("getLayerSingle").invoke(range);
+                layerChanged = true;
+            }
+            range.getClass().getMethod("setAxis", net.minecraft.core.Direction.Axis.class).invoke(range, net.minecraft.core.Direction.Axis.Y);
+            range.getClass().getMethod("setLayerMode", modeType).invoke(range, modeType.getField("SINGLE_LAYER").get(null));
+            range.getClass().getMethod("setLayerSingle", int.class).invoke(range, y);
+            return true;
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            CrystalClient.LOGGER.warn("[Crystal] Auto-Builder: Schicht-Anzeige nicht möglich: {}", e.toString());
+            return false;
+        }
+    }
+
+    @Override
+    public void showAllLayers() {
+        if (!layerChanged) return;
+        layerChanged = false;
+        try {
+            Object range = layerRange();
+            Class<?> modeType = Class.forName("fi.dy.masa.malilib.util.LayerMode");
+            range.getClass().getMethod("setAxis", net.minecraft.core.Direction.Axis.class).invoke(range, savedAxis);
+            range.getClass().getMethod("setLayerSingle", int.class).invoke(range, savedSingle);
+            range.getClass().getMethod("setLayerMode", modeType).invoke(range, savedMode);
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            CrystalClient.LOGGER.warn("[Crystal] Auto-Builder: Schicht-Anzeige nicht zurückgesetzt: {}", e.toString());
+        }
+    }
+
+    private boolean boundsFailureLogged;
+
     @Override
     public java.util.List<BlockPos[]> bounds() {
         java.util.List<BlockPos[]> boxes = new java.util.ArrayList<>();
@@ -73,18 +120,27 @@ public final class LitematicaSource implements SchematicSource {
             if (allPlacements == null) allPlacements = manager.getClass().getMethod("getAllSchematicsPlacements");
             for (Object placement : (java.util.Collection<?>) allPlacements.invoke(manager)) {
                 if (!(Boolean) placement.getClass().getMethod("isEnabled").invoke(placement)) continue;
-                // Litematica's own spelling.
-                Object box = placement.getClass().getMethod("getEclosingBox").invoke(placement);
-                if (box == null) continue;
-                BlockPos a = (BlockPos) box.getClass().getMethod("getPos1").invoke(box);
-                BlockPos b = (BlockPos) box.getClass().getMethod("getPos2").invoke(box);
-                if (a == null || b == null) continue;
-                boxes.add(new BlockPos[] {
-                        new BlockPos(Math.min(a.getX(), b.getX()), Math.min(a.getY(), b.getY()), Math.min(a.getZ(), b.getZ())),
-                        new BlockPos(Math.max(a.getX(), b.getX()), Math.max(a.getY(), b.getY()), Math.max(a.getZ(), b.getZ()))});
+                // One box per enabled region. (The placement's enclosing box would
+                // be simpler, but Litematica only fills it in once a placement
+                // is changed or loaded from a save, not for a fresh one.)
+                Class<?> required = Class.forName("fi.dy.masa.litematica.schematic.placement.SubRegionPlacement$RequiredEnabled");
+                Object enabledOnly = required.getField("PLACEMENT_ENABLED").get(null);
+                java.util.Map<?, ?> regions = (java.util.Map<?, ?>) placement.getClass().getMethod("getSubRegionBoxes", required).invoke(placement, enabledOnly);
+                for (Object box : regions.values()) {
+                    BlockPos a = (BlockPos) box.getClass().getMethod("getPos1").invoke(box);
+                    BlockPos b = (BlockPos) box.getClass().getMethod("getPos2").invoke(box);
+                    if (a == null || b == null) continue;
+                    boxes.add(new BlockPos[] {
+                            new BlockPos(Math.min(a.getX(), b.getX()), Math.min(a.getY(), b.getY()), Math.min(a.getZ(), b.getZ())),
+                            new BlockPos(Math.max(a.getX(), b.getX()), Math.max(a.getY(), b.getY()), Math.max(a.getZ(), b.getZ()))});
+                }
             }
         } catch (ReflectiveOperationException | RuntimeException e) {
             // Another Litematica version: no walking, building in reach still works.
+            if (!boundsFailureLogged) {
+                boundsFailureLogged = true;
+                CrystalClient.LOGGER.warn("[Crystal] Auto-Builder: Litematica-Bereich nicht lesbar: {}", e.toString());
+            }
         }
         return boxes;
     }

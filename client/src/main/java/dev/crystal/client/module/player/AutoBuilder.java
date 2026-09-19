@@ -61,20 +61,20 @@ import java.util.function.Consumer;
 public class AutoBuilder extends Module {
 
     /** Filler for supports, first one found in the inventory wins. */
-    private static final List<Item> SUPPORT_ITEMS = List.of(Items.DIRT, Items.COBBLESTONE, Items.NETHERRACK,
-            Items.COBBLED_DEEPSLATE, Items.STONE, Items.ANDESITE, Items.DIORITE, Items.GRANITE);
+    private static final List<Item> SUPPORT_ITEMS = List.of(Items.DIRT, Items.NETHERRACK, Items.COBBLED_DEEPSLATE,
+            Items.ANDESITE, Items.DIORITE, Items.GRANITE, Items.COBBLESTONE, Items.STONE);
     private static final int REPORT_TICKS = 40;
     /** Every click in the log, only during the automated world test. */
     private static final boolean TRACE = System.getProperty("crystal.smoke.screenshot") != null;
 
-    private float blocksPerSecond = 4f;
+    private float blocksPerSecond = 2f;
     private boolean useSupports = true;
     private int hotbarSlot = 8;
 
     private SchematicSource source = new LitematicaSource();
 
     /** Degrees the head turns per tick on its way to the next block. */
-    private float turnSpeed = 30f;
+    private float turnSpeed = 15f;
     /**
      * Ticks the look is held on the spot before the click. The server takes a
      * look over into the head during the player's next server tick, and
@@ -105,6 +105,28 @@ public class AutoBuilder extends Module {
     private final Map<BlockPos, Long> waitingSince = new java.util.HashMap<>();
     private static final long MAX_WAIT_TICKS = 100;
 
+    // Walking to work out of reach (big schematics).
+    private boolean walk = true;
+    private final dev.crystal.client.build.Walker walker = new dev.crystal.client.build.Walker();
+    /** The lowest layer of the whole schematic with work left; nothing above it is placed before. */
+    private int globalLayer = Integer.MAX_VALUE;
+    private int scanFromY = Integer.MIN_VALUE, walkCooldown = 0, rescanCountdown = 0;
+    /** Blocks no walk could get near, and since when; tried again after a while. */
+    private final Map<BlockPos, Long> unreachable = new java.util.HashMap<>();
+    private static final long UNREACHABLE_TICKS = 600;
+    private BlockPos walkTarget = null;
+    private int walkStuck = 0;
+    private long lastBoxesKey = Long.MIN_VALUE;
+    /** Pillaring up (jump, place a filler block under the feet): the feet height to reach, or MIN_VALUE. */
+    private int pillarTop = Integer.MIN_VALUE;
+    private BlockPos pillarBase = null;
+    // Showing only the layer being built in Litematica.
+    private boolean showLayer = true;
+    private int shownLayer = Integer.MIN_VALUE, topLayer = Integer.MIN_VALUE;
+    private long layerShownAt = 0L;
+    /** The layer the builder last climbed up for (once per layer). */
+    private int climbedFor = Integer.MIN_VALUE;
+
     private float budget = 0f;
     private int reportCountdown = 0;
     private final Map<Item, Integer> missing = new LinkedHashMap<>();
@@ -122,6 +144,12 @@ public class AutoBuilder extends Module {
         this.source = testSource;
     }
 
+    /** The world test builds at a brisker pace than the default so it finishes in time. */
+    public void setSpeedsForTest(float blocksPerSecond, float turnSpeed) {
+        this.blocksPerSecond = blocksPerSecond;
+        this.turnSpeed = turnSpeed;
+    }
+
     @Override
     public void onEnable() {
         CrystalClient.getInstance().getEventBus().subscribe(TickEvent.class, tickListener);
@@ -137,6 +165,15 @@ public class AutoBuilder extends Module {
         if (breaking != null && mc.gameMode != null) mc.gameMode.stopDestroyBlock();
         afterTurn = null;
         turning = false;
+        dev.crystal.client.build.SmoothLook.stop();
+        walker.stop(mc);
+        unreachable.clear();
+        globalLayer = Integer.MAX_VALUE;
+        scanFromY = Integer.MIN_VALUE;
+        climbedFor = Integer.MIN_VALUE;
+        stopPillar(mc);
+        source.showAllLayers();
+        shownLayer = Integer.MIN_VALUE;
         breaking = null;
         supports.clear();
         recentlyBroken.clear();
@@ -149,9 +186,31 @@ public class AutoBuilder extends Module {
         LocalPlayer player = mc.player;
         if (player == null || mc.level == null || mc.gameMode == null || !isEnabled()) return;
 
-        if (mc.screen != null || KeyPearls.onHypixel(mc)) return;
+        if (mc.screen != null || KeyPearls.onHypixel(mc)) {
+            // Keys let go while a menu is open; the walk is planned again afterwards.
+            if (walker.walking()) walker.stop(mc);
+            stopPillar(mc);
+            turning = afterTurn != null;
+            return;
+        }
         if (afterTurn != null) {
             turnStep(player);
+            return;
+        }
+        if (pillarTop != Integer.MIN_VALUE) {
+            pillarStep(mc, player);
+            return;
+        }
+        if (walker.walking()) {
+            turning = true;
+            if (!walker.tick(mc, turnSpeed)) {
+                turning = false;
+                // Stuck three times on the way to the same block: leave it for a while.
+                if (walker.stuck() && walkTarget != null && ++walkStuck >= 3) {
+                    unreachable.put(walkTarget, mc.level.getGameTime());
+                    walkStuck = 0;
+                }
+            }
             return;
         }
 
@@ -159,7 +218,29 @@ public class AutoBuilder extends Module {
 
         budget = Math.min(budget + blocksPerSecond / 20f, Math.max(1f, blocksPerSecond / 20f));
         if (budget >= 1f && source.available()) {
+            // The lowest open layer of the whole build: every second, and at once
+            // when the schematic changed (or it had none).
+            // Litematica needs a moment to load a layer it was just told to show.
+            if (showLayer && shownLayer != Integer.MIN_VALUE && mc.level.getGameTime() - layerShownAt < 20) return;
+            if (--rescanCountdown <= 0 || globalLayer == Integer.MAX_VALUE || boxesKey(source.bounds()) != lastBoxesKey) {
+                rescanCountdown = 20;
+                findWork(mc.level, player);
+                followLayer(mc.level);
+            }
+            // A new layer above your feet: first up onto the layer below it, the
+            // way you build by hand, so the build stays in reach as it grows.
+            if (walk && globalLayer != Integer.MAX_VALUE && globalLayer != climbedFor) {
+                climbedFor = globalLayer;
+                if (globalLayer > player.getBlockY() && startWalk(mc, player, true)) return;
+                // No way up on foot: build one, jumping and placing under the feet.
+                if (globalLayer > player.getBlockY() + 1 && useSupports && startPillar(mc, player)) return;
+            }
             if (step(mc, player)) budget -= 1f;
+            else if (walk && --walkCooldown <= 0) {
+                // Nothing to do in reach: off to the nearest block of the lowest open layer.
+                walkCooldown = 20;
+                startWalk(mc, player, false);
+            }
         }
 
         if (--reportCountdown <= 0) {
@@ -188,9 +269,14 @@ public class AutoBuilder extends Module {
         // upside-down stair needs the block above it), never past missing items.
         waiting = 0;
         layer = targets.get(0).pos.getY();
+        // Everything in reach is above the lowest open layer: that layer comes first (walk there).
+        if (layer > globalLayer) return false;
         for (Target target : targets) {
             if (target.pos.getY() != layer) {
                 if (!missing.isEmpty()) break;
+                // Above the lowest open layer of the whole build only when all
+                // left down here waits for a neighbour from above.
+                if (target.pos.getY() > globalLayer && waiting == 0) break;
                 layer = target.pos.getY();
             }
             BlockState current = level.getBlockState(target.pos);
@@ -283,6 +369,323 @@ public class AutoBuilder extends Module {
         return result;
     }
 
+    /**
+     * The whole schematic, layer by layer from the bottom: sets globalLayer to
+     * the lowest layer with a block still to place (that you have the item
+     * for and that no walk failed to reach) and returns its block nearest to you.
+     */
+    private Target findWork(Level level, LocalPlayer player) {
+        return findWork(level, player, java.util.Set.of());
+    }
+
+    /** {@code skip}: blocks not to pick as the answer (they still count for the layer). */
+    private Target findWork(Level level, LocalPlayer player, java.util.Set<BlockPos> skip) {
+        List<BlockPos[]> boxes = source.bounds();
+        if (boxesKey(boxes) != lastBoxesKey) {
+            lastBoxesKey = boxesKey(boxes);
+            scanFromY = Integer.MIN_VALUE;
+            // A new or moved schematic: from its bottom layer (Litematica may
+            // still be showing some layer of the last one).
+            if (showLayer && !boxes.isEmpty()) {
+                int bottom = Integer.MAX_VALUE;
+                for (BlockPos[] box : boxes) bottom = Math.min(bottom, box[0].getY());
+                if (source.showOnlyLayer(bottom)) {
+                    shownLayer = bottom;
+                    layerShownAt = level.getGameTime();
+                    // What it shows is still the old layer until it has loaded: nothing to go by yet.
+                    globalLayer = Integer.MAX_VALUE;
+                    return null;
+                }
+            }
+            if (TRACE) CrystalClient.LOGGER.info("[Crystal] AutoBuilder bounds: {}", boxes.stream().map(b -> b[0].toShortString() + " .. " + b[1].toShortString()).toList());
+        }
+        if (boxes.isEmpty()) {
+            globalLayer = Integer.MAX_VALUE;
+            return null;
+        }
+        long now = level.getGameTime();
+        unreachable.values().removeIf(since -> now - since > UNREACHABLE_TICKS);
+        int minY = Integer.MAX_VALUE, maxY = Integer.MIN_VALUE;
+        for (BlockPos[] box : boxes) {
+            minY = Math.min(minY, box[0].getY());
+            maxY = Math.max(maxY, box[1].getY());
+        }
+        topLayer = maxY;
+        // Finished layers stay finished; start where the last look found work
+        // (from the bottom again now and then, in case something was broken).
+        if (scanFromY < minY || now % 600 < 20) scanFromY = minY;
+        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+        for (int y = scanFromY; y <= maxY; y++) {
+            Target best = null;
+            double bestDistance = Double.MAX_VALUE;
+            boolean layerOpen = false;
+            for (BlockPos[] box : boxes) {
+                if (y < box[0].getY() || y > box[1].getY()) continue;
+                for (int x = box[0].getX(); x <= box[1].getX(); x++) {
+                    for (int z = box[0].getZ(); z <= box[1].getZ(); z++) {
+                        pos.set(x, y, z);
+                        if (!level.hasChunkAt(pos)) continue;
+                        BlockState want = source.expected(pos);
+                        if (want == null || want.isAir() || placedWithOtherHalf(want)) continue;
+                        BlockState have = level.getBlockState(pos);
+                        if (PlacementPlanner.matches(have, want)) continue;
+                        boolean adjust = PlacementPlanner.needsAdjusting(have, want);
+                        boolean secondSlab = isDoubleSlab(want) && have.getBlock() == want.getBlock();
+                        if (!adjust && !secondSlab && !have.canBeReplaced()) continue;
+                        Item item = want.getBlock().asItem();
+                        if (!adjust && (item == Items.AIR || !has(Minecraft.getInstance(), player, item))) continue;
+                        if (unreachable.containsKey(pos)) continue;
+                        layerOpen = true;
+                        if (skip.contains(pos)) continue;
+                        double distance = pos.distToCenterSqr(player.position());
+                        // The spot you stand in last: it needs you to step off first.
+                        if (player.getBoundingBox().intersects(new net.minecraft.world.phys.AABB(pos))) distance += 1000;
+                        if (distance < bestDistance) {
+                            bestDistance = distance;
+                            best = new Target(pos.immutable(), want);
+                        }
+                    }
+                }
+            }
+            if (layerOpen) {
+                globalLayer = y;
+                scanFromY = y;
+                return best;
+            }
+        }
+        globalLayer = Integer.MAX_VALUE;
+        return null;
+    }
+
+    /**
+     * Walks to a spot from which the next block of the lowest open layer is
+     * in reach: not inside the build (a block still to come there would be
+     * blocked by you) and close enough to click.
+     */
+    private boolean startWalk(Minecraft mc, LocalPlayer player, boolean climbOnly) {
+        Level level = mc.level;
+        double reach = player.blockInteractionRange();
+        // The nearest block of the lowest open layer that walking would help
+        // with: not one you can already place from here, and not one only
+        // waiting for a neighbour (no spot helps that).
+        java.util.Set<BlockPos> skip = new java.util.HashSet<>();
+        Target target = null;
+        for (int tries = 0; tries < 12; tries++) {
+            Target candidate = findWork(level, player, skip);
+            if (candidate == null) return false;
+            boolean inMyWay = player.getBoundingBox().intersects(new net.minecraft.world.phys.AABB(candidate.pos));
+            boolean inReach = Vec3.atCenterOf(candidate.pos).distanceTo(player.getEyePosition()) <= reach - 0.5;
+            boolean clickable = hasClickableNeighbour(level, candidate.pos);
+            boolean helps = climbOnly || inMyWay || !inReach
+                    || (clickable && !placeableFrom(level, player, candidate, player.getEyePosition()));
+            if (helps && (clickable || !inReach || inMyWay || climbOnly)) {
+                target = candidate;
+                break;
+            }
+            skip.add(candidate.pos);
+        }
+        if (target == null) return false;
+        final Target goalTarget = target;
+        Vec3 centre = Vec3.atCenterOf(goalTarget.pos);
+        double eyeHeight = player.getEyeHeight();
+        int layerY = goalTarget.pos.getY();
+        // With something to click against already there, the spot must also
+        // let it be placed the right way round while looking at it.
+        boolean checkPlan = hasClickableNeighbour(level, goalTarget.pos);
+        java.util.function.Predicate<BlockPos> inReach = spot -> {
+            Vec3 eye = new Vec3(spot.getX() + 0.5, spot.getY() + eyeHeight, spot.getZ() + 0.5);
+            if (eye.distanceTo(centre) > reach - 0.5) return false;
+            if (stillToBuild(level, spot) || stillToBuild(level, spot.above())) return false;
+            return !checkPlan || placeableFrom(level, player, goalTarget, eye);
+        };
+        // Like building by hand: standing on the layer below (feet in the
+        // layer being built) or on blocks of it already placed, so the builder
+        // climbs with the build and tall ones stay in reach. From anywhere
+        // only when no such spot can be walked to (the first layers, say).
+        // Standing where a block of this layer still goes is fine there: it is
+        // placed last, from a neighbour already built (step up onto it).
+        List<BlockPos> path = dev.crystal.client.build.Walker.findPath(level, player.blockPosition(), spot -> {
+            if (spot.getY() != layerY && spot.getY() != layerY + 1) return false;
+            if (spot.equals(goalTarget.pos) || spot.above().equals(goalTarget.pos)) return false;
+            Vec3 eye = new Vec3(spot.getX() + 0.5, spot.getY() + eyeHeight, spot.getZ() + 0.5);
+            if (eye.distanceTo(centre) > reach - 0.5) return false;
+            return !checkPlan || placeableFrom(level, player, goalTarget, eye);
+        }, goalTarget.pos);
+        // Already standing there: nothing to walk.
+        if (path != null && path.size() <= 1) return false;
+        if (climbOnly) {
+            if (path == null) return false;
+            walkTarget = goalTarget.pos;
+            walker.start(path);
+            return true;
+        }
+        if (path == null) path = dev.crystal.client.build.Walker.findPath(level, player.blockPosition(), inReach, goalTarget.pos);
+        if (TRACE) {
+            CrystalClient.LOGGER.info("[Crystal] AutoBuilder walk to {} (layer {}) from {}: {}", goalTarget.pos.toShortString(), globalLayer,
+                    player.blockPosition().toShortString(), path == null ? "no way" : path.size() + " steps");
+        }
+        if (path == null) {
+            unreachable.put(goalTarget.pos, level.getGameTime());
+            return false;
+        }
+        if (!goalTarget.pos.equals(walkTarget)) walkStuck = 0;
+        walkTarget = goalTarget.pos;
+        walker.start(path);
+        return true;
+    }
+
+    /**
+     * Pillars up next to the build when there is no way up on foot: walks to
+     * a free column beside the next block, then jumps and places a filler
+     * block under the feet at the top of each jump, like by hand. The pillar
+     * counts as supports and is broken again later.
+     */
+    private boolean startPillar(Minecraft mc, LocalPlayer player) {
+        Level level = mc.level;
+        Target target = findWork(level, player);
+        if (target == null || fillerItem(mc, player) == null) return false;
+        int top = target.pos.getY();
+        BlockPos here = player.blockPosition();
+        if (!columnFree(level, here, top)
+                || Math.abs(here.getX() - target.pos.getX()) + Math.abs(here.getZ() - target.pos.getZ()) > 2) {
+            // First to a free column next to it.
+            List<BlockPos> path = dev.crystal.client.build.Walker.findPath(level, here, spot ->
+                    Math.abs(spot.getX() - target.pos.getX()) + Math.abs(spot.getZ() - target.pos.getZ()) <= 2
+                            && columnFree(level, spot, top), target.pos);
+            if (path == null) return false;
+            if (path.size() > 1) {
+                walker.start(path);
+                climbedFor = Integer.MIN_VALUE; // pillar once there
+                return true;
+            }
+        }
+        if (TRACE) CrystalClient.LOGGER.info("[Crystal] AutoBuilder pillar up at {} to y {}", here.toShortString(), top);
+        pillarTop = top;
+        pillarBase = null;
+        return true;
+    }
+
+    /** Nothing of the schematic in the column from the feet up to the given height (plus head room). */
+    private boolean columnFree(Level level, BlockPos feet, int topY) {
+        for (int y = feet.getY(); y <= topY + 1; y++) {
+            BlockPos pos = new BlockPos(feet.getX(), y, feet.getZ());
+            BlockState want = source.expected(pos);
+            if (want != null && !want.isAir()) return false;
+            if (!level.getBlockState(pos).canBeReplaced()) return false;
+        }
+        return true;
+    }
+
+    private void pillarStep(Minecraft mc, LocalPlayer player) {
+        turning = true;
+        if (player.getBlockY() >= pillarTop) {
+            stopPillar(mc);
+            return;
+        }
+        Item filler = fillerItem(mc, player);
+        if (filler == null) {
+            message("Kein Füllblock zum Hochbauen (Erde, Bruchstein, ...)");
+            stopPillar(mc);
+            return;
+        }
+        mc.options.keyUp.setDown(false);
+        // Looking straight down first, turning like everywhere else.
+        if (player.getXRot() < 89.5f) {
+            dev.crystal.client.build.SmoothLook.lookAt(player.getYRot(), 90f, turnSpeed);
+            dev.crystal.client.build.SmoothLook.tickFallback();
+            return;
+        }
+        if (player.onGround()) {
+            if (pillarBase != null && !mc.level.getBlockState(pillarBase).canBeReplaced()) {
+                // Landed on the block just placed: the next jump.
+                pillarBase = null;
+            }
+            if (pillarBase == null) pillarBase = player.blockPosition();
+            mc.options.keyJump.setDown(true);
+            return;
+        }
+        mc.options.keyJump.setDown(false);
+        // High enough that the block fits under the feet: place it on the one below.
+        if (pillarBase != null && player.getY() >= pillarBase.getY() + 1.02 && mc.level.getBlockState(pillarBase).canBeReplaced()) {
+            if (select(mc, player, filler) == null) return;
+            Vec3 top = new Vec3(pillarBase.getX() + 0.5, pillarBase.getY(), pillarBase.getZ() + 0.5);
+            click(mc, new Plan(pillarBase.below(), Direction.UP, top, player.getYRot(), player.getXRot(), false, true));
+            supports.add(pillarBase.immutable());
+        }
+    }
+
+    private void stopPillar(Minecraft mc) {
+        if (pillarTop != Integer.MIN_VALUE) mc.options.keyJump.setDown(false);
+        pillarTop = Integer.MIN_VALUE;
+        pillarBase = null;
+        turning = afterTurn != null;
+        if (afterTurn == null) dev.crystal.client.build.SmoothLook.stop();
+    }
+
+    private static Item fillerItem(Minecraft mc, LocalPlayer player) {
+        for (Item item : SUPPORT_ITEMS) if (has(mc, player, item)) return item;
+        return null;
+    }
+
+    private static boolean hasClickableNeighbour(Level level, BlockPos pos) {
+        for (Direction dir : Direction.values()) if (PlacementPlanner.clickable(level, pos.relative(dir))) return true;
+        return false;
+    }
+
+    /** From this eye position the block can be clicked in the right way round, crosshair on the block. */
+    private boolean placeableFrom(Level level, LocalPlayer player, Target target, Vec3 eye) {
+        BlockState have = level.getBlockState(target.pos);
+        // Clicking a placed block to set it (delay, second slab half) works from any side.
+        if (PlacementPlanner.needsAdjusting(have, target.state) || isDoubleSlab(target.state) && have.getBlock() == target.state.getBlock()) return true;
+        BlockState placeAs = isDoubleSlab(target.state) ? target.state.setValue(SlabBlock.TYPE, SlabType.BOTTOM) : target.state;
+        Plan plan = PlacementPlanner.plan(level, player, target.pos, placeAs, new ItemStack(target.state.getBlock().asItem()), eye);
+        return plan != null && plan.exact();
+    }
+
+    /**
+     * Litematica shows only the layer being built. It then also loads only
+     * that layer, so when nothing is left in it the builder can't see the
+     * next one yet: it moves the display up a layer itself (after giving
+     * Litematica a moment to load), and back to all layers past the top.
+     */
+    private void followLayer(Level level) {
+        if (!showLayer) {
+            if (shownLayer != Integer.MIN_VALUE) {
+                source.showAllLayers();
+                shownLayer = Integer.MIN_VALUE;
+            }
+            return;
+        }
+        long now = level.getGameTime();
+        if (globalLayer != Integer.MAX_VALUE) {
+            if (shownLayer != globalLayer && now - layerShownAt > 20 && source.showOnlyLayer(globalLayer)) {
+                shownLayer = globalLayer;
+                layerShownAt = now;
+            }
+        } else if (shownLayer != Integer.MIN_VALUE && now - layerShownAt > 40) {
+            if (shownLayer < topLayer && source.showOnlyLayer(shownLayer + 1)) {
+                shownLayer++;
+                layerShownAt = now;
+                scanFromY = Integer.MIN_VALUE;
+            } else {
+                source.showAllLayers();
+                shownLayer = Integer.MIN_VALUE;
+            }
+        }
+    }
+
+    /** Changes when a schematic is placed, moved or removed. */
+    private static long boxesKey(List<BlockPos[]> boxes) {
+        long key = boxes.size();
+        for (BlockPos[] box : boxes) key = key * 31 + box[0].asLong() * 17 + box[1].asLong();
+        return key;
+    }
+
+    private boolean stillToBuild(Level level, BlockPos pos) {
+        BlockState want = source.expected(pos);
+        return want != null && !want.isAir() && !PlacementPlanner.matches(level.getBlockState(pos), want);
+    }
+
     /** A neighbour the schematic wants that is not there yet and could be clicked once it is. */
     private boolean neighbourComing(Level level, BlockPos pos) {
         for (Direction dir : Direction.values()) {
@@ -325,12 +728,20 @@ public class AutoBuilder extends Module {
      * head stays where it ended up, like after placing by hand.
      */
     private void place(Minecraft mc, LocalPlayer player, Plan plan, BlockPos target) {
-        turnThen(player, plan.yaw(), plan.pitch(), SETTLE_TICKS, () -> click(mc, plan));
+        turnThen(player, plan.yaw(), plan.pitch(), SETTLE_TICKS, () -> {
+            // The world may have changed while turning (a support broken, a
+            // block placed by someone else): a click on air would put the
+            // block in the wrong spot, so only click what is still there.
+            Level level = mc.level;
+            boolean againstBlock = plan.clickPos().equals(target) || PlacementPlanner.clickable(level, plan.clickPos());
+            if (againstBlock && player.getEyePosition().distanceTo(plan.hit()) <= player.blockInteractionRange()) click(mc, plan);
+        });
     }
 
     private void turnThen(LocalPlayer player, float yaw, float pitch, int settle, Runnable action) {
         targetYaw = yaw;
         targetPitch = pitch;
+        dev.crystal.client.build.SmoothLook.lookAt(yaw, pitch, turnSpeed);
         settleNeeded = settle;
         settled = 0;
         lastTurnTick = player.tickCount;
@@ -348,18 +759,14 @@ public class AutoBuilder extends Module {
         if (player != turningPlayer) {
             afterTurn = null;
             turning = false;
+            dev.crystal.client.build.SmoothLook.stop();
             return;
         }
+        dev.crystal.client.build.SmoothLook.tickFallback();
         if (player.tickCount == lastTurnTick) return;
         lastTurnTick = player.tickCount;
-        float dy = net.minecraft.util.Mth.wrapDegrees(targetYaw - player.getYRot());
-        float dp = targetPitch - player.getXRot();
-        float distance = Math.max(Math.abs(dy), Math.abs(dp));
-        if (distance > 0.01f) {
-            // Something may also have turned it away (a server correction): it simply turns back.
-            float f = Math.min(1f, turnSpeed / distance);
-            player.setYRot(player.getYRot() + dy * f);
-            player.setXRot(player.getXRot() + dp * f);
+        // The head moves every frame (SmoothLook); a tick only counts once it is there.
+        if (!dev.crystal.client.build.SmoothLook.reached(player)) {
             settled = 0;
             return;
         }
@@ -367,6 +774,7 @@ public class AutoBuilder extends Module {
         Runnable action = afterTurn;
         afterTurn = null;
         turning = false;
+        dev.crystal.client.build.SmoothLook.stop();
         action.run();
     }
 
@@ -457,6 +865,9 @@ public class AutoBuilder extends Module {
         supports.removeIf(support -> level.getBlockState(support).isAir());
         for (BlockPos support : supports) {
             if (!supportDone(level, support)) continue;
+            // Not the pillar you are standing on.
+            BlockPos feet = mc.player.blockPosition();
+            if (support.getX() == feet.getX() && support.getZ() == feet.getZ() && support.getY() < feet.getY()) continue;
             if (support.distToCenterSqr(mc.player.getEyePosition()) > mc.player.blockInteractionRange() * mc.player.blockInteractionRange()) continue;
             // Look at it first; mining starts once that look is sent
             // (continueDestroyBlock starts on a block not yet being mined).
@@ -556,8 +967,10 @@ public class AutoBuilder extends Module {
     @Override
     public List<Setting<?>> getSettings() {
         return List.of(
-                new SliderSetting("Blöcke pro Sekunde", () -> blocksPerSecond, v -> blocksPerSecond = v, 1f, 20f, 1f, 0),
-                new SliderSetting("Drehgeschwindigkeit", () -> turnSpeed, v -> turnSpeed = v, 5f, 90f, 5f, 0),
+                new SliderSetting("Blöcke pro Sekunde", () -> blocksPerSecond, v -> blocksPerSecond = v, 0.5f, 20f, 0.5f, 1),
+                new SliderSetting("Drehgeschwindigkeit", () -> turnSpeed, v -> turnSpeed = v, 3f, 90f, 1f, 0),
+                new BooleanSetting("Laufen", () -> walk, v -> walk = v, true),
+                new BooleanSetting("Nur aktuelle Schicht zeigen", () -> showLayer, v -> showLayer = v, true),
                 new BooleanSetting("Stützblöcke", () -> useSupports, v -> useSupports = v, true),
                 new SliderSetting("Hotbar-Slot", () -> (float) (hotbarSlot + 1), v -> hotbarSlot = Math.round(v) - 1, 1f, 9f, 1f, 0)
         );

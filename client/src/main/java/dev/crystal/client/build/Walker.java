@@ -31,6 +31,12 @@ public final class Walker {
     private int index = 0;
     private int stuckTicks = 0;
     private double lastX, lastZ, lastY;
+    private boolean stuck = false;
+
+    /** Whether the last walk ended because it got stuck (not by arriving). */
+    public boolean stuck() {
+        return stuck;
+    }
 
     public boolean walking() {
         return path != null;
@@ -40,6 +46,7 @@ public final class Walker {
         this.path = path;
         index = 0;
         stuckTicks = 0;
+        stuck = false;
         lastX = Double.NaN;
     }
 
@@ -47,6 +54,7 @@ public final class Walker {
         if (path != null) {
             mc.options.keyUp.setDown(false);
             mc.options.keyJump.setDown(false);
+            SmoothLook.stop();
         }
         path = null;
     }
@@ -72,11 +80,11 @@ public final class Walker {
         BlockPos next = path.get(index);
         double dx = next.getX() + 0.5 - player.getX(), dz = next.getZ() + 0.5 - player.getZ();
         float wantYaw = (float) Math.toDegrees(Math.atan2(dz, dx)) - 90f;
-        float dy = Mth.wrapDegrees(wantYaw - player.getYRot());
-        // The head turns like the builder's does, at most turnSpeed a tick; looking a little ahead and down.
-        player.setYRot(player.getYRot() + Mth.clamp(dy, -turnSpeed, turnSpeed));
-        float dp = 15f - player.getXRot();
-        player.setXRot(player.getXRot() + Mth.clamp(dp, -turnSpeed, turnSpeed));
+        // The head turns the way the builder's does (smoothly, every frame),
+        // looking a little ahead and down.
+        SmoothLook.lookAt(wantYaw, 15f, turnSpeed);
+        SmoothLook.tickFallback();
+        float dy = SmoothLook.yawLeft(player);
         // Forward once roughly facing the way; a jump for a step up or against a wall.
         mc.options.keyUp.setDown(Math.abs(dy) < 35f);
         boolean stepUp = next.getY() > Math.floor(player.getY() + 0.01);
@@ -91,6 +99,7 @@ public final class Walker {
         lastZ = player.getZ();
         lastY = player.getY();
         if (stuckTicks > 40) {
+            stuck = true;
             stop(mc);
             return false;
         }

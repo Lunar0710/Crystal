@@ -13,6 +13,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(GameRenderer.class)
 public class MixinGameRenderer {
 
+    // Every frame: the auto builder's head turn moves smoothly between ticks.
+    // Optional, so a version without this method still starts (the turn then moves per tick).
+    @Inject(method = "render", at = @At("HEAD"), require = 0)
+    private void onRenderFrame(CallbackInfo ci) {
+        dev.crystal.client.build.SmoothLook.frame();
+    }
+
     @Inject(method = "bobHurt", at = @At("HEAD"), cancellable = true)
     private void onTiltViewWhenHurt(CallbackInfo ci) {
         if (CrystalClient.getInstance() == null) return;

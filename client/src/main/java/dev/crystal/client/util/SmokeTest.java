@@ -275,6 +275,8 @@ public final class SmokeTest {
      * that must be gone again at the end.
      */
     private static void startBuilderTest(Minecraft mc) {
+        // Building is watched the way you play it: through your own eyes.
+        mc.options.setCameraType(CameraType.FIRST_PERSON);
         var o = mc.player.blockPosition().offset(2, 0, 1);
         var plan = new java.util.LinkedHashMap<net.minecraft.core.BlockPos, net.minecraft.world.level.block.state.BlockState>();
         plan.put(o, net.minecraft.world.level.block.Blocks.OAK_LOG.defaultBlockState()
@@ -359,6 +361,7 @@ public final class SmokeTest {
                             }
                         });
                     }
+                    builder.setSpeedsForTest(4f, 30f);
                     builder.setEnabled(true);
                 });
     }
@@ -517,7 +520,7 @@ public final class SmokeTest {
 
     // ------------------------------------------------------------ auto builder, part 2: a house
 
-    private static final int HOUSE_TICKS = 1400;
+    private static final int HOUSE_TICKS = 3000;
     private static Boolean firstPartResult = null;
     private static int houseStart = -1;
     private static net.minecraft.core.BlockPos houseCentre;
@@ -525,11 +528,13 @@ public final class SmokeTest {
     private static String firstViolation = null;
 
     /**
-     * 24 blocks east, on cleared ground: stone brick walls three high around
-     * the player with two windows, a 5x5 plank roof (partly overhead, so it
-     * has to grow in from the walls) and a wall torch inside. 74 blocks, built
-     * with the player standing still; checks that no layer is started while a
-     * lower one is unfinished.
+     * 24 blocks east, on cleared ground: stone brick walls three high with a
+     * doorway and two windows, a 5x5 plank roof (it grows in from the walls)
+     * and a wall torch inside, and a solid 3x3 cobblestone tower eight high
+     * next to it (144 blocks). The player starts nine blocks west
+     * of it, so the builder has to walk there and inside for the middle of the
+     * roof, and to climb the tower as it grows; checks that no layer is
+     * started while a lower one is unfinished.
      */
     private static void startHouse(Minecraft mc) {
         var server = mc.getSingleplayerServer();
@@ -544,6 +549,8 @@ public final class SmokeTest {
         for (int y = 0; y <= 2; y++) {
             for (int x = -2; x <= 2; x++) {
                 for (int z = -2; z <= 2; z++) {
+                    // A doorway in the west wall, the way in for the middle of the roof.
+                    if (x == -2 && z == 0 && y <= 1) continue;
                     if (Math.max(Math.abs(x), Math.abs(z)) == 2) plan.put(c.offset(x, y, z), bricks);
                 }
             }
@@ -552,6 +559,13 @@ public final class SmokeTest {
         plan.put(c.offset(2, 1, 0), net.minecraft.world.level.block.Blocks.GLASS.defaultBlockState());
         for (int x = -2; x <= 2; x++) {
             for (int z = -2; z <= 2; z++) plan.put(c.offset(x, 3, z), net.minecraft.world.level.block.Blocks.OAK_PLANKS.defaultBlockState());
+        }
+        // A solid 3x3 tower eight high against the west wall: out of reach from
+        // the ground, so the builder has to climb with it layer by layer.
+        for (int y = 0; y <= 7; y++) {
+            for (int x = -5; x <= -3; x++) {
+                for (int z = -3; z <= -1; z++) plan.put(c.offset(x, y, z), net.minecraft.world.level.block.Blocks.COBBLESTONE.defaultBlockState());
+            }
         }
         plan.put(c.offset(0, 1, -1), net.minecraft.world.level.block.Blocks.WALL_TORCH.defaultBlockState()
                 .setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.HORIZONTAL_FACING, net.minecraft.core.Direction.SOUTH));
@@ -562,18 +576,21 @@ public final class SmokeTest {
             ServerPlayer sp = server.getPlayerList().getPlayer(uuid);
             if (sp == null) return;
             var level = server.overworld();
-            for (int x = -4; x <= 4; x++) {
+            for (int x = -12; x <= 4; x++) {
                 for (int z = -4; z <= 4; z++) {
                     level.setBlockAndUpdate(c.offset(x, -1, z), net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
-                    for (int y = 0; y <= 5; y++) level.setBlockAndUpdate(c.offset(x, y, z), net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
+                    for (int y = 0; y <= 10; y++) level.setBlockAndUpdate(c.offset(x, y, z), net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
                 }
             }
-            sp.teleportTo(c.getX() + 0.5, c.getY(), c.getZ() + 0.5);
+            // Nine blocks west of the house: it has to walk over, and in through the door.
+            sp.teleportTo(c.getX() - 8.5, c.getY(), c.getZ() + 0.5);
             sp.getInventory().add(new ItemStack(Items.STONE_BRICKS, 64));
             sp.getInventory().add(new ItemStack(Items.GLASS, 4));
             sp.getInventory().add(new ItemStack(Items.OAK_PLANKS, 32));
             sp.getInventory().add(new ItemStack(Items.TORCH, 2));
-            sp.getInventory().add(new ItemStack(Items.DIRT, 16));
+            sp.getInventory().add(new ItemStack(Items.DIRT, 64));
+            sp.getInventory().add(new ItemStack(Items.COBBLESTONE, 64));
+            sp.getInventory().add(new ItemStack(Items.COBBLESTONE, 16));
         });
         boolean litematica = placeWithLitematica(mc, plan, c);
         CrystalClient.LOGGER.info("[Crystal] AutoBuilder house source: {}", litematica ? "Litematica" : "built in");
@@ -592,7 +609,9 @@ public final class SmokeTest {
             else {
                 wrong.append(" ").append(entry.getKey().subtract(houseCentre).toShortString()).append("=").append(mc.level.getBlockState(entry.getKey()));
                 // The torch hangs on a wall of its own layer; it may wait, the rest may not.
-                if (entry.getValue().getBlock() != net.minecraft.world.level.block.Blocks.WALL_TORCH) {
+                // So may the block the player stands in: it goes in last, from a neighbour.
+                if (entry.getValue().getBlock() != net.minecraft.world.level.block.Blocks.WALL_TORCH
+                        && !mc.player.getBoundingBox().intersects(new net.minecraft.world.phys.AABB(entry.getKey()))) {
                     lowestOpen = Math.min(lowestOpen, entry.getKey().getY());
                 }
             }
@@ -608,9 +627,9 @@ public final class SmokeTest {
         }
         // Supports all gone: nothing but the plan in the cleared box.
         String leftover = null;
-        for (int x = -3; x <= 3 && leftover == null; x++) {
-            for (int y = 0; y <= 4 && leftover == null; y++) {
-                for (int z = -3; z <= 3; z++) {
+        for (int x = -8; x <= 3 && leftover == null; x++) {
+            for (int y = 0; y <= 8 && leftover == null; y++) {
+                for (int z = -4; z <= 3; z++) {
                     var pos = houseCentre.offset(x, y, z);
                     if (!builderPlan.containsKey(pos) && !mc.level.getBlockState(pos).isAir()) {
                         leftover = x + "," + y + "," + z + "=" + mc.level.getBlockState(pos);
@@ -620,6 +639,11 @@ public final class SmokeTest {
             }
         }
         boolean done = right == builderPlan.size() && leftover == null;
+        // A picture every two seconds while building, for a flipbook of the run.
+        if ((worldTicks - houseStart) % 40 == 0) {
+            String frame = String.format(java.util.Locale.ROOT, "crystal-build-%03d.png", (worldTicks - houseStart) / 40);
+            Screenshot.grab(mc.gameDirectory, frame, mc.getMainRenderTarget(), 1, msg -> {});
+        }
         if (worldTicks - houseStart == 200) {
             Screenshot.grab(mc.gameDirectory, "crystal-smoke-house.png", mc.getMainRenderTarget(), 1,
                     msg -> CrystalClient.LOGGER.info("[Crystal] Smoke screenshot: {}", msg.getString()));
