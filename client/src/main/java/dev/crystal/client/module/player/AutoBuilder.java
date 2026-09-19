@@ -117,10 +117,13 @@ public class AutoBuilder extends Module {
     private BlockPos walkTarget = null;
     private int walkStuck = 0;
     private long lastBoxesKey = Long.MIN_VALUE;
+    /** Nothing is built before this game time (a schematic was just placed or moved). */
+    private long settleUntil = 0L;
     /** Pillaring up (jump, place a filler block under the feet): the feet height to reach, or MIN_VALUE. */
     private int pillarTop = Integer.MIN_VALUE;
     private BlockPos pillarBase = null;
-    // Showing only the layer being built in Litematica.
+    // Showing only the layer being built in Litematica. Always on for now: without
+    // it the builder can still start a higher layer too early (world test).
     private boolean showLayer = true;
     private int shownLayer = Integer.MIN_VALUE, topLayer = Integer.MIN_VALUE;
     private long layerShownAt = 0L;
@@ -227,6 +230,10 @@ public class AutoBuilder extends Module {
             // when the schematic changed (or it had none).
             // Litematica needs a moment to load a layer it was just told to show.
             if (showLayer && shownLayer != Integer.MIN_VALUE && mc.level.getGameTime() - layerShownAt < 20) return;
+            if (mc.level.getGameTime() < settleUntil) {
+                findWork(mc.level, player);
+                return;
+            }
             if (--rescanCountdown <= 0 || globalLayer == Integer.MAX_VALUE || boxesKey(source.bounds()) != lastBoxesKey) {
                 rescanCountdown = 20;
                 findWork(mc.level, player);
@@ -393,20 +400,21 @@ public class AutoBuilder extends Module {
         if (boxesKey(boxes) != lastBoxesKey) {
             lastBoxesKey = boxesKey(boxes);
             scanFromY = Integer.MIN_VALUE;
-            // A new or moved schematic: from its bottom layer (Litematica may
-            // still be showing some layer of the last one).
+            // Litematica fills in a new or moved placement over the next moments;
+            // what it has so far could be any layer. Wait before going by it.
+            settleUntil = level.getGameTime() + 40;
             if (showLayer && !boxes.isEmpty()) {
+                // From its bottom layer (Litematica may still be showing some layer of the last one).
                 int bottom = Integer.MAX_VALUE;
                 for (BlockPos[] box : boxes) bottom = Math.min(bottom, box[0].getY());
                 if (source.showOnlyLayer(bottom)) {
                     shownLayer = bottom;
                     layerShownAt = level.getGameTime();
-                    // What it shows is still the old layer until it has loaded: nothing to go by yet.
-                    globalLayer = Integer.MAX_VALUE;
-                    return null;
                 }
             }
             if (TRACE) CrystalClient.LOGGER.info("[Crystal] AutoBuilder bounds: {}", boxes.stream().map(b -> b[0].toShortString() + " .. " + b[1].toShortString()).toList());
+            globalLayer = Integer.MAX_VALUE;
+            return null;
         }
         if (boxes.isEmpty()) {
             globalLayer = Integer.MAX_VALUE;
@@ -994,7 +1002,6 @@ public class AutoBuilder extends Module {
                 new SliderSetting("Blöcke pro Sekunde", () -> blocksPerSecond, v -> blocksPerSecond = v, 0.5f, 20f, 0.5f, 1),
                 new SliderSetting("Drehgeschwindigkeit", () -> turnSpeed, v -> turnSpeed = v, 3f, 90f, 1f, 0),
                 new BooleanSetting("Laufen", () -> walk, v -> walk = v, true),
-                new BooleanSetting("Nur aktuelle Schicht zeigen", () -> showLayer, v -> showLayer = v, true),
                 new BooleanSetting("Stützblöcke", () -> useSupports, v -> useSupports = v, true),
                 new SliderSetting("Hotbar-Slot", () -> (float) (hotbarSlot + 1), v -> hotbarSlot = Math.round(v) - 1, 1f, 9f, 1f, 0)
         );
