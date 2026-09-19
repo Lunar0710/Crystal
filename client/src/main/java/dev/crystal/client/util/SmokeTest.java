@@ -57,6 +57,8 @@ public final class SmokeTest {
                     equip(sp, EquipmentSlot.FEET, new ItemStack(Items.GOLDEN_BOOTS), 0.3f);
                     equip(sp, EquipmentSlot.MAINHAND, new ItemStack(Items.NETHERITE_SWORD), 0.2f);
                     sp.getInventory().setItem(3, new ItemStack(Items.ENDER_PEARL, 16));
+                    // Flat worlds spawn slimes; one killed the test player mid-build once.
+                    server.setDifficulty(net.minecraft.world.Difficulty.PEACEFUL, true);
                     placeCullingTargets(server.overworld(), sp.blockPosition());
                 });
             }
@@ -515,7 +517,7 @@ public final class SmokeTest {
 
     // ------------------------------------------------------------ auto builder, part 2: a house
 
-    private static final int HOUSE_TICKS = 900;
+    private static final int HOUSE_TICKS = 1400;
     private static Boolean firstPartResult = null;
     private static int houseStart = -1;
     private static net.minecraft.core.BlockPos houseCentre;

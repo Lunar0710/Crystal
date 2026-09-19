@@ -63,6 +63,33 @@ public final class LitematicaSource implements SchematicSource {
     }
 
     @Override
+    public java.util.List<BlockPos[]> bounds() {
+        java.util.List<BlockPos[]> boxes = new java.util.ArrayList<>();
+        try {
+            if (placementManager == null) {
+                placementManager = Class.forName("fi.dy.masa.litematica.data.DataManager").getMethod("getSchematicPlacementManager");
+            }
+            Object manager = placementManager.invoke(null);
+            if (allPlacements == null) allPlacements = manager.getClass().getMethod("getAllSchematicsPlacements");
+            for (Object placement : (java.util.Collection<?>) allPlacements.invoke(manager)) {
+                if (!(Boolean) placement.getClass().getMethod("isEnabled").invoke(placement)) continue;
+                // Litematica's own spelling.
+                Object box = placement.getClass().getMethod("getEclosingBox").invoke(placement);
+                if (box == null) continue;
+                BlockPos a = (BlockPos) box.getClass().getMethod("getPos1").invoke(box);
+                BlockPos b = (BlockPos) box.getClass().getMethod("getPos2").invoke(box);
+                if (a == null || b == null) continue;
+                boxes.add(new BlockPos[] {
+                        new BlockPos(Math.min(a.getX(), b.getX()), Math.min(a.getY(), b.getY()), Math.min(a.getZ(), b.getZ())),
+                        new BlockPos(Math.max(a.getX(), b.getX()), Math.max(a.getY(), b.getY()), Math.max(a.getZ(), b.getZ()))});
+            }
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            // Another Litematica version: no walking, building in reach still works.
+        }
+        return boxes;
+    }
+
+    @Override
     public boolean available() {
         return world() != null && hasPlacements();
     }

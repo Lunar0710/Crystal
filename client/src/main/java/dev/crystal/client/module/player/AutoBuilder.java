@@ -49,9 +49,10 @@ import java.util.function.Consumer;
  * Every block goes in through the game's own right-click path
  * (MultiPlayerGameMode.useItemOn), the same call a real click makes, after
  * picking the item the way you would: a hotbar key, or swapping it into the
- * hotbar from the inventory. It looks at the spot it clicks, the short way
- * round, and only turns to a straight compass look when a block needs a facing
- * that looking at it doesn't give. Blocks with
+ * hotbar from the inventory. It turns the head over to the spot it clicks (at
+ * the set turn speed, the short way round), holds it there a moment and
+ * clicks; a straight compass look only when a block needs a facing that
+ * looking at it doesn't give. Blocks with
  * nothing to place against get a temporary support block that is broken again
  * afterwards.
  *
@@ -72,18 +73,26 @@ public class AutoBuilder extends Module {
 
     private SchematicSource source = new LitematicaSource();
 
-    // A placement waiting for its look to reach the server.
-    private Plan pending = null;
-    /** Ticks the mouse leaves the look alone: from the turn to the click. */
-    private static int holdTicks = 0;
-    private static final int HOLD_TICKS = 3;
-    /** The player's tick count at the last turn; acting waits until it has ticked past it. */
-    private int lookSentAfter = Integer.MIN_VALUE;
-    private LocalPlayer lookPlayer = null;
+    /** Degrees the head turns per tick on its way to the next block. */
+    private float turnSpeed = 30f;
+    /**
+     * Ticks the look is held on the spot before the click. The server takes a
+     * look over into the head during the player's next server tick, and
+     * observers, pistons and dispensers face the way the head looks; with the
+     * client and server ticking apart (lag, low FPS) one tick is not always it.
+     */
+    private static final int SETTLE_TICKS = 3;
 
-    /** True while a placement turn must not be disturbed by the mouse (MixinEntity). */
+    // Where the head is turning to, and what happens once it is there and settled.
+    private Runnable afterTurn = null;
+    private float targetYaw, targetPitch;
+    private int settleNeeded, settled, lastTurnTick;
+    private LocalPlayer turningPlayer = null;
+    private static boolean turning = false;
+
+    /** True while the builder turns the head; the mouse leaves it alone then (MixinEntity). */
     public static boolean holdsLook() {
-        return holdTicks > 0;
+        return turning;
     }
 
     /** Supports placed by us, broken once the block they held up is in. */
@@ -126,13 +135,13 @@ public class AutoBuilder extends Module {
         CrystalClient.getInstance().getEventBus().unsubscribe(TickEvent.class, tickListener);
         Minecraft mc = Minecraft.getInstance();
         if (breaking != null && mc.gameMode != null) mc.gameMode.stopDestroyBlock();
-        pending = null;
+        afterTurn = null;
+        turning = false;
         breaking = null;
         supports.clear();
         recentlyBroken.clear();
         waitingSince.clear();
-        holdTicks = 0;
-        lookPlayer = null;
+        turningPlayer = null;
     }
 
     private void onTick(TickEvent event) {
@@ -140,27 +149,11 @@ public class AutoBuilder extends Module {
         LocalPlayer player = mc.player;
         if (player == null || mc.level == null || mc.gameMode == null || !isEnabled()) return;
 
-        // A turn reaches the server with the player's own tick (its movement
-        // packet). While the game is paused this event still fires but the
-        // player does not tick, so nothing happens until it has.
-        // One tick more: the server takes the head's turn a tick after the body's,
-        // and observers, pistons and dispensers face the way the head looks.
-        if (player == lookPlayer && player.tickCount <= lookSentAfter + 1) return;
-        if (holdTicks > 0) holdTicks--;
-        // The click that waited for its look to reach the server.
-        if (pending != null) {
-            if (Math.abs(net.minecraft.util.Mth.wrapDegrees(player.getYRot() - pending.yaw())) > 0.01f
-                    || Math.abs(player.getXRot() - pending.pitch()) > 0.01f) {
-                // Something turned the player in between (a server correction):
-                // turn again and click once that look is sent.
-                turnTo(player, pending.yaw(), pending.pitch());
-                return;
-            }
-            click(mc, pending);
-            pending = null;
+        if (mc.screen != null || KeyPearls.onHypixel(mc)) return;
+        if (afterTurn != null) {
+            turnStep(player);
             return;
         }
-        if (mc.screen != null || KeyPearls.onHypixel(mc)) return;
 
         if (continueBreakingSupport(mc)) return;
 
@@ -327,19 +320,54 @@ public class AutoBuilder extends Module {
      * Looks at the spot and clicks it once the server has that look. The head
      * stays where it ended up, like after placing by hand.
      */
+    /**
+     * Turns the head to the spot, holds it there a moment and clicks. The
+     * head stays where it ended up, like after placing by hand.
+     */
     private void place(Minecraft mc, LocalPlayer player, Plan plan, BlockPos target) {
-        turnTo(player, plan.yaw(), plan.pitch());
-        pending = plan;
+        turnThen(player, plan.yaw(), plan.pitch(), SETTLE_TICKS, () -> click(mc, plan));
     }
 
-    private void turnTo(LocalPlayer player, float yaw, float pitch) {
-        // The short way round: 190° to -170° is 20°, not a spin (the camera
-        // blends from the old number to the new one).
-        player.setYRot(player.getYRot() + net.minecraft.util.Mth.wrapDegrees(yaw - player.getYRot()));
-        player.setXRot(pitch);
-        lookSentAfter = player.tickCount;
-        lookPlayer = player;
-        holdTicks = HOLD_TICKS;
+    private void turnThen(LocalPlayer player, float yaw, float pitch, int settle, Runnable action) {
+        targetYaw = yaw;
+        targetPitch = pitch;
+        settleNeeded = settle;
+        settled = 0;
+        lastTurnTick = player.tickCount;
+        turningPlayer = player;
+        afterTurn = action;
+        turning = true;
+    }
+
+    /**
+     * One tick of turning: at most turnSpeed degrees, the short way round
+     * (190° to -170° is 20°, not a spin). Counts only ticks the player really
+     * ticked, since only those send the look (not while the game is paused).
+     */
+    private void turnStep(LocalPlayer player) {
+        if (player != turningPlayer) {
+            afterTurn = null;
+            turning = false;
+            return;
+        }
+        if (player.tickCount == lastTurnTick) return;
+        lastTurnTick = player.tickCount;
+        float dy = net.minecraft.util.Mth.wrapDegrees(targetYaw - player.getYRot());
+        float dp = targetPitch - player.getXRot();
+        float distance = Math.max(Math.abs(dy), Math.abs(dp));
+        if (distance > 0.01f) {
+            // Something may also have turned it away (a server correction): it simply turns back.
+            float f = Math.min(1f, turnSpeed / distance);
+            player.setYRot(player.getYRot() + dy * f);
+            player.setXRot(player.getXRot() + dp * f);
+            settled = 0;
+            return;
+        }
+        if (++settled < settleNeeded) return;
+        Runnable action = afterTurn;
+        afterTurn = null;
+        turning = false;
+        action.run();
     }
 
     /** The one place a block gets set: the same call a right click makes. */
@@ -433,8 +461,7 @@ public class AutoBuilder extends Module {
             // Look at it first; mining starts once that look is sent
             // (continueDestroyBlock starts on a block not yet being mined).
             float[] look = PlacementPlanner.aim(mc.player.getEyePosition(), Vec3.atCenterOf(support));
-            turnTo(mc.player, look[0], look[1]);
-            breaking = support;
+            turnThen(mc.player, look[0], look[1], 1, () -> breaking = support);
             return true;
         }
         return false;
@@ -530,6 +557,7 @@ public class AutoBuilder extends Module {
     public List<Setting<?>> getSettings() {
         return List.of(
                 new SliderSetting("Blöcke pro Sekunde", () -> blocksPerSecond, v -> blocksPerSecond = v, 1f, 20f, 1f, 0),
+                new SliderSetting("Drehgeschwindigkeit", () -> turnSpeed, v -> turnSpeed = v, 5f, 90f, 5f, 0),
                 new BooleanSetting("Stützblöcke", () -> useSupports, v -> useSupports = v, true),
                 new SliderSetting("Hotbar-Slot", () -> (float) (hotbarSlot + 1), v -> hotbarSlot = Math.round(v) - 1, 1f, 9f, 1f, 0)
         );

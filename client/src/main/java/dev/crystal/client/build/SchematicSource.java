@@ -11,4 +11,12 @@ public interface SchematicSource {
 
     /** The block the schematic wants here, or null outside of it. Air counts as "keep empty". */
     BlockState expected(BlockPos pos);
+
+    /**
+     * The boxes the schematic covers, as {min, max} corner pairs, so the
+     * builder can find work out of reach and walk there. Empty when unknown.
+     */
+    default java.util.List<BlockPos[]> bounds() {
+        return java.util.List.of();
+    }
 }
