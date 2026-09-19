@@ -49,8 +49,9 @@ import java.util.function.Consumer;
  * Every block goes in through the game's own right-click path
  * (MultiPlayerGameMode.useItemOn), the same call a real click makes, after
  * picking the item the way you would: a hotbar key, or swapping it into the
- * hotbar from the inventory. When a block needs a particular direction the
- * builder turns you for one tick, places, and turns you back. Blocks with
+ * hotbar from the inventory. It looks at the spot it clicks, the short way
+ * round, and only turns to a straight compass look when a block needs a facing
+ * that looking at it doesn't give. Blocks with
  * nothing to place against get a temporary support block that is broken again
  * afterwards.
  *
@@ -62,6 +63,8 @@ public class AutoBuilder extends Module {
     private static final List<Item> SUPPORT_ITEMS = List.of(Items.DIRT, Items.COBBLESTONE, Items.NETHERRACK,
             Items.COBBLED_DEEPSLATE, Items.STONE, Items.ANDESITE, Items.DIORITE, Items.GRANITE);
     private static final int REPORT_TICKS = 40;
+    /** Every click in the log, only during the automated world test. */
+    private static final boolean TRACE = System.getProperty("crystal.smoke.screenshot") != null;
 
     private float blocksPerSecond = 4f;
     private boolean useSupports = true;
@@ -69,10 +72,19 @@ public class AutoBuilder extends Module {
 
     private SchematicSource source = new LitematicaSource();
 
-    // A placement waiting for the look it needs: the turn is sent this tick, the click next tick.
+    // A placement waiting for its look to reach the server.
     private Plan pending = null;
-    private float restoreYaw, restorePitch;
-    private boolean restoreLook = false;
+    /** Ticks the mouse leaves the look alone: from the turn to the click. */
+    private static int holdTicks = 0;
+    private static final int HOLD_TICKS = 3;
+    /** The player's tick count at the last turn; acting waits until it has ticked past it. */
+    private int lookSentAfter = Integer.MIN_VALUE;
+    private LocalPlayer lookPlayer = null;
+
+    /** True while a placement turn must not be disturbed by the mouse (MixinEntity). */
+    public static boolean holdsLook() {
+        return holdTicks > 0;
+    }
 
     /** Supports placed by us, broken once the block they held up is in. */
     private final Deque<BlockPos> supports = new ArrayDeque<>();
@@ -80,11 +92,15 @@ public class AutoBuilder extends Module {
     /** Broken supports and when, in case the server puts one back. */
     private final Map<BlockPos, Long> recentlyBroken = new java.util.HashMap<>();
     private static final long RECHECK_TICKS = 40;
+    /** Blocks waiting for a neighbour, since when; after MAX_WAIT_TICKS a support is fine. */
+    private final Map<BlockPos, Long> waitingSince = new java.util.HashMap<>();
+    private static final long MAX_WAIT_TICKS = 100;
 
     private float budget = 0f;
     private int reportCountdown = 0;
     private final Map<Item, Integer> missing = new LinkedHashMap<>();
-    private int left = 0, wrong = 0, layer = Integer.MIN_VALUE;
+    private int left = 0, wrong = 0, waiting = 0, layer = Integer.MIN_VALUE;
+    private Target firstLeft = null;
 
     private final Consumer<TickEvent> tickListener = this::onTick;
 
@@ -109,16 +125,14 @@ public class AutoBuilder extends Module {
     public void onDisable() {
         CrystalClient.getInstance().getEventBus().unsubscribe(TickEvent.class, tickListener);
         Minecraft mc = Minecraft.getInstance();
-        if (restoreLook && mc.player != null) {
-            mc.player.setYRot(restoreYaw);
-            mc.player.setXRot(restorePitch);
-        }
         if (breaking != null && mc.gameMode != null) mc.gameMode.stopDestroyBlock();
         pending = null;
-        restoreLook = false;
         breaking = null;
         supports.clear();
         recentlyBroken.clear();
+        waitingSince.clear();
+        holdTicks = 0;
+        lookPlayer = null;
     }
 
     private void onTick(TickEvent event) {
@@ -126,16 +140,25 @@ public class AutoBuilder extends Module {
         LocalPlayer player = mc.player;
         if (player == null || mc.level == null || mc.gameMode == null || !isEnabled()) return;
 
-        // The click that waited one tick for its look to reach the server.
+        // A turn reaches the server with the player's own tick (its movement
+        // packet). While the game is paused this event still fires but the
+        // player does not tick, so nothing happens until it has.
+        // One tick more: the server takes the head's turn a tick after the body's,
+        // and observers, pistons and dispensers face the way the head looks.
+        if (player == lookPlayer && player.tickCount <= lookSentAfter + 1) return;
+        if (holdTicks > 0) holdTicks--;
+        // The click that waited for its look to reach the server.
         if (pending != null) {
+            if (Math.abs(net.minecraft.util.Mth.wrapDegrees(player.getYRot() - pending.yaw())) > 0.01f
+                    || Math.abs(player.getXRot() - pending.pitch()) > 0.01f) {
+                // Something turned the player in between (a server correction):
+                // turn again and click once that look is sent.
+                turnTo(player, pending.yaw(), pending.pitch());
+                return;
+            }
             click(mc, pending);
             pending = null;
             return;
-        }
-        if (restoreLook) {
-            player.setYRot(restoreYaw);
-            player.setXRot(restorePitch);
-            restoreLook = false;
         }
         if (mc.screen != null || KeyPearls.onHypixel(mc)) return;
 
@@ -162,14 +185,30 @@ public class AutoBuilder extends Module {
         List<Target> targets = scan(level, player);
         missing.clear();
         left = targets.size();
+        firstLeft = targets.isEmpty() ? null : targets.get(0);
         if (targets.isEmpty()) {
             layer = Integer.MIN_VALUE;
             return false;
         }
-        // Layer by layer: only the lowest unfinished layer in reach.
+        // Layer by layer: the lowest unfinished layer in reach first. The next
+        // one only when everything left below is waiting for a neighbour (an
+        // upside-down stair needs the block above it), never past missing items.
+        waiting = 0;
         layer = targets.get(0).pos.getY();
         for (Target target : targets) {
-            if (target.pos.getY() != layer) break;
+            if (target.pos.getY() != layer) {
+                if (!missing.isEmpty()) break;
+                layer = target.pos.getY();
+            }
+            BlockState current = level.getBlockState(target.pos);
+            if (PlacementPlanner.needsAdjusting(current, target.state)) {
+                // Placed and facing right: one right click per delay step or mode change.
+                Vec3 top = new Vec3(target.pos.getX() + 0.5, target.pos.getY() + 0.1, target.pos.getZ() + 0.5);
+                if (top.distanceTo(player.getEyePosition()) > player.blockInteractionRange()) continue;
+                float[] look = PlacementPlanner.aim(player.getEyePosition(), top);
+                place(mc, player, new Plan(target.pos, Direction.UP, top, look[0], look[1], true, true), target.pos);
+                return true;
+            }
             Item item = target.state.getBlock().asItem();
             if (item == Items.AIR) continue;
             if (!has(mc, player, item)) {
@@ -190,24 +229,28 @@ public class AutoBuilder extends Module {
             BlockState placeAs = isDoubleSlab(target.state)
                     ? target.state.setValue(SlabBlock.TYPE, SlabType.BOTTOM) : target.state;
             Plan plan = PlacementPlanner.plan(level, player, target.pos, placeAs, copy);
-            if (plan != null && (plan.exact() || !useSupports)) {
+            if (plan != null && plan.exact()) {
                 if (select(mc, player, item) == null) continue;
                 place(mc, player, plan, target.pos);
                 return true;
             }
-            if (useSupports) {
+            // A schematic neighbour still to come will give something to click
+            // against (roofs grow inward from the walls): wait for it rather than
+            // put in a support. Only for a while, in case two blocks wait on each other.
+            long now = level.getGameTime();
+            if (waitingSince.size() > 4096) waitingSince.clear();
+            boolean neighbourComing = neighbourComing(level, target.pos)
+                    && now - waitingSince.computeIfAbsent(target.pos, p -> now) < MAX_WAIT_TICKS;
+            if (useSupports && !neighbourComing) {
                 // Nothing to click gives the right direction (a log lying on the
                 // ground, say): first a support on the side that does.
                 BlockPos spot = PlacementPlanner.supportSpotFor(level, player, target.pos, placeAs, copy, s -> spotFree(player, s));
                 if (spot != null && placeSupportAt(mc, player, spot)) return true;
                 if (plan == null && placeSupport(mc, player, target.pos)) return true;
             }
-            if (plan != null) {
-                // Best effort: as close to the wanted direction as possible.
-                if (select(mc, player, item) == null) continue;
-                place(mc, player, plan, target.pos);
-                return true;
-            }
+            // Never a block turned the wrong way: it could not be fixed without
+            // breaking it. It waits until a neighbour to click against is there.
+            waiting++;
         }
         return false;
     }
@@ -225,7 +268,11 @@ public class AutoBuilder extends Module {
             if (want == null || want.isAir() || placedWithOtherHalf(want)) continue;
             BlockState have = level.getBlockState(pos);
             // Done: connections and stair shapes follow the neighbours, not the click.
-            if (have.getBlock() == want.getBlock() && PlacementPlanner.sameOrientation(have, want)) continue;
+            if (PlacementPlanner.matches(have, want)) continue;
+            if (PlacementPlanner.needsAdjusting(have, want) && PlacementPlanner.sameOrientation(have, want)) {
+                result.add(new Target(pos.immutable(), want));
+                continue;
+            }
             boolean secondSlab = isDoubleSlab(want) && have.getBlock() == want.getBlock();
             if (!have.canBeReplaced() && !secondSlab) {
                 // Something else is in the way (or placed turned the wrong way);
@@ -241,6 +288,17 @@ public class AutoBuilder extends Module {
         var eyePos = player.getEyePosition();
         result.sort(Comparator.<Target>comparingInt(t -> t.pos.getY()).thenComparingDouble(t -> t.pos.distToCenterSqr(eyePos)));
         return result;
+    }
+
+    /** A neighbour the schematic wants that is not there yet and could be clicked once it is. */
+    private boolean neighbourComing(Level level, BlockPos pos) {
+        for (Direction dir : Direction.values()) {
+            BlockPos next = pos.relative(dir);
+            BlockState want = source.expected(next);
+            if (want == null || want.isAir() || want.canBeReplaced()) continue;
+            if (level.getBlockState(next).canBeReplaced()) return true;
+        }
+        return false;
     }
 
     /** Upper door and plant halves and bed heads come with the other half. */
@@ -261,25 +319,36 @@ public class AutoBuilder extends Module {
         Direction face = bottom ? Direction.UP : Direction.DOWN;
         Vec3 hit = new Vec3(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5);
         if (hit.distanceTo(player.getEyePosition()) > player.blockInteractionRange()) return null;
-        return new Plan(pos, face, hit, player.getYRot(), player.getXRot(), false, true);
+        float[] look = PlacementPlanner.aim(player.getEyePosition(), hit);
+        return new Plan(pos, face, hit, look[0], look[1], true, true);
     }
 
+    /**
+     * Looks at the spot and clicks it once the server has that look. The head
+     * stays where it ended up, like after placing by hand.
+     */
     private void place(Minecraft mc, LocalPlayer player, Plan plan, BlockPos target) {
-        if (plan.needsRotation()) {
-            // Turn now; the new look goes out with this tick's movement, the click next tick.
-            restoreYaw = player.getYRot();
-            restorePitch = player.getXRot();
-            player.setYRot(plan.yaw());
-            player.setXRot(plan.pitch());
-            pending = plan;
-            restoreLook = true;
-            return;
-        }
-        click(mc, plan);
+        turnTo(player, plan.yaw(), plan.pitch());
+        pending = plan;
+    }
+
+    private void turnTo(LocalPlayer player, float yaw, float pitch) {
+        // The short way round: 190° to -170° is 20°, not a spin (the camera
+        // blends from the old number to the new one).
+        player.setYRot(player.getYRot() + net.minecraft.util.Mth.wrapDegrees(yaw - player.getYRot()));
+        player.setXRot(pitch);
+        lookSentAfter = player.tickCount;
+        lookPlayer = player;
+        holdTicks = HOLD_TICKS;
     }
 
     /** The one place a block gets set: the same call a right click makes. */
     private void click(Minecraft mc, Plan plan) {
+        if (TRACE) {
+            CrystalClient.LOGGER.info("[Crystal] AutoBuilder click {} face={} hit={} held={} look={}/{} planned={}/{} turned={}",
+                    plan.clickPos().toShortString(), plan.face(), plan.hit(), mc.player.getMainHandItem().getItem(),
+                    mc.player.getYRot(), mc.player.getXRot(), plan.yaw(), plan.pitch(), plan.needsRotation());
+        }
         mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, plan.hitResult());
         mc.player.swing(InteractionHand.MAIN_HAND);
     }
@@ -361,9 +430,11 @@ public class AutoBuilder extends Module {
         for (BlockPos support : supports) {
             if (!supportDone(level, support)) continue;
             if (support.distToCenterSqr(mc.player.getEyePosition()) > mc.player.blockInteractionRange() * mc.player.blockInteractionRange()) continue;
+            // Look at it first; mining starts once that look is sent
+            // (continueDestroyBlock starts on a block not yet being mined).
+            float[] look = PlacementPlanner.aim(mc.player.getEyePosition(), Vec3.atCenterOf(support));
+            turnTo(mc.player, look[0], look[1]);
             breaking = support;
-            mc.gameMode.startDestroyBlock(support, Direction.UP);
-            mc.player.swing(InteractionHand.MAIN_HAND);
             return true;
         }
         return false;
@@ -373,7 +444,7 @@ public class AutoBuilder extends Module {
         for (Direction dir : Direction.values()) {
             BlockPos next = support.relative(dir);
             BlockState want = source.expected(next);
-            if (want != null && !want.isAir() && level.getBlockState(next) != want) return false;
+            if (want != null && !want.isAir() && !PlacementPlanner.matches(level.getBlockState(next), want)) return false;
         }
         return true;
     }
@@ -440,6 +511,7 @@ public class AutoBuilder extends Module {
                 text.append(entry.getKey().getName(new ItemStack(entry.getKey())).getString()).append(" ×").append(entry.getValue());
             }
         }
+        if (waiting > 0) text.append(" · ").append(waiting).append(" warten auf Nachbarblock");
         if (wrong > 0) text.append(" · ").append(wrong).append(" passen nicht");
         message(text.toString());
     }
@@ -451,7 +523,7 @@ public class AutoBuilder extends Module {
 
     /** For the world test's log. */
     public String status() {
-        return String.format(Locale.ROOT, "left=%d wrong=%d supports=%d missing=%s", left, wrong, supports.size(), missing);
+        return String.format(Locale.ROOT, "left=%d wrong=%d supports=%d missing=%s first=%s", left, wrong, supports.size(), missing, firstLeft);
     }
 
     @Override

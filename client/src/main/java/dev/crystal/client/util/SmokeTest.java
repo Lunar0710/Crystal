@@ -260,7 +260,7 @@ public final class SmokeTest {
 
     // ------------------------------------------------------------ auto builder
 
-    private static final int BUILDER_DEADLINE = 700;
+    private static final int BUILDER_DEADLINE = 1000;
     private static final int BUILDER_SHOT_TICK = 460;
     private static Boolean builderResult = null;
     private static java.util.Map<net.minecraft.core.BlockPos, net.minecraft.world.level.block.state.BlockState> builderPlan;
@@ -287,6 +287,33 @@ public final class SmokeTest {
         // Two clicks: a bottom slab, then the top half into it.
         plan.put(o.east(2), net.minecraft.world.level.block.Blocks.SMOOTH_STONE_SLAB.defaultBlockState()
                 .setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.SLAB_TYPE, net.minecraft.world.level.block.state.properties.SlabType.DOUBLE));
+        // A little redstone in front of the player: lever on stone, repeater
+        // (delay 3, clicked after placing), dust, comparator (subtract), lamp;
+        // behind it a piston facing up, an observer and a hopper facing east
+        // into a stone block.
+        var B = (java.util.function.Function<net.minecraft.world.level.block.Block, net.minecraft.world.level.block.state.BlockState>)
+                net.minecraft.world.level.block.Block::defaultBlockState;
+        var r = mc.player.blockPosition().offset(-1, 0, -2);
+        plan.put(r, B.apply(net.minecraft.world.level.block.Blocks.STONE));
+        plan.put(r.above(), B.apply(net.minecraft.world.level.block.Blocks.LEVER)
+                .setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.ATTACH_FACE, net.minecraft.world.level.block.state.properties.AttachFace.FLOOR)
+                .setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.HORIZONTAL_FACING, net.minecraft.core.Direction.NORTH));
+        plan.put(r.east(), B.apply(net.minecraft.world.level.block.Blocks.REPEATER)
+                .setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.HORIZONTAL_FACING, net.minecraft.core.Direction.WEST)
+                .setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.DELAY, 3));
+        plan.put(r.east(2), B.apply(net.minecraft.world.level.block.Blocks.REDSTONE_WIRE));
+        plan.put(r.east(3), B.apply(net.minecraft.world.level.block.Blocks.COMPARATOR)
+                .setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.HORIZONTAL_FACING, net.minecraft.core.Direction.WEST)
+                .setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.MODE_COMPARATOR, net.minecraft.world.level.block.state.properties.ComparatorMode.SUBTRACT));
+        plan.put(r.east(4), B.apply(net.minecraft.world.level.block.Blocks.REDSTONE_LAMP));
+        var s = r.north();
+        plan.put(s, B.apply(net.minecraft.world.level.block.Blocks.PISTON)
+                .setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.FACING, net.minecraft.core.Direction.UP));
+        plan.put(s.east(), B.apply(net.minecraft.world.level.block.Blocks.OBSERVER)
+                .setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.FACING, net.minecraft.core.Direction.NORTH));
+        plan.put(s.east(2), B.apply(net.minecraft.world.level.block.Blocks.HOPPER)
+                .setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.FACING_HOPPER, net.minecraft.core.Direction.EAST));
+        plan.put(s.east(3), B.apply(net.minecraft.world.level.block.Blocks.STONE));
         builderPlan = plan;
         builderSupportSpot = o.above(2);
 
@@ -302,6 +329,15 @@ public final class SmokeTest {
             sp.getInventory().setItem(23, new ItemStack(Items.FURNACE, 1));
             sp.getInventory().setItem(24, new ItemStack(Items.GLASS, 4));
             sp.getInventory().setItem(25, new ItemStack(Items.DIRT, 8));
+            sp.getInventory().setItem(26, new ItemStack(Items.STONE, 4));
+            sp.getInventory().setItem(27, new ItemStack(Items.LEVER, 1));
+            sp.getInventory().setItem(28, new ItemStack(Items.REPEATER, 1));
+            sp.getInventory().setItem(29, new ItemStack(Items.REDSTONE, 4));
+            sp.getInventory().setItem(30, new ItemStack(Items.COMPARATOR, 1));
+            sp.getInventory().setItem(31, new ItemStack(Items.REDSTONE_LAMP, 1));
+            sp.getInventory().setItem(32, new ItemStack(Items.PISTON, 1));
+            sp.getInventory().setItem(33, new ItemStack(Items.OBSERVER, 1));
+            sp.getInventory().setItem(34, new ItemStack(Items.HOPPER, 1));
         });
 
         CrystalClient.getInstance().getModuleManager().getModuleByName("AutoBuilder")
@@ -332,12 +368,20 @@ public final class SmokeTest {
      */
     private static boolean placeWithLitematica(Minecraft mc,
             java.util.Map<net.minecraft.core.BlockPos, net.minecraft.world.level.block.state.BlockState> plan,
-            net.minecraft.core.BlockPos origin) {
+            net.minecraft.core.BlockPos anyCorner) {
         try {
             Class.forName("fi.dy.masa.litematica.data.SchematicHolder");
         } catch (ClassNotFoundException e) {
             return false;
         }
+        // The region starts at the lowest corner of the plan.
+        int minX = Integer.MAX_VALUE, minY = Integer.MAX_VALUE, minZ = Integer.MAX_VALUE;
+        for (var pos : plan.keySet()) {
+            minX = Math.min(minX, pos.getX());
+            minY = Math.min(minY, pos.getY());
+            minZ = Math.min(minZ, pos.getZ());
+        }
+        var origin = new net.minecraft.core.BlockPos(minX, minY, minZ);
         try {
             int maxX = 0, maxY = 0, maxZ = 0;
             for (var pos : plan.keySet()) {
@@ -398,8 +442,15 @@ public final class SmokeTest {
             root.put("Metadata", meta);
             root.put("Regions", regions);
 
-            var file = mc.gameDirectory.toPath().resolve("schematics").resolve("crystal-builder-test.litematic");
+            // A new name every run: Litematica keeps a file it loaded once (and the
+            // placements of the last run, which it restores on join) and would
+            // otherwise hand back the previous run's schematic.
+            var file = mc.gameDirectory.toPath().resolve("schematics")
+                    .resolve("crystal-builder-test-" + System.currentTimeMillis() + ".litematic");
             java.nio.file.Files.createDirectories(file.getParent());
+            try (var olds = java.nio.file.Files.newDirectoryStream(file.getParent(), "crystal-builder-test*.litematic")) {
+                for (var f : olds) java.nio.file.Files.deleteIfExists(f);
+            }
             net.minecraft.nbt.NbtIo.writeCompressed(root, file);
 
             Object holder = Class.forName("fi.dy.masa.litematica.data.SchematicHolder").getMethod("getInstance").invoke(null);
@@ -412,6 +463,9 @@ public final class SmokeTest {
                     .getMethod("createFor", schematic.getClass(), net.minecraft.core.BlockPos.class, String.class, boolean.class, boolean.class)
                     .invoke(null, schematic, origin, "Crystal builder test", true, true);
             Object manager = Class.forName("fi.dy.masa.litematica.data.DataManager").getMethod("getSchematicPlacementManager").invoke(null);
+            var old = new java.util.ArrayList<Object>((java.util.Collection<?>) manager.getClass().getMethod("getAllSchematicsPlacements").invoke(manager));
+            for (Object p : old) manager.getClass().getMethod("removeSchematicPlacement", placement.getClass()).invoke(manager, p);
+            if (!old.isEmpty()) CrystalClient.LOGGER.info("[Crystal] AutoBuilder test: removed {} old placements", old.size());
             manager.getClass().getMethod("addSchematicPlacement", placement.getClass(), boolean.class).invoke(manager, placement, false);
             return true;
         } catch (Exception e) {
@@ -429,22 +483,152 @@ public final class SmokeTest {
     }
 
     private static void checkBuilderTest(Minecraft mc) {
+        // The builder rests while a menu is open; on a desktop the test window
+        // can lose focus and pause the game, which is not what is tested here.
+        if (mc.screen instanceof net.minecraft.client.gui.screens.PauseScreen) mc.setScreen(null);
+        if (houseStart >= 0) {
+            checkHouse(mc);
+            return;
+        }
         int right = 0;
         StringBuilder wrong = new StringBuilder();
         for (var entry : builderPlan.entrySet()) {
             var have = mc.level.getBlockState(entry.getKey());
-            if (have == entry.getValue()) right++;
+            if (dev.crystal.client.build.PlacementPlanner.matches(have, entry.getValue())) right++;
             else wrong.append(" ").append(entry.getValue().getBlock().getName().getString()).append("=").append(have);
         }
         boolean supportGone = mc.level.getBlockState(builderSupportSpot).isAir();
         boolean done = right == builderPlan.size() && supportGone;
         if (done || worldTicks >= BUILDER_DEADLINE) {
-            builderResult = done;
-            String status = CrystalClient.getInstance().getModuleManager().getModuleByName("AutoBuilder")
-                    .map(m -> ((dev.crystal.client.module.player.AutoBuilder) m).status()).orElse("?");
-            CrystalClient.LOGGER.info("[Crystal] AutoBuilder test {}: {}/{} right, support gone={} ({}) after {} ticks{} [{}]",
+            firstPartResult = done;
+            CrystalClient.LOGGER.info("[Crystal] AutoBuilder part 1 {}: {}/{} right, support gone={} ({}) after {} ticks{} [{}]",
                     done ? "PASS" : "FAILED", right, builderPlan.size(), supportGone, mc.level.getBlockState(builderSupportSpot), worldTicks - 360,
-                    wrong.length() > 0 ? " wrong:" + wrong : "", status);
+                    wrong.length() > 0 ? " wrong:" + wrong : "", builderStatus());
+            startHouse(mc);
+        }
+    }
+
+    private static String builderStatus() {
+        return CrystalClient.getInstance().getModuleManager().getModuleByName("AutoBuilder")
+                .map(m -> ((dev.crystal.client.module.player.AutoBuilder) m).status()).orElse("?");
+    }
+
+    // ------------------------------------------------------------ auto builder, part 2: a house
+
+    private static final int HOUSE_TICKS = 900;
+    private static Boolean firstPartResult = null;
+    private static int houseStart = -1;
+    private static net.minecraft.core.BlockPos houseCentre;
+    private static int layerViolations = 0;
+    private static String firstViolation = null;
+
+    /**
+     * 24 blocks east, on cleared ground: stone brick walls three high around
+     * the player with two windows, a 5x5 plank roof (partly overhead, so it
+     * has to grow in from the walls) and a wall torch inside. 74 blocks, built
+     * with the player standing still; checks that no layer is started while a
+     * lower one is unfinished.
+     */
+    private static void startHouse(Minecraft mc) {
+        var server = mc.getSingleplayerServer();
+        if (server == null) {
+            builderResult = false;
+            return;
+        }
+        var c = mc.player.blockPosition().offset(24, 0, 0);
+        houseCentre = c;
+        var plan = new java.util.LinkedHashMap<net.minecraft.core.BlockPos, net.minecraft.world.level.block.state.BlockState>();
+        var bricks = net.minecraft.world.level.block.Blocks.STONE_BRICKS.defaultBlockState();
+        for (int y = 0; y <= 2; y++) {
+            for (int x = -2; x <= 2; x++) {
+                for (int z = -2; z <= 2; z++) {
+                    if (Math.max(Math.abs(x), Math.abs(z)) == 2) plan.put(c.offset(x, y, z), bricks);
+                }
+            }
+        }
+        plan.put(c.offset(0, 1, 2), net.minecraft.world.level.block.Blocks.GLASS.defaultBlockState());
+        plan.put(c.offset(2, 1, 0), net.minecraft.world.level.block.Blocks.GLASS.defaultBlockState());
+        for (int x = -2; x <= 2; x++) {
+            for (int z = -2; z <= 2; z++) plan.put(c.offset(x, 3, z), net.minecraft.world.level.block.Blocks.OAK_PLANKS.defaultBlockState());
+        }
+        plan.put(c.offset(0, 1, -1), net.minecraft.world.level.block.Blocks.WALL_TORCH.defaultBlockState()
+                .setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.HORIZONTAL_FACING, net.minecraft.core.Direction.SOUTH));
+        builderPlan = plan;
+
+        var uuid = mc.player.getUUID();
+        server.execute(() -> {
+            ServerPlayer sp = server.getPlayerList().getPlayer(uuid);
+            if (sp == null) return;
+            var level = server.overworld();
+            for (int x = -4; x <= 4; x++) {
+                for (int z = -4; z <= 4; z++) {
+                    level.setBlockAndUpdate(c.offset(x, -1, z), net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+                    for (int y = 0; y <= 5; y++) level.setBlockAndUpdate(c.offset(x, y, z), net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
+                }
+            }
+            sp.teleportTo(c.getX() + 0.5, c.getY(), c.getZ() + 0.5);
+            sp.getInventory().add(new ItemStack(Items.STONE_BRICKS, 64));
+            sp.getInventory().add(new ItemStack(Items.GLASS, 4));
+            sp.getInventory().add(new ItemStack(Items.OAK_PLANKS, 32));
+            sp.getInventory().add(new ItemStack(Items.TORCH, 2));
+            sp.getInventory().add(new ItemStack(Items.DIRT, 16));
+        });
+        boolean litematica = placeWithLitematica(mc, plan, c);
+        CrystalClient.LOGGER.info("[Crystal] AutoBuilder house source: {}", litematica ? "Litematica" : "built in");
+        houseStart = worldTicks;
+    }
+
+    private static void checkHouse(Minecraft mc) {
+        // Too early: the teleport and the cleared ground are still on their way.
+        if (worldTicks - houseStart < 20) return;
+        int right = 0;
+        int lowestOpen = Integer.MAX_VALUE;
+        StringBuilder wrong = new StringBuilder();
+        for (var entry : builderPlan.entrySet()) {
+            boolean ok = dev.crystal.client.build.PlacementPlanner.matches(mc.level.getBlockState(entry.getKey()), entry.getValue());
+            if (ok) right++;
+            else {
+                wrong.append(" ").append(entry.getKey().subtract(houseCentre).toShortString()).append("=").append(mc.level.getBlockState(entry.getKey()));
+                // The torch hangs on a wall of its own layer; it may wait, the rest may not.
+                if (entry.getValue().getBlock() != net.minecraft.world.level.block.Blocks.WALL_TORCH) {
+                    lowestOpen = Math.min(lowestOpen, entry.getKey().getY());
+                }
+            }
+        }
+        for (var entry : builderPlan.entrySet()) {
+            if (entry.getKey().getY() > lowestOpen && dev.crystal.client.build.PlacementPlanner.matches(mc.level.getBlockState(entry.getKey()), entry.getValue())) {
+                layerViolations++;
+                if (firstViolation == null) {
+                    firstViolation = "block at y+" + (entry.getKey().getY() - houseCentre.getY()) + " while y+" + (lowestOpen - houseCentre.getY()) + " was open, tick " + (worldTicks - houseStart);
+                }
+                break;
+            }
+        }
+        // Supports all gone: nothing but the plan in the cleared box.
+        String leftover = null;
+        for (int x = -3; x <= 3 && leftover == null; x++) {
+            for (int y = 0; y <= 4 && leftover == null; y++) {
+                for (int z = -3; z <= 3; z++) {
+                    var pos = houseCentre.offset(x, y, z);
+                    if (!builderPlan.containsKey(pos) && !mc.level.getBlockState(pos).isAir()) {
+                        leftover = x + "," + y + "," + z + "=" + mc.level.getBlockState(pos);
+                        break;
+                    }
+                }
+            }
+        }
+        boolean done = right == builderPlan.size() && leftover == null;
+        if (worldTicks - houseStart == 200) {
+            Screenshot.grab(mc.gameDirectory, "crystal-smoke-house.png", mc.getMainRenderTarget(), 1,
+                    msg -> CrystalClient.LOGGER.info("[Crystal] Smoke screenshot: {}", msg.getString()));
+        }
+        if (done || worldTicks - houseStart >= HOUSE_TICKS) {
+            boolean housePass = done && layerViolations == 0;
+            CrystalClient.LOGGER.info("[Crystal] AutoBuilder house {}: {}/{} right, layer order violations={} ({}), leftover={}, after {} ticks{} [{}]",
+                    housePass ? "PASS" : "FAILED", right, builderPlan.size(), layerViolations, firstViolation, leftover,
+                    worldTicks - houseStart, wrong.length() > 0 ? " wrong:" + wrong : "", builderStatus());
+            builderResult = Boolean.TRUE.equals(firstPartResult) && housePass;
+            CrystalClient.LOGGER.info("[Crystal] AutoBuilder test {}", builderResult ? "PASS" : "FAILED");
         }
     }
 

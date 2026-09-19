@@ -86,6 +86,7 @@ public class ModuleManager {
         register(new Waypoints());
         register(new ActionBarDisplay());
         register(new AutoTextHotkey());
+        register(new CrystalMenu());
         register(new HypixelQuickplay());
         register(new PackDisplay());
         register(new TimeChanger());

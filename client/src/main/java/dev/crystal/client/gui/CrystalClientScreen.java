@@ -1019,7 +1019,7 @@ public class CrystalClientScreen extends Screen {
             minecraft.setScreen(new HudEditorScreen());
             return true;
         }
-        if (key == GLFW.GLFW_KEY_RIGHT_SHIFT) {
+        if (key == dev.crystal.client.module.misc.CrystalMenu.key()) {
             onClose();
             return true;
         }

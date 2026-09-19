@@ -10,7 +10,12 @@ import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.ButtonBlock;
+import net.minecraft.world.level.block.CakeBlock;
+import net.minecraft.world.level.block.ComposterBlock;
+import net.minecraft.world.level.block.DiodeBlock;
 import net.minecraft.world.level.block.DoorBlock;
+import net.minecraft.world.level.block.NoteBlock;
+import net.minecraft.world.level.block.RedStoneWireBlock;
 import net.minecraft.world.level.block.FenceGateBlock;
 import net.minecraft.world.level.block.LeverBlock;
 import net.minecraft.world.level.block.TrapDoorBlock;
@@ -67,11 +72,14 @@ public final class PlacementPlanner {
                 Direction face = toNeighbour.getOpposite();
                 for (Vec3 hit : hitPoints(neighbour, face)) {
                     if (hit.distanceTo(eye) > reach) continue;
-                    // The current look first, so a block that needs no turn doesn't get one.
-                    candidates.add(simulate(level, player, block, stack, neighbour, face, hit, yaw0, pitch0, false));
+                    // Looking right at the spot clicked, the way you would; the
+                    // straight compass looks only when the block needs a facing
+                    // that this look doesn't give.
+                    float[] look = aim(eye, hit);
+                    candidates.add(simulate(level, player, block, want, stack, neighbour, face, hit, look[0], look[1], false));
                     for (float yaw : YAWS) {
                         for (float pitch : PITCHES) {
-                            candidates.add(simulate(level, player, block, stack, neighbour, face, hit, yaw, pitch, true));
+                            candidates.add(simulate(level, player, block, want, stack, neighbour, face, hit, yaw, pitch, true));
                         }
                     }
                 }
@@ -101,7 +109,7 @@ public final class PlacementPlanner {
         for (Candidate c : candidates) {
             int score = 0;
             for (Property<?> property : decided) if (c.result.getValue(property).equals(want.getValue(property))) score++;
-            // Equal score: prefer no turn, then clicking from below (the steadiest face).
+            // Equal score: prefer looking at the spot, then clicking from below (the steadiest face).
             boolean better = score > bestScore
                     || (score == bestScore && best != null && best.rotate && !c.rotate)
                     || (score == bestScore && best != null && best.rotate == c.rotate && c.face == Direction.UP && best.face != Direction.UP);
@@ -113,7 +121,33 @@ public final class PlacementPlanner {
         // Exact means the result is what the schematic wants, not just the best
         // of what these clicks allow: with only the ground to click, every
         // candidate gives an upright log, and none of them is right.
-        return new Plan(best.clickPos, best.face, best.hit, best.yaw, best.pitch, best.rotate, sameOrientation(best.result, want));
+        return new Plan(best.clickPos, best.face, best.hit, best.yaw, best.pitch, true, sameOrientation(best.result, want));
+    }
+
+    /** Yaw and pitch that look from {@code eye} straight at {@code point}. */
+    public static float[] aim(Vec3 eye, Vec3 point) {
+        double dx = point.x - eye.x, dy = point.y - eye.y, dz = point.z - eye.z;
+        float yaw = (float) Math.toDegrees(Math.atan2(dz, dx)) - 90f;
+        float pitch = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+        return new float[] {net.minecraft.util.Mth.wrapDegrees(yaw), pitch};
+    }
+
+    /**
+     * What the click places. Torches, signs, banners and heads come from one
+     * item with a standing and a wall form; like the item itself, the form is
+     * picked by the look, the first one that can stay where it is.
+     */
+    private static BlockState placementState(Block block, BlockState want, BlockPlaceContext context) {
+        if (!context.canPlace()) return null;
+        if (want.getBlock() == block || want.getBlock().asItem() != context.getItemInHand().getItem()) {
+            return block.getStateForPlacement(context);
+        }
+        Direction attach = context.getItemInHand().getItem() instanceof net.minecraft.world.item.HangingSignItem ? Direction.UP : Direction.DOWN;
+        for (Direction direction : context.getNearestLookingDirections()) {
+            BlockState state = direction == attach ? block.getStateForPlacement(context) : want.getBlock().getStateForPlacement(context);
+            if (state != null && state.canSurvive(context.getLevel(), context.getClickedPos())) return state;
+        }
+        return null;
     }
 
     /**
@@ -141,7 +175,7 @@ public final class PlacementPlanner {
                     if (hit.distanceTo(eye) > reach) continue;
                     for (float yaw : YAWS) {
                         for (float pitch : PITCHES) {
-                            BlockState result = simulateInto(player, block, stack, target, face, hit, yaw, pitch);
+                            BlockState result = simulateInto(player, block, want, stack, target, face, hit, yaw, pitch);
                             if (result != null && result.getBlock() == want.getBlock() && sameOrientation(result, want)) {
                                 return neighbour;
                             }
@@ -166,16 +200,35 @@ public final class PlacementPlanner {
     }
 
     private static final Set<String> NOT_FROM_CLICK = Set.of("shape", "waterlogged", "powered", "lit", "north", "south",
-            "east", "west", "up", "down", "distance", "persistent", "occupied", "triggered", "enabled", "open", "in_wall");
+            "east", "west", "up", "down", "distance", "persistent", "occupied", "triggered", "enabled", "open", "in_wall",
+            "power", "extended", "locked", "delay", "mode");
+
+    /**
+     * The placed block is what the schematic wants, including the settings a
+     * right click changes afterwards (repeater delay, comparator mode).
+     */
+    public static boolean matches(BlockState have, BlockState want) {
+        return have.getBlock() == want.getBlock() && sameOrientation(have, want) && !needsAdjusting(have, want);
+    }
+
+    /** Right direction, but the delay or mode still has to be clicked into place. */
+    public static boolean needsAdjusting(BlockState have, BlockState want) {
+        if (have.getBlock() != want.getBlock() || !(want.getBlock() instanceof DiodeBlock)) return false;
+        for (Property<?> property : want.getProperties()) {
+            String name = property.getName();
+            if ((name.equals("delay") || name.equals("mode")) && !have.getValue(property).equals(want.getValue(property))) return true;
+        }
+        return false;
+    }
 
     /** A click into {@code target}'s own (empty) space from the given side, as if the neighbour were there. */
-    private static BlockState simulateInto(LocalPlayer player, Block block, ItemStack stack, BlockPos target,
+    private static BlockState simulateInto(LocalPlayer player, Block block, BlockState want, ItemStack stack, BlockPos target,
                                            Direction face, Vec3 hit, float yaw, float pitch) {
         player.setYRot(yaw);
         player.setXRot(pitch);
         try {
             BlockPlaceContext context = new BlockPlaceContext(player, InteractionHand.MAIN_HAND, stack, new BlockHitResult(hit, face, target, false));
-            return context.canPlace() ? block.getStateForPlacement(context) : null;
+            return placementState(block, want, context);
         } catch (RuntimeException e) {
             return null;
         }
@@ -183,7 +236,7 @@ public final class PlacementPlanner {
 
     private record Candidate(BlockPos clickPos, Direction face, Vec3 hit, float yaw, float pitch, boolean rotate, BlockState result) {}
 
-    private static Candidate simulate(Level level, LocalPlayer player, Block block, ItemStack stack,
+    private static Candidate simulate(Level level, LocalPlayer player, Block block, BlockState want, ItemStack stack,
                                       BlockPos neighbour, Direction face, Vec3 hit, float yaw, float pitch, boolean rotate) {
         // Only the client's own copy of the look: nothing is sent while simulating.
         player.setYRot(yaw);
@@ -191,7 +244,7 @@ public final class PlacementPlanner {
         BlockState result;
         try {
             BlockPlaceContext context = new BlockPlaceContext(player, InteractionHand.MAIN_HAND, stack, new BlockHitResult(hit, face, neighbour, false));
-            result = context.canPlace() ? block.getStateForPlacement(context) : null;
+            result = placementState(block, want, context);
         } catch (RuntimeException e) {
             result = null;
         }
@@ -216,7 +269,10 @@ public final class PlacementPlanner {
         if (state.isAir() || state.canBeReplaced() || !state.getFluidState().isEmpty()) return false;
         Block block = state.getBlock();
         if (block instanceof DoorBlock || block instanceof TrapDoorBlock || block instanceof FenceGateBlock
-                || block instanceof ButtonBlock || block instanceof LeverBlock) return false;
+                || block instanceof ButtonBlock || block instanceof LeverBlock
+                // A click on these changes them (delay, dust shape, note, bite) instead of placing.
+                || block instanceof DiodeBlock || block instanceof RedStoneWireBlock || block instanceof NoteBlock
+                || block instanceof CakeBlock || block instanceof ComposterBlock) return false;
         return state.getMenuProvider(level, pos) == null && !(block instanceof net.minecraft.world.level.block.BaseEntityBlock);
     }
 }

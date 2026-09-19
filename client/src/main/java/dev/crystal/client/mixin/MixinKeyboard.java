@@ -26,8 +26,8 @@ public class MixinKeyboard {
     *///?}
         if (action != GLFW.GLFW_PRESS) return;
 
-        // Right Shift opens Crystal GUI
-        if (key == GLFW.GLFW_KEY_RIGHT_SHIFT && minecraft.screen == null) {
+        // The menu key (Right Shift unless changed) opens the Crystal GUI
+        if (key == dev.crystal.client.module.misc.CrystalMenu.key() && minecraft.screen == null) {
             minecraft.execute(() -> minecraft.setScreen(new dev.crystal.client.gui.HudEditorScreen()));
             return;
         }

@@ -233,7 +233,7 @@ public class HudEditorScreen extends Screen {
     @Override
     public boolean keyPressed(KeyEvent input) {
         int key = input.key();
-        if (key == GLFW.GLFW_KEY_RIGHT_SHIFT || key == GLFW.GLFW_KEY_ESCAPE) {
+        if (key == dev.crystal.client.module.misc.CrystalMenu.key() || key == GLFW.GLFW_KEY_ESCAPE) {
             onClose();
             return true;
         }

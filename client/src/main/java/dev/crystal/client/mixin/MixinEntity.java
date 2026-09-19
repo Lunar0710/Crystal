@@ -23,6 +23,13 @@ public class MixinEntity {
         if (CrystalClient.getInstance() == null) return;
         if ((Object) this != Minecraft.getInstance().player) return;
 
+        // The auto builder turned the player for a placement; the mouse waits
+        // until the server has that look and the look back (a few ticks).
+        if (dev.crystal.client.module.player.AutoBuilder.holdsLook()) {
+            ci.cancel();
+            return;
+        }
+
         Freelook freelook = CrystalClient.getInstance().getModuleManager().getModuleByName("Freelook")
                 .filter(m -> m.isEnabled())
                 .map(m -> (Freelook) m)
