@@ -24,7 +24,13 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.SlabBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BedPart;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
+import net.minecraft.world.level.block.state.properties.SlabType;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -172,7 +178,18 @@ public class AutoBuilder extends Module {
             }
             // Planned with a copy: the hotbar only changes for the block actually placed.
             ItemStack copy = new ItemStack(item);
-            Plan plan = PlacementPlanner.plan(level, player, target.pos, target.state, copy);
+            BlockState have = level.getBlockState(target.pos);
+            if (isDoubleSlab(target.state) && have.getBlock() == target.state.getBlock()) {
+                // The second half: click the slab that is there, on its open side.
+                Plan second = secondSlabPlan(player, target.pos, have);
+                if (second == null || select(mc, player, item) == null) continue;
+                place(mc, player, second, target.pos);
+                return true;
+            }
+            // A double slab starts as a bottom slab; the next step adds the top.
+            BlockState placeAs = isDoubleSlab(target.state)
+                    ? target.state.setValue(SlabBlock.TYPE, SlabType.BOTTOM) : target.state;
+            Plan plan = PlacementPlanner.plan(level, player, target.pos, placeAs, copy);
             if (plan != null && (plan.exact() || !useSupports)) {
                 if (select(mc, player, item) == null) continue;
                 place(mc, player, plan, target.pos);
@@ -181,7 +198,7 @@ public class AutoBuilder extends Module {
             if (useSupports) {
                 // Nothing to click gives the right direction (a log lying on the
                 // ground, say): first a support on the side that does.
-                BlockPos spot = PlacementPlanner.supportSpotFor(level, player, target.pos, target.state, copy, s -> spotFree(player, s));
+                BlockPos spot = PlacementPlanner.supportSpotFor(level, player, target.pos, placeAs, copy, s -> spotFree(player, s));
                 if (spot != null && placeSupportAt(mc, player, spot)) return true;
                 if (plan == null && placeSupport(mc, player, target.pos)) return true;
             }
@@ -205,10 +222,12 @@ public class AutoBuilder extends Module {
         for (BlockPos pos : BlockPos.betweenClosed(eye.offset(-r, -r, -r), eye.offset(r, r, r))) {
             if (pos.distToCenterSqr(player.getEyePosition()) > (reach + 0.5) * (reach + 0.5)) continue;
             BlockState want = source.expected(pos);
-            if (want == null || want.isAir()) continue;
+            if (want == null || want.isAir() || placedWithOtherHalf(want)) continue;
             BlockState have = level.getBlockState(pos);
-            if (have == want) continue;
-            if (!have.canBeReplaced()) {
+            // Done: connections and stair shapes follow the neighbours, not the click.
+            if (have.getBlock() == want.getBlock() && PlacementPlanner.sameOrientation(have, want)) continue;
+            boolean secondSlab = isDoubleSlab(want) && have.getBlock() == want.getBlock();
+            if (!have.canBeReplaced() && !secondSlab) {
                 // Something else is in the way (or placed turned the wrong way);
                 // the builder never breaks your blocks, it only counts them.
                 wrongHere++;
@@ -222,6 +241,27 @@ public class AutoBuilder extends Module {
         var eyePos = player.getEyePosition();
         result.sort(Comparator.<Target>comparingInt(t -> t.pos.getY()).thenComparingDouble(t -> t.pos.distToCenterSqr(eyePos)));
         return result;
+    }
+
+    /** Upper door and plant halves and bed heads come with the other half. */
+    private static boolean placedWithOtherHalf(BlockState want) {
+        if (want.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF)
+                && want.getValue(BlockStateProperties.DOUBLE_BLOCK_HALF) == DoubleBlockHalf.UPPER) return true;
+        return want.hasProperty(BlockStateProperties.BED_PART) && want.getValue(BlockStateProperties.BED_PART) == BedPart.HEAD;
+    }
+
+    private static boolean isDoubleSlab(BlockState state) {
+        return state.getBlock() instanceof SlabBlock && state.getValue(SlabBlock.TYPE) == SlabType.DOUBLE;
+    }
+
+    /** Click the single slab on its open face (top of a bottom slab, underside of a top one). */
+    private static Plan secondSlabPlan(LocalPlayer player, BlockPos pos, BlockState have) {
+        if (have.getValue(SlabBlock.TYPE) == SlabType.DOUBLE) return null;
+        boolean bottom = have.getValue(SlabBlock.TYPE) == SlabType.BOTTOM;
+        Direction face = bottom ? Direction.UP : Direction.DOWN;
+        Vec3 hit = new Vec3(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5);
+        if (hit.distanceTo(player.getEyePosition()) > player.blockInteractionRange()) return null;
+        return new Plan(pos, face, hit, player.getYRot(), player.getXRot(), false, true);
     }
 
     private void place(Minecraft mc, LocalPlayer player, Plan plan, BlockPos target) {

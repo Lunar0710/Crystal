@@ -157,7 +157,7 @@ public final class PlacementPlanner {
     }
 
     /** Every property a click decides matches; the ones neighbours or power decide later are skipped. */
-    private static boolean sameOrientation(BlockState got, BlockState want) {
+    public static boolean sameOrientation(BlockState got, BlockState want) {
         for (Property<?> property : want.getProperties()) {
             if (NOT_FROM_CLICK.contains(property.getName())) continue;
             if (!got.getValue(property).equals(want.getValue(property))) return false;

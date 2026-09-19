@@ -213,6 +213,21 @@ function stripedCapePng() {
     log('performance pack', JSON.stringify(pack))
     if (pack.failed.length) throw new Error('performance pack install failed')
   }
+  // Extra mods for this run only (';'-separated jars, e.g. Litematica + MaLiLib for
+  // the builder test); the ones from an earlier run are removed first.
+  const modsDir = path.join(gameDir, 'mods')
+  const extraList = path.join(gameDir, '.smoke-extra-mods')
+  if (fs.existsSync(extraList)) {
+    for (const name of fs.readFileSync(extraList, 'utf8').split('\n').filter(Boolean)) fs.rmSync(path.join(modsDir, name), { force: true })
+    fs.rmSync(extraList)
+  }
+  const extras = (process.env.CRYSTAL_SMOKE_EXTRA_MODS || '').split(';').filter(Boolean)
+  if (extras.length) {
+    fs.mkdirSync(modsDir, { recursive: true })
+    for (const jar of extras) fs.copyFileSync(jar, path.join(modsDir, path.basename(jar)))
+    fs.writeFileSync(extraList, extras.map(j => path.basename(j)).join('\n'))
+    log('extra mods', extras.map(j => path.basename(j)).join(', '))
+  }
   // Another Crystal player via a local Crystal server (smoke-peer.cjs).
   const peers = await require('./smoke-peer.cjs').startPeerTest(dataRoot, log)
   log('launching')

@@ -284,6 +284,9 @@ public final class SmokeTest {
         plan.put(o.east().above(), net.minecraft.world.level.block.Blocks.FURNACE.defaultBlockState()
                 .setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.HORIZONTAL_FACING, net.minecraft.core.Direction.WEST));
         plan.put(o.above(3), net.minecraft.world.level.block.Blocks.GLASS.defaultBlockState());
+        // Two clicks: a bottom slab, then the top half into it.
+        plan.put(o.east(2), net.minecraft.world.level.block.Blocks.SMOOTH_STONE_SLAB.defaultBlockState()
+                .setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.SLAB_TYPE, net.minecraft.world.level.block.state.properties.SlabType.DOUBLE));
         builderPlan = plan;
         builderSupportSpot = o.above(2);
 
