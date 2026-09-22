@@ -65,7 +65,7 @@
       ],
       "icon": "build/icon.png",
       "category": "public.app-category.games",
-      "artifactName": "Crystal-Launcher-${version}-mac-${arch}.${ext}"
+      "artifactName": "Nexora-Launcher-${version}-mac-${arch}.${ext}"
     },
     "linux": {
       "target": [
@@ -73,7 +73,7 @@
       ],
       "icon": "build/icon.png",
       "category": "Game",
-      "artifactName": "Crystal-Launcher-${version}-linux-${arch}.${ext}"
+      "artifactName": "Nexora-Launcher-${version}-linux-${arch}.${ext}"
     },
     "extraResources": [
       {
@@ -106,7 +106,7 @@
       "repo": "Crystal"
     },
     "nsis": {
-      "artifactName": "Crystal-Launcher-Setup-${version}.exe",
+      "artifactName": "Nexora-Launcher-Setup-${version}.exe",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "perMachine": false,
