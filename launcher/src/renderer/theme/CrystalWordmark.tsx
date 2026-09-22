@@ -27,8 +27,16 @@ export function CrystalWordmark({ size = 20, className = '' }: { size?: number; 
             <stop offset="100%" stopColor="rgb(var(--c-accent-2))" />
           </linearGradient>
         </defs>
+        {/* Ring with a gap, the angular N inside it, and the spark sitting in the gap. */}
         <path
-          d="M18 22 L33 22 L33 78 L18 78 Z M33 22 L48 22 L82 78 L67 78 Z M67 22 L82 22 L82 78 L67 78 Z"
+          d="M82.6 34.8 A36 36 0 1 1 65.2 17.4"
+          fill="none"
+          stroke={`url(#${gradientId})`}
+          strokeWidth="7"
+          strokeLinecap="round"
+        />
+        <path
+          d="M30 30 L30 70 L40 70 L40 48 L60 70 L70 70 L70 30 L60 30 L60 52 L40 30 Z M75.5 11.5 L79.5 20.5 L88.5 24.5 L79.5 28.5 L75.5 37.5 L71.5 28.5 L62.5 24.5 L71.5 20.5 Z"
           fill={`url(#${gradientId})`}
         />
       </svg>
