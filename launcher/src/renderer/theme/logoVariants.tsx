@@ -1,55 +1,65 @@
-import React from 'react'
+import React, { useId } from 'react'
 
 export type LogoVariantId = 'facet-hex' | 'crystal-monogram' | 'shard-mark' | 'twin-shard-duel'
 
+/**
+ * The four app icons to choose from, all built from the Nexora mark: the ring
+ * with the N and the spark, and three reductions of it. They take their colour
+ * from the current theme, so they fit whichever one is picked.
+ *
+ * The ids are the old ones on purpose — they are stored in the settings, and
+ * renaming them would reset everyone's chosen icon.
+ */
 export function LogoMark({ variant, size = 20 }: { variant: LogoVariantId; size?: number }) {
+  const gradientId = useId()
+  const stroke = `url(#${gradientId})`
+
+  const defs = (
+    <defs>
+      <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stopColor="rgb(var(--c-accent))" />
+        <stop offset="100%" stopColor="rgb(var(--c-accent-2))" />
+      </linearGradient>
+    </defs>
+  )
+
   switch (variant) {
+    // The N on its own.
     case 'crystal-monogram':
       return (
         <svg width={size} height={size} viewBox="0 0 100 100">
-          <path
-            d="M68 22 L40 22 L18 44 L18 56 L40 78 L68 78 L68 62 L46 62 L34 50 L46 38 L68 38 Z"
-            fill="#a35bf5"
-          />
+          {defs}
+          <path d="M22 20 L22 80 L36 80 L36 48 L64 80 L78 80 L78 20 L64 20 L64 52 L36 20 Z" fill={stroke} />
         </svg>
       )
+    // Just the spark.
     case 'shard-mark':
       return (
         <svg width={size} height={size} viewBox="0 0 100 100">
-          <g fill="#dfe6f7">
-            <polygon points="50,10 64,42 46,46" opacity=".95" />
-            <polygon points="82,36 74,68 52,54" opacity=".7" />
-            <polygon points="66,86 34,84 44,58" opacity=".5" />
-          </g>
+          {defs}
+          <path d="M50 6 L58 42 L94 50 L58 58 L50 94 L42 58 L6 50 L42 42 Z" fill={stroke} />
         </svg>
       )
+    // The closed ring with the N, without the spark.
     case 'twin-shard-duel':
       return (
         <svg width={size} height={size} viewBox="0 0 100 100">
-          <polygon points="18,18 30,10 90,70 78,82" fill="#f5455b" opacity=".9" />
-          <polygon points="82,18 70,10 10,70 22,82" fill="#f57c3d" opacity=".85" />
+          {defs}
+          <circle cx="50" cy="50" r="36" fill="none" stroke={stroke} strokeWidth="7" />
+          <path d="M34 32 L34 68 L42 68 L42 49 L58 68 L66 68 L66 32 L58 32 L58 51 L42 32 Z" fill={stroke} />
         </svg>
       )
+    // The full mark: ring with a gap, N inside, spark in the gap.
     case 'facet-hex':
     default:
       return (
-        <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-          <polygon points="12,2 22,8 22,16 12,22 2,16 2,8" stroke="url(#cg)" strokeWidth="1.5" fill="url(#cbg)" />
-          <polygon points="12,6 18,9.5 18,14.5 12,18 6,14.5 6,9.5" stroke="url(#cg)" strokeWidth="1" fill="url(#cinner)" opacity="0.7" />
-          <defs>
-            <linearGradient id="cg" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor="#5b8af5" />
-              <stop offset="100%" stopColor="#7c6af5" />
-            </linearGradient>
-            <linearGradient id="cbg" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor="#5b8af520" />
-              <stop offset="100%" stopColor="#7c6af520" />
-            </linearGradient>
-            <linearGradient id="cinner" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor="#5b8af540" />
-              <stop offset="100%" stopColor="#7c6af540" />
-            </linearGradient>
-          </defs>
+        <svg width={size} height={size} viewBox="0 0 100 100">
+          {defs}
+          <path d="M82.6 34.8 A36 36 0 1 1 65.2 17.4" fill="none" stroke={stroke} strokeWidth="7" strokeLinecap="round" />
+          <path
+            d="M30 30 L30 70 L40 70 L40 48 L60 70 L70 70 L70 30 L60 30 L60 52 L40 30 Z M75.5 11.5 L79.5 20.5 L88.5 24.5 L79.5 28.5 L75.5 37.5 L71.5 28.5 L62.5 24.5 L71.5 20.5 Z"
+            fill={stroke}
+          />
         </svg>
       )
   }
