@@ -238,7 +238,7 @@ export class LaunchPipeline {
     const launchedAt = Date.now()
     const logStream = fs.createWriteStream(logPath, { flags: 'w' })
     const header =
-      `# Crystal launch ${new Date().toISOString()}\n` +
+      `# Nexora launch ${new Date().toISOString()}\n` +
       `# java:      ${opts.javaPath}\n` +
       `# version:   ${opts.version}\n` +
       `# loader:    ${opts.loader}\n` +

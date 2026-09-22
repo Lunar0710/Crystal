@@ -5,7 +5,7 @@ import { logger } from '../logs/Logger'
 /**
  * Discord Application ID. Not a secret — every client using Rich Presence
  * ships its own ID publicly. Create the app at discord.com/developers, upload
- * the Crystal logo as an art asset named "crystal", and paste the ID here.
+ * the Nexora logo as an art asset named "crystal", and paste the ID here.
  */
 const APPLICATION_ID = process.env.CRYSTAL_DISCORD_APP_ID || ''
 
@@ -99,7 +99,7 @@ export class DiscordPresence {
         state: state.state,
         startTimestamp: state.startedAt,
         largeImageKey: 'crystal',
-        largeImageText: 'Crystal Client',
+        largeImageText: 'Nexora Client',
         instance: false,
       })
     } catch (err) {

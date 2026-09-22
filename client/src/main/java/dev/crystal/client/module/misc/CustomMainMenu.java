@@ -6,11 +6,11 @@ import dev.crystal.client.module.ModuleCategory;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.TitleScreen;
 
-/** Swaps vanilla's title screen for Crystal's (see MixinMinecraftClient#setScreen). */
+/** Swaps vanilla's title screen for Nexora's (see MixinMinecraftClient#setScreen). */
 public class CustomMainMenu extends Module {
 
     public CustomMainMenu() {
-        super("CustomMainMenu", "Crystal's own main menu instead of the vanilla title screen", ModuleCategory.MISC);
+        super("CustomMainMenu", "Nexora's own main menu instead of the vanilla title screen", ModuleCategory.MISC);
         setEnabled(true);
     }
 

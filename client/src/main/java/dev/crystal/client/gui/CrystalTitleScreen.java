@@ -19,7 +19,7 @@ import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 
 /**
- * Crystal's main menu, replacing vanilla's title screen while the
+ * Nexora's main menu, replacing vanilla's title screen while the
  * CustomMainMenu module is on.
  *
  * Buttons are drawn by hand rather than through ButtonWidget: 1.21.11 made
@@ -59,7 +59,7 @@ public class CrystalTitleScreen extends Screen {
         buttons.add(new MenuButton(x, y + step, BUTTON_W, BUTTON_H, Component.translatable("menu.multiplayer"),
                 () -> minecraft.setScreen(new JoinMultiplayerScreen(this)), false));
 
-        // Options and the Crystal menu share a row: wide button plus a square one.
+        // Options and the Nexora menu share a row: wide button plus a square one.
         int square = BUTTON_H;
         buttons.add(new MenuButton(x, y + step * 2, BUTTON_W - square - GAP, BUTTON_H, Component.translatable("menu.options"),
                 () -> minecraft.setScreen(new OptionsScreen(this, minecraft.options/*? if >=26 {*//*, false*//*?}*/)), false));
@@ -113,14 +113,14 @@ public class CrystalTitleScreen extends Screen {
         String account = minecraft.getUser() != null ? minecraft.getUser().getName() : "";
         context.drawString(font, Component.literal(account), 6, height - 12, GuiRender.withAlpha(0xFFB8BFCC, alpha), true);
         if (CrystalProfile.hasPerks()) {
-            // Small Crystal+ tag after the name, in the accent colour.
-            String tag = "Crystal+";
+            // Small Nexora+ tag after the name, in the accent colour.
+            String tag = "Nexora+";
             int tx = 6 + font.width(account) + 6;
             int tw = font.width(tag);
             GuiRender.roundedRect(context, tx - 3, height - 14, tx + tw + 3, height - 2, GuiRender.withAlpha(accent, Math.round(0x40 * appear)));
             context.drawString(font, tag, tx, height - 12, GuiRender.withAlpha(accent, alpha), false);
         }
-        String version = "Crystal " + CrystalClient.DISPLAY_VERSION + "  Minecraft 1.21.11";
+        String version = "Nexora " + CrystalClient.DISPLAY_VERSION + "  Minecraft 1.21.11";
         context.drawString(font, Component.literal(version), width - font.width(version) - 6, height - 12,
                 GuiRender.withAlpha(0xFF8A93A3, alpha), true);
     }
@@ -136,7 +136,7 @@ public class CrystalTitleScreen extends Screen {
         context.pose().translate(lx, ly);
         context.pose().scale(scale, scale);
         // Offset copy in the theme accent gives the logo depth without a texture.
-        // Crystal+ gets a slowly drifting hue instead of the fixed accent.
+        // Nexora+ gets a slowly drifting hue instead of the fixed accent.
         int depth = CrystalProfile.hasPerks() ? ColorUtil.rainbow(0.6f) : accent;
         context.drawString(font, logo, 1, 1, GuiRender.withAlpha(depth, Math.round(alpha * 0.85f)), false);
         context.drawString(font, logo, 0, 0, GuiRender.withAlpha(0xFFFFFFFF, alpha), false);

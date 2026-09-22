@@ -18,7 +18,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-/** NameTags health, TeamView markers and the Crystal logo, added to a player's label as its render state is built. */
+/** NameTags health, TeamView markers and the Nexora logo, added to a player's label as its render state is built. */
 @Mixin(EntityRenderer.class)
 public class MixinEntityRenderer {
 

@@ -7,7 +7,7 @@ import java.util.List;
 
 /**
  * Hotbar slot and inventory contents. 1.21.5 replaced the public "selected"
- * field with getters and added getNonEquipmentItems(); everything Crystal does
+ * field with getters and added getNonEquipmentItems(); everything Nexora does
  * with either goes through here.
  */
 public final class InventoryCompat {

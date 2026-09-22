@@ -19,18 +19,18 @@ html, body, #root {
 
 :root,
 [data-theme='crystal-blue'] {
-  --c-bg: 11 12 16;
-  --c-panel: 16 18 24;
-  --c-card: 22 25 33;
-  --c-border: 42 47 60;
-  --c-accent: 91 138 245;
-  --c-accent-2: 124 106 245;
-  --c-text: 228 232 240;
-  --c-muted: 107 114 128;
+  --c-bg: 8 8 9;
+  --c-panel: 14 14 16;
+  --c-card: 20 20 23;
+  --c-border: 42 42 47;
+  --c-accent: 255 255 255;
+  --c-accent-2: 190 190 196;
+  --c-text: 240 240 243;
+  --c-muted: 133 133 142;
   --c-success: 52 211 153;
   --c-danger: 248 113 113;
   --c-warning: 251 191 36;
-  /* Free themes stay plain colour — the decorative pattern is a Crystal+/Team perk. */
+  /* Free themes stay plain colour — the decorative pattern is a Nexora+/Team perk. */
   --theme-pattern: none;
   --theme-pattern-size: auto;
 }
@@ -91,7 +91,7 @@ html, body, #root {
   --c-warning: 251 191 36;
 }
 
-/* ---- Crystal+ themes ---- */
+/* ---- Nexora+ themes ---- */
 
 [data-theme='midnight'] {
   --c-bg: 8 11 24;

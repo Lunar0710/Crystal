@@ -346,7 +346,7 @@ public class AutoBuilder extends Module {
             if ((plan == null || !plan.exact()) && walkGoalEye != null && target.pos.equals(walkTarget)) {
                 Plan fromSpot = PlacementPlanner.plan(level, player, target.pos, placeAs, copy, walkGoalEye);
                 if (fromSpot != null && fromSpot.exact()) plan = fromSpot;
-                else if (TRACE) CrystalClient.LOGGER.info("[Crystal] AutoBuilder can't place {} after walking: here={} spot={}",
+                else if (TRACE) CrystalClient.LOGGER.info("[Nexora] AutoBuilder can't place {} after walking: here={} spot={}",
                         target.pos.toShortString(), plan == null ? "none" : "not exact", fromSpot == null ? "none" : "not exact");
             }
             if (plan != null && plan.exact()) {
@@ -444,7 +444,7 @@ public class AutoBuilder extends Module {
                     layerShownAt = level.getGameTime();
                 }
             }
-            if (TRACE) CrystalClient.LOGGER.info("[Crystal] AutoBuilder bounds: {}", boxes.stream().map(b -> b[0].toShortString() + " .. " + b[1].toShortString()).toList());
+            if (TRACE) CrystalClient.LOGGER.info("[Nexora] AutoBuilder bounds: {}", boxes.stream().map(b -> b[0].toShortString() + " .. " + b[1].toShortString()).toList());
             globalLayer = Integer.MAX_VALUE;
             return null;
         }
@@ -592,7 +592,7 @@ public class AutoBuilder extends Module {
             path = dev.crystal.client.build.Walker.findPath(level, player.blockPosition(), inReach, goalTarget.pos);
         }
         if (TRACE) {
-            CrystalClient.LOGGER.info("[Crystal] AutoBuilder walk to {} (layer {}) from {}: {}", goalTarget.pos.toShortString(), globalLayer,
+            CrystalClient.LOGGER.info("[Nexora] AutoBuilder walk to {} (layer {}) from {}: {}", goalTarget.pos.toShortString(), globalLayer,
                     player.blockPosition().toShortString(), path == null ? "no way" : path.size() + " steps");
         }
         if (path == null) {
@@ -631,7 +631,7 @@ public class AutoBuilder extends Module {
                 return true;
             }
         }
-        if (TRACE) CrystalClient.LOGGER.info("[Crystal] AutoBuilder pillar up at {} to y {}", here.toShortString(), top);
+        if (TRACE) CrystalClient.LOGGER.info("[Nexora] AutoBuilder pillar up at {} to y {}", here.toShortString(), top);
         pillarTop = top;
         pillarBase = null;
         return true;
@@ -819,7 +819,7 @@ public class AutoBuilder extends Module {
             }
         }
         if (TRACE) {
-            CrystalClient.LOGGER.info("[Crystal] AutoBuilder fly to {} (layer {}) for {}",
+            CrystalClient.LOGGER.info("[Nexora] AutoBuilder fly to {} (layer {}) for {}",
                     best == null ? "nowhere" : best.toShortString(), globalLayer, target.pos.toShortString());
         }
         if (best == null) {
@@ -949,7 +949,7 @@ public class AutoBuilder extends Module {
     /** The one place a block gets set: the same call a right click makes. */
     private void click(Minecraft mc, Plan plan) {
         if (TRACE) {
-            CrystalClient.LOGGER.info("[Crystal] AutoBuilder click {} face={} hit={} held={} look={}/{} planned={}/{} turned={}",
+            CrystalClient.LOGGER.info("[Nexora] AutoBuilder click {} face={} hit={} held={} look={}/{} planned={}/{} turned={}",
                     plan.clickPos().toShortString(), plan.face(), plan.hit(), mc.player.getMainHandItem().getItem(),
                     mc.player.getYRot(), mc.player.getXRot(), plan.yaw(), plan.pitch(), plan.needsRotation());
         }

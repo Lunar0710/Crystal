@@ -1,7 +1,7 @@
 {
   "name": "crystal-launcher",
   "version": "1.3.4",
-  "description": "Crystal Client Launcher",
+  "description": "Nexora Client Launcher",
   "main": "dist/main/index.js",
   "scripts": {
     "dev": "concurrently \"npm run dev:main\" \"npm run dev:renderer\"",
@@ -48,7 +48,7 @@
   },
   "build": {
     "appId": "dev.crystal.launcher",
-    "productName": "Crystal Launcher",
+    "productName": "Nexora Launcher",
     "win": {
       "target": "nsis",
       "icon": "src/renderer/assets/icons/crystal.ico"

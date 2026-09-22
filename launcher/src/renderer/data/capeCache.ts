@@ -2,8 +2,8 @@ import { BUILTIN_CAPES, renderCapeTexture } from './capes'
 
 /**
  * Draws every built-in cape once into cosmetics/cape-cache/<id>.png. Other
- * Crystal players' capes arrive in game as an id only (see PeerCapes.java),
- * and this is where the game finds the picture for it. Only Crystal's own
+ * Nexora players' capes arrive in game as an id only (see PeerCapes.java),
+ * and this is where the game finds the picture for it. Only Nexora's own
  * designs are in here: an uploaded cape never reaches anyone else.
  *
  * Redrawn when the launcher version or the number of capes changes, a few

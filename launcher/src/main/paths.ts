@@ -3,7 +3,7 @@ import os from 'os'
 import fs from 'fs'
 
 /**
- * Where Crystal keeps everything that isn't the app itself: instances, the
+ * Where Nexora keeps everything that isn't the app itself: instances, the
  * downloaded JDK, caches, logs, cosmetics.
  *
  * Configurable because the default sits on the system drive, and a large

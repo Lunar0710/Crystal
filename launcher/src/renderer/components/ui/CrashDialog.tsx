@@ -51,7 +51,7 @@ function crashId(): string {
 }
 
 /**
- * The window a failed launch opens: what Crystal found in the log, grouped
+ * The window a failed launch opens: what Nexora found in the log, grouped
  * into mod conflicts (keep one), mods to replace, mods to install and other
  * problems, each with its own fix and one button for all of them.
  */
@@ -144,10 +144,10 @@ export function CrashDialog({ instanceId, problems, errorText, account, onRelaun
           <h2 className="text-lg font-semibold text-crystal-text">{modProblems ? 'Mods passen nicht zusammen' : 'Start fehlgeschlagen'}</h2>
           <p className="mt-1 text-[13px] text-crystal-muted">
             {problems.length === 0
-              ? 'Crystal konnte die Ursache nicht sicher erkennen. Die Fehlermeldung steht unten.'
+              ? 'Nexora konnte die Ursache nicht sicher erkennen. Die Fehlermeldung steht unten.'
               : modProblems
                 ? 'Einige deiner Mods passen nicht zum Spiel oder nicht zueinander.'
-                : 'Crystal hat die Ursache gefunden.'}
+                : 'Nexora hat die Ursache gefunden.'}
           </p>
         </div>
 

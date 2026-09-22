@@ -52,7 +52,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Central hook for everything Crystal draws in world space (block outline,
+ * Central hook for everything Nexora draws in world space (block outline,
  * hitboxes, chunk borders, WorldEdit selection, TNT timers).
  *
  * Outlines use the vanilla line layer, the same one vanilla's own block

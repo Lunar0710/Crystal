@@ -48,8 +48,8 @@ export function Stats() {
       <PageHeader
         title="Statistik"
         description={stats?.trackedSince
-          ? `Deine Spielzeit mit Crystal, aufgezeichnet seit ${new Date(stats.trackedSince).toLocaleDateString('de-DE')}.`
-          : 'Deine Spielzeit mit Crystal.'}
+          ? `Deine Spielzeit mit Nexora, aufgezeichnet seit ${new Date(stats.trackedSince).toLocaleDateString('de-DE')}.`
+          : 'Deine Spielzeit mit Nexora.'}
       />
 
       {stats === null && <div className="h-40 rounded-[10px] bg-crystal-card animate-pulse" />}
@@ -65,7 +65,7 @@ export function Stats() {
 
           {!hasHistory ? (
             <EmptyState title="Noch keine Sitzungen aufgezeichnet">
-              <p className="text-xs text-crystal-muted">Ab deiner nächsten Runde zeigt Crystal hier, wann, mit welcher Version und auf welchen Servern du gespielt hast.</p>
+              <p className="text-xs text-crystal-muted">Ab deiner nächsten Runde zeigt Nexora hier, wann, mit welcher Version und auf welchen Servern du gespielt hast.</p>
             </EmptyState>
           ) : (
             <>

@@ -4,7 +4,7 @@ import net.minecraft.client.Minecraft;
 
 import java.util.Locale;
 
-/** Which server you are on, where that changes what Crystal may do. */
+/** Which server you are on, where that changes what Nexora may do. */
 public final class Servers {
 
     private Servers() {}

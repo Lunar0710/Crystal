@@ -1,4 +1,4 @@
-// The large HD cape collection (Crystal+): 200 capes, each one different.
+// The large HD cape collection (Nexora+): 200 capes, each one different.
 // Every cape is built from three layers (background, centrepiece, foreground)
 // and its own colour: no two capes share the same three layers, and every cape
 // gets its own hue, so the collection has no recoloured copies. All painters

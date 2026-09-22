@@ -72,7 +72,7 @@ public class GlintColorizer extends Module {
 
             NativeImage tinted = loadTinted(GLINTS[i]);
             if (tinted == null) continue;
-            DynamicTexture texture = TextureCompat.create(() -> "Crystal glint", tinted);
+            DynamicTexture texture = TextureCompat.create(() -> "Nexora glint", tinted);
             textures.register(GLINTS[i], texture);
             ours[i] = texture;
         }
@@ -99,7 +99,7 @@ public class GlintColorizer extends Module {
             }
             return image;
         } catch (Exception e) {
-            CrystalClient.LOGGER.warn("[Crystal] Glint texture {} could not be tinted: {}", id, e.getMessage());
+            CrystalClient.LOGGER.warn("[Nexora] Glint texture {} could not be tinted: {}", id, e.getMessage());
             return null;
         }
     }

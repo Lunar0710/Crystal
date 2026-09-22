@@ -10,7 +10,7 @@ import net.minecraft.client.renderer.rendertype.RenderType;
 /**
  * Stands in for SubmitNodeCollector on Minecraft versions before 1.21.9, which
  * draw straight into the frame's buffers instead of collecting submissions.
- * replacements.gradle points Crystal's renderers here on those versions;
+ * replacements.gradle points Nexora's renderers here on those versions;
  * "submitting" geometry just draws it right away. Empty on newer versions.
  */
 public final class LegacySubmit {

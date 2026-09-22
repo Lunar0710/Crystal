@@ -28,7 +28,7 @@ const EXTENSIONS: Record<ContentType, string[]> = {
 
 const DISABLED_SUFFIX = '.disabled'
 const PROFILES_FILE = 'crystal-mod-profiles.json'
-/** The launcher adds and removes the Crystal jar itself; profiles leave it alone. */
+/** The launcher adds and removes the Nexora jar itself; profiles leave it alone. */
 const MANAGED_MOD = /^crystal-client-/
 
 export interface ModProfiles {
@@ -55,7 +55,7 @@ export class ContentManager {
 
   // Imported instances live wherever the user keeps them, so the registered
   // gameDir is the only reliable answer. The homedir path is just the fallback
-  // for instances Crystal created itself.
+  // for instances Nexora created itself.
   private instanceDir(instanceId: string): string {
     const gameDir = this.instances?.get(instanceId)?.gameDir
     if (gameDir) return gameDir

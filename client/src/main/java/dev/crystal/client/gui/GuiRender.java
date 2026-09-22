@@ -5,7 +5,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 
 /**
- * Drawing primitives the Crystal menu is built from.
+ * Drawing primitives the Nexora menu is built from.
  *
  * Minecraft only gives us axis-aligned rectangles and text, so rounded corners
  * are faked by notching the corner pixels — at GUI scale that reads as a 2px

@@ -239,7 +239,7 @@ public class CrystalHUD {
         }
     }
 
-    /** Crystal+ "gradient": the accent colour fading down into the panel colour. */
+    /** Nexora+ "gradient": the accent colour fading down into the panel colour. */
     private void drawGradient(GuiGraphics context, int x1, int y1, int x2, int y2, int fill) {
         int accent = dev.crystal.client.CrystalClient.getInstance().getThemeManager().getAccent();
         int alpha = fill >>> 24;
@@ -248,7 +248,7 @@ public class CrystalHUD {
         context.fillGradient(x1 + 1, y1 + 1, x2 - 1, y2 - 1, top, fill);
     }
 
-    /** Crystal+ "split": a solid accent bar on the left, the panel beside it. */
+    /** Nexora+ "split": a solid accent bar on the left, the panel beside it. */
     private void drawSplit(GuiGraphics context, int x1, int y1, int x2, int y2, int fill) {
         int accent = dev.crystal.client.CrystalClient.getInstance().getThemeManager().getAccent();
         context.fill(x1 + 2, y1, x2, y2, fill);
@@ -256,7 +256,7 @@ public class CrystalHUD {
     }
 
     /**
-     * Crystal+ "rainbow": the panel with an outline whose hue keeps turning,
+     * Nexora+ "rainbow": the panel with an outline whose hue keeps turning,
      * offset by the module's position like chroma text so several lines flow.
      */
     private void drawRainbow(GuiGraphics context, HudModule module, int x1, int y1, int x2, int y2, int fill) {
@@ -267,7 +267,7 @@ public class CrystalHUD {
         GuiRender.roundedOutline(context, x1, y1, x2, y2, color);
     }
 
-    /** Crystal+ "neon": dark panel, accent outline and a soft accent bloom one pixel outside it. */
+    /** Nexora+ "neon": dark panel, accent outline and a soft accent bloom one pixel outside it. */
     private void drawNeon(GuiGraphics context, int x1, int y1, int x2, int y2, int fill) {
         int accent = dev.crystal.client.CrystalClient.getInstance().getThemeManager().getAccent();
         GuiRender.roundedOutline(context, x1 - 1, y1 - 1, x2 + 1, y2 + 1, GuiRender.withAlpha(accent, 0x30));
@@ -278,7 +278,7 @@ public class CrystalHUD {
     }
 
     /**
-     * Crystal+ "pill": fully rounded ends. roundedRect only cuts single corner
+     * Nexora+ "pill": fully rounded ends. roundedRect only cuts single corner
      * pixels, so the ends are stepped by hand for a height of 14.
      */
     private void drawPill(GuiGraphics context, int x1, int y1, int x2, int y2, int fill) {
@@ -292,7 +292,7 @@ public class CrystalHUD {
     }
 
     /**
-     * Crystal+ "glass" panel: rounded, a lighter band along the top edge, and
+     * Nexora+ "glass" panel: rounded, a lighter band along the top edge, and
      * a thin outline in the launcher theme's accent colour.
      */
     private void drawGlass(GuiGraphics context, int x1, int y1, int x2, int y2, int fill) {

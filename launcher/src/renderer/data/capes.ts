@@ -907,7 +907,7 @@ const EMBLEMS: { name: string; sprite: keyof typeof SPRITES; bg: Painter; trim?:
 
 const PIXEL_PALETTE = ['#e11d48', '#f59e0b', '#10b981', '#0ea5e9', '#8b5cf6', '#ec4899']
 
-// ---- Crystal+ collection ----------------------------------------------------
+// ---- Nexora+ collection ----------------------------------------------------
 // Hand-placed 10x16 pixel art. At this size smooth gradients turn to mush, so
 // every pixel is set explicitly: each string is one row, each character a
 // palette key.
@@ -1065,7 +1065,7 @@ const PLUS_CAPES: { name: string; rows: string[]; palette: Record<string, string
   },
 ]
 
-// Pixel characters and meme symbols. Characters are Crystal's own designs and
+// Pixel characters and meme symbols. Characters are Nexora's own designs and
 // the meme motifs are generic (Moai, skull, "GG"): no licensed characters or
 // meme artwork. Rows shorter than 16 are padded with background.
 type PixelArt = { name: string; rows: string[]; palette: Record<string, string>; glow?: string }
@@ -1218,11 +1218,11 @@ const MEME_CAPES: PixelArt[] = [
 
 // Team capes. Each rank cape belongs to exactly one rank: a Co-Owner only
 // gets the Co-Owner cape, an Admin only the Admin cape, and so on. The Owner
-// gets every one. 'Crystal Team' is shared by the whole team (Media and up).
+// gets every one. 'Nexora Team' is shared by the whole team (Media and up).
 // Ids are fixed per cape so an equipped cape survives reordering.
 const TEAM_CAPES: { id: string; name: string; rank: RankId | null; rows: string[]; palette: Record<string, string>; glow: string }[] = [
   {
-    id: 'team-0', name: 'Crystal Team', rank: null,
+    id: 'team-0', name: 'Nexora Team', rank: null,
     rows: [
       'gggggggggg', 'g........g', 'g...ww...g', 'g..wabb..g',
       'g..aabbc.g', 'g.waabbccg', 'g..aabbc.g', 'g...abc..g',
@@ -1368,11 +1368,11 @@ export function canUseCape(rank: RankId | null | undefined, cape: CapeDef): bool
 }
 
 export const CAPE_CATEGORIES: { id: CapeCategory; label: string }[] = [
-  { id: 'animated', label: 'Animiert (Crystal+)' },
-  { id: 'art', label: 'HD (Crystal+)' },
-  { id: 'collection', label: 'HD-Sammlung (Crystal+)' },
+  { id: 'animated', label: 'Animiert (Nexora+)' },
+  { id: 'art', label: 'HD (Nexora+)' },
+  { id: 'collection', label: 'HD-Sammlung (Nexora+)' },
   { id: 'team', label: 'Team' },
-  { id: 'plus', label: 'Crystal+' },
+  { id: 'plus', label: 'Nexora+' },
   { id: 'emblem', label: 'Embleme' },
   { id: 'anime', label: 'Anime-Stil' },
   { id: 'internet', label: 'Internet' },

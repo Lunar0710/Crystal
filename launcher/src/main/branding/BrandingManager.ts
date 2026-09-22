@@ -10,11 +10,11 @@ export interface IconVariant {
   file: string // filename inside src/renderer/assets/icons
 }
 
-// Kept in sync with the logo concepts (Facet Hex, Crystal Monogram, Shard Mark,
+// Kept in sync with the logo concepts (Facet Hex, Nexora Monogram, Shard Mark,
 // Twin Shard Duel) — see the "Icon" section in Settings for the rank-gated picker.
 export const ICON_VARIANTS: IconVariant[] = [
   { id: 'facet-hex',        name: 'Facet Hex (Default)', file: 'crystal.ico' },
-  { id: 'crystal-monogram', name: 'Crystal Monogram',    file: 'crystal-monogram.ico' },
+  { id: 'crystal-monogram', name: 'Nexora Monogram',    file: 'crystal-monogram.ico' },
   { id: 'shard-mark',       name: 'Shard Mark',          file: 'shard-mark.ico' },
   { id: 'twin-shard-duel',  name: 'Twin Shard Duel',     file: 'twin-shard-duel.ico' },
 ]

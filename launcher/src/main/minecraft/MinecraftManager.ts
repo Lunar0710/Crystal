@@ -34,7 +34,7 @@ export interface LaunchOptions {
   maxRam: number
   loader?: 'vanilla' | 'fabric' | 'forge'
   profile?: AuthProfile | null
-  // Whether to inject Crystal's own Fabric mod (HUD + QoL modules) into this
+  // Whether to inject Nexora's own Fabric mod (HUD + QoL modules) into this
   // instance's mods folder before launching. false = plain "Vanilla + Mods"
   // launch using only whatever the user installed themselves (Modrinth/manual).
   injectCrystal?: boolean
@@ -64,7 +64,7 @@ export class MinecraftManager {
     this.store = store
   }
 
-  // Crystal's client mod is built against exactly one Minecraft version, so
+  // Nexora's client mod is built against exactly one Minecraft version, so
   // the launcher only offers that one — anything else would load a mod jar
   // compiled against mismatched mappings.
   // Only ever returns versions Mojang actually publishes — if the manifest
@@ -89,7 +89,7 @@ export class MinecraftManager {
     return loaders
   }
 
-  /** Whether a Crystal client build exists for this Minecraft version. */
+  /** Whether a Nexora client build exists for this Minecraft version. */
   hasCrystalFor(version: string): boolean {
     return this.findBundledCrystalJar(version) !== null
   }
@@ -141,29 +141,29 @@ export class MinecraftManager {
     if (opts.injectCrystal) {
       if (!this.hasCrystalFor(opts.version) && this.findBundledCrystalJar(LEGACY_JAR_MC_VERSION)) {
         emit('launch:error',
-          `Crystal gibt es für Minecraft ${opts.version} noch nicht. Die Crystal-Module kommen Version für Version dazu.\n\n` +
-          'Starte diese Instanz so lange ohne Crystal ("Vanilla + Mods"), oder nimm eine Version mit Crystal.')
+          `Nexora gibt es für Minecraft ${opts.version} noch nicht. Die Nexora-Module kommen Version für Version dazu.\n\n` +
+          'Starte diese Instanz so lange ohne Nexora ("Vanilla + Mods"), oder nimm eine Version mit Nexora.')
         return false
       }
       if (!this.injectCrystalMod(modsDir, opts.version)) {
         emit('launch:error',
-          'Crystal-Client-Mod nicht gefunden.\n\n' +
+          'Nexora-Client-Mod nicht gefunden.\n\n' +
           `Gesucht in: ${this.resolveCrystalModSourceDir()}\n\n` +
           'Client bauen mit "gradlew build" im client-Ordner, oder "Vanilla + Mods" wählen.')
         return false
       }
 
-      // Crystal's fabric.mod.json hard-requires fabric-api — without it Fabric
+      // Nexora's fabric.mod.json hard-requires fabric-api — without it Fabric
       // Loader refuses to start at all, so this has to succeed before we even
       // try to launch, not be left for the user to figure out from a crash log.
       if (!(await this.ensureFabricApi(modsDir, opts.version, emit))) {
         emit('launch:error',
-          'Fabric API (von Crystal benötigt) konnte nicht installiert werden.\n\n' +
+          'Fabric API (von Nexora benötigt) konnte nicht installiert werden.\n\n' +
           'Prüfe deine Internetverbindung oder installiere Fabric API manuell in den mods-Ordner.')
         return false
       }
     } else {
-      // "Vanilla + Mods" launch: strip any previously injected Crystal jar so
+      // "Vanilla + Mods" launch: strip any previously injected Nexora jar so
       // switching modes on the same instance doesn't silently keep it active.
       this.removeCrystalMod(modsDir)
     }
@@ -189,7 +189,7 @@ export class MinecraftManager {
     return opts.loader || 'vanilla'
   }
 
-  // Locates the compiled Crystal Client Fabric jar, wherever this build ships it.
+  // Locates the compiled Nexora Client Fabric jar, wherever this build ships it.
   // Anchored to the app root rather than __dirname: this file compiles into a
   // nested folder, so relative climbing silently resolves to the wrong place.
   private resolveCrystalModSourceDir(): string {
@@ -255,7 +255,7 @@ export class MinecraftManager {
       return true
     }
 
-    emit('launch:progress', { step: 'Installiere Fabric API (von Crystal benötigt)...', percent: 40 })
+    emit('launch:progress', { step: 'Installiere Fabric API (von Nexora benötigt)...', percent: 40 })
 
     try {
       const versionsUrl = `https://api.modrinth.com/v2/project/fabric-api/version` +

@@ -47,7 +47,7 @@ const HATS: CosmeticDef[] = [
 ]
 
 const BANDANAS: CosmeticDef[] = [
-  { id: 'bd-crystal',  name: 'Crystal',  slot: 'bandana', color: '#5b8af5', secondary: '#7c6af5' },
+  { id: 'bd-crystal',  name: 'Nexora',  slot: 'bandana', color: '#5b8af5', secondary: '#7c6af5' },
   { id: 'bd-blossom',  name: 'Blossom',  slot: 'bandana', color: '#f56ba0', secondary: '#f5a3c7' },
   { id: 'bd-ember',    name: 'Ember',    slot: 'bandana', color: '#f5455b', secondary: '#f59e0b' },
   { id: 'bd-mint',     name: 'Mint',     slot: 'bandana', color: '#34d399', secondary: '#5bf5c9' },
@@ -72,7 +72,7 @@ const MASKS: CosmeticDef[] = [
 ]
 
 const WINGS: CosmeticDef[] = [
-  { id: 'wg-crystal', name: 'Crystal',  slot: 'wings', color: '#7c6af5', secondary: '#5b8af5', variant: 'shard' },
+  { id: 'wg-crystal', name: 'Nexora',  slot: 'wings', color: '#7c6af5', secondary: '#5b8af5', variant: 'shard' },
   { id: 'wg-angel',   name: 'Angel',    slot: 'wings', color: '#f8fafc', secondary: '#cbd5e1', variant: 'feather' },
   { id: 'wg-raven',   name: 'Raven',    slot: 'wings', color: '#18181b', secondary: '#3f3f46', variant: 'bat' },
   { id: 'wg-phoenix', name: 'Phoenix',  slot: 'wings', color: '#ef4444', secondary: '#f59e0b', requiredRank: 'crystal_plus', variant: 'flame' },
@@ -89,7 +89,7 @@ const BACKPACKS: CosmeticDef[] = [
   { id: 'bp-hiker',   name: 'Hiker',     slot: 'backpack', color: '#65a30d', secondary: '#3f6212', variant: 'pack' },
   { id: 'bp-jet',     name: 'Jetpack',   slot: 'backpack', color: '#94a3b8', secondary: '#f97316', requiredRank: 'crystal_plus', variant: 'jetpack' },
   { id: 'bp-satchel', name: 'Satchel',   slot: 'backpack', color: '#92400e', secondary: '#451a03' },
-  { id: 'bp-crystal', name: 'Crystal',   slot: 'backpack', color: '#7c6af5', secondary: '#5b8af5', requiredRank: 'crystal_plus' },
+  { id: 'bp-crystal', name: 'Nexora',   slot: 'backpack', color: '#7c6af5', secondary: '#5b8af5', requiredRank: 'crystal_plus' },
   { id: 'bp-turtle',  name: 'Panzer',    slot: 'backpack', color: '#15803d', secondary: '#052e16', variant: 'shell' },
   { id: 'bp-cube',    name: 'Cube',      slot: 'backpack', color: '#e11d48', secondary: '#4c0519', requiredRank: 'developer' },
   { id: 'bp-guitar',  name: 'Gitarre',   slot: 'backpack', color: '#b45309', secondary: '#292524', variant: 'guitar' },

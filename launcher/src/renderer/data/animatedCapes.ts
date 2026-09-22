@@ -1,4 +1,4 @@
-// Animated HD capes (Crystal+). Each painter draws one moment of a loop:
+// Animated HD capes (Nexora+). Each painter draws one moment of a loop:
 // t runs from 0 to 1 and t = 1 looks exactly like t = 0, so the frames
 // repeat seamlessly. Painted in the same 160x256 space as the still HD capes.
 
@@ -117,7 +117,7 @@ const neonPulse: AnimatedPainter = (ctx, w, h, t) => {
   ctx.shadowBlur = 10 + 14 * pulse
   ctx.lineWidth = 4
   ctx.strokeRect(14, 14, w - 28, h - 28)
-  // Crystal diamond in the middle
+  // Nexora diamond in the middle
   const cx = w / 2, cy = h / 2 - 16, s = 34 + 4 * pulse
   ctx.beginPath()
   ctx.moveTo(cx, cy - s); ctx.lineTo(cx + s * 0.8, cy); ctx.lineTo(cx, cy + s); ctx.lineTo(cx - s * 0.8, cy); ctx.closePath()

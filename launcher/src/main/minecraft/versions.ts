@@ -4,7 +4,7 @@
  * compare version ids at all (26.1 comes after 1.21.11).
  */
 
-/** Oldest and newest release Crystal supports. */
+/** Oldest and newest release Nexora supports. */
 export const OLDEST_VERSION = '1.8.9'
 export const NEWEST_VERSION = '26.2'
 

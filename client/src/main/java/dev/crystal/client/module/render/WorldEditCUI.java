@@ -120,7 +120,7 @@ public class WorldEditCUI extends Module {
                 default -> { /* colours, grids and other shapes aren't drawn */ }
             }
         } catch (RuntimeException e) {
-            CrystalClient.LOGGER.debug("[Crystal] Ignored WorldEdit CUI message: {}", message);
+            CrystalClient.LOGGER.debug("[Nexora] Ignored WorldEdit CUI message: {}", message);
         }
     }
 

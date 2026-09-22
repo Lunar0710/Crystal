@@ -143,10 +143,10 @@ public class ScreenshotUploader extends Module {
 
     private void notify(Minecraft mc, String message) {
         if (mc.player == null) return;
-        Component text = Component.literal("[Crystal] " + message);
+        Component text = Component.literal("[Nexora] " + message);
         if (message.startsWith("Screenshot uploaded")) {
             String url = message.substring(message.lastIndexOf(' ') + 1);
-            text = Component.literal("[Crystal] Screenshot uploaded: ")
+            text = Component.literal("[Nexora] Screenshot uploaded: ")
                     //? if >=1.21.5 {
                     .append(Component.literal(url).withStyle(s -> s.withClickEvent(new ClickEvent.OpenUrl(URI.create(url)))));
                     //?} else {

@@ -53,8 +53,8 @@ public class CosmeticsFeatureRenderer extends RenderLayer<AvatarRenderState, Pla
     public void submit(PoseStack matrices, SubmitNodeCollector queue, int light, AvatarRenderState state, float limbAngle, float limbDistance) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || state.isInvisible) return;
-        // Your own loadout comes from the launcher's file, other Crystal
-        // players' from the Crystal server (already checked for their rank there).
+        // Your own loadout comes from the launcher's file, other Nexora
+        // players' from the Nexora server (already checked for their rank there).
         java.util.function.Function<String, Item> itemIn;
         if (state.id == mc.player.getId()) {
             if (CosmeticLoadout.isEmpty()) return;

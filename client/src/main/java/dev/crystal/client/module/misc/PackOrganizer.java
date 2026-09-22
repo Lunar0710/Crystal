@@ -95,7 +95,7 @@ public class PackOrganizer extends Module {
 
     private void notify(String message) {
         Minecraft client = Minecraft.getInstance();
-        if (client.player != null) client.player.displayClientMessage(Component.literal("[Crystal] " + message), true);
+        if (client.player != null) client.player.displayClientMessage(Component.literal("[Nexora] " + message), true);
     }
 
     @Override

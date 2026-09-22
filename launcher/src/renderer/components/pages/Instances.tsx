@@ -43,7 +43,7 @@ interface ModrinthVersion {
 }
 
 const api = (window as any).crystal
-/** Default for new instances: the newest version Crystal runs on. */
+/** Default for new instances: the newest version Nexora runs on. */
 const DEFAULT_VERSION = '1.21.11'
 
 interface VersionOption { id: string; fabric: boolean; crystal: boolean }
@@ -173,7 +173,7 @@ export function Instances() {
                 <p className="text-[13px] text-crystal-text">{inst.name} entfernen?</p>
                 <p className="text-xs text-crystal-muted mt-0.5 max-w-[62ch]">
                   {inst.imported
-                    ? 'Crystal vergisst nur den Eintrag. Der Ordner bleibt, wo er ist.'
+                    ? 'Nexora vergisst nur den Eintrag. Der Ordner bleibt, wo er ist.'
                     : 'Der Ordner kommt in den Papierkorb. Deine Welten werden nicht gelöscht und lassen sich von dort zurückholen.'}
                 </p>
                 <div className="flex gap-2 mt-2.5">
@@ -220,7 +220,7 @@ export function Instances() {
 function ModeToggle({ value, onChange }: { value: boolean; onChange: (useCrystal: boolean) => void }) {
   return (
     <div className="flex p-0.5 rounded-md bg-crystal-bg/60 border border-crystal-border text-[11px] shrink-0" role="radiogroup" aria-label="Startmodus">
-      {[{ v: true, label: 'Crystal' }, { v: false, label: 'Vanilla' }].map(opt => (
+      {[{ v: true, label: 'Nexora' }, { v: false, label: 'Vanilla' }].map(opt => (
         <button
           key={opt.label}
           role="radio"
@@ -246,7 +246,7 @@ function CreateInstance({ onDone, onCancel }: { onDone: (created: Instance | nul
   const [versionOptions, setVersionOptions] = useState<VersionOption[]>([])
   const [gameVersion, setGameVersion] = useState(DEFAULT_VERSION)
   const currentOption = versionOptions.find(v => v.id === gameVersion)
-  // Crystal needs its own build for the version; Fabric-less versions start plain vanilla.
+  // Nexora needs its own build for the version; Fabric-less versions start plain vanilla.
   const crystalAvailable = currentOption ? currentOption.crystal : gameVersion === DEFAULT_VERSION
   const loader = currentOption && !currentOption.fabric ? 'vanilla' : 'fabric'
 
@@ -378,7 +378,7 @@ function CreateInstance({ onDone, onCancel }: { onDone: (created: Instance | nul
             >
               {(versionOptions.length ? versionOptions : [{ id: DEFAULT_VERSION, fabric: true, crystal: true }]).map(v => (
                 <option key={v.id} value={v.id}>
-                  {v.id}{v.crystal ? '  ·  Crystal' : v.fabric ? '  ·  Fabric' : '  ·  nur Vanilla'}
+                  {v.id}{v.crystal ? '  ·  Nexora' : v.fabric ? '  ·  Fabric' : '  ·  nur Vanilla'}
                 </option>
               ))}
             </select>
@@ -386,7 +386,7 @@ function CreateInstance({ onDone, onCancel }: { onDone: (created: Instance | nul
           </div>
           {!crystalAvailable && (
             <p className="text-xs text-crystal-muted">
-              Crystal gibt es für {gameVersion} noch nicht, die Module kommen Version für Version dazu.
+              Nexora gibt es für {gameVersion} noch nicht, die Module kommen Version für Version dazu.
               {loader === 'vanilla' ? ' Für diese Version gibt es auch kein Fabric, sie startet als reines Vanilla.' : ' Mods über Fabric gehen schon.'}
             </p>
           )}
@@ -396,7 +396,7 @@ function CreateInstance({ onDone, onCancel }: { onDone: (created: Instance | nul
           <span className="crystal-label">Starten als</span>
           <div className="grid grid-cols-2 gap-2">
             {[
-              { v: true, title: 'Crystal Client', hint: 'Mit HUD, Modulen und Cosmetics.' },
+              { v: true, title: 'Nexora Client', hint: 'Mit HUD, Modulen und Cosmetics.' },
               { v: false, title: 'Vanilla mit Mods', hint: 'Nur die Mods, die du selbst installierst.' },
             ].map(opt => (
               <button
@@ -634,7 +634,7 @@ function InstanceDetail({ instance, onBack }: { instance: Instance; onBack: () =
 
       <PageHeader
         title={instance.name}
-        description={`Minecraft ${instance.version} mit ${instance.loader === 'fabric' ? 'Fabric' : instance.loader}, ${instance.useCrystalClient ? 'startet mit Crystal Client' : 'startet als Vanilla mit Mods'}.`}
+        description={`Minecraft ${instance.version} mit ${instance.loader === 'fabric' ? 'Fabric' : instance.loader}, ${instance.useCrystalClient ? 'startet mit Nexora Client' : 'startet als Vanilla mit Mods'}.`}
         actions={
           <>
             <button onClick={() => api?.openContentFolder(instance.id, tab)} className="crystal-btn-ghost border border-crystal-border text-crystal-text text-[13px]">

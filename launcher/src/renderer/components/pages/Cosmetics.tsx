@@ -148,7 +148,7 @@ export function Cosmetics() {
       api?.syncCapeAnimation(capeAnimationStrip(animatedDef), ANIMATION_FRAMES, ANIMATION_FPS, animatedDef.id)
       return
     }
-    // The id lets other Crystal players see a built-in cape; uploaded ones stay private.
+    // The id lets other Nexora players see a built-in cape; uploaded ones stay private.
     api?.syncEquippedCape(equippedCapeUrl, equippedDef?.id ?? null)
   }, [equippedCapeUrl, animatedDef?.id])
 
@@ -316,7 +316,7 @@ export function Cosmetics() {
                     title="Noch keine eigenen Capes"
                     action={<button onClick={uploadCape} className="crystal-btn-primary text-[13px]">Cape hochladen</button>}
                   >
-                    PNG oder JPG. Crystal wandelt es in das Minecraft-Format 64 × 32 um.
+                    PNG oder JPG. Nexora wandelt es in das Minecraft-Format 64 × 32 um.
                   </EmptyState>
                 ) : (
                   <TileGrid>
@@ -340,7 +340,7 @@ export function Cosmetics() {
                   {visibleCapes.map(cape => {
                     const id = `builtin:${cape.id}`
                     const locked = !canUseCape(rank, cape)
-                    // A rank cape names its one rank; other locked capes say "Crystal+" or "Team".
+                    // A rank cape names its one rank; other locked capes say "Nexora+" or "Team".
                     const lockText = cape.exactRank && cape.requiredRank ? RANKS[cape.requiredRank].label : cape.requiredRank ? lockLabel(cape.requiredRank) : ''
                     return (
                       <Tile
@@ -383,7 +383,7 @@ export function Cosmetics() {
           )}
 
           <p className="text-xs text-crystal-muted mt-5 max-w-[70ch]">
-            Crystal liefert nur eigene Designs. Motive von geschützten Marken und Figuren kannst du als eigenes Cape hochladen.
+            Nexora liefert nur eigene Designs. Motive von geschützten Marken und Figuren kannst du als eigenes Cape hochladen.
           </p>
         </div>
       </div>

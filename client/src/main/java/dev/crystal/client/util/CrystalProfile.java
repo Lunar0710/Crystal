@@ -12,17 +12,17 @@ import java.util.concurrent.Executors;
 
 /**
  * The launcher writes the logged-in player's rank to config/profile.json.
- * Read here so Crystal+ perks can unlock in-game. Checked at most every few
+ * Read here so Nexora+ perks can unlock in-game. Checked at most every few
  * seconds and off the render thread, since HUD code asks every frame.
  *
- * Cosmetic only, same as ranks everywhere in Crystal: editing the file by
+ * Cosmetic only, same as ranks everywhere in Nexora: editing the file by
  * hand unlocks visual extras and nothing else.
  */
 public final class CrystalProfile {
 
     private static final long CHECK_INTERVAL_MS = 3000;
     private static final ExecutorService READER = Executors.newSingleThreadExecutor(r -> {
-        Thread t = new Thread(r, "Crystal-Profile-Reader");
+        Thread t = new Thread(r, "Nexora-Profile-Reader");
         t.setDaemon(true);
         return t;
     });
@@ -77,7 +77,7 @@ public final class CrystalProfile {
             tester = root.has("tester") && root.get("tester").getAsBoolean();
             lastMtime = mtime;
         } catch (IOException | RuntimeException e) {
-            CrystalClient.LOGGER.warn("[Crystal] profile.json nicht lesbar: {}", e.getMessage());
+            CrystalClient.LOGGER.warn("[Nexora] profile.json nicht lesbar: {}", e.getMessage());
         } finally {
             inFlight = false;
         }

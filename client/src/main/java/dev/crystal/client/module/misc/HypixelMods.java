@@ -18,7 +18,7 @@ import net.minecraft.client.Minecraft;
 /**
  * Real Hypixel Public API integration — needs your own free key from
  * developer.hypixel.net (Settings -> API key in your Hypixel account), same
- * as every other Hypixel-stats tool. No key ships with Crystal; without one
+ * as every other Hypixel-stats tool. No key ships with Nexora; without one
  * this just shows a message saying so instead of silently doing nothing.
  */
 public class HypixelMods extends HudModule {

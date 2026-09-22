@@ -59,11 +59,11 @@ export function Settings() {
   function saveCrystalServer() {
     const value = crystalServer.trim()
     if (value && !/^wss?:\/\/[A-Za-z0-9.-]+(:\d{1,5})?(\/[A-Za-z0-9._~/-]*)?$/.test(value)) {
-      notify({ type: 'error', title: 'Crystal-Server', message: 'Die Adresse muss mit ws:// oder wss:// beginnen, z. B. wss://crystal.example.com' })
+      notify({ type: 'error', title: 'Nexora-Server', message: 'Die Adresse muss mit ws:// oder wss:// beginnen, z. B. wss://crystal.example.com' })
       return
     }
     api?.setSetting('crystalServer', value)
-    notify({ type: 'success', title: 'Crystal-Server', message: value ? 'Gilt ab dem nächsten Start von Minecraft.' : 'Zurück auf den Standard.' })
+    notify({ type: 'success', title: 'Nexora-Server', message: value ? 'Gilt ab dem nächsten Start von Minecraft.' : 'Zurück auf den Standard.' })
   }
 
   async function pickDataRoot() {
@@ -120,7 +120,7 @@ export function Settings() {
       setCurrentIcon(id)
       notify({ type: 'success', message: 'App-Icon aktualisiert' })
     } else {
-      notify({ type: 'error', message: 'Dafür brauchst du einen Rang (ab Crystal+).' })
+      notify({ type: 'error', message: 'Dafür brauchst du einen Rang (ab Nexora+).' })
     }
   }
 
@@ -205,7 +205,7 @@ export function Settings() {
 
         <Field
           label="Performance-Mods automatisch installieren"
-          hint="Beim ersten Start einer Crystal-Instanz kommen Sodium, Lithium, FerriteCore, EntityCulling und ImmediatelyFast dazu. Das bringt vor allem bei hoher Sichtweite und unter Tage viel mehr FPS. Mods, die du danach entfernst, bleiben entfernt."
+          hint="Beim ersten Start einer Nexora-Instanz kommen Sodium, Lithium, FerriteCore, EntityCulling und ImmediatelyFast dazu. Das bringt vor allem bei hoher Sichtweite und unter Tage viel mehr FPS. Mods, die du danach entfernst, bleiben entfernt."
         >
           <Switch
             checked={autoPerformancePack}
@@ -247,14 +247,14 @@ export function Settings() {
           hint={!discordConfigured
             ? 'Funktioniert derzeit nicht.'
             : discordConnected
-              ? 'Zeigt Freunden auf Discord, dass du Crystal benutzt und welche Instanz läuft.'
+              ? 'Zeigt Freunden auf Discord, dass du Nexora benutzt und welche Instanz läuft.'
               : 'Discord wurde nicht gefunden. Der Status erscheint, sobald Discord läuft.'}
         >
           {discordConfigured && <Switch checked={discordEnabled} onChange={toggleDiscord} label="Discord-Status" />}
         </Field>
         <Field
-          label="Crystal-Server"
-          hint="Damit andere Crystal-Spieler deine Emotes und Cosmetics sehen und du ihre. Leer lassen für den Standard."
+          label="Nexora-Server"
+          hint="Damit andere Nexora-Spieler deine Emotes und Cosmetics sehen und du ihre. Leer lassen für den Standard."
         >
           <div className="flex gap-2">
             <input
@@ -262,7 +262,7 @@ export function Settings() {
               onChange={e => setCrystalServer(e.target.value)}
               className="crystal-input w-56 font-mono text-xs"
               placeholder="wss://…"
-              aria-label="Crystal-Server-Adresse"
+              aria-label="Nexora-Server-Adresse"
             />
             <button onClick={saveCrystalServer} className="crystal-btn-primary text-xs">Speichern</button>
           </div>
@@ -270,7 +270,7 @@ export function Settings() {
       </Section>
 
       <Section title="Konto">
-        <Field label="Rang" hint="Ränge vergibt das Crystal-Team. Selbst setzen lässt sich keiner.">
+        <Field label="Rang" hint="Ränge vergibt das Nexora-Team. Selbst setzen lässt sich keiner.">
           {rank === 'member'
             ? <span className="text-[13px] text-crystal-muted">Member</span>
             : <RankBadge rank={rank} size="md" />}
@@ -317,7 +317,7 @@ export function Settings() {
 
       <Section
         title="Crash-Analyse"
-        description="Mit deinem eigenen Anthropic-API-Key erklärt Crystal Abstürze im Logs-Bereich. Der Key bleibt auf diesem PC."
+        description="Mit deinem eigenen Anthropic-API-Key erklärt Nexora Abstürze im Logs-Bereich. Der Key bleibt auf diesem PC."
       >
         <div className="p-4 flex gap-2">
           <input
@@ -337,11 +337,11 @@ export function Settings() {
         )}
       </Section>
 
-      <Section title="Über Crystal">
+      <Section title="Über Nexora">
         <Field label="Launcher"><span className="font-mono text-xs text-crystal-text">{versions.launcher ? displayVersion(versions.launcher) : '…'}</span></Field>
         <Field label="Client-Mod"><span className="font-mono text-xs text-crystal-text">{versions.client ? displayVersion(versions.client) : 'nicht gebündelt'}</span></Field>
         <Field label="Minecraft"><span className="font-mono text-xs text-crystal-text">1.8.9 bis 26.2</span></Field>
-        <Field label="Crystal-Module auf">
+        <Field label="Nexora-Module auf">
           <span className="font-mono text-xs text-crystal-text">
             {crystalVersions === null ? '…' : crystalVersions.length ? crystalVersions.join(', ') : 'keiner Version'}
           </span>
@@ -367,7 +367,7 @@ const GRANT_DURATIONS: { label: string; ms: number | undefined }[] = [
   { label: '1 Monat', ms: 30 * 24 * 60 * 60 * 1000 },
 ]
 
-/** What Crystal+ actually unlocks. Counts come from the real data, so the list can't drift from what ships. */
+/** What Nexora+ actually unlocks. Counts come from the real data, so the list can't drift from what ships. */
 function CrystalPlusSection({ unlocked }: { unlocked: boolean }) {
   const plusThemes = themes.filter(t => t.requiredRank === 'crystal_plus').length
   const plusCapes = BUILTIN_CAPES.filter(c => c.requiredRank === 'crystal_plus').length
@@ -381,15 +381,15 @@ function CrystalPlusSection({ unlocked }: { unlocked: boolean }) {
     { title: 'Emotes', detail: 'Winken, Jubeln, Tanzen und mehr über ein Rad auf einer Taste (vorerst nur für dich sichtbar).' },
     { title: 'Chroma-Text', detail: 'Farbverlauf für HUD-Module, der langsam durchläuft.' },
     { title: 'Crosshair-Formen', detail: 'Gap Cross, Kreis, X und Klammern, auf Wunsch in Chroma.' },
-    { title: 'Hauptmenü', detail: 'Crystal+-Abzeichen neben deinem Namen und ein Logo mit wechselnder Farbe.' },
+    { title: 'Hauptmenü', detail: 'Nexora+-Abzeichen neben deinem Namen und ein Logo mit wechselnder Farbe.' },
   ]
 
   return (
     <Section
-      title="Crystal+"
+      title="Nexora+"
       description={unlocked
         ? 'Alles hier ist für dich freigeschaltet. Die Extras im Spiel stellst du in den Modul-Einstellungen ein (Rechts-Shift).'
-        : 'Crystal+ ist rein kosmetisch: Capes, Cosmetics, Emotes, Themes und HUD-Extras. Keine Spielhilfen.'}
+        : 'Nexora+ ist rein kosmetisch: Capes, Cosmetics, Emotes, Themes und HUD-Extras. Keine Spielhilfen.'}
     >
       <ul className="divide-y divide-crystal-border">
         {perks.map(p => (

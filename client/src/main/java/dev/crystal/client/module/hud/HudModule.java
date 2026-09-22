@@ -107,18 +107,18 @@ public abstract class HudModule extends Module implements HudRenderable {
     }
 
     public static final String STYLE_FLAT = "Flat";
-    public static final String STYLE_GLASS = "Glass (Crystal+)";
-    public static final String STYLE_NEON = "Neon (Crystal+)";
-    public static final String STYLE_PILL = "Pill (Crystal+)";
-    public static final String STYLE_GRADIENT = "Gradient (Crystal+)";
-    public static final String STYLE_SPLIT = "Split (Crystal+)";
-    public static final String STYLE_RAINBOW = "Rainbow (Crystal+)";
+    public static final String STYLE_GLASS = "Glass (Nexora+)";
+    public static final String STYLE_NEON = "Neon (Nexora+)";
+    public static final String STYLE_PILL = "Pill (Nexora+)";
+    public static final String STYLE_GRADIENT = "Gradient (Nexora+)";
+    public static final String STYLE_SPLIT = "Split (Nexora+)";
+    public static final String STYLE_RAINBOW = "Rainbow (Nexora+)";
 
     /**
-     * Crystal: a small dark panel with the label ("FPS") in the accent colour.
+     * Nexora: a small dark panel with the label ("FPS") in the accent colour.
      * Classic: the plain shadowed text every HUD line used before.
      */
-    public static final String LOOK_CRYSTAL = "Crystal";
+    public static final String LOOK_CRYSTAL = "Nexora";
     public static final String LOOK_CLASSIC = "Classic";
     private String look = LOOK_CRYSTAL;
 
@@ -127,14 +127,14 @@ public abstract class HudModule extends Module implements HudRenderable {
     private String backgroundStyle = STYLE_FLAT;
     private boolean chroma = false;
 
-    /** The style actually drawn. Crystal+ styles quietly fall back to flat without the rank. */
+    /** The style actually drawn. Nexora+ styles quietly fall back to flat without the rank. */
     public String getEffectiveStyle() {
         if (STYLE_FLAT.equals(backgroundStyle) || !CrystalProfile.hasPerks()) return STYLE_FLAT;
         return backgroundStyle;
     }
 
     /**
-     * Text colour for this frame. Crystal+ chroma cycles the hue, offset by the
+     * Text colour for this frame. Nexora+ chroma cycles the hue, offset by the
      * module's position so a column of HUD lines reads as a gradient, not a blink.
      */
     public int getEffectiveTextColor() {
@@ -167,7 +167,7 @@ public abstract class HudModule extends Module implements HudRenderable {
         all.add(new ColorSetting("BG Color", () -> backgroundColor, v -> backgroundColor = v, 0xFF000000));
         all.add(new SliderSetting("BG Opacity", () -> backgroundOpacity, v -> backgroundOpacity = v, 0f, 100f, 5f, 0));
         all.add(new EnumSetting("BG Style", () -> backgroundStyle, v -> backgroundStyle = v, List.of(STYLE_FLAT, STYLE_GLASS, STYLE_NEON, STYLE_PILL, STYLE_GRADIENT, STYLE_SPLIT, STYLE_RAINBOW)));
-        all.add(new BooleanSetting("Chroma Text (Crystal+)", () -> chroma, v -> chroma = v, false));
+        all.add(new BooleanSetting("Chroma Text (Nexora+)", () -> chroma, v -> chroma = v, false));
         return all;
     }
 }

@@ -145,7 +145,7 @@ export class CrashDoctor {
         id: `replace-${id.toLowerCase()}`,
         group: 'replace',
         title: `${name} ist für eine andere Minecraft-Version`,
-        detail: 'Crystal lädt die passende Version von Modrinth und ersetzt die alte Datei.',
+        detail: 'Nexora lädt die passende Version von Modrinth und ersetzt die alte Datei.',
         fix: { kind: 'update-mod', label: 'Ersetzen', modFile: installed.file, modName: name },
         currentVersion: installed.version,
       })
@@ -161,7 +161,7 @@ export class CrashDoctor {
         id: `replace-${id.toLowerCase()}`,
         group: 'replace',
         title: `${needer} braucht eine andere Version von ${name}`,
-        detail: `Crystal lädt die neueste passende Version von ${name} und ersetzt die alte Datei.`,
+        detail: `Nexora lädt die neueste passende Version von ${name} und ersetzt die alte Datei.`,
         fix: { kind: 'update-mod', label: 'Ersetzen', modFile: installed.file, modName: name },
         currentVersion: installed.version,
       })
@@ -170,7 +170,7 @@ export class CrashDoctor {
     // A mod built for another game version often passes Fabric's checks and
     // then breaks while loading: its mixins no longer fit, or its start-up code
     // calls something that is gone. The log names the mod; a matching version
-    // from Modrinth usually fixes it. Crystal's own jar comes with the launcher.
+    // from Modrinth usually fixes it. Nexora's own jar comes with the launcher.
     const crashedBy = [
       /Mixin apply for mod ([\w-]+) failed/g,
       /from mod ([\w-]+)\]? .*?(?:InvalidInjectionException|failed)/g,
@@ -185,7 +185,7 @@ export class CrashDoctor {
           id: `replace-${id}`,
           group: 'replace',
           title: `${id} ist beim Laden abgestürzt`,
-          detail: 'Meist passt die Mod nicht zu dieser Minecraft-Version. Crystal lädt die passende Version von Modrinth.',
+          detail: 'Meist passt die Mod nicht zu dieser Minecraft-Version. Nexora lädt die passende Version von Modrinth.',
           fix: { kind: 'update-mod', label: 'Ersetzen', modFile: installed.file, modName: id },
           currentVersion: installed.version,
         })
@@ -203,8 +203,8 @@ export class CrashDoctor {
         group: 'install',
         title: `${name} fehlt`,
         detail: lower === 'fabric-api'
-          ? 'Fabric API fehlt. Crystal installiert sie direkt von Modrinth.'
-          : `Eine Mod braucht ${name}. Crystal sucht sie auf Modrinth und installiert sie.`,
+          ? 'Fabric API fehlt. Nexora installiert sie direkt von Modrinth.'
+          : `Eine Mod braucht ${name}. Nexora sucht sie auf Modrinth und installiert sie.`,
         fix: lower === 'fabric-api'
           ? { kind: 'install-fabric-api', label: 'Installieren', modName: name }
           : { kind: 'install-mod', label: 'Installieren', modName: name, project: lower },
@@ -218,7 +218,7 @@ export class CrashDoctor {
         id: 'java-version',
         group: 'other',
         title: `Falsche Java-Version (${javaMatch[4]} statt ${javaMatch[3]})`,
-        detail: 'Crystal lädt die passende Java-Version beim nächsten Start automatisch herunter. Starte einfach erneut.',
+        detail: 'Nexora lädt die passende Java-Version beim nächsten Start automatisch herunter. Starte einfach erneut.',
         fix: null,
       })
     }

@@ -9,7 +9,7 @@ import java.util.List;
 import net.minecraft.client.Minecraft;
 
 /**
- * Toggle (not hold) — Crystal's keybind system is toggle-only, so this reduces
+ * Toggle (not hold) — Nexora's keybind system is toggle-only, so this reduces
  * FOV like a spyglass for as long as it's enabled rather than while a key is
  * held. Actual FOV change happens in MixinGameRenderer#getFov; this class just
  * holds the settings and the sensitivity-restore state.

@@ -10,8 +10,8 @@ import net.minecraft.client.model.player.PlayerModel;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * The emote the local player is doing right now, and the ones other Crystal
- * players do (told by the Crystal server, see CrystalNet).
+ * The emote the local player is doing right now, and the ones other Nexora
+ * players do (told by the Nexora server, see CrystalNet).
  *
  * An emote ends by itself, or as soon as the player walks, jumps or opens the
  * wheel again; moving is never blocked by an emote.
@@ -24,7 +24,7 @@ public final class EmotePlayer {
     private static Emote current = null;
     private static long startedAt = 0;
     private static Vec3 startPos = null;
-    /** The camera from before the emote, when Crystal switched it; null when untouched. */
+    /** The camera from before the emote, when Nexora switched it; null when untouched. */
     private static CameraType cameraBefore = null;
 
     private EmotePlayer() {}
@@ -86,7 +86,7 @@ public final class EmotePlayer {
             current.apply(model, elapsed());
             return;
         }
-        // Another Crystal player. Their own client decides when it ends; a
+        // Another Nexora player. Their own client decides when it ends; a
         // one-off emote also stops here once its time is up, in case the
         // "ended" message got lost.
         PeerRegistry.Peer peer = PeerRegistry.forEntity(entityId);

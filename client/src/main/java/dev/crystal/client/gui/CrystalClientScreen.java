@@ -98,7 +98,7 @@ public class CrystalClientScreen extends Screen {
     private Box searchBox, closeBox, hudBox, backBox, bigToggleBox, resetBox, moduleKeyBox, contentBox;
 
     public CrystalClientScreen() {
-        super(Component.literal("Crystal Client"));
+        super(Component.literal("Nexora Client"));
         var theme = CrystalClient.getInstance().getThemeManager();
         colAccent = theme.getAccent();
         colPanel = GuiRender.withAlpha(theme.getBg(), 0xF2);
@@ -305,12 +305,12 @@ public class CrystalClientScreen extends Screen {
 
         boolean showGear = gear != null && (hovered || openModule == module);
         if (module.isPlusOnly() && !showGear) {
-            // Crystal+ tag in the top right corner, with a lock while it isn't unlocked.
+            // Nexora+ tag in the top right corner, with a lock while it isn't unlocked.
             boolean locked = module.isLocked();
-            int tw = GuiRender.scaledWidth("Crystal+", 0.75f) + (locked ? 13 : 8);
+            int tw = GuiRender.scaledWidth("Nexora+", 0.75f) + (locked ? 13 : 8);
             GuiRender.roundedRect(ctx, x + w - 4 - tw, y + 4, x + w - 4, y + 14, GuiRender.withAlpha(COL_PLUS, 0x30));
             if (locked) drawIcon(ctx, ICON_LOCK, x + w - 1 - tw, y + 5, COL_PLUS, 1);
-            GuiRender.scaledText(ctx, "Crystal+", x + w - tw + (locked ? 5 : 0), y + 7, 0.75f, COL_PLUS);
+            GuiRender.scaledText(ctx, "Nexora+", x + w - tw + (locked ? 5 : 0), y + 7, 0.75f, COL_PLUS);
         }
 
         if (showGear) {
@@ -322,7 +322,7 @@ public class CrystalClientScreen extends Screen {
         int barColor = GuiRender.blend(0x22FFFFFF, GuiRender.withAlpha(COL_ON, 0x3A), on);
         if (bar.contains(mx, my) && contentBox.contains(mx, my)) barColor = GuiRender.blend(barColor, 0xFFFFFFFF, 0.1f);
         GuiRender.roundedRect(ctx, bar.x1, bar.y1, bar.x2, bar.y2, barColor);
-        String status = module.isLocked() ? "Nur Crystal+" : enabled ? "AN" : "AUS";
+        String status = module.isLocked() ? "Nur Nexora+" : enabled ? "AN" : "AUS";
         ctx.drawString(font, status, bar.x1 + (bar.x2 - bar.x1 - font.width(status)) / 2, bar.y1 + 2,
                 module.isLocked() ? COL_PLUS : GuiRender.blend(colMuted, COL_ON, on), false);
     }
@@ -512,7 +512,7 @@ public class CrystalClientScreen extends Screen {
     private void renderSettingRow(GuiGraphics ctx, Setting<?> setting, int x, int y, int w, boolean divider, int mx, int my, float dt) {
         if (divider) ctx.fill(x + 8, y, x + w - 8, y + 1, GuiRender.withAlpha(colBorder, 0x55));
         String name = setting.getName();
-        boolean plusOnly = name.endsWith("(Crystal+)");
+        boolean plusOnly = name.endsWith("(Nexora+)");
         if (plusOnly) name = name.substring(0, name.length() - 10).trim();
         boolean locked = plusOnly && !CrystalProfile.hasPerks();
 
@@ -523,7 +523,7 @@ public class CrystalClientScreen extends Screen {
             int tx = x + 14 + font.width(shownName);
             GuiRender.roundedRect(ctx, tx, y + 6, tx + 38, y + 16, GuiRender.withAlpha(COL_PLUS, 0x30));
             if (locked) drawIcon(ctx, ICON_LOCK, tx + 3, y + 7, COL_PLUS, 1);
-            GuiRender.scaledText(ctx, "Crystal+", tx + (locked ? 10 : 5), y + 9, 0.75f, COL_PLUS);
+            GuiRender.scaledText(ctx, "Nexora+", tx + (locked ? 10 : 5), y + 9, 0.75f, COL_PLUS);
         }
 
         Box control = new Box(x + w - controlW - 8, y + 4, x + w - 8, y + ROW_H - 4);
@@ -648,7 +648,7 @@ public class CrystalClientScreen extends Screen {
     }
 
     private static String stripPlus(String value) {
-        return value.endsWith("(Crystal+)") ? value.substring(0, value.length() - 10).trim() + " +" : value;
+        return value.endsWith("(Nexora+)") ? value.substring(0, value.length() - 10).trim() + " +" : value;
     }
 
     private List<String> wrap(String text, int maxWidth, int maxLines) {

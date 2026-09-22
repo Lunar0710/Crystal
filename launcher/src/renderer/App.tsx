@@ -25,7 +25,7 @@ export default function App() {
     api?.getLoadout().then((l: EquippedCosmetics | null) => {
       if (!l) return
       syncLoadoutToGame(l)
-      // Which built-in cape you wear, for other Crystal players (uploaded ones stay private).
+      // Which built-in cape you wear, for other Nexora players (uploaded ones stay private).
       api?.syncCapeId(l.cape?.startsWith('builtin:') ? l.cape.slice('builtin:'.length) : null)
     })
     // Pictures of every built-in cape for showing other players' capes; once

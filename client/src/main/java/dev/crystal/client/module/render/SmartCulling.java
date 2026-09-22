@@ -13,7 +13,7 @@ import net.minecraft.client.Minecraft;
 import java.util.List;
 
 /**
- * Crystal's own performance culling: mobs, players and block entities
+ * Nexora's own performance culling: mobs, players and block entities
  * (chests, signs, banners...) that are completely behind walls are not drawn.
  * See {@link OcclusionCuller} for how it decides. On by default.
  */

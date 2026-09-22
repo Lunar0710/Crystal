@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "id": "crystal",
   "version": "${version}",
-  "name": "Crystal Client",
-  "description": "Crystal — A legit, feature-rich Minecraft client with a custom HUD and quality-of-life tools",
-  "authors": ["Crystal Development Team"],
+  "name": "Nexora Client",
+  "description": "Nexora — A legit, feature-rich Minecraft client with a custom HUD and quality-of-life tools",
+  "authors": ["Nexora Development Team"],
   "contact": {
     "homepage": "https://crystal-client.dev",
     "issues": "https://github.com/crystal-client/issues"

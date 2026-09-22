@@ -27,7 +27,7 @@ import net.minecraft.client.renderer.PostPass;
 import net.minecraft.resources.Identifier;
 
 /**
- * Live uniforms for Crystal's color_grade post effect. Vanilla fills a post
+ * Live uniforms for Nexora's color_grade post effect. Vanilla fills a post
  * pass's uniform buffers once from the JSON, so the ColorSaturation sliders
  * would otherwise only apply after a resource reload. Here the buffer is
  * rewritten with the current slider values right before the pass draws.

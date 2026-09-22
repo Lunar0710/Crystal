@@ -88,7 +88,7 @@ export function Launch() {
       // The game still starts; this only says why it got less RAM than set.
       api?.on('launch:notice', (message: string) => notify({ type: 'warning', title: 'Wenig freier Speicher', message })),
       api?.on('launch:started', () => {
-        notify({ type: 'success', title: 'Crystal', message: 'Minecraft wurde gestartet' })
+        notify({ type: 'success', title: 'Nexora', message: 'Minecraft wurde gestartet' })
         setLaunching(false)
         setProgress(null)
       }),
@@ -134,7 +134,7 @@ export function Launch() {
     if (!instance) return
     setTrying(true)
     setTryStatus(null)
-    setProgress({ step: 'Teste Crystal...', percent: 0 })
+    setProgress({ step: 'Teste Nexora...', percent: 0 })
 
     const result = await api?.tryWithCrystal(instance.id)
 
@@ -146,7 +146,7 @@ export function Launch() {
       setTryStatus({ ok: result.success, message: result.message })
       notify({
         type: result.success ? 'success' : 'warning',
-        title: 'Try with Crystal',
+        title: 'Try with Nexora',
         message: result.message,
       })
     }
@@ -249,7 +249,7 @@ export function Launch() {
                   </div>
                   <div>
                     <dt className="text-crystal-muted">Modus</dt>
-                    <dd className="text-crystal-text mt-0.5">{instance.useCrystalClient ? 'Crystal Client' : 'Vanilla mit Mods'}</dd>
+                    <dd className="text-crystal-text mt-0.5">{instance.useCrystalClient ? 'Nexora Client' : 'Vanilla mit Mods'}</dd>
                   </div>
                   <div>
                     <dt className="text-crystal-muted">Arbeitsspeicher</dt>
@@ -278,11 +278,11 @@ export function Launch() {
                 <button
                   onClick={tryWithCrystal}
                   disabled={busy || !instance}
-                  title="Startet die Instanz einmal mit Crystal. Klappt es nicht, wird automatisch alles zurückgesetzt."
+                  title="Startet die Instanz einmal mit Nexora. Klappt es nicht, wird automatisch alles zurückgesetzt."
                   className="crystal-btn-ghost border border-crystal-border text-crystal-text disabled:opacity-60"
                 >
                   <FlaskConical size={14} strokeWidth={1.75} />
-                  {trying ? 'Teste…' : 'Mit Crystal testen'}
+                  {trying ? 'Teste…' : 'Mit Nexora testen'}
                 </button>
               </div>
 
@@ -328,7 +328,7 @@ export function Launch() {
         <section>
           <h2 className="text-[13px] font-semibold text-crystal-text mb-0.5 px-0.5">Andere Clients</h2>
           <p className="text-xs text-crystal-muted mb-2 px-0.5">
-            Startet eine .exe oder .jar direkt. Crystal verändert deren Dateien nicht, die Einstellungen oben gelten dafür nicht.
+            Startet eine .exe oder .jar direkt. Nexora verändert deren Dateien nicht, die Einstellungen oben gelten dafür nicht.
           </p>
           <div className="flex flex-wrap gap-2">
             {externalClients.map(c => (

@@ -9,7 +9,7 @@ import org.lwjgl.glfw.GLFW;
 import java.util.List;
 
 /**
- * The key that opens the Crystal menu. It works whether this module is on or
+ * The key that opens the Nexora menu. It works whether this module is on or
  * off; the module only exists so the key has a place in the menu.
  */
 public class CrystalMenu extends Module {
@@ -17,7 +17,7 @@ public class CrystalMenu extends Module {
     private static int menuKey = GLFW.GLFW_KEY_RIGHT_SHIFT;
 
     public CrystalMenu() {
-        super("CrystalMenu", "Choose the key that opens the Crystal menu (default: Right Shift)", ModuleCategory.MISC);
+        super("NexoraMenu", "Choose the key that opens the Nexora menu (default: Right Shift)", ModuleCategory.MISC);
     }
 
     /** The menu key; Right Shift when unbound or Escape, so the menu can never be locked out. */

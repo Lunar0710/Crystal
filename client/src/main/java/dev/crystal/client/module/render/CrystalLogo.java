@@ -16,12 +16,12 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * The Crystal logo in front of the names of Crystal players, in their nametag
+ * The Nexora logo in front of the names of Nexora players, in their nametag
  * and in the tab list (like Lunar Client's icon). The logo is a character of
- * Crystal's own icon font, so it lines up with the text wherever names show.
+ * Nexora's own icon font, so it lines up with the text wherever names show.
  *
- * For now only you are known to play Crystal; other players follow once the
- * Crystal server reports who is online with Crystal.
+ * For now only you are known to play Nexora; other players follow once the
+ * Nexora server reports who is online with Nexora.
  */
 public class CrystalLogo extends Module {
 
@@ -37,11 +37,11 @@ public class CrystalLogo extends Module {
     private boolean inTabList = true;
 
     public CrystalLogo() {
-        super("CrystalLogo", "Shows the Crystal logo next to the names of Crystal players", ModuleCategory.RENDER);
+        super("CrystalLogo", "Shows the Nexora logo next to the names of Nexora players", ModuleCategory.RENDER);
         setEnabled(true);
     }
 
-    /** Whether this player plays Crystal. */
+    /** Whether this player plays Nexora. */
     public static boolean usesCrystal(UUID player) {
         var self = Minecraft.getInstance().player;
         return self != null && self.getUUID().equals(player);

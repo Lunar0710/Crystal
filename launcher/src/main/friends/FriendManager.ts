@@ -17,7 +17,7 @@ export interface AddFriendResult {
 }
 
 /**
- * Local friends list. There's no Crystal account server yet, so this stores
+ * Local friends list. There's no Nexora account server yet, so this stores
  * who you added and verifies the name against Mojang — it deliberately does
  * not claim to show online status, which would need a real backend.
  */

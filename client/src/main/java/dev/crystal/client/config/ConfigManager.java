@@ -87,7 +87,7 @@ public class ConfigManager {
                 if (mObj.has("enabled")) module.setEnabled(mObj.get("enabled").getAsBoolean());
             }
 
-            CrystalClient.LOGGER.info("[Crystal] Config loaded.");
+            CrystalClient.LOGGER.info("[Nexora] Config loaded.");
             return true;
         } catch (Exception e) {
             CrystalClient.LOGGER.error("Failed to load config: {}", e.getMessage());

@@ -21,9 +21,9 @@ export interface TryResult {
 }
 
 /**
- * One-shot "does Crystal work here?" launch.
+ * One-shot "does Nexora work here?" launch.
  *
- * Takes a snapshot first, gives Crystal exactly one attempt, and puts the
+ * Takes a snapshot first, gives Nexora exactly one attempt, and puts the
  * instance back exactly how it was if the game dies on startup. Never retries
  * on its own — a failed attempt ends in a revert, not another launch.
  */
@@ -56,17 +56,17 @@ export class TryCrystalService {
     const instance = this.instances.get(instanceId)
     if (!instance) {
       const message = 'Instanz nicht gefunden.'
-      logger.error('client', `Try with Crystal abgebrochen: ${message}`)
+      logger.error('client', `Try with Nexora abgebrochen: ${message}`)
       return { success: false, reverted: false, message }
     }
 
     // Without a profile the launch would fail for an unrelated reason and get
-    // blamed on Crystal, so bail out before touching anything.
+    // blamed on Nexora, so bail out before touching anything.
     // Fresh token, same as a normal launch: a stale one breaks multiplayer joins.
     const { profile, error: sessionError } = await this.auth.ensureFreshProfile()
     if (!profile) {
       const message = sessionError || 'Nicht angemeldet. Melde dich zuerst an.'
-      logger.warn('client', `Try with Crystal abgebrochen: ${message}`)
+      logger.warn('client', `Try with Nexora abgebrochen: ${message}`)
       return { success: false, reverted: false, message }
     }
 
@@ -78,14 +78,14 @@ export class TryCrystalService {
     }
     this.store.set(this.snapshotKey(instanceId), snapshot)
 
-    logger.info('client', `Try with Crystal: Snapshot für "${instance.name}" erstellt`, {
+    logger.info('client', `Try with Nexora: Snapshot für "${instance.name}" erstellt`, {
       useCrystalClient: snapshot.useCrystalClient,
       mods: snapshot.modsBefore.length,
     })
 
     emit('tryCrystal:status', { state: 'launching', instance: instance.name })
 
-    // Crystal's mod is Fabric-only, so the attempt always runs on Fabric.
+    // Nexora's mod is Fabric-only, so the attempt always runs on Fabric.
     const opts: LaunchOptions = {
       version: instance.version,
       instanceId,
@@ -101,7 +101,7 @@ export class TryCrystalService {
     try {
       launched = await this.minecraft.launch(opts, emit)
     } catch (err) {
-      logger.error('client', 'Try with Crystal: Start warf eine Exception', err)
+      logger.error('client', 'Try with Nexora: Start warf eine Exception', err)
       launched = false
     }
 
@@ -109,13 +109,13 @@ export class TryCrystalService {
       this.instances.update(instanceId, { useCrystalClient: true, loader: 'fabric' })
       this.store.delete(this.snapshotKey(instanceId))
 
-      logger.info('client', `Try with Crystal erfolgreich — "${instance.name}" bleibt auf Crystal`)
+      logger.info('client', `Try with Nexora erfolgreich — "${instance.name}" bleibt auf Nexora`)
       emit('tryCrystal:status', { state: 'success', instance: instance.name })
 
       return {
         success: true,
         reverted: false,
-        message: 'Crystal läuft. Die Instanz bleibt auf Crystal Client.',
+        message: 'Nexora läuft. Die Instanz bleibt auf Nexora Client.',
       }
     }
 
@@ -125,7 +125,7 @@ export class TryCrystalService {
     return {
       success: false,
       reverted: restored,
-      message: 'Crystal konnte nicht gestartet werden. Deine vorherige Konfiguration wurde wiederhergestellt.',
+      message: 'Nexora konnte nicht gestartet werden. Deine vorherige Konfiguration wurde wiederhergestellt.',
     }
   }
 
@@ -143,7 +143,7 @@ export class TryCrystalService {
         for (const file of fs.readdirSync(dir)) {
           if (!before.has(file)) {
             fs.unlinkSync(path.join(dir, file))
-            logger.info('client', `Try with Crystal: "${file}" wieder entfernt`)
+            logger.info('client', `Try with Nexora: "${file}" wieder entfernt`)
           }
         }
       }
@@ -151,12 +151,12 @@ export class TryCrystalService {
       this.instances.update(instanceId, { useCrystalClient: snapshot.useCrystalClient })
       this.store.delete(this.snapshotKey(instanceId))
 
-      logger.info('client', `Try with Crystal: "${instance.name}" auf vorherigen Stand zurückgesetzt`, {
+      logger.info('client', `Try with Nexora: "${instance.name}" auf vorherigen Stand zurückgesetzt`, {
         useCrystalClient: snapshot.useCrystalClient,
       })
       return true
     } catch (err) {
-      logger.error('client', 'Try with Crystal: Wiederherstellung fehlgeschlagen', err)
+      logger.error('client', 'Try with Nexora: Wiederherstellung fehlgeschlagen', err)
       return false
     }
   }
@@ -170,7 +170,7 @@ export class TryCrystalService {
       const snapshot = this.store.get(this.snapshotKey(instance.id)) as Snapshot | undefined
       if (!snapshot) continue
 
-      logger.warn('client', `Unterbrochener Try-with-Crystal-Versuch für "${instance.name}" gefunden — wird zurückgesetzt`)
+      logger.warn('client', `Unterbrochener Try-with-Nexora-Versuch für "${instance.name}" gefunden — wird zurückgesetzt`)
       this.revert(instance.id, snapshot)
     }
   }

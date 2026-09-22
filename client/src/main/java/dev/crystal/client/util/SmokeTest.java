@@ -31,7 +31,7 @@ public final class SmokeTest {
     public static void registerIfRequested() {
         String name = System.getProperty(PROPERTY);
         if (name == null || name.isBlank()) return;
-        CrystalClient.LOGGER.info("[Crystal] Smoke test active, screenshot: {}", name);
+        CrystalClient.LOGGER.info("[Nexora] Smoke test active, screenshot: {}", name);
         ClientTickEvents.END_CLIENT_TICK.register(client -> tick(client, name));
     }
 
@@ -66,7 +66,7 @@ public final class SmokeTest {
 
         if (worldTicks == 160) {
             Screenshot.grab(mc.gameDirectory, screenshotName, mc.getMainRenderTarget(), 1,
-                    msg -> CrystalClient.LOGGER.info("[Crystal] Smoke screenshot: {}", msg.getString()));
+                    msg -> CrystalClient.LOGGER.info("[Nexora] Smoke screenshot: {}", msg.getString()));
         }
 
         // The Right Shift menu: module grid, then a settings page.
@@ -74,19 +74,19 @@ public final class SmokeTest {
         if (worldTicks == 170) mc.setScreen(new dev.crystal.client.gui.HudEditorScreen());
         if (worldTicks == 188) {
             Screenshot.grab(mc.gameDirectory, base + "-editor.png", mc.getMainRenderTarget(), 1,
-                    msg -> CrystalClient.LOGGER.info("[Crystal] Smoke screenshot: {}", msg.getString()));
+                    msg -> CrystalClient.LOGGER.info("[Nexora] Smoke screenshot: {}", msg.getString()));
         }
         if (worldTicks == 192) mc.setScreen(new dev.crystal.client.gui.CrystalClientScreen());
         if (worldTicks == 210) {
             Screenshot.grab(mc.gameDirectory, base + "-menu.png", mc.getMainRenderTarget(), 1,
-                    msg -> CrystalClient.LOGGER.info("[Crystal] Smoke screenshot: {}", msg.getString()));
+                    msg -> CrystalClient.LOGGER.info("[Nexora] Smoke screenshot: {}", msg.getString()));
         }
         if (worldTicks == 214 && mc.screen instanceof dev.crystal.client.gui.CrystalClientScreen menu) {
             menu.openSettingsForTest("ArmorDisplay");
         }
         if (worldTicks == 232) {
             Screenshot.grab(mc.gameDirectory, base + "-settings.png", mc.getMainRenderTarget(), 1,
-                    msg -> CrystalClient.LOGGER.info("[Crystal] Smoke screenshot: {}", msg.getString()));
+                    msg -> CrystalClient.LOGGER.info("[Nexora] Smoke screenshot: {}", msg.getString()));
         }
 
         // The crosshair pixel editor, with a few pixels painted.
@@ -98,7 +98,7 @@ public final class SmokeTest {
         }
         if (worldTicks == 254) {
             Screenshot.grab(mc.gameDirectory, base + "-crosshair.png", mc.getMainRenderTarget(), 1,
-                    msg -> CrystalClient.LOGGER.info("[Crystal] Smoke screenshot: {}", msg.getString()));
+                    msg -> CrystalClient.LOGGER.info("[Nexora] Smoke screenshot: {}", msg.getString()));
         }
 
         // Back view for wings, backpack and the cape.
@@ -108,7 +108,7 @@ public final class SmokeTest {
         }
         if (worldTicks == 285) {
             Screenshot.grab(mc.gameDirectory, base + "-back.png", mc.getMainRenderTarget(), 1,
-                    msg -> CrystalClient.LOGGER.info("[Crystal] Smoke screenshot: {}", msg.getString()));
+                    msg -> CrystalClient.LOGGER.info("[Nexora] Smoke screenshot: {}", msg.getString()));
         }
 
         // SmartCulling: the walled-in stand must count as hidden, the open one as visible.
@@ -125,20 +125,20 @@ public final class SmokeTest {
             boolean ok = Boolean.TRUE.equals(walled) && Boolean.FALSE.equals(open);
             if (ok || worldTicks == CULLING_DEADLINE) {
                 cullingResult = ok;
-                if (!ok) CrystalClient.LOGGER.info("[Crystal] Culling state: {} player={}",
+                if (!ok) CrystalClient.LOGGER.info("[Nexora] Culling state: {} player={}",
                         dev.crystal.client.util.OcclusionCuller.debugState(), mc.player.position());
-                CrystalClient.LOGGER.info("[Crystal] Culling test {}: walled={} open={}", ok ? "PASS" : "FAILED", walled, open);
+                CrystalClient.LOGGER.info("[Nexora] Culling test {}: walled={} open={}", ok ? "PASS" : "FAILED", walled, open);
             }
         }
 
-        // Emotes (Crystal+): the wheel, then the player mid-dance from the front.
+        // Emotes (Nexora+): the wheel, then the player mid-dance from the front.
         if (worldTicks == 300) {
             CrystalClient.getInstance().getModuleManager().getModuleByName("Emotes").ifPresent(m -> m.setEnabled(true));
             mc.setScreen(new dev.crystal.client.gui.EmoteWheelScreen(false));
         }
         if (worldTicks == 305) {
             Screenshot.grab(mc.gameDirectory, base + "-emotes.png", mc.getMainRenderTarget(), 1,
-                    msg -> CrystalClient.LOGGER.info("[Crystal] Smoke screenshot: {}", msg.getString()));
+                    msg -> CrystalClient.LOGGER.info("[Nexora] Smoke screenshot: {}", msg.getString()));
         }
         if (worldTicks == 310) {
             mc.setScreen(null);
@@ -146,12 +146,12 @@ public final class SmokeTest {
             dev.crystal.client.emote.EmotePlayer.play(dev.crystal.client.emote.Emote.DANCE, false);
         }
         if (worldTicks == 322) {
-            CrystalClient.LOGGER.info("[Crystal] Emote playing: {}", dev.crystal.client.emote.EmotePlayer.isPlaying());
+            CrystalClient.LOGGER.info("[Nexora] Emote playing: {}", dev.crystal.client.emote.EmotePlayer.isPlaying());
             Screenshot.grab(mc.gameDirectory, base + "-dance.png", mc.getMainRenderTarget(), 1,
-                    msg -> CrystalClient.LOGGER.info("[Crystal] Smoke screenshot: {}", msg.getString()));
+                    msg -> CrystalClient.LOGGER.info("[Nexora] Smoke screenshot: {}", msg.getString()));
         }
 
-        // Crystal server (only when the test started one): another Crystal
+        // Nexora server (only when the test started one): another Nexora
         // player stands in front of us with their cape, hat and dance.
         boolean peerTest = System.getProperty("crystal.server") != null;
         if (peerTest && worldTicks == 330) spawnPeer(mc);
@@ -165,12 +165,12 @@ public final class SmokeTest {
             Identifier skinCape = entity instanceof net.minecraft.client.player.AbstractClientPlayer p
                     ? dev.crystal.client.compat.SkinCompat.capeTexture(p.getSkin()) : null;
             boolean capeOk = skinCape != null && skinCape.getPath().equals("peer_cape/plus-0");
-            CrystalClient.LOGGER.info("[Crystal] Peer test {}: connected={} peers={} cape={} skinCape={} items={} emote={}",
+            CrystalClient.LOGGER.info("[Nexora] Peer test {}: connected={} peers={} cape={} skinCape={} items={} emote={}",
                     peer != null && capeOk && !peer.items().isEmpty() && "DANCE".equals(peer.emote()) ? "PASS" : "FAILED",
                     dev.crystal.client.net.CrystalNet.isConnected(), dev.crystal.client.net.PeerRegistry.size(),
                     peer == null ? null : peer.capeId(), skinCape, peer == null ? null : peer.items().keySet(), peer == null ? null : peer.emote());
             Screenshot.grab(mc.gameDirectory, base + "-peer.png", mc.getMainRenderTarget(), 1,
-                    msg -> CrystalClient.LOGGER.info("[Crystal] Smoke screenshot: {}", msg.getString()));
+                    msg -> CrystalClient.LOGGER.info("[Nexora] Smoke screenshot: {}", msg.getString()));
         }
 
         // AutoBuilder: a small build with every awkward case, in survival from the inventory.
@@ -178,7 +178,7 @@ public final class SmokeTest {
         if (builderResult == null && worldTicks > 360 && worldTicks % 10 == 0) checkBuilderTest(mc);
         if (worldTicks == BUILDER_SHOT_TICK) {
             Screenshot.grab(mc.gameDirectory, base + "-builder.png", mc.getMainRenderTarget(), 1,
-                    msg -> CrystalClient.LOGGER.info("[Crystal] Smoke screenshot: {}", msg.getString()));
+                    msg -> CrystalClient.LOGGER.info("[Nexora] Smoke screenshot: {}", msg.getString()));
         }
 
         // Done once every check has an answer and the last screenshot is taken.
@@ -208,7 +208,7 @@ public final class SmokeTest {
         }
     }
 
-    /** A client-side stand-in for the other Crystal player, three blocks in front of the camera. */
+    /** A client-side stand-in for the other Nexora player, three blocks in front of the camera. */
     private static void spawnPeer(Minecraft mc) {
         var peer = new net.minecraft.client.player.RemotePlayer(mc.level, new com.mojang.authlib.GameProfile(PEER_UUID, "PeerBot"));
         var look = mc.player.getLookAngle();
@@ -321,7 +321,7 @@ public final class SmokeTest {
                     // goes into a .litematic file, Litematica places it, and the
                     // builder reads it back like any placement you made yourself.
                     boolean litematica = placeWithLitematica(mc, plan, o);
-                    CrystalClient.LOGGER.info("[Crystal] AutoBuilder test source: {}", litematica ? "Litematica" : "built in");
+                    CrystalClient.LOGGER.info("[Nexora] AutoBuilder test source: {}", litematica ? "Litematica" : "built in");
                     if (!litematica) {
                         builder.useSourceForTest(new dev.crystal.client.build.SchematicSource() {
                             @Override public boolean available() { return true; }
@@ -333,7 +333,7 @@ public final class SmokeTest {
                     builder.setSpeedsForTest(4f, 30f);
                     // CRYSTAL_SMOKE_SHOW_LAYER=0 runs the test with the single-layer display off.
                     builder.setShowLayerForTest(!"0".equals(System.getenv("CRYSTAL_SMOKE_SHOW_LAYER")));
-                    CrystalClient.LOGGER.info("[Crystal] AutoBuilder test show layer: {}", !"0".equals(System.getenv("CRYSTAL_SMOKE_SHOW_LAYER")));
+                    CrystalClient.LOGGER.info("[Nexora] AutoBuilder test show layer: {}", !"0".equals(System.getenv("CRYSTAL_SMOKE_SHOW_LAYER")));
                     builder.setEnabled(true);
                 });
     }
@@ -401,8 +401,8 @@ public final class SmokeTest {
             regions.put("Test", region);
 
             var meta = new net.minecraft.nbt.CompoundTag();
-            meta.putString("Name", "Crystal builder test");
-            meta.putString("Author", "Crystal");
+            meta.putString("Name", "Nexora builder test");
+            meta.putString("Author", "Nexora");
             meta.putString("Description", "");
             meta.putInt("RegionCount", 1);
             meta.putInt("TotalVolume", cells.length);
@@ -433,20 +433,20 @@ public final class SmokeTest {
             Object holder = Class.forName("fi.dy.masa.litematica.data.SchematicHolder").getMethod("getInstance").invoke(null);
             Object schematic = holder.getClass().getMethod("getOrLoad", java.nio.file.Path.class).invoke(holder, file);
             if (schematic == null) {
-                CrystalClient.LOGGER.warn("[Crystal] AutoBuilder test: Litematica could not load the schematic");
+                CrystalClient.LOGGER.warn("[Nexora] AutoBuilder test: Litematica could not load the schematic");
                 return false;
             }
             Object placement = Class.forName("fi.dy.masa.litematica.schematic.placement.SchematicPlacement")
                     .getMethod("createFor", schematic.getClass(), net.minecraft.core.BlockPos.class, String.class, boolean.class, boolean.class)
-                    .invoke(null, schematic, origin, "Crystal builder test", true, true);
+                    .invoke(null, schematic, origin, "Nexora builder test", true, true);
             Object manager = Class.forName("fi.dy.masa.litematica.data.DataManager").getMethod("getSchematicPlacementManager").invoke(null);
             var old = new java.util.ArrayList<Object>((java.util.Collection<?>) manager.getClass().getMethod("getAllSchematicsPlacements").invoke(manager));
             for (Object p : old) manager.getClass().getMethod("removeSchematicPlacement", placement.getClass()).invoke(manager, p);
-            if (!old.isEmpty()) CrystalClient.LOGGER.info("[Crystal] AutoBuilder test: removed {} old placements", old.size());
+            if (!old.isEmpty()) CrystalClient.LOGGER.info("[Nexora] AutoBuilder test: removed {} old placements", old.size());
             manager.getClass().getMethod("addSchematicPlacement", placement.getClass(), boolean.class).invoke(manager, placement, false);
             return true;
         } catch (Exception e) {
-            CrystalClient.LOGGER.warn("[Crystal] AutoBuilder test: Litematica placement failed: {}", e.toString());
+            CrystalClient.LOGGER.warn("[Nexora] AutoBuilder test: Litematica placement failed: {}", e.toString());
             return false;
         }
     }
@@ -482,7 +482,7 @@ public final class SmokeTest {
         boolean done = right == builderPlan.size() && supportGone;
         if (done || worldTicks >= BUILDER_DEADLINE) {
             firstPartResult = done;
-            CrystalClient.LOGGER.info("[Crystal] AutoBuilder part 1 {}: {}/{} right, support gone={} ({}) after {} ticks{} [{}]",
+            CrystalClient.LOGGER.info("[Nexora] AutoBuilder part 1 {}: {}/{} right, support gone={} ({}) after {} ticks{} [{}]",
                     done ? "PASS" : "FAILED", right, builderPlan.size(), supportGone, mc.level.getBlockState(builderSupportSpot), worldTicks - 360,
                     wrong.length() > 0 ? " wrong:" + wrong : "", builderStatus());
             startHouse(mc);
@@ -526,8 +526,8 @@ public final class SmokeTest {
             Class.forName("fi.dy.masa.litematica.data.SchematicHolder");
         } catch (ClassNotFoundException e) {
             builderResult = Boolean.TRUE.equals(firstPartResult);
-            CrystalClient.LOGGER.info("[Crystal] AutoBuilder house skipped (no Litematica)");
-            CrystalClient.LOGGER.info("[Crystal] AutoBuilder test {}", builderResult ? "PASS" : "FAILED");
+            CrystalClient.LOGGER.info("[Nexora] AutoBuilder house skipped (no Litematica)");
+            CrystalClient.LOGGER.info("[Nexora] AutoBuilder test {}", builderResult ? "PASS" : "FAILED");
             return;
         }
         var c = mc.player.blockPosition().offset(24, 0, 0);
@@ -605,7 +605,7 @@ public final class SmokeTest {
             sp.getInventory().add(new ItemStack(Items.HOPPER, 1));
         });
         boolean litematica = placeWithLitematica(mc, plan, c);
-        CrystalClient.LOGGER.info("[Crystal] AutoBuilder house source: {}", litematica ? "Litematica" : "built in");
+        CrystalClient.LOGGER.info("[Nexora] AutoBuilder house source: {}", litematica ? "Litematica" : "built in");
         houseStart = worldTicks;
     }
 
@@ -658,11 +658,11 @@ public final class SmokeTest {
         }
         if (worldTicks - houseStart == 200) {
             Screenshot.grab(mc.gameDirectory, "crystal-smoke-house.png", mc.getMainRenderTarget(), 1,
-                    msg -> CrystalClient.LOGGER.info("[Crystal] Smoke screenshot: {}", msg.getString()));
+                    msg -> CrystalClient.LOGGER.info("[Nexora] Smoke screenshot: {}", msg.getString()));
         }
         if (done || worldTicks - houseStart >= HOUSE_TICKS) {
             boolean housePass = done && layerViolations == 0;
-            CrystalClient.LOGGER.info("[Crystal] AutoBuilder house {}: {}/{} right, layer order violations={} ({}), leftover={}, after {} ticks{} [{}]",
+            CrystalClient.LOGGER.info("[Nexora] AutoBuilder house {}: {}/{} right, layer order violations={} ({}), leftover={}, after {} ticks{} [{}]",
                     housePass ? "PASS" : "FAILED", right, builderPlan.size(), layerViolations, firstViolation, leftover,
                     worldTicks - houseStart, wrong.length() > 0 ? " wrong:" + wrong : "", builderStatus());
             housePassed = housePass;
@@ -715,7 +715,7 @@ public final class SmokeTest {
             sp.onUpdateAbilities();
         });
         boolean litematica = placeWithLitematica(mc, plan, c);
-        CrystalClient.LOGGER.info("[Crystal] AutoBuilder creative source: {}", litematica ? "Litematica" : "built in");
+        CrystalClient.LOGGER.info("[Nexora] AutoBuilder creative source: {}", litematica ? "Litematica" : "built in");
         creativeStart = worldTicks;
     }
 
@@ -742,11 +742,11 @@ public final class SmokeTest {
         }
         boolean done = right == builderPlan.size() && leftover == null;
         if (done || worldTicks - creativeStart >= CREATIVE_TICKS) {
-            CrystalClient.LOGGER.info("[Crystal] AutoBuilder creative {}: {}/{} right, leftover={}, after {} ticks{} [{}]",
+            CrystalClient.LOGGER.info("[Nexora] AutoBuilder creative {}: {}/{} right, leftover={}, after {} ticks{} [{}]",
                     done ? "PASS" : "FAILED", right, builderPlan.size(), leftover, worldTicks - creativeStart,
                     wrong.length() > 0 ? " wrong:" + wrong : "", builderStatus());
             builderResult = Boolean.TRUE.equals(firstPartResult) && Boolean.TRUE.equals(housePassed) && done;
-            CrystalClient.LOGGER.info("[Crystal] AutoBuilder test {}", builderResult ? "PASS" : "FAILED");
+            CrystalClient.LOGGER.info("[Nexora] AutoBuilder test {}", builderResult ? "PASS" : "FAILED");
         }
     }
 

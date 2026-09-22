@@ -59,7 +59,7 @@ export class ClaudeService {
           max_tokens: 800,
           messages: [{
             role: 'user',
-            content: `You are analyzing a Minecraft Java Edition crash report from a Fabric modded client ("Crystal Client"). Given the crash report below, respond with exactly three sections in this format, nothing else:\n\nSUMMARY: <one sentence, what crashed>\nCAUSE: <one or two sentences, most likely root cause>\nFIX: <concrete, actionable steps the user can take — e.g. remove a specific mod, update Java, lower render distance>\n\nCrash report:\n${trimmed}`,
+            content: `You are analyzing a Minecraft Java Edition crash report from a Fabric modded client ("Nexora Client"). Given the crash report below, respond with exactly three sections in this format, nothing else:\n\nSUMMARY: <one sentence, what crashed>\nCAUSE: <one or two sentences, most likely root cause>\nFIX: <concrete, actionable steps the user can take — e.g. remove a specific mod, update Java, lower render distance>\n\nCrash report:\n${trimmed}`,
           }],
         }),
       })

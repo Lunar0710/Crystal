@@ -26,14 +26,14 @@ public class MixinKeyboard {
     *///?}
         if (action != GLFW.GLFW_PRESS) return;
 
-        // The menu key (Right Shift unless changed) opens the Crystal GUI
+        // The menu key (Right Shift unless changed) opens the Nexora GUI
         if (key == dev.crystal.client.module.misc.CrystalMenu.key() && minecraft.screen == null) {
             minecraft.execute(() -> minecraft.setScreen(new dev.crystal.client.gui.HudEditorScreen()));
             return;
         }
 
         // Only while actually in the world — otherwise every character typed
-        // into a text field (Crystal's own menu, chat, sign editing) would also
+        // into a text field (Nexora's own menu, chat, sign editing) would also
         // fire whatever module is bound to that key.
         if (minecraft.screen != null) return;
 

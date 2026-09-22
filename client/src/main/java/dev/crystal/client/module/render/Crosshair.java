@@ -25,10 +25,10 @@ public class Crosshair extends Module {
     private boolean chroma = false;
 
     public static final String SHAPE_CROSS = "Cross";
-    public static final String SHAPE_GAP = "Gap Cross (Crystal+)";
-    public static final String SHAPE_CIRCLE = "Circle (Crystal+)";
-    public static final String SHAPE_X = "X (Crystal+)";
-    public static final String SHAPE_BRACKETS = "Brackets (Crystal+)";
+    public static final String SHAPE_GAP = "Gap Cross (Nexora+)";
+    public static final String SHAPE_CIRCLE = "Circle (Nexora+)";
+    public static final String SHAPE_X = "X (Nexora+)";
+    public static final String SHAPE_BRACKETS = "Brackets (Nexora+)";
     public static final String SHAPE_CUSTOM = "Custom";
 
     /** The pixel editor's canvas is GRID x GRID pixels, centred on the screen centre. */
@@ -48,7 +48,7 @@ public class Crosshair extends Module {
     public float getThickness() { return thickness; }
     public boolean isDot() { return dot; }
 
-    /** Shape actually drawn; Crystal+ shapes fall back to the plain cross without the rank. */
+    /** Shape actually drawn; Nexora+ shapes fall back to the plain cross without the rank. */
     public String getShape() {
         return SHAPE_CROSS.equals(shape) || SHAPE_CUSTOM.equals(shape) || CrystalProfile.hasPerks() ? shape : SHAPE_CROSS;
     }
@@ -97,7 +97,7 @@ public class Crosshair extends Module {
                 new EnumSetting("Shape", () -> shape, v -> shape = v, List.of(SHAPE_CROSS, SHAPE_CUSTOM, SHAPE_GAP, SHAPE_CIRCLE, SHAPE_X, SHAPE_BRACKETS)),
                 new ButtonSetting("Eigenes Fadenkreuz", () -> "Editor öffnen", () ->
                         net.minecraft.client.Minecraft.getInstance().setScreen(new dev.crystal.client.gui.CrosshairEditorScreen(this))),
-                new BooleanSetting("Chroma (Crystal+)", () -> chroma, v -> chroma = v, false),
+                new BooleanSetting("Chroma (Nexora+)", () -> chroma, v -> chroma = v, false),
                 new HiddenTextSetting("Pixels", () -> pixels, v -> pixels = normalized(v))
         );
     }

@@ -39,10 +39,10 @@ public abstract class Module {
         setEnabled(!enabled);
     }
 
-    /** Switched on and allowed to run: a Crystal+ module counts as off without Crystal+. */
+    /** Switched on and allowed to run: a Nexora+ module counts as off without Nexora+. */
     public boolean isEnabled() { return enabled && !isLocked(); }
 
-    /** The saved on/off switch, kept while a Crystal+ module is locked so it comes back with Crystal+. */
+    /** The saved on/off switch, kept while a Nexora+ module is locked so it comes back with Nexora+. */
     public boolean isSwitchedOn() { return enabled; }
 
     public boolean isPlusOnly() { return PlusModules.NAMES.contains(name); }
@@ -50,7 +50,7 @@ public abstract class Module {
     /** A test feature (OwnerModules): only the owner and testers see it, hidden and off for everyone else. */
     public boolean isOwnerOnly() { return OwnerModules.NAMES.contains(name); }
 
-    /** A Crystal+ module without Crystal+, or a test feature for someone who is neither owner nor tester. */
+    /** A Nexora+ module without Nexora+, or a test feature for someone who is neither owner nor tester. */
     public boolean isLocked() {
         if (isOwnerOnly() && !"owner".equals(CrystalProfile.rank()) && !CrystalProfile.isTester()) return true;
         return isPlusOnly() && !CrystalProfile.hasPerks();

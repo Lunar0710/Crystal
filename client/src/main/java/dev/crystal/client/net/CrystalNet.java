@@ -28,13 +28,13 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Connection to the Crystal server (server/ in the repo), which lets Crystal
+ * Connection to the Nexora server (server/ in the repo), which lets Nexora
  * players on the same Minecraft server see each other's emotes and cosmetics.
  *
  * Off unless the launcher passes a server address (-Dcrystal.server). The
  * address of the Minecraft server you play on never leaves the PC, only a
- * hash of it, so the Crystal server can group players without knowing where
- * they are. Connection problems are never shown in game: without the Crystal
+ * hash of it, so the Nexora server can group players without knowing where
+ * they are. Connection problems are never shown in game: without the Nexora
  * server you simply don't see other players' cosmetics.
  */
 public final class CrystalNet {
@@ -46,7 +46,7 @@ public final class CrystalNet {
     private static final long LOADOUT_CHECK_MS = 2000;
 
     private static final ScheduledExecutorService WORKER = Executors.newSingleThreadScheduledExecutor(r -> {
-        Thread t = new Thread(r, "Crystal-Net");
+        Thread t = new Thread(r, "Nexora-Net");
         t.setDaemon(true);
         return t;
     });
@@ -72,11 +72,11 @@ public final class CrystalNet {
             server = URI.create(configured);
             if (!"ws".equals(server.getScheme()) && !"wss".equals(server.getScheme())) throw new IllegalArgumentException("scheme");
         } catch (IllegalArgumentException e) {
-            CrystalClient.LOGGER.warn("[Crystal] Crystal-Server-Adresse ungültig: {}", configured);
+            CrystalClient.LOGGER.warn("[Nexora] Nexora-Server-Adresse ungültig: {}", configured);
             server = null;
             return;
         }
-        CrystalClient.LOGGER.info("[Crystal] Crystal-Server: {}", server);
+        CrystalClient.LOGGER.info("[Nexora] Nexora-Server: {}", server);
         WORKER.execute(CrystalNet::connect);
     }
 
@@ -108,7 +108,7 @@ public final class CrystalNet {
         PeerRegistry.clear();
         long delay = RETRY_SECONDS[Math.min(failures, RETRY_SECONDS.length - 1)];
         failures++;
-        CrystalClient.LOGGER.info("[Crystal] Crystal-Server: {} (neuer Versuch in {} s)", why, delay);
+        CrystalClient.LOGGER.info("[Nexora] Nexora-Server: {} (neuer Versuch in {} s)", why, delay);
         WORKER.schedule(CrystalNet::connect, delay, TimeUnit.SECONDS);
     }
 
@@ -164,7 +164,7 @@ public final class CrystalNet {
             case "welcome" -> {
                 ready = true;
                 failures = 0;
-                CrystalClient.LOGGER.info("[Crystal] Beim Crystal-Server angemeldet");
+                CrystalClient.LOGGER.info("[Nexora] Beim Nexora-Server angemeldet");
             }
             case "peers" -> {
                 PeerRegistry.clear();
@@ -186,7 +186,7 @@ public final class CrystalNet {
 
     /**
      * Proves who we are: Mojang is told we "join" the challenge id, and the
-     * Crystal server asks Mojang whether we did. The access token never leaves
+     * Nexora server asks Mojang whether we did. The access token never leaves
      * for anywhere but Mojang.
      */
     private static void authenticate(String serverId) {
@@ -196,8 +196,8 @@ public final class CrystalNet {
         try {
             SessionCompat.sessionService(mc).joinServer(user.getProfileId(), user.getAccessToken(), serverId);
         } catch (Exception e) {
-            // Offline accounts can't do this; they just don't use the Crystal server.
-            CrystalClient.LOGGER.info("[Crystal] Crystal-Server: Anmeldung bei Mojang nicht möglich ({})", e.getMessage());
+            // Offline accounts can't do this; they just don't use the Nexora server.
+            CrystalClient.LOGGER.info("[Nexora] Nexora-Server: Anmeldung bei Mojang nicht möglich ({})", e.getMessage());
             // The world test's offline account goes on anyway: its local test
             // server skips the Mojang check. A real server rejects this hello.
             if (System.getProperty(TEST_ROOM_PROPERTY) == null) return;

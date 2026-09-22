@@ -83,7 +83,7 @@ public class PerformanceMode extends Module {
                 Files.writeString(backup, GSON.toJson(saved));
             } catch (IOException e) {
                 // Without a backup we can't promise a clean restore, so change nothing.
-                CrystalClient.LOGGER.error("[Crystal] Leistungsmodus: Sicherung fehlgeschlagen, keine Optionen geändert: {}", e.getMessage());
+                CrystalClient.LOGGER.error("[Nexora] Leistungsmodus: Sicherung fehlgeschlagen, keine Optionen geändert: {}", e.getMessage());
                 applied = true;
                 return;
             }
@@ -118,7 +118,7 @@ public class PerformanceMode extends Module {
             Files.delete(backup);
         } catch (Exception e) {
             // Keep the backup file so nothing is lost; the next disable retries.
-            CrystalClient.LOGGER.error("[Crystal] Leistungsmodus: Wiederherstellen fehlgeschlagen, Sicherung bleibt erhalten: {}", e.getMessage());
+            CrystalClient.LOGGER.error("[Nexora] Leistungsmodus: Wiederherstellen fehlgeschlagen, Sicherung bleibt erhalten: {}", e.getMessage());
         }
     }
 

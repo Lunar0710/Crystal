@@ -4,7 +4,7 @@ import Store from 'electron-store'
 import { logger } from '../logs/Logger'
 
 /**
- * The Crystal server the game connects to for other players' emotes and
+ * The Nexora server the game connects to for other players' emotes and
  * cosmetics (server/ in the repo). Empty until one is running: then nothing
  * connects anywhere. Settings can point one launcher at another server.
  */
@@ -28,7 +28,7 @@ export function crystalServerAddress(store: Store): string | null {
 
 /**
  * cosmetics/equipped.json: which built-in cape is worn, as an id. The game
- * sends that id to the Crystal server; an uploaded cape is null and stays private.
+ * sends that id to the Nexora server; an uploaded cape is null and stays private.
  */
 export function writeEquippedCapeId(dir: string, capeId: unknown): void {
   const id = typeof capeId === 'string' && /^[a-z]+-\d{1,4}$/.test(capeId) ? capeId : null

@@ -52,7 +52,7 @@ export function syncThemeToClient(themeId: string) {
 const PERK_RANKS = ['owner', 'co_owner', 'admin', 'staff', 'developer', 'media', 'crystal_plus']
 
 /**
- * Tells the in-game client which rank the logged-in player has, so Crystal+
+ * Tells the in-game client which rank the logged-in player has, so Nexora+
  * perks can unlock there too. Like ranks in general this is cosmetic, not a
  * security boundary: it only decides which visual extras are offered.
  */

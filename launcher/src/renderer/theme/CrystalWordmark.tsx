@@ -1,8 +1,8 @@
 import React, { useId } from 'react'
 
-// The Crystal Monogram mark, sized and baseline-aligned to stand in for the
-// literal capital "C" of the word "Crystal" — so the wordmark reads as the
-// gem-cut C directly fused into the text, not an icon placed next to it.
+// The Nexora monogram, sized and baseline-aligned to stand in for the literal
+// capital "N" of the word "Nexora" — so the wordmark reads as the drawn N
+// directly fused into the text, not an icon placed next to it.
 export function CrystalWordmark({ size = 20, className = '' }: { size?: number; className?: string }) {
   // The gradient needs a document-unique id: several wordmarks render at once
   // (title bar, dashboard, launch page) and a shared id makes them all resolve
@@ -28,11 +28,11 @@ export function CrystalWordmark({ size = 20, className = '' }: { size?: number; 
           </linearGradient>
         </defs>
         <path
-          d="M68 22 L40 22 L18 44 L18 56 L40 78 L68 78 L68 62 L46 62 L34 50 L46 38 L68 38 Z"
+          d="M18 22 L33 22 L33 78 L18 78 Z M33 22 L48 22 L82 78 L67 78 Z M67 22 L82 22 L82 78 L67 78 Z"
           fill={`url(#${gradientId})`}
         />
       </svg>
-      rystal
+      exora
     </span>
   )
 }

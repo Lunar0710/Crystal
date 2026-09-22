@@ -9,7 +9,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.resources.Identifier;
 
 /**
- * Minecraft runs one post effect at a time, so Crystal's world effects are
+ * Minecraft runs one post effect at a time, so Nexora's world effects are
  * chosen here together: colour grading, motion blur, or both chained in one
  * pipeline. Checked every tick, because vanilla drops the post effect when the
  * camera entity changes (joining a world, respawning). A vanilla effect that is

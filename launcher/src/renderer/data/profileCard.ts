@@ -104,7 +104,7 @@ export async function renderProfileCard(data: ProfileCardData): Promise<string> 
   ctx.fillStyle = glow2
   ctx.fillRect(0, 0, CARD_W, CARD_H)
 
-  // Faint facets, the Crystal logo's shape language.
+  // Faint facets, the Nexora logo's shape language.
   ctx.strokeStyle = '#ffffff0d'
   ctx.lineWidth = 2
   for (let i = 0; i < 6; i++) {

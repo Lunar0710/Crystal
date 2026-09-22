@@ -11,7 +11,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Occlusion culling for entities and block entities, done by Crystal itself.
+ * Occlusion culling for entities and block entities, done by Nexora itself.
  *
  * The render thread only asks "is this hidden?" and gets the last known
  * answer at once. A background thread keeps those answers fresh: for every
@@ -63,7 +63,7 @@ public final class OcclusionCuller {
             return;
         }
         if (worker == null || !worker.isAlive()) {
-            worker = new Thread(OcclusionCuller::run, "Crystal-Culling");
+            worker = new Thread(OcclusionCuller::run, "Nexora-Culling");
             worker.setDaemon(true);
             worker.setPriority(Thread.NORM_PRIORITY - 1);
             worker.start();
@@ -108,7 +108,7 @@ public final class OcclusionCuller {
                 if (enabled) pass(started);
             } catch (RuntimeException e) {
                 // A chunk unloading mid-read, for example. The next pass starts fresh.
-                CrystalClient.LOGGER.debug("[Crystal] Culling pass skipped: {}", e.toString());
+                CrystalClient.LOGGER.debug("[Nexora] Culling pass skipped: {}", e.toString());
             }
             long wait = PASS_INTERVAL_MS - (System.currentTimeMillis() - started);
             try {

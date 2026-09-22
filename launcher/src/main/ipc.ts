@@ -102,7 +102,7 @@ export function registerIpcHandlers(store: Store) {
     auth.removeAccount(uuid)
     syncProfile()
   })
-  // Read-only by design: a rank is something the Crystal team grants, so the
+  // Read-only by design: a rank is something the Nexora team grants, so the
   // renderer can look it up but never assign one to itself.
   // Awaits the startup rank fetch so a first-ever launch reports the published
   // rank straight away instead of "member" until the next restart.
@@ -188,7 +188,7 @@ export function registerIpcHandlers(store: Store) {
   // failure the UI shows an honest "couldn't load" instead of placeholder posts.
   ipcMain.handle('news:list', async () => {
     try {
-      const res = await (globalThis as any).fetch('https://api.github.com/repos/Lunar0710/Crystal/releases?per_page=10', {
+      const res = await (globalThis as any).fetch('https://api.github.com/repos/Lunar0710/Nexora/releases?per_page=10', {
         headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'crystal-launcher' },
       })
       if (!res.ok) return { ok: false, items: [] }
@@ -214,7 +214,7 @@ export function registerIpcHandlers(store: Store) {
   ipcMain.handle('shell:openExternal', (_e, url: string) => {
     // Only the project's own GitHub pages and uploaded crash logs — never an arbitrary URL from the renderer.
     if (typeof url !== 'string') return
-    if (url.startsWith('https://github.com/Lunar0710/Crystal') || /^https:\/\/mclo\.gs\/[A-Za-z0-9]+$/.test(url)) shell.openExternal(url)
+    if (url.startsWith('https://github.com/Lunar0710/Nexora') || /^https:\/\/mclo\.gs\/[A-Za-z0-9]+$/.test(url)) shell.openExternal(url)
   })
 
   // Data folder location. Existing instances keep their stored absolute path,
@@ -224,12 +224,12 @@ export function registerIpcHandlers(store: Store) {
   ipcMain.handle('dataRoot:pick', async () => {
     const win = BrowserWindow.getFocusedWindow()
     const result = await dialog.showOpenDialog(win!, {
-      title: 'Speicherort für Crystal-Dateien wählen',
+      title: 'Speicherort für Nexora-Dateien wählen',
       properties: ['openDirectory', 'createDirectory'],
     })
     if (result.canceled || result.filePaths.length === 0) return null
 
-    const chosen = path.join(result.filePaths[0], 'Crystal')
+    const chosen = path.join(result.filePaths[0], 'Nexora')
     const check = canUseAsRoot(chosen)
     if (!check.ok) return { ok: false, error: check.error }
 
@@ -370,9 +370,9 @@ export function registerIpcHandlers(store: Store) {
       })
       .catch(err => logger.warn('updater', 'Update-Pruefung vor dem Start fehlgeschlagen', String(err)))
 
-    // Crystal alone keeps vanilla's chunk renderer, which falls far behind at
+    // Nexora alone keeps vanilla's chunk renderer, which falls far behind at
     // high render distance (worst underground, where vanilla's cave culling is
-    // weak). Sodium and EntityCulling close that gap, so a Crystal instance gets
+    // weak). Sodium and EntityCulling close that gap, so a Nexora instance gets
     // the performance pack once. Only once: a mod the player removes afterwards
     // stays removed. A failed download never blocks the launch.
     const perfKey = `perfPackAuto.${opts.instanceId}`
@@ -444,7 +444,7 @@ export function registerIpcHandlers(store: Store) {
     return shell.openPath(dir)
   })
 
-  // One-shot Crystal attempt with automatic revert on failure
+  // One-shot Nexora attempt with automatic revert on failure
   ipcMain.handle('tryCrystal:run', async (_e, instanceId: string) => {
     const win = BrowserWindow.getFocusedWindow()
     return tryCrystal.run(instanceId, (event, data) => win?.webContents.send(event, data))
@@ -534,7 +534,7 @@ export function registerIpcHandlers(store: Store) {
   // Without a rank the default wordmark shows, even if a logo was saved earlier.
   ipcMain.handle('branding:getLogo', () => (canBrand() ? branding.getCustomLogo() : null))
   ipcMain.handle('branding:pickLogo', async () => {
-    if (!canBrand()) return { ok: false, error: 'Ein eigenes Logo gibt es ab Crystal+ und für das Team.' }
+    if (!canBrand()) return { ok: false, error: 'Ein eigenes Logo gibt es ab Nexora+ und für das Team.' }
     const win = BrowserWindow.getFocusedWindow()
     const result = await dialog.showOpenDialog(win!, {
       title: 'Logo auswählen',
@@ -673,7 +673,7 @@ export function registerIpcHandlers(store: Store) {
     return true
   })
 
-  // Pictures of every built-in cape, so the game can show other Crystal
+  // Pictures of every built-in cape, so the game can show other Nexora
   // players' capes from just an id (PeerCapes.java, capeCache.ts).
   const capeCacheDir = () => crystalPath('cosmetics', 'cape-cache')
   const capeCacheVersion = (count: number) => `${app.getVersion()}:${Math.floor(Number(count)) || 0}`

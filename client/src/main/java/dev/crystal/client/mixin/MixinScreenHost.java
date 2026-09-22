@@ -12,13 +12,13 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Swaps vanilla's main menu for Crystal's, in whichever class owns the current
+ * Swaps vanilla's main menu for Nexora's, in whichever class owns the current
  * screen: Minecraft up to 1.21.11, Minecraft.gui from 26.1 on. Two ways lead to it:
  *  - an explicit TitleScreen (startup, disconnect, quitting a world), and
  *  - setScreen(null) while no world is loaded, which is what a menu's plain
  *    close() does. Vanilla then builds a TitleScreen further down inside this
  *    same method, after this HEAD check, so only the explicit case used to be
- *    caught: backing out of some menus opened from Crystal's main menu showed
+ *    caught: backing out of some menus opened from Nexora's main menu showed
  *    the vanilla one instead.
  */
 //? if >=26 {

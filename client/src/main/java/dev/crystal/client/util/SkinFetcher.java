@@ -61,7 +61,7 @@ public final class SkinFetcher {
                     }
                 } catch (Exception e) {
                     FAILED_AT.put(key, System.currentTimeMillis());
-                    CrystalClient.LOGGER.warn("[Crystal] SkinChanger failed for '{}': {}", key, e.getMessage());
+                    CrystalClient.LOGGER.warn("[Nexora] SkinChanger failed for '{}': {}", key, e.getMessage());
                 } finally {
                     IN_FLIGHT.remove(key);
                 }

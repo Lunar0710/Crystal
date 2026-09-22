@@ -13,7 +13,7 @@ export interface Instance {
   loader: string
   gameDir: string
   createdAt: number
-  /** Launch with Crystal's own mod (HUD + modules) or as a plain modded game. */
+  /** Launch with Nexora's own mod (HUD + modules) or as a plain modded game. */
   useCrystalClient: boolean
   /** Set when the folder lives outside ~/.crystal and must not be deleted. */
   imported?: boolean
@@ -116,7 +116,7 @@ export class InstanceManager {
   }
 
   /**
-   * Removes an instance from Crystal. Its folder is never destroyed: it holds
+   * Removes an instance from Nexora. Its folder is never destroyed: it holds
    * the player's worlds, and a single mis-click used to rm -rf all of them.
    * The folder is moved into <data root>/trash instead, where it can be
    * restored by hand or cleared deliberately. Imported folders belong to the

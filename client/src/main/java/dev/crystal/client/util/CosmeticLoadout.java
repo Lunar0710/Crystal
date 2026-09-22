@@ -42,7 +42,7 @@ public final class CosmeticLoadout {
 
     private static final long CHECK_INTERVAL_MS = 1000;
     private static final ExecutorService READER = Executors.newSingleThreadExecutor(r -> {
-        Thread t = new Thread(r, "Crystal-Loadout-Reader");
+        Thread t = new Thread(r, "Nexora-Loadout-Reader");
         t.setDaemon(true);
         return t;
     });
@@ -55,7 +55,7 @@ public final class CosmeticLoadout {
     private CosmeticLoadout() {}
 
     /**
-     * The equipped item in a slot, or null. Crystal+ items only come back while
+     * The equipped item in a slot, or null. Nexora+ items only come back while
      * the player has the rank, so an expired rank takes them off in-game too.
      */
     public static Item get(String slot) {
@@ -92,7 +92,7 @@ public final class CosmeticLoadout {
             items = parse(JsonParser.parseString(Files.readString(file)).getAsJsonObject());
             lastMtime = mtime;
         } catch (IOException | RuntimeException e) {
-            CrystalClient.LOGGER.warn("[Crystal] loadout.json nicht lesbar: {}", e.getMessage());
+            CrystalClient.LOGGER.warn("[Nexora] loadout.json nicht lesbar: {}", e.getMessage());
         } finally {
             inFlight = false;
         }
@@ -100,8 +100,8 @@ public final class CosmeticLoadout {
 
     /**
      * Items from a loadout object as the launcher writes it. Also used for
-     * other Crystal players, whose loadout arrives the same way over the
-     * Crystal server.
+     * other Nexora players, whose loadout arrives the same way over the
+     * Nexora server.
      */
     public static Map<String, Item> parse(JsonObject root) {
         java.util.HashMap<String, Item> parsed = new java.util.HashMap<>();

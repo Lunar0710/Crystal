@@ -11,7 +11,7 @@ declare function fetch(url: string, init?: {
 }): Promise<{ ok: boolean; status: number; json(): Promise<any>; text(): Promise<string> }>
 
 const OWNER = 'Lunar0710'
-const REPO = 'Crystal'
+const REPO = 'Nexora'
 const FILE = 'ranks.json'
 
 const RAW_URL = `https://raw.githubusercontent.com/${OWNER}/${REPO}/main/${FILE}`
@@ -25,7 +25,7 @@ interface RanksFile {
 
 /**
  * Shared rank storage with no server to run: ranks.json lives in the public
- * Crystal repo, every launcher READS it over raw.githubusercontent.com, and
+ * Nexora repo, every launcher READS it over raw.githubusercontent.com, and
  * only the owner's own machine can WRITE it (via a GitHub token that is
  * entered locally and never ships inside the installer).
  *

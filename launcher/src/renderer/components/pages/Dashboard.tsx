@@ -39,8 +39,8 @@ export function Dashboard() {
   return (
     <Page wide>
       <PageHeader
-        title={username ? `Hallo, ${username}` : 'Willkommen bei Crystal'}
-        description={`Minecraft 1.8.9 bis 26.2${clientVersion ? `, Crystal Client ${clientVersion}` : ''}.`}
+        title={username ? `Hallo, ${username}` : 'Willkommen bei Nexora'}
+        description={`Minecraft 1.8.9 bis 26.2${clientVersion ? `, Nexora Client ${clientVersion}` : ''}.`}
         actions={
           <button onClick={() => playInstance()} className="crystal-btn-primary px-5">
             <Play size={14} fill="currentColor" /> Spielen
@@ -96,7 +96,7 @@ export function Dashboard() {
                   <span className="flex-1 min-w-0">
                     <span className="block text-[13px] font-medium text-crystal-text truncate">{inst.name}</span>
                     <span className="block text-xs text-crystal-muted tabular">
-                      {inst.version}, {inst.useCrystalClient ? 'Crystal Client' : 'Vanilla mit Mods'}
+                      {inst.version}, {inst.useCrystalClient ? 'Nexora Client' : 'Vanilla mit Mods'}
                       {modCounts[inst.id] !== undefined && `, ${modCounts[inst.id]} ${modCounts[inst.id] === 1 ? 'Mod' : 'Mods'}`}
                     </span>
                   </span>

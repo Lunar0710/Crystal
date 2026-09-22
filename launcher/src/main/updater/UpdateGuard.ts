@@ -141,7 +141,7 @@ export class UpdateGuard {
       return false
     }
 
-    const url = `https://github.com/${repoConfig.owner}/${repoConfig.repo}/releases/download/v${lastGoodVersion}/Crystal-Launcher-Setup-${lastGoodVersion}.exe`
+    const url = `https://github.com/${repoConfig.owner}/${repoConfig.repo}/releases/download/v${lastGoodVersion}/Nexora-Launcher-Setup-${lastGoodVersion}.exe`
     const installerPath = path.join(os.tmpdir(), `crystal-rollback-${lastGoodVersion}.exe`)
 
     try {

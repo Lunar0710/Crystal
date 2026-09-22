@@ -20,7 +20,7 @@ import net.minecraft.server.packs.repository.PackRepository;
 import java.util.List;
 
 /**
- * Swaps the font used everywhere: chat, menus, item names and Crystal's own
+ * Swaps the font used everywhere: chat, menus, item names and Nexora's own
  * HUD and menus, since they all draw through Minecraft's text renderer.
  *
  * Smooth and Mono are built-in resource packs shipped in the mod jar
@@ -44,7 +44,7 @@ public class TextStyle extends Module {
     private String font = FONT_SMOOTH;
 
     public TextStyle() {
-        super("TextStyle", "Changes the font in the game and in the Crystal menus", ModuleCategory.RENDER);
+        super("TextStyle", "Changes the font in the game and in the Nexora menus", ModuleCategory.RENDER);
         CrystalClient.getInstance().getEventBus().subscribe(TickEvent.class, e -> sync());
     }
 
@@ -52,14 +52,14 @@ public class TextStyle extends Module {
         var crystal = FabricLoader.getInstance().getModContainer(CrystalClient.MOD_ID).orElseThrow();
         //? if >=1.21.11 {
         ResourceLoader.registerBuiltinPack(Identifier.fromNamespaceAndPath(CrystalClient.MOD_ID, "smooth_font"), crystal,
-                Component.literal("Crystal: Smooth Font"), PackActivationType.NORMAL);
+                Component.literal("Nexora: Smooth Font"), PackActivationType.NORMAL);
         ResourceLoader.registerBuiltinPack(Identifier.fromNamespaceAndPath(CrystalClient.MOD_ID, "mono_font"), crystal,
-                Component.literal("Crystal: Mono Font"), PackActivationType.NORMAL);
+                Component.literal("Nexora: Mono Font"), PackActivationType.NORMAL);
         //?} else {
         /*ResourceManagerHelper.registerBuiltinResourcePack(Identifier.fromNamespaceAndPath(CrystalClient.MOD_ID, "smooth_font"), crystal,
-                Component.literal("Crystal: Smooth Font"), ResourcePackActivationType.NORMAL);
+                Component.literal("Nexora: Smooth Font"), ResourcePackActivationType.NORMAL);
         ResourceManagerHelper.registerBuiltinResourcePack(Identifier.fromNamespaceAndPath(CrystalClient.MOD_ID, "mono_font"), crystal,
-                Component.literal("Crystal: Mono Font"), ResourcePackActivationType.NORMAL);
+                Component.literal("Nexora: Mono Font"), ResourcePackActivationType.NORMAL);
         *///?}
     }
 

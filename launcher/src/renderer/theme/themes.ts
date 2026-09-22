@@ -10,14 +10,14 @@ export interface CrystalTheme {
 
 export const themes: CrystalTheme[] = [
   // Free
-  { id: 'crystal-blue',     name: 'Crystal Blue',    preview: ['#5b8af5', '#7c6af5'] },
-  { id: 'crystal-crimson',  name: 'Crystal Crimson', preview: ['#f5455b', '#f57c3d'] },
-  { id: 'crystal-bloom',    name: 'Crystal Bloom',   preview: ['#f56ba0', '#f5a3c7'] },
-  { id: 'crystal-amethyst', name: 'Crystal Amethyst',preview: ['#a35bf5', '#7c3df5'] },
-  { id: 'crystal-emerald',  name: 'Crystal Emerald', preview: ['#34d399', '#5bf5c9'] },
-  { id: 'crystal-light',    name: 'Crystal Light',   preview: ['#5b8af5', '#7c6af5'] },
+  { id: 'crystal-blue',     name: 'Nexora Blue',    preview: ['#5b8af5', '#7c6af5'] },
+  { id: 'crystal-crimson',  name: 'Nexora Crimson', preview: ['#f5455b', '#f57c3d'] },
+  { id: 'crystal-bloom',    name: 'Nexora Bloom',   preview: ['#f56ba0', '#f5a3c7'] },
+  { id: 'crystal-amethyst', name: 'Nexora Amethyst',preview: ['#a35bf5', '#7c3df5'] },
+  { id: 'crystal-emerald',  name: 'Nexora Emerald', preview: ['#34d399', '#5bf5c9'] },
+  { id: 'crystal-light',    name: 'Nexora Light',   preview: ['#5b8af5', '#7c6af5'] },
 
-  // Crystal+
+  // Nexora+
   { id: 'midnight',  name: 'Midnight',  preview: ['#1e3a8a', '#312e81'], requiredRank: 'crystal_plus' },
   { id: 'sunset',    name: 'Sunset',    preview: ['#f97316', '#e11d48'], requiredRank: 'crystal_plus' },
   { id: 'ocean',     name: 'Ocean',     preview: ['#0ea5e9', '#14b8a6'], requiredRank: 'crystal_plus' },

@@ -64,7 +64,7 @@ const FABRIC_META = 'https://meta.fabricmc.net/v2/versions/loader'
 const BACKUP_DIR = '.crystal-backups'
 
 /**
- * Installs a user-supplied client mod (Crystal's own jar or any other Fabric
+ * Installs a user-supplied client mod (Nexora's own jar or any other Fabric
  * client) into one specific instance.
  *
  * Everything is validated before a single byte is written, and an existing copy
@@ -115,7 +115,7 @@ export class CustomClientInstaller {
       const isForge = jar.has('META-INF/mods.toml') || jar.has('META-INF/neoforge.mods.toml')
       if (isForge) {
         return {
-          ...reject('Das ist ein Forge/NeoForge-Mod. Crystal-Instanzen laufen auf Fabric.'),
+          ...reject('Das ist ein Forge/NeoForge-Mod. Nexora-Instanzen laufen auf Fabric.'),
           loader: 'forge',
         }
       }

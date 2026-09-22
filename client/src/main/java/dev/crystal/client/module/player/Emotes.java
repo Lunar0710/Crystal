@@ -17,8 +17,8 @@ import java.util.List;
 import java.util.function.Consumer;
 
 /**
- * Crystal+: a wheel of emotes (wave, cheer, clap, dance...) on one key.
- * Only you see them for now; showing them to others needs a Crystal server.
+ * Nexora+: a wheel of emotes (wave, cheer, clap, dance...) on one key.
+ * Only you see them for now; showing them to others needs a Nexora server.
  */
 public class Emotes extends Module {
 

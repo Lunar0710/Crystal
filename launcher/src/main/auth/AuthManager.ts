@@ -55,7 +55,7 @@ export class AuthManager {
   async loginMicrosoft(win: BrowserWindow): Promise<AuthProfile | null> {
     try {
       const xboxToken = await this.auth.launch('electron', {
-        title: 'Crystal: Mit Microsoft anmelden',
+        title: 'Nexora: Mit Microsoft anmelden',
         width: 520,
         height: 650,
         parent: win,
@@ -256,14 +256,14 @@ export class AuthManager {
     this.store.delete('auth.xboxCache')
   }
 
-  // NOTE: There is no Crystal account server yet, so this is a purely local,
+  // NOTE: There is no Nexora account server yet, so this is a purely local,
   // cosmetic preference — not a real permission system. Nothing server-side
   // verifies it, so it must never be trusted as an authorization check.
   //
   // A grant made here only ever applies on THIS install: it's keyed by
   // username and checked against whichever profile is currently logged in on
   // this machine. Granting a rank to a friend's username does nothing on
-  // their own separate install of Crystal — there's no shared backend to sync
+  // their own separate install of Nexora — there's no shared backend to sync
   // it to. It's real and useful for managing alts/testing on one device, and
   // for owner's own rank; it is not a way to remotely rank other people.
   getRank(): RankId {

@@ -10,7 +10,7 @@ export function News() {
 
   return (
     <Page>
-      <PageHeader title="Neuigkeiten" description="Was sich in jeder Crystal-Version geändert hat." />
+      <PageHeader title="Neuigkeiten" description="Was sich in jeder Nexora-Version geändert hat." />
 
       {loading && (
         <div className="space-y-6 ml-1.5 pl-6 border-l border-crystal-border">

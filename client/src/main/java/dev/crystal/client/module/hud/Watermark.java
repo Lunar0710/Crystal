@@ -15,11 +15,11 @@ public class Watermark extends HudModule {
     private static final String STYLE_CUSTOM = "Custom";
 
     private String style = STYLE_FULL;
-    private String customText = "Crystal";
+    private String customText = "Nexora";
     private boolean showFps = false;
 
     public Watermark() {
-        super("Watermark", "Displays Crystal Client branding on screen", 4, 4);
+        super("Watermark", "Displays Nexora Client branding on screen", 4, 4);
         setEnabled(true);
     }
 
@@ -38,7 +38,7 @@ public class Watermark extends HudModule {
     protected List<Setting<?>> getExtraSettings() {
         return List.of(
                 new EnumSetting("Style", () -> style, v -> style = v, List.of(STYLE_FULL, STYLE_NAME, STYLE_CUSTOM)),
-                new TextSetting("Custom Text", () -> customText, v -> customText = v, "Crystal", 32),
+                new TextSetting("Custom Text", () -> customText, v -> customText = v, "Nexora", 32),
                 new BooleanSetting("Show FPS", () -> showFps, v -> showFps = v, false)
         );
     }

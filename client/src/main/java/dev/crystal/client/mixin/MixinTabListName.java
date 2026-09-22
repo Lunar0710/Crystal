@@ -10,7 +10,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-/** CrystalLogo in the tab list: the logo in front of Crystal players' names. */
+/** CrystalLogo in the tab list: the logo in front of Nexora players' names. */
 @Mixin(PlayerTabOverlay.class)
 public class MixinTabListName {
 

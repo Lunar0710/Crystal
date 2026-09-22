@@ -9,12 +9,12 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Other Crystal players on the same Minecraft server, as the Crystal server
+ * Other Nexora players on the same Minecraft server, as the Nexora server
  * last described them. Filled from the network thread, read while rendering.
  */
 public final class PeerRegistry {
 
-    /** What another Crystal player wears and is doing. */
+    /** What another Nexora player wears and is doing. */
     public record Peer(UUID uuid, String name, String capeId, Map<String, Item> items, String emote, long emoteStartedAt) {
         Peer withEmote(String id) {
             return new Peer(uuid, name, capeId, items, id, System.currentTimeMillis());

@@ -10,7 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
- * Reads the accent theme the Crystal Launcher last selected (written to
+ * Reads the accent theme the Nexora Launcher last selected (written to
  * ~/.crystal/config/theme.json) so the in-game Right-Shift menu matches
  * whichever launcher theme the user picked, instead of a hardcoded palette.
  */
@@ -44,10 +44,10 @@ public class ThemeManager {
             text = readColor(colors, "text", text);
             muted = readColor(colors, "muted", muted);
 
-            CrystalClient.LOGGER.info("[Crystal] Synced theme '{}' from launcher.",
+            CrystalClient.LOGGER.info("[Nexora] Synced theme '{}' from launcher.",
                     root.has("id") ? root.get("id").getAsString() : "unknown");
         } catch (IOException | RuntimeException e) {
-            CrystalClient.LOGGER.warn("[Crystal] Failed to load launcher theme: {}", e.getMessage());
+            CrystalClient.LOGGER.warn("[Nexora] Failed to load launcher theme: {}", e.getMessage());
         }
     }
 

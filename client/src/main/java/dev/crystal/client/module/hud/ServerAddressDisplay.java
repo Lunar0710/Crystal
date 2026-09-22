@@ -54,7 +54,7 @@ public class ServerAddressDisplay extends HudModule {
                 mc.getTextureManager().register(LOGO_ID, TextureCompat.create(LOGO_ID::toString, image));
                 uploadFailed = false;
             } catch (Exception e) {
-                CrystalClient.LOGGER.warn("[Crystal] Server logo could not be read: {}", e.getMessage());
+                CrystalClient.LOGGER.warn("[Nexora] Server logo could not be read: {}", e.getMessage());
                 uploadFailed = true; // same broken image isn't retried every frame
             }
         }

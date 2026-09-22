@@ -37,7 +37,7 @@ public final class CosmeticCapeLoader {
     private static final int MAX_FRAMES = 64;
 
     private static final ExecutorService CHECKER = Executors.newSingleThreadExecutor(r -> {
-        Thread t = new Thread(r, "Crystal-Cape-Watcher");
+        Thread t = new Thread(r, "Nexora-Cape-Watcher");
         t.setDaemon(true);
         return t;
     });
@@ -90,7 +90,7 @@ public final class CosmeticCapeLoader {
             animated.upload();
             shownFrame = frame;
         } catch (RuntimeException e) {
-            CrystalClient.LOGGER.warn("[Crystal] Animiertes Cape konnte nicht weitergeschaltet werden: {}", e.getMessage());
+            CrystalClient.LOGGER.warn("[Nexora] Animiertes Cape konnte nicht weitergeschaltet werden: {}", e.getMessage());
             frames = 1;
         }
     }
@@ -181,7 +181,7 @@ public final class CosmeticCapeLoader {
             lastLoadedKey = key;
             fileExists = true;
         } catch (IOException e) {
-            CrystalClient.LOGGER.warn("[Crystal] Konnte Cosmetic-Cape nicht laden: {}", e.getMessage());
+            CrystalClient.LOGGER.warn("[Nexora] Konnte Cosmetic-Cape nicht laden: {}", e.getMessage());
             fileExists = false;
         }
     }

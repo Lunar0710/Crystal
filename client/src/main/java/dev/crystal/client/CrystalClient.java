@@ -25,7 +25,7 @@ import org.slf4j.LoggerFactory;
 public class CrystalClient implements ClientModInitializer {
 
     public static final String MOD_ID = "crystal";
-    public static final String NAME = "Crystal Client";
+    public static final String NAME = "Nexora Client";
     public static final String VERSION = "1.3.4";
     /** What players see: "1.2", with hotfixes named in the release, not the number. */
     public static final String DISPLAY_VERSION = VERSION.replaceFirst("^(\\d+\\.\\d+)\\..*$", "$1");
@@ -76,7 +76,7 @@ public class CrystalClient implements ClientModInitializer {
             dev.crystal.client.net.CrystalNet.tick(client);
         });
 
-        // Other Crystal players' emotes and cosmetics; off without a server address.
+        // Other Nexora players' emotes and cosmetics; off without a server address.
         dev.crystal.client.net.CrystalNet.start();
 
         // Drawn after every vanilla HUD element, on top of them.
@@ -112,7 +112,7 @@ public class CrystalClient implements ClientModInitializer {
                                             skin.setTargetUsername(name);
                                             skin.setEnabled(true);
                                             ctx.getSource().sendFeedback(Component.literal(
-                                                    "[Crystal] Previewing " + name + "'s skin"));
+                                                    "[Nexora] Previewing " + name + "'s skin"));
                                         });
                                 return 1;
                             })));
@@ -127,7 +127,7 @@ public class CrystalClient implements ClientModInitializer {
                                         .ifPresentOrElse(
                                                 q -> q.quickplay(mode),
                                                 () -> ctx.getSource().sendFeedback(Component.literal(
-                                                        "[Crystal] Enable the HypixelQuickplay module first.")));
+                                                        "[Nexora] Enable the HypixelQuickplay module first.")));
                                 return 1;
                             })));
         });

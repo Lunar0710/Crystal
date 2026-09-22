@@ -16,14 +16,14 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Capes of other Crystal players. Only the cape's id travels over the network;
+ * Capes of other Nexora players. Only the cape's id travels over the network;
  * the image comes from cosmetics/cape-cache/<id>.png, which the launcher draws
- * for every built-in cape. So nobody can show others an image Crystal didn't make.
+ * for every built-in cape. So nobody can show others an image Nexora didn't make.
  */
 public final class PeerCapes {
 
     private static final ExecutorService LOADER = Executors.newSingleThreadExecutor(r -> {
-        Thread t = new Thread(r, "Crystal-PeerCapes");
+        Thread t = new Thread(r, "Nexora-PeerCapes");
         t.setDaemon(true);
         return t;
     });
@@ -54,7 +54,7 @@ public final class PeerCapes {
                 LOADED.put(capeId, id);
             });
         } catch (Exception e) {
-            CrystalClient.LOGGER.warn("[Crystal] Cape {} anderer Spieler nicht ladbar: {}", capeId, e.getMessage());
+            CrystalClient.LOGGER.warn("[Nexora] Cape {} anderer Spieler nicht ladbar: {}", capeId, e.getMessage());
         }
     }
 }

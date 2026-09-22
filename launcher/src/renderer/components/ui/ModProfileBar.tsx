@@ -11,7 +11,7 @@ interface ModProfiles {
 
 /**
  * Named sets of enabled mods for one instance ("PvP", "Bauen", ...). Picking a
- * profile enables exactly its mods and disables the rest; the Crystal jar is
+ * profile enables exactly its mods and disables the rest; the Nexora jar is
  * left to the launcher.
  */
 export function ModProfileBar({ instanceId, onChanged }: { instanceId: string; onChanged: () => void }) {

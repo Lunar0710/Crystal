@@ -45,7 +45,7 @@ export function UpdateBanner() {
           ) : downloading ? (
             <span className="text-crystal-text tabular">Update wird geladen, {Math.round(progress!)} %</span>
           ) : (
-            <span className="text-crystal-text">Crystal {displayVersion(version)} ist verfügbar</span>
+            <span className="text-crystal-text">Nexora {displayVersion(version)} ist verfügbar</span>
           )}
           {downloading && (
             <div className="h-0.5 mt-1.5 bg-crystal-border rounded-full overflow-hidden">

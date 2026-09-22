@@ -106,7 +106,7 @@ process.on('uncaughtException', err => logger.error('launcher', 'Uncaught except
 process.on('unhandledRejection', reason => logger.error('launcher', 'Unhandled rejection', reason))
 
 app.whenReady().then(async () => {
-  logger.info('launcher', `Crystal Launcher ${app.getVersion()} gestartet`, {
+  logger.info('launcher', `Nexora Launcher ${app.getVersion()} gestartet`, {
     electron: process.versions.electron,
     node: process.versions.node,
     platform: process.platform,
@@ -121,11 +121,11 @@ app.whenReady().then(async () => {
   if (updateCheck.broken) {
     dialog.showMessageBoxSync({
       type: 'error',
-      title: 'Crystal Update fehlgeschlagen',
+      title: 'Nexora Update fehlgeschlagen',
       message: `Das Update auf Version ${updateCheck.pendingVersion} konnte nicht gestartet werden.`,
       detail: updateCheck.lastGoodVersion
-        ? `Version ${updateCheck.lastGoodVersion} wird jetzt wiederhergestellt. Crystal startet danach neu.`
-        : 'Es ist keine vorherige funktionierende Version bekannt. Lade Crystal bitte neu herunter.',
+        ? `Version ${updateCheck.lastGoodVersion} wird jetzt wiederhergestellt. Nexora startet danach neu.`
+        : 'Es ist keine vorherige funktionierende Version bekannt. Lade Nexora bitte neu herunter.',
     })
     const rolledBack = await updateGuard.rollback(updateCheck.lastGoodVersion)
     if (rolledBack) {
@@ -184,7 +184,7 @@ app.whenReady().then(async () => {
     }
   }
 
-  setSplashStatus('Crystal wird gestartet...', 100)
+  setSplashStatus('Nexora wird gestartet...', 100)
   createMainWindow()
 
   // A skipped update still shows as the dismissible banner inside the launcher.

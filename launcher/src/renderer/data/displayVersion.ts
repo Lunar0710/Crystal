@@ -1,5 +1,5 @@
 /**
- * How a version is shown to players. Crystal has no in-between releases: a fix
+ * How a version is shown to players. Nexora has no in-between releases: a fix
  * for 1.2 is "1.2 Hotfix", even though the updater needs it numbered 1.2.1
  * internally to offer it. "1.2.0" → "1.2", "1.2.1" → "1.2 Hotfix",
  * "1.2.2" → "1.2 Hotfix 2".

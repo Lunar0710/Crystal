@@ -55,7 +55,7 @@ public class MumbleLink extends Module {
     private boolean open() {
         if (memory != null) return true;
         if (!System.getProperty("os.name", "").toLowerCase().contains("win")) {
-            if (!unsupportedLogged) CrystalClient.LOGGER.info("[Crystal] MumbleLink only works on Windows");
+            if (!unsupportedLogged) CrystalClient.LOGGER.info("[Nexora] MumbleLink only works on Windows");
             unsupportedLogged = true;
             return false;
         }
@@ -69,7 +69,7 @@ public class MumbleLink extends Module {
             memory = k.MapViewOfFile(mapping, WinNT.FILE_MAP_ALL_ACCESS, 0, 0, SIZE);
             return memory != null;
         } catch (Throwable t) {
-            CrystalClient.LOGGER.warn("[Crystal] MumbleLink could not open shared memory: {}", t.toString());
+            CrystalClient.LOGGER.warn("[Nexora] MumbleLink could not open shared memory: {}", t.toString());
             close();
             return false;
         }
@@ -91,7 +91,7 @@ public class MumbleLink extends Module {
         if (memory.getInt(VERSION) != 2) {
             memory.setInt(VERSION, 2);
             writeWide(NAME, "Minecraft", 256);
-            writeWide(DESCRIPTION, "Minecraft with Crystal Client", 2048);
+            writeWide(DESCRIPTION, "Minecraft with Nexora Client", 2048);
         }
         memory.setInt(TICK, ++tick);
 

@@ -11,7 +11,7 @@ import net.minecraft.world.entity.player.PlayerSkin;
 
 /**
  * Player skins by texture id. 1.21.9 turned the skin's textures into assets
- * and moved the class; everything Crystal does with skins goes through here.
+ * and moved the class; everything Nexora does with skins goes through here.
  */
 public final class SkinCompat {
 
@@ -70,7 +70,7 @@ public final class SkinCompat {
     }
 
     //? if >=1.21.9 {
-    /** A texture Crystal registered itself, as a skin asset. */
+    /** A texture Nexora registered itself, as a skin asset. */
     private record Texture(Identifier texturePath) implements ClientAsset.Texture {
         @Override
         public Identifier id() { return texturePath; }
