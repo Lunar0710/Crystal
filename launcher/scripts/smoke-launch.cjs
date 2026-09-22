@@ -99,7 +99,7 @@ const timer = setInterval(() => {
   // CRYSTAL_SMOKE_NO_GPU=1 that exact state counts as a (partial) pass, so
   // everything up to the window is still checked on every run.
   if (process.env.CRYSTAL_SMOKE_NO_GPU === '1' && gameStartedAt && Date.now() - gameStartedAt > 90 * 1000
-      && /Crystal Client loaded successfully/.test(text) && /Backend library/.test(text)) {
+      && /(Crystal|Nexora) Client loaded successfully/.test(text) && /Backend library/.test(text)) {
     const dump = threadDump(gameDir, pid)
     if (/glfwCreateWindow/.test(dump)) {
       clearInterval(timer)
