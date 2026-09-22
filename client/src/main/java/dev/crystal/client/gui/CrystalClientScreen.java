@@ -51,11 +51,11 @@ import net.minecraft.world.item.Items;
 public class CrystalClientScreen extends Screen {
 
     private static final int HEADER_H = 34;
-    private static final int PAD = 10;
+    private static final int PAD = 12;
     private static final int TILE_W = 66;
     private static final int TILE_H = 68;
-    private static final int TILE_GAP = 6;
-    private static final int ROW_H = 22;
+    private static final int TILE_GAP = 8;
+    private static final int ROW_H = 24;
     private static final int OPEN_ANIM_MS = 160;
 
     private final int colPanel, colSurface, colTile, colBorder, colAccent, colText, colMuted;
@@ -155,8 +155,9 @@ public class CrystalClientScreen extends Screen {
         int my = Math.round((mouseY - height / 2f) / scale + height / 2f);
 
         GuiRender.roundedRect(ctx, px - 1, py - 1, px + pw + 1, py + ph + 1, 0x60000000);
-        GuiRender.roundedRect(ctx, px, py, px + pw, py + ph, colPanel);
-        GuiRender.roundedOutline(ctx, px, py, px + pw, py + ph, GuiRender.withAlpha(colBorder, 0xCC));
+        // Softer corners than the old 2px, to match the launcher.
+        GuiRender.roundedRect(ctx, px, py, px + pw, py + ph, 8, colPanel);
+        GuiRender.roundedOutline(ctx, px, py, px + pw, py + ph, 8, GuiRender.withAlpha(colBorder, 0xCC));
 
         scroll += (scrollTarget - scroll) * Math.min(1f, dt * 16f);
 
@@ -283,7 +284,7 @@ public class CrystalClientScreen extends Screen {
         float hover = animate(hoverAnim, module, hovered ? 1f : 0f, dt);
         float on = animate(toggleAnim, module, enabled ? 1f : 0f, dt);
 
-        GuiRender.roundedRect(ctx, box.x1, box.y1, box.x2, box.y2, GuiRender.blend(colTile, 0xFFFFFFFF, 0.05f * hover));
+        GuiRender.roundedRect(ctx, box.x1, box.y1, box.x2, box.y2, 5, GuiRender.blend(colTile, 0xFFFFFFFF, 0.05f * hover));
         GuiRender.roundedOutline(ctx, box.x1, box.y1, box.x2, box.y2,
                 GuiRender.blend(GuiRender.withAlpha(colBorder, 0x99), colAccent, Math.max(hover * 0.6f, on * 0.3f)));
 
