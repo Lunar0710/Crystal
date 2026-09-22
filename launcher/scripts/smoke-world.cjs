@@ -248,7 +248,7 @@ function stripedCapePng() {
     const timer = setInterval(() => {
       const text = fs.existsSync(logPath) ? fs.readFileSync(logPath, 'utf8') : ''
       if (/CRYSTAL_SMOKE_WORLD_DONE/.test(text) || /Crash report saved/.test(text)) { clearInterval(timer); resolve() }
-      else if (Date.now() - started > 8 * 60 * 1000) {
+      else if (Date.now() - started > 13 * 60 * 1000) {
         clearInterval(timer)
         const dump = threadDump(gameDir, pid)
         if (pid) { try { process.kill(pid) } catch {} }
@@ -266,14 +266,13 @@ function stripedCapePng() {
     !/(401|Realms|user properties|SignedJWT|YggdrasilUserApiService|minecraftservices|Unable to fetch)/.test(line))
   const shot = path.join(gameDir, 'screenshots', shotName)
   const done = /CRYSTAL_SMOKE_WORLD_DONE/.test(text)
-  const pearls = /KeyPearls test PASS/.test(text)
   const culling = /Culling test PASS/.test(text)
   const peer = /Peer test PASS/.test(text)
   const builder = /AutoBuilder test PASS/.test(text)
   // The AutoBuilder is an owner-only preview until 1.4: its result is reported, not required.
-  const passed = done && pearls && culling && peer && fs.existsSync(shot)
+  const passed = done && culling && peer && fs.existsSync(shot)
   if (!builder) console.log('WARN: AutoBuilder test did not pass (owner-only preview, not blocking)')
-  console.log(`${passed ? 'PASS' : 'FAIL'}: world test finished=${done} keyPearls=${pearls} culling=${culling} peer=${peer} builder=${builder} screenshot=${fs.existsSync(shot) ? shot : 'missing'}`)
+  console.log(`${passed ? 'PASS' : 'FAIL'}: world test finished=${done} culling=${culling} peer=${peer} builder=${builder} screenshot=${fs.existsSync(shot) ? shot : 'missing'}`)
   console.log(problems.length ? `log problems:\n${problems.slice(0, 25).join('\n')}` : 'log problems: none')
   process.exit(passed ? 0 : 1)
 })().catch(err => { console.log('FAIL:', err.message); process.exit(1) })

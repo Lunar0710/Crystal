@@ -111,35 +111,6 @@ public final class SmokeTest {
                     msg -> CrystalClient.LOGGER.info("[Crystal] Smoke screenshot: {}", msg.getString()));
         }
 
-        // KeyPearls: one press throws a pearl from slot 4 and returns to slot 1.
-        if (worldTicks == 290) {
-            CrystalClient.getInstance().getModuleManager().getModuleByName("KeyPearls")
-                    .filter(m -> m instanceof dev.crystal.client.module.player.KeyPearls)
-                    .map(m -> (dev.crystal.client.module.player.KeyPearls) m)
-                    .ifPresent(k -> {
-                        k.setEnabled(true);
-                        k.pressForTest();
-                    });
-        }
-        // Checked every tick in a window rather than at one tick: on a loaded
-        // PC the three key presses can land a few ticks late, which is not a bug.
-        if (keyPearlsResult == null && worldTicks > 290 && worldTicks <= KEYPEARLS_DEADLINE) {
-            int pearls = mc.player.getInventory().getItem(3).getCount();
-            int slot = InventoryCompat.selectedSlot(mc.player);
-            boolean ok = pearls == 15 && slot == 0;
-            if (ok || worldTicks == KEYPEARLS_DEADLINE) {
-                keyPearlsResult = ok;
-                if (!ok) {
-                    var module = CrystalClient.getInstance().getModuleManager().getModuleByName("KeyPearls");
-                    CrystalClient.LOGGER.info("[Crystal] KeyPearls state: module={} enabled={} slot0={} slot3={} screen={}",
-                            module.isPresent(), module.map(dev.crystal.client.module.Module::isEnabled).orElse(false),
-                            mc.player.getInventory().getItem(0), mc.player.getInventory().getItem(3), mc.screen);
-                }
-                CrystalClient.LOGGER.info("[Crystal] KeyPearls test {}: pearls={} slot={} after {} ticks",
-                        ok ? "PASS" : "FAILED", pearls, slot, worldTicks - 290);
-            }
-        }
-
         // SmartCulling: the walled-in stand must count as hidden, the open one as visible.
         // The culler answers from a background thread, so the result may take a
         // few passes; it counts as soon as it is right within the window.
@@ -211,7 +182,7 @@ public final class SmokeTest {
         }
 
         // Done once every check has an answer and the last screenshot is taken.
-        if (!finished && worldTicks > Math.max(peerTest ? 355 : 325, BUILDER_SHOT_TICK) && keyPearlsResult != null
+        if (!finished && worldTicks > Math.max(peerTest ? 355 : 325, BUILDER_SHOT_TICK)
                 && cullingResult != null && builderResult != null) {
             finished = true;
             CrystalClient.LOGGER.info("CRYSTAL_SMOKE_WORLD_DONE");
@@ -221,9 +192,7 @@ public final class SmokeTest {
 
     /** Latest ticks at which a check still counts; well past what a healthy run needs. */
     private static final int CULLING_DEADLINE = 280;
-    private static final int KEYPEARLS_DEADLINE = 400;
     private static Boolean cullingResult = null;
-    private static Boolean keyPearlsResult = null;
     private static boolean finished = false;
 
     /** The test peer's id: the test server derives it from the name (FAKE_AUTH in server.js). */
@@ -491,6 +460,10 @@ public final class SmokeTest {
     }
 
     private static void checkBuilderTest(Minecraft mc) {
+        if (creativeStart >= 0) {
+            checkCreative(mc);
+            return;
+        }
         // The builder rests while a menu is open; on a desktop the test window
         // can lose focus and pause the game, which is not what is tested here.
         if (mc.screen instanceof net.minecraft.client.gui.screens.PauseScreen) mc.setScreen(null);
@@ -608,8 +581,9 @@ public final class SmokeTest {
             ServerPlayer sp = server.getPlayerList().getPlayer(uuid);
             if (sp == null) return;
             var level = server.overworld();
-            for (int x = -12; x <= 4; x++) {
-                for (int z = -4; z <= 4; z++) {
+            // Room around everything, so each block has a spot to be placed from.
+            for (int x = -15; x <= 7; x++) {
+                for (int z = -7; z <= 7; z++) {
                     level.setBlockAndUpdate(c.offset(x, -1, z), net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
                     for (int y = 0; y <= 10; y++) level.setBlockAndUpdate(c.offset(x, y, z), net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
                 }
@@ -691,7 +665,87 @@ public final class SmokeTest {
             CrystalClient.LOGGER.info("[Crystal] AutoBuilder house {}: {}/{} right, layer order violations={} ({}), leftover={}, after {} ticks{} [{}]",
                     housePass ? "PASS" : "FAILED", right, builderPlan.size(), layerViolations, firstViolation, leftover,
                     worldTicks - houseStart, wrong.length() > 0 ? " wrong:" + wrong : "", builderStatus());
-            builderResult = Boolean.TRUE.equals(firstPartResult) && housePass;
+            housePassed = housePass;
+            startCreative(mc);
+        }
+    }
+
+    // ------------------------------------------------------------ auto builder, part 3: flying in creative
+
+    private static final int CREATIVE_TICKS = 1200;
+    private static Boolean housePassed = null;
+    private static int creativeStart = -1;
+    private static net.minecraft.core.BlockPos creativeCentre;
+
+    /**
+     * A 3x3x3 block of glass 24 blocks north, with the player starting in the
+     * air well away from it: in creative you fly, so the builder has to fly
+     * over and down to it instead of walking.
+     */
+    private static void startCreative(Minecraft mc) {
+        var server = mc.getSingleplayerServer();
+        if (server == null) {
+            builderResult = false;
+            return;
+        }
+        var c = mc.player.blockPosition().offset(0, 0, -24);
+        creativeCentre = c;
+        var plan = new java.util.LinkedHashMap<net.minecraft.core.BlockPos, net.minecraft.world.level.block.state.BlockState>();
+        for (int x = -1; x <= 1; x++) {
+            for (int y = 0; y <= 2; y++) {
+                for (int z = -1; z <= 1; z++) plan.put(c.offset(x, y, z), net.minecraft.world.level.block.Blocks.GLASS.defaultBlockState());
+            }
+        }
+        builderPlan = plan;
+
+        var uuid = mc.player.getUUID();
+        server.execute(() -> {
+            ServerPlayer sp = server.getPlayerList().getPlayer(uuid);
+            if (sp == null) return;
+            var level = server.overworld();
+            for (int x = -4; x <= 4; x++) {
+                for (int z = -4; z <= 4; z++) {
+                    for (int y = 0; y <= 12; y++) level.setBlockAndUpdate(c.offset(x, y, z), net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
+                    level.setBlockAndUpdate(c.offset(x, -1, z), net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+                }
+            }
+            sp.setGameMode(net.minecraft.world.level.GameType.CREATIVE);
+            sp.teleportTo(c.getX() + 0.5, c.getY() + 10, c.getZ() + 15.5);
+            sp.getAbilities().flying = true;
+            sp.onUpdateAbilities();
+        });
+        boolean litematica = placeWithLitematica(mc, plan, c);
+        CrystalClient.LOGGER.info("[Crystal] AutoBuilder creative source: {}", litematica ? "Litematica" : "built in");
+        creativeStart = worldTicks;
+    }
+
+    private static void checkCreative(Minecraft mc) {
+        if (worldTicks - creativeStart < 40) return;
+        int right = 0;
+        StringBuilder wrong = new StringBuilder();
+        for (var entry : builderPlan.entrySet()) {
+            if (dev.crystal.client.build.PlacementPlanner.matches(mc.level.getBlockState(entry.getKey()), entry.getValue())) right++;
+            else wrong.append(" ").append(entry.getKey().subtract(creativeCentre).toShortString());
+        }
+        // Nothing but the cube: supports the builder used must be gone again.
+        String leftover = null;
+        for (int x = -4; x <= 4 && leftover == null; x++) {
+            for (int y = 0; y <= 11 && leftover == null; y++) {
+                for (int z = -4; z <= 4; z++) {
+                    var pos = creativeCentre.offset(x, y, z);
+                    if (!builderPlan.containsKey(pos) && !mc.level.getBlockState(pos).isAir()) {
+                        leftover = x + "," + y + "," + z + "=" + mc.level.getBlockState(pos);
+                        break;
+                    }
+                }
+            }
+        }
+        boolean done = right == builderPlan.size() && leftover == null;
+        if (done || worldTicks - creativeStart >= CREATIVE_TICKS) {
+            CrystalClient.LOGGER.info("[Crystal] AutoBuilder creative {}: {}/{} right, leftover={}, after {} ticks{} [{}]",
+                    done ? "PASS" : "FAILED", right, builderPlan.size(), leftover, worldTicks - creativeStart,
+                    wrong.length() > 0 ? " wrong:" + wrong : "", builderStatus());
+            builderResult = Boolean.TRUE.equals(firstPartResult) && Boolean.TRUE.equals(housePassed) && done;
             CrystalClient.LOGGER.info("[Crystal] AutoBuilder test {}", builderResult ? "PASS" : "FAILED");
         }
     }

@@ -115,6 +115,9 @@ export function registerIpcHandlers(store: Store) {
   // Rank management — every handler re-checks the CALLER's own current rank
   // server-side (never trusts a flag the renderer sends), so a compromised
   // renderer can't just claim to be the owner.
+  // Saved here either way; the renderer says so when it didn't reach the others.
+  const publishResult = (r: { ok: boolean; error?: string }) =>
+    r.ok || !rankSync.hasToken() ? true : { saved: true, publishError: r.error || 'Veröffentlichen fehlgeschlagen' }
   ipcMain.handle('ranks:list', () => {
     if (auth.getRank() !== 'owner') return []
     return Object.values(auth.getGrants())
@@ -125,21 +128,18 @@ export function registerIpcHandlers(store: Store) {
     auth.grantRank(username.trim(), rank as any, durationMs)
     // Publishing is what makes the rank visible on the other person's own
     // machine — without it the grant would only ever apply to this install.
-    await rankSync.publish(auth.getGrants())
-    return true
+    return publishResult(await rankSync.publish(auth.getGrants()))
   })
   ipcMain.handle('ranks:setTester', async (_e, username: string, tester: boolean) => {
     if (auth.getRank() !== 'owner') return false
     if (!username?.trim()) return false
     auth.setTester(username.trim(), !!tester)
-    await rankSync.publish(auth.getGrants())
-    return true
+    return publishResult(await rankSync.publish(auth.getGrants()))
   })
   ipcMain.handle('ranks:revoke', async (_e, username: string) => {
     if (auth.getRank() !== 'owner') return false
     auth.revokeGrant(username)
-    await rankSync.publish(auth.getGrants())
-    return true
+    return publishResult(await rankSync.publish(auth.getGrants()))
   })
 
   // GitHub-backed rank sync. The token lives only in this machine's local

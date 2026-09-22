@@ -63,6 +63,22 @@ public class AutoBuilder extends Module {
     /** Filler for supports, first one found in the inventory wins. */
     private static final List<Item> SUPPORT_ITEMS = List.of(Items.DIRT, Items.NETHERRACK, Items.COBBLED_DEEPSLATE,
             Items.ANDESITE, Items.DIORITE, Items.GRANITE, Items.COBBLESTONE, Items.STONE);
+    /** The support blocks to pick from in the settings; "Automatisch" takes the first of SUPPORT_ITEMS you have. */
+    private static final Map<String, Item> FILLER_CHOICES = new LinkedHashMap<>();
+    static {
+        FILLER_CHOICES.put("Automatisch", null);
+        FILLER_CHOICES.put("Erde", Items.DIRT);
+        FILLER_CHOICES.put("Netherrack", Items.NETHERRACK);
+        FILLER_CHOICES.put("Bruchstein", Items.COBBLESTONE);
+        FILLER_CHOICES.put("Stein", Items.STONE);
+        FILLER_CHOICES.put("Tiefenschiefer", Items.COBBLED_DEEPSLATE);
+        FILLER_CHOICES.put("Andesit", Items.ANDESITE);
+        FILLER_CHOICES.put("Diorit", Items.DIORITE);
+        FILLER_CHOICES.put("Granit", Items.GRANITE);
+        FILLER_CHOICES.put("Glas", Items.GLASS);
+        FILLER_CHOICES.put("Eichenbretter", Items.OAK_PLANKS);
+    }
+    private String supportChoice = "Automatisch";
     private static final int REPORT_TICKS = 40;
     /** Every click in the log, only during the automated world test. */
     private static final boolean TRACE = System.getProperty("crystal.smoke.screenshot") != null;
@@ -115,6 +131,8 @@ public class AutoBuilder extends Module {
     private final Map<BlockPos, Long> unreachable = new java.util.HashMap<>();
     private static final long UNREACHABLE_TICKS = 600;
     private BlockPos walkTarget = null;
+    /** Where the eyes will be at the end of the current walk (the look for walkTarget was planned from there). */
+    private Vec3 walkGoalEye = null;
     private int walkStuck = 0;
     private long lastBoxesKey = Long.MIN_VALUE;
     /** Nothing is built before this game time (a schematic was just placed or moved). */
@@ -194,7 +212,7 @@ public class AutoBuilder extends Module {
         LocalPlayer player = mc.player;
         if (player == null || mc.level == null || mc.gameMode == null || !isEnabled()) return;
 
-        if (mc.screen != null || KeyPearls.onHypixel(mc)) {
+        if (mc.screen != null || dev.crystal.client.util.Servers.onHypixel(mc)) {
             // Keys let go while a menu is open; the walk is planned again afterwards.
             if (walker.walking()) walker.stop(mc);
             stopPillar(mc);
@@ -241,7 +259,8 @@ public class AutoBuilder extends Module {
             }
             // A new layer above your feet: first up onto the layer below it, the
             // way you build by hand, so the build stays in reach as it grows.
-            if (walk && globalLayer != Integer.MAX_VALUE && globalLayer != climbedFor) {
+            // Flying (creative): no climbing and no pillar, it just flies over.
+            if (walk && !player.getAbilities().flying && globalLayer != Integer.MAX_VALUE && globalLayer != climbedFor) {
                 climbedFor = globalLayer;
                 if (globalLayer > player.getBlockY() && startWalk(mc, player, true)) return;
                 // No way up on foot: build one, jumping and placing under the feet.
@@ -289,15 +308,10 @@ public class AutoBuilder extends Module {
         // loading it, and the lowest layer isn't known yet. Nothing until it is.
         if (globalLayer == Integer.MAX_VALUE && !source.bounds().isEmpty()) return false;
         for (Target target : targets) {
-            if (target.pos.getY() != layer) {
-                if (!missing.isEmpty()) break;
-                // Above the lowest open layer of the whole build only when all
-                // left down here waits for a neighbour from above.
-                if (target.pos.getY() > globalLayer && waiting == 0) break;
-                // Nor while something down here only needs you to stand elsewhere.
-                if (elsewhere > 0) break;
-                layer = target.pos.getY();
-            }
+            // Strictly one layer: nothing above it while anything in it is open.
+            // A block that needs a neighbour from above (an upside-down stair)
+            // gets a support after a short wait instead.
+            if (target.pos.getY() != layer) break;
             BlockState current = level.getBlockState(target.pos);
             if (PlacementPlanner.needsAdjusting(current, target.state)) {
                 // Placed and facing right: one right click per delay step or mode change.
@@ -327,6 +341,14 @@ public class AutoBuilder extends Module {
             BlockState placeAs = isDoubleSlab(target.state)
                     ? target.state.setValue(SlabBlock.TYPE, SlabType.BOTTOM) : target.state;
             Plan plan = PlacementPlanner.plan(level, player, target.pos, placeAs, copy);
+            // Just walked here for this block: the look planned from the spot
+            // itself, in case you stopped a little beside it.
+            if ((plan == null || !plan.exact()) && walkGoalEye != null && target.pos.equals(walkTarget)) {
+                Plan fromSpot = PlacementPlanner.plan(level, player, target.pos, placeAs, copy, walkGoalEye);
+                if (fromSpot != null && fromSpot.exact()) plan = fromSpot;
+                else if (TRACE) CrystalClient.LOGGER.info("[Crystal] AutoBuilder can't place {} after walking: here={} spot={}",
+                        target.pos.toShortString(), plan == null ? "none" : "not exact", fromSpot == null ? "none" : "not exact");
+            }
             if (plan != null && plan.exact()) {
                 if (select(mc, player, item) == null) continue;
                 place(mc, player, plan, target.pos);
@@ -518,6 +540,7 @@ public class AutoBuilder extends Module {
         final Target goalTarget = target;
         Vec3 centre = Vec3.atCenterOf(goalTarget.pos);
         double eyeHeight = player.getEyeHeight();
+        if (player.getAbilities().flying) return flyTo(mc, player, goalTarget, reach, eyeHeight);
         int layerY = goalTarget.pos.getY();
         // With something to click against already there, the spot must also
         // let it be placed the right way round while looking at it.
@@ -528,6 +551,7 @@ public class AutoBuilder extends Module {
         java.util.function.Predicate<BlockPos> inReach = spot -> {
             Vec3 eye = new Vec3(spot.getX() + 0.5, spot.getY() + eyeHeight, spot.getZ() + 0.5);
             if (eye.distanceTo(centre) > reach - margin[0]) return false;
+            if (besideIt(spot, goalTarget.pos)) return false;
             if (stillToBuild(level, spot) || stillToBuild(level, spot.above())) return false;
             return !checkPlan || placeableFrom(level, player, goalTarget, eye);
         };
@@ -542,6 +566,7 @@ public class AutoBuilder extends Module {
             if (spot.equals(goalTarget.pos) || spot.above().equals(goalTarget.pos)) return false;
             Vec3 eye = new Vec3(spot.getX() + 0.5, spot.getY() + eyeHeight, spot.getZ() + 0.5);
             if (eye.distanceTo(centre) > reach - margin[0]) return false;
+            if (besideIt(spot, goalTarget.pos)) return false;
             return !checkPlan || placeableFrom(level, player, goalTarget, eye);
         };
         List<BlockPos> path = dev.crystal.client.build.Walker.findPath(level, player.blockPosition(), onLayer, goalTarget.pos);
@@ -554,6 +579,7 @@ public class AutoBuilder extends Module {
         if (climbOnly) {
             if (path == null) return false;
             walkTarget = goalTarget.pos;
+            walkGoalEye = Vec3.atBottomCenterOf(path.get(path.size() - 1)).add(0, eyeHeight, 0);
             walker.start(path);
             return true;
         }
@@ -575,6 +601,7 @@ public class AutoBuilder extends Module {
         }
         if (!goalTarget.pos.equals(walkTarget)) walkStuck = 0;
         walkTarget = goalTarget.pos;
+        walkGoalEye = Vec3.atBottomCenterOf(path.get(path.size() - 1)).add(0, eyeHeight, 0);
         walker.start(path);
         return true;
     }
@@ -667,7 +694,14 @@ public class AutoBuilder extends Module {
         if (afterTurn == null) dev.crystal.client.build.SmoothLook.stop();
     }
 
-    private static Item fillerItem(Minecraft mc, LocalPlayer player) {
+    /** The support block chosen in the settings, or null for "Automatisch". */
+    private Item chosenFiller() {
+        return FILLER_CHOICES.get(supportChoice);
+    }
+
+    private Item fillerItem(Minecraft mc, LocalPlayer player) {
+        Item chosen = chosenFiller();
+        if (chosen != null) return has(mc, player, chosen) ? chosen : null;
         for (Item item : SUPPORT_ITEMS) if (has(mc, player, item)) return item;
         return null;
     }
@@ -739,11 +773,66 @@ public class AutoBuilder extends Module {
         }
     }
 
+    /**
+     * Right next to the block at its height: stopping a little off the middle of
+     * that spot puts part of you in the block's space, and it can't be placed.
+     */
+    private static boolean besideIt(BlockPos spot, BlockPos target) {
+        int dx = Math.abs(spot.getX() - target.getX()), dz = Math.abs(spot.getZ() - target.getZ());
+        return dx + dz == 1 && spot.getY() <= target.getY() && target.getY() <= spot.getY() + 1;
+    }
+
     /** Changes when a schematic is placed, moved or removed. */
     private static long boxesKey(List<BlockPos[]> boxes) {
         long key = boxes.size();
         for (BlockPos[] box : boxes) key = key * 31 + box[0].asLong() * 17 + box[1].asLong();
         return key;
+    }
+
+    /**
+     * In creative the player flies, so there is no way over the ground to
+     * search: the nearest free spot the block can be placed from wins, and it
+     * flies straight there.
+     */
+    private boolean flyTo(Minecraft mc, LocalPlayer player, Target target, double reach, double eyeHeight) {
+        Level level = mc.level;
+        Vec3 centre = Vec3.atCenterOf(target.pos);
+        boolean checkPlan = hasClickableNeighbour(level, target.pos);
+        BlockPos best = null;
+        double bestDistance = Double.MAX_VALUE;
+        BlockPos.MutableBlockPos spot = new BlockPos.MutableBlockPos();
+        for (int dx = -4; dx <= 4; dx++) {
+            for (int dy = -4; dy <= 4; dy++) {
+                for (int dz = -4; dz <= 4; dz++) {
+                    spot.set(target.pos.getX() + dx, target.pos.getY() + dy, target.pos.getZ() + dz);
+                    Vec3 eye = new Vec3(spot.getX() + 0.5, spot.getY() + eyeHeight, spot.getZ() + 0.5);
+                    if (eye.distanceTo(centre) > reach - 1.0) continue;
+                    if (besideIt(spot, target.pos) || !dev.crystal.client.build.Walker.freeForBody(level, spot)) continue;
+                    if (stillToBuild(level, spot) || stillToBuild(level, spot.above())) continue;
+                    if (checkPlan && !placeableFrom(level, player, target, eye)) continue;
+                    double distance = spot.distToCenterSqr(player.position());
+                    if (distance < bestDistance) {
+                        bestDistance = distance;
+                        best = spot.immutable();
+                    }
+                }
+            }
+        }
+        if (TRACE) {
+            CrystalClient.LOGGER.info("[Crystal] AutoBuilder fly to {} (layer {}) for {}",
+                    best == null ? "nowhere" : best.toShortString(), globalLayer, target.pos.toShortString());
+        }
+        if (best == null) {
+            unreachable.put(target.pos, level.getGameTime());
+            return false;
+        }
+        // Already there: nothing to fly.
+        if (best.distToCenterSqr(player.position()) < 0.3) return false;
+        if (!target.pos.equals(walkTarget)) walkStuck = 0;
+        walkTarget = target.pos;
+        walkGoalEye = Vec3.atBottomCenterOf(best).add(0, eyeHeight, 0);
+        walker.startFly(best);
+        return true;
     }
 
     private boolean stillToBuild(Level level, BlockPos pos) {
@@ -895,12 +984,9 @@ public class AutoBuilder extends Module {
 
     /** A filler block at the spot, from the inventory (or creative). */
     private boolean placeSupportAt(Minecraft mc, LocalPlayer player, BlockPos spot) {
-        Item filler = null;
-        for (Item item : SUPPORT_ITEMS) {
-            if (has(mc, player, item)) { filler = item; break; }
-        }
+        Item filler = fillerItem(mc, player);
         if (filler == null) {
-            missing.merge(Items.DIRT, 1, Integer::sum);
+            missing.merge(chosenFiller() != null ? chosenFiller() : Items.DIRT, 1, Integer::sum);
             return false;
         }
         Plan plan = PlacementPlanner.plan(mc.level, player, spot, ((BlockItem) filler).getBlock().defaultBlockState(), new ItemStack(filler));
@@ -1051,6 +1137,8 @@ public class AutoBuilder extends Module {
                 new BooleanSetting("Laufen", () -> walk, v -> walk = v, true),
                 new BooleanSetting("Nur aktuelle Schicht zeigen", () -> showLayer, v -> showLayer = v, true),
                 new BooleanSetting("Stützblöcke", () -> useSupports, v -> useSupports = v, true),
+                new dev.crystal.client.module.EnumSetting("Stützblock", () -> supportChoice,
+                        v -> supportChoice = FILLER_CHOICES.containsKey(v) ? v : "Automatisch", new ArrayList<>(FILLER_CHOICES.keySet())),
                 new SliderSetting("Hotbar-Slot", () -> (float) (hotbarSlot + 1), v -> hotbarSlot = Math.round(v) - 1, 1f, 9f, 1f, 0)
         );
     }

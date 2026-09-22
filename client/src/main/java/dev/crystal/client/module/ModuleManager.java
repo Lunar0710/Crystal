@@ -35,7 +35,6 @@ public class ModuleManager {
         register(new AutoRespawn());
         register(new InventoryCleanup());
         register(new AutoTool());
-        register(new KeyPearls());
         register(new dev.crystal.client.module.player.Emotes());
         register(new dev.crystal.client.module.player.AutoBuilder());
         register(new Cooldowns());

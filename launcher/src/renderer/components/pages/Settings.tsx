@@ -378,7 +378,6 @@ function CrystalPlusSection({ unlocked }: { unlocked: boolean }) {
     { title: `${plusCapes} Capes`, detail: 'Handgezeichnet, im Spiel sichtbar.' },
     { title: `${plusCosmetics} Cosmetics`, detail: 'Hüte, Masken, Flügel und mehr, auch im Spiel.' },
     { title: 'HUD-Stile', detail: 'Glass, Neon, Pill, Gradient, Split und Rainbow als Hintergrund für jedes HUD-Modul.' },
-    { title: 'KeyPearls', detail: 'Wirft mit einer Taste eine Enderperle aus der Hotbar. Auf Hypixel aus, weil es dort als Makro gilt.' },
     { title: 'Emotes', detail: 'Winken, Jubeln, Tanzen und mehr über ein Rad auf einer Taste (vorerst nur für dich sichtbar).' },
     { title: 'Chroma-Text', detail: 'Farbverlauf für HUD-Module, der langsam durchläuft.' },
     { title: 'Crosshair-Formen', detail: 'Gap Cross, Kreis, X und Klammern, auf Wunsch in Chroma.' },
@@ -390,7 +389,7 @@ function CrystalPlusSection({ unlocked }: { unlocked: boolean }) {
       title="Crystal+"
       description={unlocked
         ? 'Alles hier ist für dich freigeschaltet. Die Extras im Spiel stellst du in den Modul-Einstellungen ein (Rechts-Shift).'
-        : 'Crystal+ ist fast nur kosmetisch. Die einzige Spielhilfe ist KeyPearls, das auf Hypixel automatisch aus ist.'}
+        : 'Crystal+ ist rein kosmetisch: Capes, Cosmetics, Emotes, Themes und HUD-Extras. Keine Spielhilfen.'}
     >
       <ul className="divide-y divide-crystal-border">
         {perks.map(p => (
@@ -450,6 +449,7 @@ function RankManagementSection() {
     setSaving(true)
     const ok = await api?.grantRank(username.trim(), pickedRank, pickedDuration)
     setSaving(false)
+    warnIfNotPublished(ok)
     if (ok) {
       notify({ type: 'success', message: `${RANKS[pickedRank].label} an ${username.trim()} vergeben` })
       setUsername('')
@@ -457,10 +457,17 @@ function RankManagementSection() {
     }
   }
 
+  /** Saved on this PC, but GitHub refused it: the others won't see it until the token can write. */
+  function warnIfNotPublished(result: unknown) {
+    const error = (result as { publishError?: string } | null)?.publishError
+    if (error) notify({ type: 'error', title: 'Nur auf diesem PC gespeichert', message: `Veröffentlichen fehlgeschlagen: ${error}. Der GitHub-Token braucht "Contents: Read and write".` })
+  }
+
   async function setTester(name: string, tester: boolean) {
     setSaving(true)
     const ok = await api?.setRankTester(name, tester)
     setSaving(false)
+    warnIfNotPublished(ok)
     if (ok) {
       notify({ type: 'success', message: tester ? `${name} ist jetzt Tester` : `${name} ist kein Tester mehr` })
       if (name === username.trim()) setUsername('')
@@ -469,7 +476,7 @@ function RankManagementSection() {
   }
 
   async function revoke(name: string) {
-    await api?.revokeRankGrant(name)
+    warnIfNotPublished(await api?.revokeRankGrant(name))
     refresh()
   }
 

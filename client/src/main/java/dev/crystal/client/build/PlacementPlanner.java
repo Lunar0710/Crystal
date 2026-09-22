@@ -135,7 +135,9 @@ public final class PlacementPlanner {
 
     /** What the crosshair would be on looking from {@code eye} at {@code point}, or null for nothing. */
     private static BlockHitResult sight(Level level, LocalPlayer player, Vec3 eye, Vec3 point) {
-        Vec3 through = point.add(point.subtract(eye).normalize().scale(0.05));
+        // A little past the full-block face, so blocks smaller than a full cube
+        // (a chest is 1/16 in from each side) are still reached.
+        Vec3 through = point.add(point.subtract(eye).normalize().scale(0.3));
         BlockHitResult hit = level.clip(new net.minecraft.world.level.ClipContext(eye, through,
                 net.minecraft.world.level.ClipContext.Block.OUTLINE, net.minecraft.world.level.ClipContext.Fluid.NONE, player));
         return hit.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK ? hit : null;

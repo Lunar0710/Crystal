@@ -28,6 +28,8 @@ public final class Walker {
     private static final int MAX_DROP = 3;
 
     private List<BlockPos> path = null;
+    /** In creative you fly: straight to the spot instead of a way over the ground. */
+    private BlockPos flyTo = null;
     private int index = 0;
     private int stuckTicks = 0;
     private double lastX, lastZ, lastY;
@@ -39,7 +41,17 @@ public final class Walker {
     }
 
     public boolean walking() {
-        return path != null;
+        return path != null || flyTo != null;
+    }
+
+    /** Flies straight to this spot (creative), jumping up and sneaking down. */
+    public void startFly(BlockPos goal) {
+        flyTo = goal;
+        path = null;
+        index = 0;
+        stuckTicks = 0;
+        stuck = false;
+        lastX = Double.NaN;
     }
 
     public void start(List<BlockPos> path) {
@@ -51,6 +63,10 @@ public final class Walker {
     }
 
     public void stop(Minecraft mc) {
+        if (path != null || flyTo != null) {
+            mc.options.keyShift.setDown(false);
+        }
+        flyTo = null;
         if (path != null) {
             mc.options.keyUp.setDown(false);
             mc.options.keyJump.setDown(false);
@@ -65,12 +81,16 @@ public final class Walker {
      */
     public boolean tick(Minecraft mc, float turnSpeed) {
         LocalPlayer player = mc.player;
-        if (path == null || player == null) return false;
+        if (player == null) return false;
+        if (flyTo != null) return flyTick(mc, player, turnSpeed);
+        if (path == null) return false;
         // Past waypoints that are already behind: the next one still ahead.
         while (index < path.size()) {
             BlockPos next = path.get(index);
             double dx = next.getX() + 0.5 - player.getX(), dz = next.getZ() + 0.5 - player.getZ();
-            if (dx * dx + dz * dz < 0.35 * 0.35 && Math.abs(player.getY() - next.getY()) < 0.6) index++;
+            // The last step precisely onto the spot (the builder planned its look from there).
+            double tolerance = index == path.size() - 1 ? 0.2 : 0.35;
+            if (dx * dx + dz * dz < tolerance * tolerance && Math.abs(player.getY() - next.getY()) < 0.6) index++;
             else break;
         }
         if (index >= path.size()) {
@@ -104,6 +124,42 @@ public final class Walker {
             return false;
         }
         return true;
+    }
+
+    /** One tick of flying: straight there, up with jump, down with sneak. */
+    private boolean flyTick(Minecraft mc, LocalPlayer player, float turnSpeed) {
+        double dx = flyTo.getX() + 0.5 - player.getX(), dz = flyTo.getZ() + 0.5 - player.getZ();
+        double dyPos = flyTo.getY() - player.getY();
+        double flat = Math.sqrt(dx * dx + dz * dz);
+        if (flat < 0.25 && Math.abs(dyPos) < 0.25) {
+            stop(mc);
+            return false;
+        }
+        SmoothLook.lookAt((float) Math.toDegrees(Math.atan2(dz, dx)) - 90f, 15f, turnSpeed);
+        SmoothLook.tickFallback();
+        float turnLeft = SmoothLook.yawLeft(player);
+        mc.options.keyUp.setDown(flat > 0.25 && Math.abs(turnLeft) < 35f);
+        mc.options.keyJump.setDown(dyPos > 0.25);
+        mc.options.keyShift.setDown(dyPos < -0.25);
+
+        if (!Double.isNaN(lastX)) {
+            double moved = Math.abs(player.getX() - lastX) + Math.abs(player.getZ() - lastZ) + Math.abs(player.getY() - lastY);
+            stuckTicks = moved < 0.02 ? stuckTicks + 1 : 0;
+        }
+        lastX = player.getX();
+        lastZ = player.getZ();
+        lastY = player.getY();
+        if (stuckTicks > 40) {
+            stuck = true;
+            stop(mc);
+            return false;
+        }
+        return true;
+    }
+
+    /** Room for the body, nothing in the way: a spot to fly to. */
+    public static boolean freeForBody(Level level, BlockPos feet) {
+        return level.hasChunkAt(feet) && free(level, feet) && free(level, feet.above());
     }
 
     /**

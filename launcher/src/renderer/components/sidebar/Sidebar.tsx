@@ -56,12 +56,12 @@ export function Sidebar() {
   }, [location.pathname])
 
   return (
-    <nav className="flex flex-col w-52 shrink-0 bg-crystal-panel border-r border-crystal-border">
+    <nav className="flex flex-col w-56 shrink-0 bg-crystal-panel border-r border-crystal-border">
       <div className="flex-1 overflow-y-auto px-2.5 pt-4 pb-2 space-y-5">
         {groups.map(group => (
           <div key={group.title}>
-            <p className="px-2.5 mb-1 text-[11px] font-medium text-crystal-muted/80">{group.title}</p>
-            <div className="space-y-px">
+            <p className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-crystal-muted/70">{group.title}</p>
+            <div className="space-y-0.5">
               {group.items.map(item => <Item key={item.path} {...item} />)}
             </div>
           </div>
@@ -95,16 +95,15 @@ function Item({ path, icon: Icon, label }: NavItem) {
     <NavLink
       to={path}
       className={({ isActive }) =>
-        `relative flex items-center gap-2.5 px-2.5 py-[7px] rounded-md text-[13px] transition-colors ` +
+        `relative flex items-center gap-3 px-3 py-2 rounded-[10px] text-[13px] transition-colors ` +
         (isActive
-          ? 'bg-crystal-card text-crystal-text font-medium'
-          : 'text-crystal-muted hover:text-crystal-text hover:bg-crystal-card/60')
+          ? 'bg-crystal-accent/12 text-crystal-text font-medium'
+          : 'text-crystal-muted hover:text-crystal-text hover:bg-crystal-card/70')
       }
     >
       {({ isActive }) => (
         <>
-          {isActive && <span className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-full bg-crystal-accent" />}
-          <Icon size={15} strokeWidth={isActive ? 2 : 1.75} className={isActive ? 'text-crystal-accent' : ''} />
+          <Icon size={16} strokeWidth={isActive ? 2.1 : 1.75} className={isActive ? 'text-crystal-accent' : ''} />
           {label}
         </>
       )}
