@@ -16,14 +16,15 @@ import java.nio.file.Path;
  */
 public class ThemeManager {
 
-    private int bg = 0xE50d0f14;
-    private int panel = 0xF0131720;
-    private int card = 0xFF1a1f2e;
-    private int border = 0xFF252b3a;
-    private int accent = 0xFF5b8af5;
-    private int accent2 = 0xFF7c6af5;
-    private int text = 0xFFe4e8f0;
-    private int muted = 0xFF6b7280;
+    // The launcher's default theme (Nexora Mono): black with white as the accent.
+    private int bg = 0xE5080809;
+    private int panel = 0xF00e0e10;
+    private int card = 0xFF141417;
+    private int border = 0xFF2a2a2f;
+    private int accent = 0xFFFFFFFF;
+    private int accent2 = 0xFFbebec4;
+    private int text = 0xFFf0f0f3;
+    private int muted = 0xFF85858e;
 
     public void load() {
         Path themeFile = CrystalPaths.root().resolve("config").resolve("theme.json");

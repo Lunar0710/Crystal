@@ -10,7 +10,7 @@ export interface CrystalTheme {
 
 export const themes: CrystalTheme[] = [
   // Free
-  { id: 'crystal-blue',     name: 'Nexora Blue',    preview: ['#5b8af5', '#7c6af5'] },
+  { id: 'crystal-blue',     name: 'Nexora Mono',    preview: ['#ffffff', '#8a8a93'] },
   { id: 'crystal-crimson',  name: 'Nexora Crimson', preview: ['#f5455b', '#f57c3d'] },
   { id: 'crystal-bloom',    name: 'Nexora Bloom',   preview: ['#f56ba0', '#f5a3c7'] },
   { id: 'crystal-amethyst', name: 'Nexora Amethyst',preview: ['#a35bf5', '#7c3df5'] },

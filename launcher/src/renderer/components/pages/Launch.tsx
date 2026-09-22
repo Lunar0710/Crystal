@@ -186,6 +186,33 @@ export function Launch() {
     <Page>
       <PageHeader title="Starten" description="Wähle Konto und Instanz, dann kann es losgehen." />
 
+      {/* The start banner: version and play button on the Nexora backdrop, so
+          the thing you came for is the first thing on the page. */}
+      <section className="relative mb-5 overflow-hidden rounded-[18px] border border-crystal-border bg-crystal-card">
+        <div className="nexora-backdrop absolute inset-0" aria-hidden="true" />
+        <div className="relative flex flex-wrap items-end gap-4 p-6">
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-crystal-muted">
+              {instance ? (instance.useCrystalClient ? 'Nexora Client' : 'Vanilla mit Mods') : 'Keine Instanz'}
+            </p>
+            <p className="mt-1 text-[30px] font-semibold leading-none tracking-tight text-crystal-text tabular">
+              {instance ? instance.version : '—'}
+            </p>
+            <p className="mt-2 text-[13px] text-crystal-muted truncate">
+              {instance ? instance.name : 'Lege eine Instanz an, um zu spielen.'}
+            </p>
+          </div>
+          <button
+            onClick={launch}
+            disabled={busy || !instance}
+            className="crystal-btn-primary px-7 py-3 text-[15px] disabled:opacity-60"
+          >
+            <Play size={16} />
+            {launching ? 'Startet…' : 'Spielen'}
+          </button>
+        </div>
+      </section>
+
       {joinServer && (
         <div className="crystal-card mb-5 px-4 py-3 flex items-center gap-3">
           <Play size={15} className="text-crystal-accent shrink-0" />

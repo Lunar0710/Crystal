@@ -6,7 +6,7 @@ import { crystalPath } from '../paths'
 // Mirrors the CSS custom properties defined in globals.css for each theme id.
 // Kept in sync manually since the renderer's CSS can't be read from the main process.
 const THEME_COLORS: Record<string, Record<string, [number, number, number]>> = {
-  'crystal-blue':     { bg: [13,15,20], panel: [19,23,32], card: [26,31,46], border: [37,43,58], accent: [91,138,245], accent2: [124,106,245], text: [228,232,240], muted: [107,114,128] },
+  'crystal-blue':     { bg: [8,8,9], panel: [14,14,16], card: [20,20,23], border: [42,42,47], accent: [255,255,255], accent2: [190,190,196], text: [240,240,243], muted: [133,133,142] },
   'crystal-crimson':  { bg: [18,11,12], panel: [26,15,17], card: [36,19,22], border: [54,26,30], accent: [245,69,91], accent2: [245,124,61], text: [240,228,229], muted: [138,107,110] },
   'crystal-bloom':    { bg: [22,12,18], panel: [30,17,25], card: [41,22,33], border: [61,30,46], accent: [245,107,160], accent2: [245,163,199], text: [240,229,235], muted: [138,107,122] },
   'crystal-amethyst': { bg: [16,12,22], panel: [22,17,32], card: [30,23,44], border: [45,34,64], accent: [163,91,245], accent2: [124,61,245], text: [232,228,240], muted: [116,107,138] },

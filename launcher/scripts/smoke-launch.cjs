@@ -88,7 +88,8 @@ const timer = setInterval(() => {
   if (SUCCESS.every(r => r.test(text))) {
     clearInterval(timer)
     const header = text.split('\n').filter(l => l.startsWith('#')).join('\n')
-    const crystalOk = /Crystal Client loaded successfully/.test(text)
+    // Both spellings: builds before the rename to Nexora still log "Crystal".
+    const crystalOk = /(Crystal|Nexora) Client loaded successfully/.test(text)
     if (WITH_CRYSTAL && !crystalOk) return finish(1, `FAIL: Minecraft ${VERSION} loaded but Crystal did not\n${header}`)
     return finish(0, `PASS: Minecraft ${VERSION} (${LOADER}${WITH_CRYSTAL ? ' + Crystal' : ''}) loaded on ${process.platform}/${process.arch}\n${header}`)
   }
