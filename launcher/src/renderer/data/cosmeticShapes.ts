@@ -48,10 +48,7 @@ export function shapeFor(def: CosmeticDef): CosmeticShape | null {
   switch (def.slot) {
     case 'hat': return { anchor: 'head', boxes: hat(def.variant, c, a, b) }
     case 'mask': return { anchor: 'head', boxes: mask(def.variant, c, a, b) }
-    case 'bandana': return {
-      anchor: 'head',
-      boxes: [b(0, -1.4 + 4.6, 0, 8.7, 1.8, 8.7), b(0, 3.2, -5, 1.4, 1.4, 2.2, a), b(0.8, 2.2, -5.6, 1, 2.4, 0.6, a)],
-    }
+    case 'bandana': return { anchor: 'head', boxes: bandana(def.variant, c, a, b) }
     case 'backpack': return { anchor: 'body', boxes: backpack(def.variant, c, a, b) }
     case 'wings': return { anchor: 'wing', boxes: wing(def.variant, c, a, b) }
     default: return null
@@ -59,6 +56,19 @@ export function shapeFor(def: CosmeticDef): CosmeticShape | null {
 }
 
 type B = (x: number, y: number, z: number, w: number, h: number, d: number, color?: string, extra?: Partial<ShapeBox>) => ShapeBox
+
+function bandana(variant: string | undefined, c: string, a: string, b: B): ShapeBox[] {
+  const band = b(0, 3.2, 0, 8.7, 1.8, 8.7)
+  switch (variant) {
+    // Long tails down the back.
+    case 'ninja': return [band, b(1.4, 0.4, -5.1, 1.4, 6.5, 0.8, a), b(-1.2, 1.4, -5.1, 1.2, 4.5, 0.8, a), b(0, 3.2, -4.8, 2, 2, 1.6, a)]
+    // Thin sweatband, nothing hanging off.
+    case 'headband': return [b(0, 3.4, 0, 8.8, 1.1, 8.8), b(0, 3.4, FACE + 0.5, 3, 1.1, 0.6, a)]
+    // Knot on the side, like a pirate's.
+    case 'knot': return [b(0, 3.4, 0, 8.8, 2.4, 8.8), b(4.9, 2.6, -1, 1.8, 1.8, 1.8, a), b(5.4, 1, -1.6, 0.9, 3, 0.9, a)]
+    default: return [band, b(0, 3.2, -5, 1.4, 1.4, 2.2, a), b(0.8, 2.2, -5.6, 1, 2.4, 0.6, a)]
+  }
+}
 
 function hat(variant: string | undefined, c: string, a: string, b: B): ShapeBox[] {
   const T = HEAD_TOP
@@ -86,6 +96,38 @@ function hat(variant: string | undefined, c: string, a: string, b: B): ShapeBox[
       b(s * 3, T + 1, 0, 2.2, 2, 2.2), b(s * 3.6, T + 2.8, 0, 1.6, 1.8, 1.6), b(s * 4.2, T + 4.3, 0, 0.9, 1.4, 0.9, a),
     ])
     case 'antenna': return [b(0, T + 2.2, 0, 0.6, 4.5, 0.6, a), b(0, T + 5, 0, 2, 2, 2, c, { glow: true })]
+    // Tricorn: wide brim with the sides turned up, badge on the front.
+    case 'pirate': return [
+      b(0, T + 0.5, 0, 12.5, 0.8, 10.5), b(0, T + 2.2, 0, 7.6, 3.4, 7.6),
+      b(-5.6, T + 1.8, 0, 1.2, 2.6, 8.5, a), b(5.6, T + 1.8, 0, 1.2, 2.6, 8.5, a),
+      b(0, T + 2.4, FACE + 1.3, 2.2, 2.2, 0.6, a),
+    ]
+    // Chef's toque: band plus the puffed top.
+    case 'chef': return [
+      b(0, T + 1, 0, 8.8, 2, 8.8, a), b(0, T + 4.6, 0, 9.6, 5.2, 9.6),
+      b(0, T + 7.4, 0, 8.4, 1.6, 8.4),
+    ]
+    case 'cowboy': return [
+      b(0, T + 0.5, 0, 13.5, 0.8, 11), b(0, T + 2.8, 0, 7.4, 4.4, 7.4),
+      b(0, T + 1.3, 0, 7.8, 1, 7.8, a), b(0, T + 5.2, 0, 3.4, 0.8, 7.4, a),
+    ]
+    // Space helmet: dome around the head with a dark visor.
+    case 'helmet': return [
+      b(0, T - 1.6, 0, 10.4, 10.4, 10.4), b(0, T - 1.2, FACE + 1.4, 7.4, 5.4, 1.4, a, { glow: true }),
+      b(0, T + 4.2, 0, 4.4, 1.6, 4.4, a), b(0, T - 5.6, 0, 11, 1.2, 11, a),
+    ]
+    // Mohawk: a row of spikes from front to back.
+    case 'mohawk': return [-3, -1.5, 0, 1.5, 3].map((z, i) =>
+      b(0, T + 1.6 + (i === 2 ? 1.4 : i === 1 || i === 3 ? 0.8 : 0), z, 1.4, 3.2 + (i === 2 ? 2.4 : i === 1 || i === 3 ? 1.4 : 0), 1.4, i % 2 ? a : c))
+    // Leaf wreath: leaves lying on the head instead of a floating ring.
+    case 'wreath': {
+      const boxes: ShapeBox[] = []
+      for (let i = 0; i < 12; i++) {
+        const t = (i / 12) * Math.PI * 2
+        boxes.push(b(Math.cos(t) * 4.2, T + 0.9, Math.sin(t) * 4.2, 1.8, 1.2, 1.8, i % 2 ? a : c, { rz: t }))
+      }
+      return boxes
+    }
     case 'ears': return [1, -1].flatMap(s => [
       b(s * 2.8, T + 1.5, 0, 2.6, 3, 1.2), b(s * 2.8, T + 1.3, 0.35, 1.4, 1.8, 0.6, a),
     ])
@@ -160,6 +202,23 @@ function mask(variant: string | undefined, c: string, a: string, b: B): ShapeBox
       b(0, 1.6, F, 8.4, 0.6, 0.5, '#000000'), b(-2.2, 0.8, F, 3, 1.2, 0.5, '#000000'), b(2.2, 0.8, F, 3, 1.2, 0.5, '#000000'),
       b(-3.2, 1.1, F + 0.3, 0.6, 0.6, 0.2, '#ffffff'), b(1.2, 1.1, F + 0.3, 0.6, 0.6, 0.2, '#ffffff'),
     ]
+    // Gas mask: plate over the face with two filters.
+    case 'gas': return [
+      b(0, -0.4, FACE + 0.8, 8.4, 6.4, 1.6), b(-2.2, -2.6, FACE + 1.6, 2.6, 2.6, 2.6, a), b(2.2, -2.6, FACE + 1.6, 2.6, 2.6, 2.6, a),
+      b(0, 1.2, FACE + 1.7, 5.6, 2, 0.6, a, { glow: true }), b(0, -0.4, 0, 9, 1.4, 8.6, a),
+    ]
+    // Kerchief pulled over the mouth, knot at the back.
+    case 'bandit': return [
+      b(0, -2.2, FACE + 0.5, 8.6, 4.4, 1), b(0, -2.2, 0, 8.8, 4.2, 8.8), b(0, -1.6, -5, 1.6, 1.6, 2, a),
+    ]
+    case 'eyepatch': return [
+      b(-2, 0.8, FACE + 0.6, 3.4, 3, 0.8), b(0, 1.6, 0, 8.8, 0.7, 8.8, a),
+    ]
+    // Plague doctor: long beak and round eyes.
+    case 'plague': return [
+      b(0, -0.6, FACE + 1.2, 3.4, 3.4, 2.6), b(0, -1.2, FACE + 3, 2.4, 2.4, 2.4), b(0, -1.8, FACE + 4.4, 1.4, 1.4, 1.6),
+      b(-2.4, 1.4, FACE + 0.7, 2.4, 2.4, 0.8, a), b(2.4, 1.4, FACE + 0.7, 2.4, 2.4, 0.8, a),
+    ]
     case 'monocle': return [
       b(2, 2.1, F, 2.2, 0.35, 0.35), b(2, -0.2, F, 2.2, 0.35, 0.35), b(0.9, 0.95, F, 0.35, 2.3, 0.35), b(3.1, 0.95, F, 0.35, 2.3, 0.35),
       b(2, 0.95, F - 0.1, 1.9, 2, 0.1, a), b(3.2, -2.2, F, 0.2, 3.8, 0.2, c),
@@ -175,6 +234,22 @@ function backpack(variant: string | undefined, c: string, a: string, b: B): Shap
     case 'jetpack': return [
       b(-1.8, -5, Z, 3, 7.5, 3), b(1.8, -5, Z, 3, 7.5, 3), b(0, -3, Z + 0.5, 1.4, 3, 2, a),
       b(-1.8, -9.4, Z, 2, 1.4, 2, '#f97316', { glow: true }), b(1.8, -9.4, Z, 2, 1.4, 2, '#f97316', { glow: true }), ...straps,
+    ]
+    // Katana strapped diagonally across the back.
+    case 'katana': return [
+      b(0, -5, Z + 0.6, 1, 15, 1, a, { rz: 0.6 }), b(-2.6, -1.4, Z + 0.6, 0.9, 4, 0.9, '#1c1917', { rz: 0.6 }),
+      b(-1.4, -2.6, Z + 0.6, 2.6, 0.7, 1.2, c, { rz: 0.6 }), ...straps,
+    ]
+    // Quiver with arrows sticking out.
+    case 'quiver': return [
+      b(1.6, -5.5, Z, 3.4, 8, 3.4), b(1.6, -1.4, Z, 3.8, 1, 3.8, a),
+      ...[-0.8, 0, 0.8].map(o => b(1.6 + o, 1.6, Z + o * 0.4, 0.5, 5, 0.5, a)),
+      ...straps,
+    ]
+    // Boombox with two speakers.
+    case 'boombox': return [
+      b(0, -5, Z - 0.4, 9, 6, 3.4), b(-2.4, -5, Z - 2, 3, 3, 0.6, a), b(2.4, -5, Z - 2, 3, 3, 0.6, a),
+      b(0, -2.6, Z - 2, 4.4, 1, 0.6, a, { glow: true }), ...straps,
     ]
     case 'guitar': return [
       b(0.8, -8.5, BACK - 1, 5.5, 5, 1.4), b(-0.3, -3, BACK - 1, 1.2, 8, 1), b(-1, 1.4, BACK - 1, 2, 1.8, 1.2, a),
@@ -208,6 +283,23 @@ function wing(variant: string | undefined, c: string, a: string, b: B): ShapeBox
     ]
     case 'flame': return fan([15, 14, 12.5, 10.5, 8.5], 2.4, 0.55, 0.2, true)
     case 'shard': return fan([15, 12.5, 10], 1.8, 0.5, 0.3, true)
+    // Dragon: leathery panels between long ribs.
+    case 'dragon': return [
+      ...fan([16, 13.5, 11, 8.5], 0.9, 0.55, 0.3),
+      b(6.5, -2, 0.15, 12, 8, 0.3, a, { rz: 0.12 }),
+      b(7.6, 4.2, -0.1, 3, 1.2, 0.6, a, { rz: 0.5 }),
+    ]
+    // Phoenix: feathers of fire, all glowing, longest at the top.
+    case 'phoenix': return [
+      ...fan([16, 14, 12, 10, 8], 2.2, 0.6, 0.22, true),
+      b(4, 5.5, 0.2, 5, 1.4, 0.5, a, { rz: 0.7, glow: true }),
+    ]
+    // Fairy: two small round wings, faintly lit.
+    case 'fairy': return [
+      b(3.6, 2.6, 0, 7, 5.5, 0.35, c, { rz: 0.4, glow: true }),
+      b(3, -2.4, 0, 5.5, 4, 0.35, a, { rz: -0.35, glow: true }),
+      b(1.2, 0.2, 0, 1.2, 6, 0.5, a),
+    ]
     default: return fan([16, 15, 13.5, 11.5, 9.5, 7.5], 2.2, 0.6, 0.17)
   }
 }
