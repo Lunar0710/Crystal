@@ -7,7 +7,7 @@
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; overflow: hidden; user-select: none; }
   body {
-    background: #0d0f14; color: #e4e8f0;
+    background: #08080a; color: #f0f0f3;
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     height: 100vh; -webkit-app-region: drag;
@@ -16,41 +16,37 @@
   body.has-update .logo { animation: none; }
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .6; } }
   h1 { font-size: 16px; font-weight: 600; letter-spacing: .02em; margin-bottom: 20px; }
-  h1 .c { color: #a35bf5; }
-  .bar-track { width: 220px; height: 4px; background: #252b3a; border-radius: 999px; overflow: hidden; }
-  .bar-fill { height: 100%; width: 0%; background: linear-gradient(135deg, #5b8af5, #7c6af5); border-radius: 999px; transition: width .25s ease; }
-  .status { margin-top: 12px; font-size: 12px; color: #6b7280; text-align: center; max-width: 280px; }
+  h1 .c { color: #fff; }
+  .bar-track { width: 220px; height: 4px; background: #1c1c20; border-radius: 999px; overflow: hidden; }
+  .bar-fill { height: 100%; width: 0%; background: #fff; border-radius: 999px; transition: width .25s ease; }
+  .status { margin-top: 12px; font-size: 12px; color: #85858e; text-align: center; max-width: 280px; }
 
   .update { display: none; width: 260px; text-align: center; }
   body.has-update .update { display: block; }
   body.has-update .bar-track, body.has-update .status { display: none; }
   body.installing .update { display: none; }
   body.installing .bar-track, body.installing .status { display: block; }
-  .update p { font-size: 13px; color: #9aa3b5; margin-bottom: 4px; }
-  .update .ver { font-size: 12px; color: #6b7280; margin-bottom: 16px; font-variant-numeric: tabular-nums; }
-  .update .ver b { color: #e4e8f0; font-weight: 600; }
+  .update p { font-size: 13px; color: #b0b0b8; margin-bottom: 4px; }
+  .update .ver { font-size: 12px; color: #85858e; margin-bottom: 16px; font-variant-numeric: tabular-nums; }
+  .update .ver b { color: #f0f0f3; font-weight: 600; }
   .actions { display: flex; gap: 8px; -webkit-app-region: no-drag; }
   button {
     flex: 1; height: 32px; border-radius: 8px; border: 0; cursor: pointer;
     font: 600 12.5px 'Segoe UI', system-ui, sans-serif;
   }
-  button:focus-visible { outline: 2px solid #7c6af5; outline-offset: 2px; }
-  .primary { background: linear-gradient(135deg, #5b8af5, #7c6af5); color: #fff; }
-  .primary:hover { filter: brightness(1.08); }
-  .ghost { background: #1a1f2b; color: #b4bccc; box-shadow: inset 0 0 0 1px #2a3142; }
-  .ghost:hover { background: #222838; color: #e4e8f0; }
+  button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+  .primary { background: #fff; color: #08080a; }
+  .primary:hover { background: #d9d9de; }
+  .ghost { background: #141417; color: #b0b0b8; box-shadow: inset 0 0 0 1px #2a2a2f; }
+  .ghost:hover { background: #1c1c20; color: #f0f0f3; }
 </style>
 </head>
 <body>
   <svg class="logo" width="56" height="56" viewBox="0 0 100 100">
-    <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5b8af5"/><stop offset="1" stop-color="#7c6af5"/></linearGradient></defs>
-    <polygon points="50,6 88,28 88,72 50,94 12,72 12,28" fill="none" stroke="url(#g)" stroke-width="4"/>
-    <polygon points="50,6 88,28 50,50" fill="url(#g)" opacity=".85"/>
-    <polygon points="50,50 88,72 50,94" fill="url(#g)" opacity=".45"/>
-    <polygon points="50,50 50,94 12,72" fill="url(#g)" opacity=".65"/>
-    <polygon points="12,28 50,6 50,50" fill="url(#g)" opacity=".3"/>
+    <path fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" d="M82.6 34.8 A36 36 0 1 1 65.2 17.4"/>
+    <path fill="#fff" d="M30 30 L30 70 L40 70 L40 48 L60 70 L70 70 L70 30 L60 30 L60 52 L40 30 Z M75.5 11.5 L79.5 20.5 L88.5 24.5 L79.5 28.5 L75.5 37.5 L71.5 28.5 L62.5 24.5 L71.5 20.5 Z"/>
   </svg>
-  <h1><span class="c">C</span>rystal Launcher</h1>
+  <h1>Nexora Launcher</h1>
 
   <div class="update" id="update">
     <p>Ein Update ist da</p>

@@ -1,11 +1,11 @@
-; Crystal colours for the installer's header strip and welcome/finish pages.
-!define MUI_BGCOLOR "0D0F14"
-!define MUI_TEXTCOLOR "E4E8F0"
+; Nexora colours for the installer's header strip and welcome/finish pages.
+!define MUI_BGCOLOR "08080A"
+!define MUI_TEXTCOLOR "F0F0F3"
 
 ; Replaces electron-builder's default "is the app still running" check.
 ; That default force-kills too (see allowOnlyOneInstallerInstance.nsh,
 ; _CHECK_APP_RUNNING), but gives up after ~2 retries (a few seconds) and then
-; makes the player close Crystal by hand — "Crystal Launcher kann nicht
+; makes the player close the launcher by hand — "Nexora Launcher kann nicht
 ; geschlossen werden". An Electron app can take a moment longer to actually
 ; exit (GPU process, a game instance still shutting down), so this keeps
 ; force-killing by image name — never the installer's own process, which has
@@ -13,7 +13,7 @@
 ; and if it's still somehow found after that, proceeds anyway rather than
 ; blocking the whole update on it.
 !macro customCheckAppRunning
-  DetailPrint "Closing running Crystal Launcher..."
+  DetailPrint "Nexora Launcher wird beendet..."
   StrCpy $R2 0
   crystal_close_loop:
     nsExec::Exec 'taskkill /F /IM "${APP_EXECUTABLE_FILENAME}"'

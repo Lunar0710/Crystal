@@ -82,7 +82,10 @@ public class CrystalTitleScreen extends Screen {
 
     @Override
     public void renderBackground(GuiGraphics context, int mouseX, int mouseY, float delta) {
-        NexoraBackground.draw(context, width, height);
+        // Minecraft's own panorama, darkened: the menu sits in the game rather
+        // than on a surface of its own.
+        renderPanorama(context, delta);
+        NexoraBackground.shade(context, width, height);
     }
 
     @Override

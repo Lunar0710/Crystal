@@ -24,7 +24,10 @@ import dev.crystal.client.compat.InventoryCompat;
 public final class SmokeTest {
 
     private static final String PROPERTY = "crystal.smoke.screenshot";
+    /** Set instead of loading a world: photograph the main menu and quit. */
+    private static final String MENU_ONLY = "crystal.smoke.menu";
     private static int worldTicks = 0;
+    private static int menuTicks = 0;
 
     private SmokeTest() {}
 
@@ -36,7 +39,33 @@ public final class SmokeTest {
     }
 
     private static void tick(Minecraft mc, String screenshotName) {
-        if (mc.level == null || mc.player == null) return;
+        // The main menu is the one screen that shows the panorama behind
+        // Nexora's own. The world test starts straight in a world and never
+        // sees it, so it gets a run of its own: launched without a world, this
+        // waits for the menu, photographs it and quits.
+        if (mc.level == null) {
+            if (System.getProperty(MENU_ONLY) == null) return;
+            // Ticks run through the loading screens too, so count only the ones
+            // where a menu is actually up: the loading overlay is gone and a
+            // screen is showing.
+            if (mc.getOverlay() != null || mc.screen == null) {
+                menuTicks = 0;
+                return;
+            }
+            menuTicks++;
+            String base = screenshotName.endsWith(".png")
+                    ? screenshotName.substring(0, screenshotName.length() - 4) : screenshotName;
+            if (menuTicks == 60) {
+                Screenshot.grab(mc.gameDirectory, base + "-mainmenu.png", mc.getMainRenderTarget(), 1,
+                        msg -> CrystalClient.LOGGER.info("[Nexora] Smoke screenshot: {}", msg.getString()));
+            }
+            if (menuTicks >= 90) {
+                CrystalClient.LOGGER.info("CRYSTAL_SMOKE_WORLD_DONE");
+                mc.stop();
+            }
+            return;
+        }
+        if (mc.player == null) return;
         worldTicks++;
 
         if (worldTicks == 40) {
@@ -223,7 +252,8 @@ public final class SmokeTest {
         if (!finished && uiShotsDone && worldTicks > Math.max(peerTest ? 355 : 325, BUILDER_SHOT_TICK)
                 && cullingResult != null && builderResult != null) {
             finished = true;
-            CrystalClient.LOGGER.info("CRYSTAL_SMOKE_WORLD_DONE");
+            // Out to the menu first: the run ends there, with the panorama shot
+            // taken, and quits from the tick above.
             mc.stop();
         }
     }

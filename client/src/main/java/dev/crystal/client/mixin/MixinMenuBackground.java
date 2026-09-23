@@ -12,8 +12,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * Every vanilla menu outside a world (options, worlds, servers, resource packs)
- * paints the dirt texture behind itself. With Nexora's menu on, they get
- * Nexora's backdrop instead, so the whole game looks of a piece.
+ * paints the dirt texture behind itself, and only the title screen gets the
+ * panorama. With Nexora's menu on they all keep the panorama, darkened, so the
+ * game stays the picture behind the client instead of a flat colour.
  *
  * Inside a world nothing changes: menus there blur the world, which is what
  * players expect while playing.
@@ -21,8 +22,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(Screen.class)
 public class MixinMenuBackground {
 
-    @Inject(method = "renderMenuBackground(Lnet/minecraft/client/gui/GuiGraphics;)V", at = @At("HEAD"), cancellable = true, require = 0)
-    private void crystal$nexoraBackground(GuiGraphics ctx, CallbackInfo ci) {
+    @Inject(method = "renderBackground(Lnet/minecraft/client/gui/GuiGraphics;IIF)V", at = @At("HEAD"), cancellable = true, require = 0)
+    private void crystal$nexoraBackground(GuiGraphics ctx, int mouseX, int mouseY, float delta, CallbackInfo ci) {
         if (CrystalClient.getInstance() == null) return;
         Minecraft mc = Minecraft.getInstance();
         if (mc.level != null) return;
@@ -31,7 +32,7 @@ public class MixinMenuBackground {
         if (menu == null || !menu.isEnabled()) return;
 
         Screen screen = (Screen) (Object) this;
-        NexoraBackground.draw(ctx, screen.width, screen.height);
+        NexoraBackground.draw(screen, ctx, screen.width, screen.height, delta);
         ci.cancel();
     }
 
