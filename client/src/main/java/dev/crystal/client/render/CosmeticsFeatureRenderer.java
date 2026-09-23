@@ -117,15 +117,69 @@ public class CosmeticsFeatureRenderer extends RenderLayer<AvatarRenderState, Pla
     private static void renderAura(PoseStack matrices, SubmitNodeCollector queue, RenderType layer, Item aura, float age) {
         matrices.pushPose();
         matrices.scale(1 / 16f, 1 / 16f, 1 / 16f);
-        int count = 14;
-        List<Box> boxes = new java.util.ArrayList<>(count * 2);
+        // Every style moves differently, otherwise each aura is just a recolour
+        // of the same ring. Preview space (y up); the feet are at y = -20.
+        int count = switch (aura.variant()) {
+            case "storm", "sphere" -> 18;
+            case "ring" -> 20;
+            default -> 14;
+        };
+        List<Box> boxes = new java.util.ArrayList<>(count);
         for (int i = 0; i < count; i++) {
-            float a = age * 0.05f + (float) (i * Math.PI * 2 / count);
-            float bob = Mth.sin(age * 0.09f + i * 0.9f) * 1.6f;
-            float r = 11f + Mth.sin(age * 0.04f + i) * 1.2f;
-            // Stored in preview space (y up) because submit() converts; feet are at y = -20 from the neck.
-            boxes.add(new Box(Mth.cos(a) * r, -18f + bob + (i % 3) * 2.5f, Mth.sin(a) * r, 1.3f, 1.3f, 1.3f, 0f,
-                    i % 2 == 0 ? aura.color() : aura.secondary(), true));
+            float phase = (float) (i * Math.PI * 2 / count);
+            float colorFlip = i % 2 == 0 ? 0 : 1;
+            int color = colorFlip == 0 ? aura.color() : aura.secondary();
+            switch (aura.variant()) {
+                // A flat circle on the ground, turning slowly.
+                case "ring" -> {
+                    float a = age * 0.03f + phase;
+                    float r = 12f;
+                    boxes.add(new Box(Mth.cos(a) * r, -19.5f, Mth.sin(a) * r, 2.2f, 0.5f, 2.2f, a, color, true));
+                }
+                // Sparks climbing from the feet, restarting at the top.
+                case "rising" -> {
+                    float climb = (age * 0.35f + i * 3.1f) % 26f;
+                    float a = phase + climb * 0.12f;
+                    float r = 7f - climb * 0.12f;
+                    boxes.add(new Box(Mth.cos(a) * r, -20f + climb, Mth.sin(a) * r, 1.2f, 1.2f, 1.2f, 0f, color, true));
+                }
+                // Flakes drifting down and sideways.
+                case "snow" -> {
+                    float fall = (age * 0.22f + i * 2.7f) % 24f;
+                    float a = phase + Mth.sin(age * 0.03f + i) * 0.4f;
+                    float r = 9f + Mth.sin(age * 0.05f + i * 1.7f) * 2.5f;
+                    boxes.add(new Box(Mth.cos(a) * r, 2f - fall, Mth.sin(a) * r, 1f, 1f, 1f, 0f, color, true));
+                }
+                // Petals turning around the body, tilted and flat.
+                case "petals" -> {
+                    float a = age * 0.045f + phase;
+                    float r = 10f + Mth.sin(age * 0.05f + i * 2f) * 2f;
+                    boxes.add(new Box(Mth.cos(a) * r, -16f + Mth.sin(age * 0.06f + i) * 5f, Mth.sin(a) * r,
+                            2.4f, 0.4f, 1.6f, a * 2f, color, true));
+                }
+                // A shell of sparks all around, slowly rolling.
+                case "sphere" -> {
+                    float t = phase + age * 0.02f;
+                    float y = Mth.cos(t * 1.7f + i) * 9f;
+                    float r = Mth.sqrt(Math.max(0.5f, 81f - y * y));
+                    float a = t * 2.3f;
+                    boxes.add(new Box(Mth.cos(a) * r, -10f + y, Mth.sin(a) * r, 1.1f, 1.1f, 1.1f, 0f, color, true));
+                }
+                // Fast, jittery, two heights: a storm.
+                case "storm" -> {
+                    float a = age * 0.11f + phase;
+                    float r = 8f + (i % 3) * 2.5f + Mth.sin(age * 0.3f + i) * 1.5f;
+                    float y = -18f + (i % 4) * 5f + Mth.sin(age * 0.25f + i * 2f) * 2f;
+                    boxes.add(new Box(Mth.cos(a) * r, y, Mth.sin(a) * r, 0.9f, 2.4f, 0.9f, 0f, color, true));
+                }
+                // The classic ring around the legs.
+                default -> {
+                    float a = age * 0.05f + phase;
+                    float bob = Mth.sin(age * 0.09f + i * 0.9f) * 1.6f;
+                    float r = 11f + Mth.sin(age * 0.04f + i) * 1.2f;
+                    boxes.add(new Box(Mth.cos(a) * r, -18f + bob + (i % 3) * 2.5f, Mth.sin(a) * r, 1.3f, 1.3f, 1.3f, 0f, color, true));
+                }
+            }
         }
         submit(matrices, queue, layer, GLOW_LIGHT, boxes, 1);
         matrices.popPose();
