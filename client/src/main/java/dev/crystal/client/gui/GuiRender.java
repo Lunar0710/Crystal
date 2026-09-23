@@ -178,12 +178,14 @@ public final class GuiRender {
         float bar = Math.max(1.5f, size * 0.1f);
         ctx.fill(Math.round(cx - half), Math.round(cy - half), Math.round(cx - half + bar), Math.round(cy + half), color);
         ctx.fill(Math.round(cx + half - bar), Math.round(cy - half), Math.round(cx + half), Math.round(cy + half), color);
-        int steps = Math.max(4, Math.round(size / 2));
-        for (int i = 0; i <= steps; i++) {
-            float f = i / (float) steps;
+        // One slice per row instead of squares along the line: the squares
+        // overlap, and where the colour is see-through those overlaps stack into
+        // a bright streak, which is what the watermark showed.
+        int top = Math.round(cy - half), bottom = Math.round(cy + half);
+        for (int y = top; y < bottom; y++) {
+            float f = (y - (cy - half)) / Math.max(1f, 2 * half);
             float x = cx - half + f * (2 * half - bar);
-            float y = cy - half + f * (2 * half - bar);
-            ctx.fill(Math.round(x), Math.round(y), Math.round(x + bar), Math.round(y + bar), color);
+            ctx.fill(Math.round(x), y, Math.round(x + bar), y + 1, color);
         }
         // Spark in the gap: a small four pointed star.
         float sx = cx + r * 0.75f, sy = cy - r * 0.75f;

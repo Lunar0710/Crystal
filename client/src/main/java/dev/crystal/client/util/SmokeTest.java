@@ -194,8 +194,33 @@ public final class SmokeTest {
                     msg -> CrystalClient.LOGGER.info("[Nexora] Smoke screenshot: {}", msg.getString()));
         }
 
+        // The vanilla screens behind the menu - options and the server list -
+        // for a look at the skin Nexora gives their buttons and lists. They run
+        // once the building is over, so they hold up nothing and collide with
+        // no other check, whichever of them this run does.
+        if (builderResult != null && !uiShotsDone) {
+            if (uiShotsStart == 0) uiShotsStart = worldTicks;
+            int since = worldTicks - uiShotsStart;
+            if (since == 2) {
+                mc.setScreen(new net.minecraft.client.gui.screens.options.OptionsScreen(null, mc.options/*? if >=26 {*//*, false*//*?}*/));
+            }
+            if (since == 12) {
+                Screenshot.grab(mc.gameDirectory, base + "-options.png", mc.getMainRenderTarget(), 1,
+                        msg -> CrystalClient.LOGGER.info("[Nexora] Smoke screenshot: {}", msg.getString()));
+            }
+            if (since == 14) mc.setScreen(new net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen(null));
+            if (since == 24) {
+                Screenshot.grab(mc.gameDirectory, base + "-servers.png", mc.getMainRenderTarget(), 1,
+                        msg -> CrystalClient.LOGGER.info("[Nexora] Smoke screenshot: {}", msg.getString()));
+            }
+            if (since >= 27) {
+                mc.setScreen(null);
+                uiShotsDone = true;
+            }
+        }
+
         // Done once every check has an answer and the last screenshot is taken.
-        if (!finished && worldTicks > Math.max(peerTest ? 355 : 325, BUILDER_SHOT_TICK)
+        if (!finished && uiShotsDone && worldTicks > Math.max(peerTest ? 355 : 325, BUILDER_SHOT_TICK)
                 && cullingResult != null && builderResult != null) {
             finished = true;
             CrystalClient.LOGGER.info("CRYSTAL_SMOKE_WORLD_DONE");
@@ -207,6 +232,8 @@ public final class SmokeTest {
     private static final int CULLING_DEADLINE = 280;
     private static Boolean cullingResult = null;
     private static boolean finished = false;
+    private static int uiShotsStart = 0;
+    private static boolean uiShotsDone = false;
 
     /** The test peer's id: the test server derives it from the name (FAKE_AUTH in server.js). */
     private static final java.util.UUID PEER_UUID = fakeUuid("PeerBot");

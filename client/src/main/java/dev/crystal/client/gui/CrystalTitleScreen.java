@@ -147,7 +147,8 @@ public class CrystalTitleScreen extends Screen {
             context.drawString(font, tag, tx, height - 12, GuiRender.withAlpha(accent, alpha), false);
         }
         String version = "Nexora " + CrystalClient.DISPLAY_VERSION + "  Minecraft 1.21.11";
-        context.drawString(font, Component.literal(version), width - font.width(version) - 6, height - 12,
+        // A row above the bottom: Minecraft's copyright line sits in that corner.
+        context.drawString(font, Component.literal(version), width - font.width(version) - 6, height - 22,
                 GuiRender.withAlpha(0xFF8A93A3, alpha), true);
     }
 

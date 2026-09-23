@@ -34,4 +34,25 @@ public class MixinMenuBackground {
         NexoraBackground.draw(ctx, screen.width, screen.height);
         ci.cancel();
     }
+
+    /**
+     * Inside a world the blurred view behind a menu can be bright enough that
+     * Nexora's rows wash out in it, so it gets a dim layer under them. The
+     * screens that show the player's items keep vanilla's own dimming: they are
+     * read against the world, not over it.
+     */
+    @Inject(method = "renderBackground(Lnet/minecraft/client/gui/GuiGraphics;IIF)V", at = @At("TAIL"), require = 0)
+    private void crystal$dimWorld(GuiGraphics ctx, int mouseX, int mouseY, float delta, CallbackInfo ci) {
+        if (CrystalClient.getInstance() == null) return;
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level == null) return;
+
+        Screen screen = (Screen) (Object) this;
+        if (screen instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen) return;
+
+        var menu = CrystalClient.getInstance().getModuleManager().get(dev.crystal.client.module.misc.CustomMainMenu.class);
+        if (menu == null || !menu.isEnabled()) return;
+
+        ctx.fill(0, 0, screen.width, screen.height, 0x99000000);
+    }
 }
