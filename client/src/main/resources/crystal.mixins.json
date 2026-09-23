@@ -5,6 +5,8 @@
   "client": [
     "MixinMinecraftClient",
     "MixinScreenHost",
+    "MixinMenuBackground",
+    "MixinButtonSkin",
     "MixinLevelRendererLegacy",
     "KeyMappingAccessor",
     "MixinClientClockManager",

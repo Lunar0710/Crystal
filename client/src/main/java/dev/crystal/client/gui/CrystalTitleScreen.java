@@ -82,10 +82,7 @@ public class CrystalTitleScreen extends Screen {
 
     @Override
     public void renderBackground(GuiGraphics context, int mouseX, int mouseY, float delta) {
-        renderPanorama(context, delta);
-        // Darken towards the centre column so text stays readable on any panorama.
-        context.fillGradient(0, 0, width, height / 2, 0x55000000, 0x88000000);
-        context.fillGradient(0, height / 2, width, height, 0x88000000, 0xAA000000);
+        NexoraBackground.draw(context, width, height);
     }
 
     @Override
@@ -98,15 +95,14 @@ public class CrystalTitleScreen extends Screen {
         float appear = Math.min(1f, (System.currentTimeMillis() - openedAt) / 350f);
         int alpha = Math.round(255 * appear);
 
-        // One panel holds the mark, the name and the buttons, like a card on the
-        // panorama, instead of loose buttons floating over it.
+        // No card around the menu: the rows sit on the backdrop, with only a
+        // soft shadow behind the column so they stay readable.
         if (!buttons.isEmpty()) {
             MenuButton first = buttons.get(0), last = buttons.get(buttons.size() - 1);
-            int pad = 14;
-            int px1 = first.x - pad, px2 = first.x + BUTTON_W + pad;
-            int py1 = first.y - 62, py2 = last.y + BUTTON_H + pad;
-            GuiRender.roundedRect(context, px1, py1, px2, py2, 10, GuiRender.withAlpha(0xC00C0D11, Math.round(0xC0 * appear)));
-            GuiRender.roundedOutline(context, px1, py1, px2, py2, 10, GuiRender.withAlpha(0x33FFFFFF, Math.round(0x33 * appear)));
+            int cx1 = first.x - 40, cx2 = first.x + BUTTON_W + 40;
+            int top = first.y - 70, bottom = last.y + 30;
+            context.fillGradient(cx1, top, cx2, (top + bottom) / 2, 0x00000000, GuiRender.withAlpha(0x55000000, Math.round(0x55 * appear)));
+            context.fillGradient(cx1, (top + bottom) / 2, cx2, bottom, GuiRender.withAlpha(0x55000000, Math.round(0x55 * appear)), 0x00000000);
         }
 
         drawLogo(context, accent, alpha);
@@ -190,9 +186,7 @@ public class CrystalTitleScreen extends Screen {
         float left = (width - totalWidth) / 2f;
         float centreY = height / 2f - 6 - 34;
 
-        // Nexora+ gets a slowly drifting hue instead of the fixed accent.
-        int markColor = CrystalProfile.hasPerks() ? ColorUtil.rainbow(0.6f) : 0xFFFFFFFF;
-        GuiRender.nexoraMark(context, left + markSize / 2f, centreY, markSize, GuiRender.withAlpha(markColor, alpha));
+        GuiRender.nexoraMark(context, left + markSize / 2f, centreY, markSize, GuiRender.withAlpha(0xFFFFFFFF, alpha));
 
         context.pose().pushMatrix();
         context.pose().translate(left + markSize + gap, centreY - 8 * scale / 2f - 2);

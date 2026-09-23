@@ -76,11 +76,11 @@ public class NexoraPauseScreen extends Screen {
         int alpha = Math.round(255 * appear);
 
         Row first = rows.get(0), last = rows.get(rows.size() - 1);
-        int pad = 14;
-        int px1 = first.x - pad, px2 = first.x + ROW_W + pad;
-        int py1 = first.y - 44, py2 = last.y + last.h + pad;
-        GuiRender.roundedRect(context, px1, py1, px2, py2, 10, GuiRender.withAlpha(0xC00C0D11, Math.round(0xC0 * appear)));
-        GuiRender.roundedOutline(context, px1, py1, px2, py2, 10, GuiRender.withAlpha(0x33FFFFFF, Math.round(0x33 * appear)));
+        int py1 = first.y - 44;
+        // A soft shadow behind the column instead of a box around it.
+        int cx1 = first.x - 40, cx2 = first.x + ROW_W + 40, bottom = last.y + 26;
+        context.fillGradient(cx1, py1 - 16, cx2, (py1 + bottom) / 2, 0x00000000, GuiRender.withAlpha(0x66000000, Math.round(0x66 * appear)));
+        context.fillGradient(cx1, (py1 + bottom) / 2, cx2, bottom, GuiRender.withAlpha(0x66000000, Math.round(0x66 * appear)), 0x00000000);
 
         // Mark and name, smaller than on the main menu.
         String name = "NEXORA";
