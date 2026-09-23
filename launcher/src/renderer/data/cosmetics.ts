@@ -126,6 +126,10 @@ const AURAS: CosmeticDef[] = [
   { id: 'au-hearts',  name: 'Herzen',   slot: 'aura', color: '#f43f5e', variant: 'orbit', requiredRank: 'crystal_plus' },
   { id: 'au-stars',   name: 'Sterne',   slot: 'aura', color: '#fde047', variant: 'sphere', requiredRank: 'crystal_plus' },
   { id: 'au-spark',   name: 'Funken',   slot: 'aura', color: '#22d3ee', requiredRank: 'crystal_plus', variant: 'storm' },
+  { id: 'au-bubbles', name: 'Blasen',    slot: 'aura', color: '#67e8f9', secondary: '#a5f3fc', variant: 'bubbles', requiredRank: 'crystal_plus' },
+  { id: 'au-bolts',   name: 'Blitze',    slot: 'aura', color: '#fde047', secondary: '#f8fafc', variant: 'bolts', requiredRank: 'crystal_plus' },
+  { id: 'au-notes',   name: 'Noten',     slot: 'aura', color: '#f0abfc', secondary: '#c084fc', variant: 'notes', requiredRank: 'crystal_plus' },
+  { id: 'au-leaves',  name: 'Blätter',   slot: 'aura', color: '#86efac', secondary: '#65a30d', variant: 'leaves', requiredRank: 'crystal_plus' },
 ]
 
 export type NonCapeSlot = Exclude<CosmeticSlot, 'cape'>

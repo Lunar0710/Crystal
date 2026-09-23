@@ -35,6 +35,16 @@ public class MixinScreenHost {
         if (CrystalClient.getInstance() == null) return;
         Minecraft mc = Minecraft.getInstance();
 
+        // The pause menu gets the same treatment as the title screen.
+        if (screen instanceof net.minecraft.client.gui.screens.PauseScreen pause && pause.showsPauseMenu()) {
+            var custom = CrystalClient.getInstance().getModuleManager().get(dev.crystal.client.module.misc.CustomMainMenu.class);
+            if (custom != null && custom.isEnabled()) {
+                ci.cancel();
+                mc.setScreen(new dev.crystal.client.gui.NexoraPauseScreen());
+                return;
+            }
+        }
+
         boolean toTitle = screen instanceof TitleScreen
                 || (screen == null && mc.level == null && !clientLevelTeardownInProgress);
         if (!toTitle) return;

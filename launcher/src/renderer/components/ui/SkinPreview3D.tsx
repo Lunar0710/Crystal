@@ -79,7 +79,7 @@ export function SkinPreview3D({
         const positions = points.geometry.getAttribute('position') as THREE.BufferAttribute
         const phases = (points.userData.phases as number[]) || []
 
-        points.rotation.y = t * (variant === 'ring' ? 1.4 : variant === 'storm' ? 0.9 : 0.5)
+        points.rotation.y = t * (variant === 'ring' ? 1.4 : variant === 'storm' || variant === 'bolts' ? 0.9 : variant === 'leaves' ? 0.7 : 0.5)
 
         for (let i = 0; i < positions.count; i++) {
           const base = phases[i]
@@ -98,6 +98,22 @@ export function SkinPreview3D({
               break
             case 'sphere':
               y = base
+              break
+            // Bubbles rise slowly and wobble.
+            case 'bubbles':
+              y = ((base + t * 3.2 + i) % 24) - 18 + Math.sin(t * 3 + i) * 0.5
+              break
+            // Bolts flicker in place at two heights.
+            case 'bolts':
+              y = base + (Math.sin(t * 9 + i * 3) > 0.6 ? 1.6 : 0)
+              break
+            // Notes float up and sway.
+            case 'notes':
+              y = ((base + t * 4 + i) % 22) - 14
+              break
+            // Leaves spiral down.
+            case 'leaves':
+              y = 8 - (((8 - base) + t * 2.4 + i) % 24)
               break
             default:
               y = base + Math.sin(t * 1.6 + i) * 1.4

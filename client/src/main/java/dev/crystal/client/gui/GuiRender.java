@@ -155,4 +155,40 @@ public final class GuiRender {
     private static int channel(int color, int shift) {
         return (color >> shift) & 0xFF;
     }
+/**
+     * The Nexora mark: a ring with a gap, the N inside it and the spark sitting
+     * in the gap. Drawn from rectangles so it needs no texture and takes the
+     * theme's colour, at any size ({@code size} is the width of the whole mark).
+     */
+    public static void nexoraMark(GuiGraphics ctx, float cx, float cy, float size, int color) {
+        float r = size * 0.38f;
+        float thick = Math.max(1f, size * 0.075f);
+        // Ring: short segments around the circle, with a gap at the top right for the spark.
+        for (int i = 0; i < 96; i++) {
+            double t = i / 96.0 * Math.PI * 2;
+            double degrees = Math.toDegrees(t);
+            if (degrees > 295 || degrees < 25) continue; // the gap (screen y grows downwards)
+            float x = cx + (float) Math.cos(t) * r;
+            float y = cy + (float) Math.sin(t) * r;
+            ctx.fill(Math.round(x - thick / 2), Math.round(y - thick / 2),
+                    Math.round(x + thick / 2), Math.round(y + thick / 2), color);
+        }
+        // N: two uprights and the diagonal between them.
+        float half = size * 0.19f;
+        float bar = Math.max(1.5f, size * 0.1f);
+        ctx.fill(Math.round(cx - half), Math.round(cy - half), Math.round(cx - half + bar), Math.round(cy + half), color);
+        ctx.fill(Math.round(cx + half - bar), Math.round(cy - half), Math.round(cx + half), Math.round(cy + half), color);
+        int steps = Math.max(4, Math.round(size / 2));
+        for (int i = 0; i <= steps; i++) {
+            float f = i / (float) steps;
+            float x = cx - half + f * (2 * half - bar);
+            float y = cy - half + f * (2 * half - bar);
+            ctx.fill(Math.round(x), Math.round(y), Math.round(x + bar), Math.round(y + bar), color);
+        }
+        // Spark in the gap: a small four pointed star.
+        float sx = cx + r * 0.75f, sy = cy - r * 0.75f;
+        float arm = size * 0.11f, waist = Math.max(1f, size * 0.03f);
+        ctx.fill(Math.round(sx - waist / 2), Math.round(sy - arm), Math.round(sx + waist / 2), Math.round(sy + arm), color);
+        ctx.fill(Math.round(sx - arm), Math.round(sy - waist / 2), Math.round(sx + arm), Math.round(sy + waist / 2), color);
+    }
 }

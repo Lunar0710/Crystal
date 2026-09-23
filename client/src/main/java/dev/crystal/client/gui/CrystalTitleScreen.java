@@ -28,11 +28,17 @@ import net.minecraft.network.chat.Component;
  */
 public class CrystalTitleScreen extends Screen {
 
-    private static final int BUTTON_W = 204;
-    private static final int BUTTON_H = 22;
-    private static final int GAP = 5;
+    private static final int BUTTON_W = 176;
+    private static final int BUTTON_H = 20;
+    private static final int GAP = 3;
 
-    private record MenuButton(int x, int y, int w, int h, Component label, Runnable action, boolean danger) {
+    /** The little drawing in front of a label. */
+    private enum Icon { SINGLE, MULTI, OPTIONS, MARK, NONE }
+
+    private record MenuButton(int x, int y, int w, int h, Component label, Runnable action, boolean danger, Icon icon, boolean primary) {
+        MenuButton(int x, int y, int w, int h, Component label, Runnable action, boolean danger) {
+            this(x, y, w, h, label, action, danger, Icon.NONE, false);
+        }
         boolean contains(double mx, double my) {
             return mx >= x && mx < x + w && my >= y && my < y + h;
         }
@@ -51,23 +57,21 @@ public class CrystalTitleScreen extends Screen {
         buttons.clear();
 
         int x = (width - BUTTON_W) / 2;
-        int y = height / 2 - 6;
+        int y = height / 2 - 26;
         int step = BUTTON_H + GAP;
 
         buttons.add(new MenuButton(x, y, BUTTON_W, BUTTON_H, Component.translatable("menu.singleplayer"),
-                () -> minecraft.setScreen(new SelectWorldScreen(this)), false));
+                () -> minecraft.setScreen(new SelectWorldScreen(this)), false, Icon.SINGLE, false));
         buttons.add(new MenuButton(x, y + step, BUTTON_W, BUTTON_H, Component.translatable("menu.multiplayer"),
-                () -> minecraft.setScreen(new JoinMultiplayerScreen(this)), false));
-
-        // Options and the Nexora menu share a row: wide button plus a square one.
-        int square = BUTTON_H;
-        buttons.add(new MenuButton(x, y + step * 2, BUTTON_W - square - GAP, BUTTON_H, Component.translatable("menu.options"),
-                () -> minecraft.setScreen(new OptionsScreen(this, minecraft.options/*? if >=26 {*//*, false*//*?}*/)), false));
-        buttons.add(new MenuButton(x + BUTTON_W - square, y + step * 2, square, BUTTON_H, Component.literal("C"),
-                () -> minecraft.setScreen(new CrystalClientScreen()), false));
-
-        buttons.add(new MenuButton(x, y + step * 3 + 8, BUTTON_W, BUTTON_H, Component.translatable("menu.quit"),
-                minecraft::stop, true));
+                () -> minecraft.setScreen(new JoinMultiplayerScreen(this)), false, Icon.MULTI, false));
+        buttons.add(new MenuButton(x, y + step * 2, BUTTON_W, BUTTON_H, Component.translatable("menu.options"),
+                () -> minecraft.setScreen(new OptionsScreen(this, minecraft.options/*? if >=26 {*//*, false*//*?}*/)), false, Icon.OPTIONS, false));
+        // The way into Nexora itself gets the filled row, like a store button.
+        buttons.add(new MenuButton(x, y + step * 3 + 4, BUTTON_W, BUTTON_H, Component.literal("Nexora-Menü"),
+                () -> minecraft.setScreen(new CrystalClientScreen()), false, Icon.MARK, true));
+        // Quit is plain red text under the panel, not a button.
+        buttons.add(new MenuButton(x, y + step * 4 + 18, BUTTON_W, 11, Component.translatable("menu.quit"),
+                minecraft::stop, true, Icon.NONE, false));
     }
 
     @Override
@@ -94,20 +98,46 @@ public class CrystalTitleScreen extends Screen {
         float appear = Math.min(1f, (System.currentTimeMillis() - openedAt) / 350f);
         int alpha = Math.round(255 * appear);
 
+        // One panel holds the mark, the name and the buttons, like a card on the
+        // panorama, instead of loose buttons floating over it.
+        if (!buttons.isEmpty()) {
+            MenuButton first = buttons.get(0), last = buttons.get(buttons.size() - 1);
+            int pad = 14;
+            int px1 = first.x - pad, px2 = first.x + BUTTON_W + pad;
+            int py1 = first.y - 62, py2 = last.y + BUTTON_H + pad;
+            GuiRender.roundedRect(context, px1, py1, px2, py2, 10, GuiRender.withAlpha(0xC00C0D11, Math.round(0xC0 * appear)));
+            GuiRender.roundedOutline(context, px1, py1, px2, py2, 10, GuiRender.withAlpha(0x33FFFFFF, Math.round(0x33 * appear)));
+        }
+
         drawLogo(context, accent, alpha);
 
         for (MenuButton b : buttons) {
             boolean hover = b.contains(mouseX, mouseY);
-            int fill = hover ? 0xE02A2F3C : 0xC01B1F29;
-            GuiRender.roundedRect(context, b.x, b.y, b.x + b.w, b.y + b.h, GuiRender.withAlpha(fill, Math.round(((fill >>> 24) & 0xFF) * appear)));
 
-            int outline = b.danger && hover ? 0xFFEF4444 : hover ? accent : 0x40FFFFFF;
-            GuiRender.roundedOutline(context, b.x, b.y, b.x + b.w, b.y + b.h, GuiRender.withAlpha(outline, Math.round(((outline >>> 24) & 0xFF) * appear)));
+            // Quit is plain text under the panel.
+            if (b.danger) {
+                int quitColor = hover ? 0xFFF87171 : 0xFFB94A4A;
+                int qw = font.width(b.label);
+                context.drawString(font, b.label, b.x + (b.w - qw) / 2, b.y + 2, GuiRender.withAlpha(quitColor, alpha), false);
+                continue;
+            }
 
-            int textColor = b.danger && hover ? 0xFFFCA5A5 : hover ? 0xFFFFFFFF : 0xFFD7DCE5;
-            int tw = font.width(b.label);
-            context.drawString(font, b.label, b.x + (b.w - tw) / 2, b.y + (b.h - 8) / 2,
-                    GuiRender.withAlpha(textColor, alpha), true);
+            if (b.primary) {
+                int fill = hover ? GuiRender.blend(accent, 0xFFFFFFFF, 0.15f) : accent;
+                GuiRender.roundedRect(context, b.x, b.y, b.x + b.w, b.y + b.h, 4, GuiRender.withAlpha(fill, alpha));
+            } else {
+                int fill = hover ? 0x2EFFFFFF : 0x14FFFFFF;
+                GuiRender.roundedRect(context, b.x, b.y, b.x + b.w, b.y + b.h, 4,
+                        GuiRender.withAlpha(fill, Math.round(((fill >>> 24) & 0xFF) * appear)));
+            }
+
+            // Icon in its own column on the left, label next to it.
+            int iconX = b.x + 11, iconY = b.y + b.h / 2;
+            int iconColor = b.primary ? 0xFF0C0D11 : hover ? 0xFFFFFFFF : 0xFFBFC6D2;
+            drawIcon(context, b.icon, iconX, iconY, GuiRender.withAlpha(iconColor, alpha), accent);
+
+            int textColor = b.primary ? 0xFF0C0D11 : hover ? 0xFFFFFFFF : 0xFFD7DCE5;
+            context.drawString(font, b.label, b.x + 24, b.y + (b.h - 8) / 2, GuiRender.withAlpha(textColor, alpha), false);
         }
 
         String account = minecraft.getUser() != null ? minecraft.getUser().getName() : "";
@@ -125,27 +155,56 @@ public class CrystalTitleScreen extends Screen {
                 GuiRender.withAlpha(0xFF8A93A3, alpha), true);
     }
 
+    /** The small drawings in front of the labels, built from rectangles. */
+    private void drawIcon(GuiGraphics context, Icon icon, int cx, int cy, int color, int accent) {
+        switch (icon) {
+            case SINGLE -> {
+                context.fill(cx - 2, cy - 4, cx + 2, cy, color);
+                context.fill(cx - 3, cy + 1, cx + 3, cy + 4, color);
+            }
+            case MULTI -> {
+                context.fill(cx - 4, cy - 4, cx - 1, cy - 1, color);
+                context.fill(cx - 5, cy, cx, cy + 3, color);
+                context.fill(cx + 1, cy - 3, cx + 4, cy, color);
+                context.fill(cx, cy + 1, cx + 5, cy + 4, color);
+            }
+            case OPTIONS -> {
+                for (int i = 0; i < 3; i++) {
+                    int y = cy - 4 + i * 4;
+                    context.fill(cx - 5, y, cx + 5, y + 1, color);
+                    context.fill(cx - 3 + i * 3, y - 1, cx - 1 + i * 3, y + 2, color);
+                }
+            }
+            case MARK -> GuiRender.nexoraMark(context, cx, cy, 11f, color);
+            case NONE -> { }
+        }
+    }
+
     private void drawLogo(GuiGraphics context, int accent, int alpha) {
-        String logo = "CRYSTAL";
-        float scale = Math.max(3f, Math.min(5f, width / 110f));
+        String logo = "NEXORA";
+        float scale = 2f;
         int logoWidth = Math.round(font.width(logo) * scale);
-        float lx = (width - logoWidth) / 2f;
-        float ly = height / 2f - 6 - 22 - 8 * scale - 6;
+        float markSize = 22f;
+        float gap = 8f;
+        float totalWidth = markSize + gap + logoWidth;
+        float left = (width - totalWidth) / 2f;
+        float centreY = height / 2f - 6 - 34;
+
+        // Nexora+ gets a slowly drifting hue instead of the fixed accent.
+        int markColor = CrystalProfile.hasPerks() ? ColorUtil.rainbow(0.6f) : 0xFFFFFFFF;
+        GuiRender.nexoraMark(context, left + markSize / 2f, centreY, markSize, GuiRender.withAlpha(markColor, alpha));
 
         context.pose().pushMatrix();
-        context.pose().translate(lx, ly);
+        context.pose().translate(left + markSize + gap, centreY - 8 * scale / 2f - 2);
         context.pose().scale(scale, scale);
-        // Offset copy in the theme accent gives the logo depth without a texture.
-        // Nexora+ gets a slowly drifting hue instead of the fixed accent.
-        int depth = CrystalProfile.hasPerks() ? ColorUtil.rainbow(0.6f) : accent;
-        context.drawString(font, logo, 1, 1, GuiRender.withAlpha(depth, Math.round(alpha * 0.85f)), false);
         context.drawString(font, logo, 0, 0, GuiRender.withAlpha(0xFFFFFFFF, alpha), false);
         context.pose().popMatrix();
 
-        Component subtitle = Component.literal("Client");
-        int sw = font.width(subtitle);
-        context.drawString(font, subtitle, (width - sw) / 2, Math.round(ly + 8 * scale + 3),
-                GuiRender.withAlpha(accent, alpha), true);
+        // "CLIENT" underneath, spaced out and quiet, like the word under a logo.
+        String sub = "C L I E N T";
+        int subWidth = font.width(sub);
+        context.drawString(font, sub, Math.round(left + markSize + gap + (logoWidth - subWidth) / 2f), Math.round(centreY + 8),
+                GuiRender.withAlpha(0xFF8A93A3, alpha), false);
     }
 
     @Override

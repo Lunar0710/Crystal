@@ -172,6 +172,35 @@ public class CosmeticsFeatureRenderer extends RenderLayer<AvatarRenderState, Pla
                     float y = -18f + (i % 4) * 5f + Mth.sin(age * 0.25f + i * 2f) * 2f;
                     boxes.add(new Box(Mth.cos(a) * r, y, Mth.sin(a) * r, 0.9f, 2.4f, 0.9f, 0f, color, true));
                 }
+                // Bubbles drifting up, wobbling as they go.
+                case "bubbles" -> {
+                    float climb = (age * 0.18f + i * 2.4f) % 24f;
+                    float a = phase + Mth.sin(age * 0.05f + i) * 0.6f;
+                    float r = 8f + Mth.sin(climb * 0.4f + i) * 2f;
+                    float size = 0.9f + (i % 3) * 0.5f;
+                    boxes.add(new Box(Mth.cos(a) * r, -19f + climb, Mth.sin(a) * r, size, size, size, 0f, color, true));
+                }
+                // Bolts: short flashes that jump between two heights.
+                case "bolts" -> {
+                    float a = age * 0.08f + phase;
+                    float r = 9f + (i % 2) * 3f;
+                    boolean high = Mth.sin(age * 0.45f + i * 3f) > 0.6f;
+                    boxes.add(new Box(Mth.cos(a) * r, (high ? -8f : -15f), Mth.sin(a) * r, 0.7f, 3.5f, 0.7f, 0f, color, true));
+                }
+                // Notes floating up, swaying sideways.
+                case "notes" -> {
+                    float climb = (age * 0.25f + i * 3.3f) % 22f;
+                    float a = phase + Mth.sin(climb * 0.25f) * 0.8f;
+                    float r = 7f + Mth.sin(age * 0.04f + i) * 1.5f;
+                    boxes.add(new Box(Mth.cos(a) * r, -14f + climb, Mth.sin(a) * r, 1.4f, 1.4f, 0.6f, climb * 0.2f, color, true));
+                }
+                // Leaves spiralling down.
+                case "leaves" -> {
+                    float fall = (age * 0.2f + i * 2.9f) % 24f;
+                    float a = phase + fall * 0.22f;
+                    float r = 9f + Mth.sin(fall * 0.3f) * 2.5f;
+                    boxes.add(new Box(Mth.cos(a) * r, 4f - fall, Mth.sin(a) * r, 2f, 0.4f, 1.4f, a, color, true));
+                }
                 // The classic ring around the legs.
                 default -> {
                     float a = age * 0.05f + phase;

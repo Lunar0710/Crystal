@@ -101,6 +101,19 @@ public final class SmokeTest {
                     msg -> CrystalClient.LOGGER.info("[Nexora] Smoke screenshot: {}", msg.getString()));
         }
 
+        // The Nexora main menu over the world, for a look at its layout.
+        if (worldTicks == 262) mc.setScreen(new dev.crystal.client.gui.CrystalTitleScreen());
+        if (worldTicks == 276) {
+            Screenshot.grab(mc.gameDirectory, base + "-titlescreen.png", mc.getMainRenderTarget(), 1,
+                    msg -> CrystalClient.LOGGER.info("[Nexora] Smoke screenshot: {}", msg.getString()));
+        }
+        if (worldTicks == 280) mc.setScreen(new dev.crystal.client.gui.NexoraPauseScreen());
+        if (worldTicks == 292) {
+            Screenshot.grab(mc.gameDirectory, base + "-pause.png", mc.getMainRenderTarget(), 1,
+                    msg -> CrystalClient.LOGGER.info("[Nexora] Smoke screenshot: {}", msg.getString()));
+        }
+        if (worldTicks == 296) mc.setScreen(null);
+
         // Back view for wings, backpack and the cape.
         if (worldTicks == 260) {
             mc.setScreen(null);
