@@ -65,7 +65,7 @@ public class EmoteWheelScreen extends Screen {
 
         GuiRender.roundedRect(ctx, cx - 22, cy - 8, cx + 22, cy + 8, 4, 0xC0101420);
         String hint = hovered < 0 ? "Emotes" : emotes[hovered].label();
-        ctx.drawString(font, hint, cx - font.width(hint) / 2, cy - 4, 0xFFE4E8F0, false);
+        ctx.drawString(font, hint, cx - font.width(hint) / 2, cy - 4, 0xFFE8E8EA, false);
 
         for (int i = 0; i < emotes.length; i++) {
             int[] c = centreOf(i);
@@ -73,7 +73,7 @@ public class EmoteWheelScreen extends Screen {
             boolean on = i == hovered;
             GuiRender.roundedRect(ctx, x1, y1, x1 + BOX_W, y1 + BOX_H, 5, on ? (accent | 0xFF000000) : 0xD0161A24);
             String label = emotes[i].label();
-            ctx.drawString(font, label, c[0] - font.width(label) / 2, c[1] - 4, on ? 0xFF0B0D12 : 0xFFE4E8F0, false);
+            ctx.drawString(font, label, c[0] - font.width(label) / 2, c[1] - 4, on ? 0xFF0C0C0D : 0xFFE8E8EA, false);
         }
         String footer = "Laufen beendet es";
         ctx.drawString(font, footer, cx - font.width(footer) / 2, cy + 12, 0xFF8A93A6, false);

@@ -86,6 +86,7 @@ public class ModuleManager {
         register(new ActionBarDisplay());
         register(new AutoTextHotkey());
         register(new CrystalMenu());
+        register(new dev.crystal.client.module.misc.Profiles());
         register(new HypixelQuickplay());
         register(new PackDisplay());
         register(new TimeChanger());
@@ -93,6 +94,7 @@ public class ModuleManager {
 
         // HUD
         register(new FPSDisplay());
+        register(new dev.crystal.client.module.hud.FrameGraph());
         register(new CPSDisplay());
         register(new Coordinates());
         register(new Watermark());

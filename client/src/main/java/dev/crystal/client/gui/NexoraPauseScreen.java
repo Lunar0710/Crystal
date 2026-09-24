@@ -58,7 +58,36 @@ public class NexoraPauseScreen extends Screen {
         rows.add(new Row(x, y + step * 2, ROW_W, ROW_H, Component.literal("Nexora-Menü"),
                 () -> minecraft.setScreen(new CrystalClientScreen()), Icon.MARK, false, false));
         rows.add(new Row(x, y + step * 3 + 14, ROW_W, 11, Component.translatable("menu.returnToMenu"),
-                () -> minecraft.disconnect(new TitleScreen(), false), Icon.NONE, false, true));
+                this::leaveWorld, Icon.NONE, false, true));
+    }
+
+    /**
+     * Leaves the world the way vanilla's own button does. The first step is
+     * telling the server the player has gone: a singleplayer world only stops
+     * once it hears that, and the client waits on "Saving world" until it has
+     * stopped. Skipping that step, as this button once did, left every world
+     * on "Saving world" for good.
+     */
+    public void leaveWorld() {
+        //? if >=1.21.9 {
+        minecraft.disconnectFromWorld(net.minecraft.client.multiplayer.ClientLevel.DEFAULT_QUIT_MESSAGE);
+        //?} else if >=1.21.6 {
+        /*boolean local = minecraft.isLocalServer();
+        if (minecraft.level != null) minecraft.level.disconnect(Component.translatable("multiplayer.status.quitting"));
+        finishLeaving(local);
+        *///?} else {
+        /*boolean local = minecraft.isLocalServer();
+        if (minecraft.level != null) minecraft.level.disconnect();
+        finishLeaving(local);
+        *///?}
+    }
+
+    /** The rest of leaving on versions without disconnectFromWorld: wait for the save, then the title screen. */
+    private void finishLeaving(boolean local) {
+        minecraft.disconnect(local
+                ? new net.minecraft.client.gui.screens.GenericMessageScreen(Component.translatable("menu.savingLevel"))
+                : new TitleScreen(), false);
+        minecraft.setScreen(new TitleScreen());
     }
 
     private void resume() {
@@ -95,7 +124,7 @@ public class NexoraPauseScreen extends Screen {
         for (Row row : rows) {
             boolean hover = row.contains(mouseX, mouseY);
             if (row.danger) {
-                int color = hover ? 0xFFF87171 : 0xFFB94A4A;
+                int color = hover ? 0xFFD9605A : 0xFFB94A4A;
                 int w = font.width(row.label);
                 context.drawString(font, row.label, row.x + (row.w - w) / 2, row.y + 2, GuiRender.withAlpha(color, alpha), false);
                 continue;
@@ -107,10 +136,10 @@ public class NexoraPauseScreen extends Screen {
             int fillAlpha = row.primary ? alpha : Math.round(((fill >>> 24) & 0xFF) * appear);
             GuiRender.roundedRect(context, row.x, row.y, row.x + row.w, row.y + row.h, 4, GuiRender.withAlpha(fill, fillAlpha));
 
-            int iconColor = row.primary ? 0xFF0C0D11 : hover ? 0xFFFFFFFF : 0xFFBFC6D2;
+            int iconColor = row.primary ? 0xFF0C0C0D : hover ? 0xFFFFFFFF : 0xFFBEBEC2;
             drawIcon(context, row.icon, row.x + 11, row.y + row.h / 2, GuiRender.withAlpha(iconColor, alpha));
 
-            int textColor = row.primary ? 0xFF0C0D11 : hover ? 0xFFFFFFFF : 0xFFD7DCE5;
+            int textColor = row.primary ? 0xFF0C0C0D : hover ? 0xFFFFFFFF : 0xFFD9D9DC;
             context.drawString(font, row.label, row.x + 24, row.y + (row.h - 8) / 2, GuiRender.withAlpha(textColor, alpha), false);
         }
     }

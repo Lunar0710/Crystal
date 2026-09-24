@@ -20,13 +20,13 @@ html, body, #root {
 :root,
 [data-theme='crystal-blue'] {
   --c-bg: 8 8 9;
-  --c-panel: 14 14 16;
-  --c-card: 20 20 23;
-  --c-border: 42 42 47;
+  --c-panel: 15 15 15;
+  --c-card: 20 20 21;
+  --c-border: 42 42 43;
   --c-accent: 255 255 255;
-  --c-accent-2: 190 190 196;
-  --c-text: 240 240 243;
-  --c-muted: 133 133 142;
+  --c-accent-2: 190 190 192;
+  --c-text: 240 240 240;
+  --c-muted: 138 138 140;
   --c-success: 52 211 153;
   --c-danger: 248 113 113;
   --c-warning: 251 191 36;

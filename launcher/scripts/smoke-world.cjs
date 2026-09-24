@@ -84,6 +84,8 @@ async function generateWorld(java) {
 function writeTestSettings(gameDir) {
   const configDir = path.join(gameDir, '.crystal', 'config')
   fs.mkdirSync(configDir, { recursive: true })
+  // CRYSTAL_SMOKE_CONFIG plays with someone's own module settings instead (a crystal.json).
+  if (process.env.CRYSTAL_SMOKE_CONFIG) return fs.copyFileSync(process.env.CRYSTAL_SMOKE_CONFIG, path.join(configDir, 'crystal.json'))
   fs.writeFileSync(path.join(configDir, 'crystal.json'), JSON.stringify({
     modules: {
       ColorSaturation: { enabled: true, settings: { Saturation: 1.7, Hue: 40, Brightness: 1.0, Contrast: 1.1 } },
@@ -95,6 +97,8 @@ function writeTestSettings(gameDir) {
       HitColor: { enabled: true },
       GlintColorizer: { enabled: true },
       NameTags: { enabled: true },
+      // 1.5: the frame graph, so its bars show in the HUD screenshot.
+      FrameGraph: { enabled: true },
       ItemPhysics: { enabled: true },
       ParticleChanger: { enabled: true },
       BetterSounds: { enabled: true },
@@ -131,7 +135,7 @@ function writeTestSettings(gameDir) {
   new Function('module', 'exports', 'require', out.outputFiles[0].text)(mod, mod.exports, require)
   const { COSMETICS_BY_SLOT, shapeFor } = mod.exports
 
-  const pick = { hat: 'ht-propeller', mask: 'mk-glasses', wings: 'wg-angel', backpack: 'bp-guitar', aura: 'au-hearts' }
+  const pick = { hat: 'ht-propeller', mask: 'mk-glasses', wings: 'wg-angel', backpack: 'bp-guitar', aura: 'au-hearts', pet: 'pt-fox' }
   const loadout = {}
   for (const [slot, id] of Object.entries(pick)) {
     const def = COSMETICS_BY_SLOT[slot].find(d => d.id === id)
@@ -234,7 +238,8 @@ function stripedCapePng() {
   const ok = await manager.launch({
     version: VERSION, instanceId: 'smoke-world', gameDir, username: profile.username, profile, maxRam: Number(process.env.CRYSTAL_SMOKE_RAM || 3072),
     loader: 'fabric', injectCrystal: true,
-    extraJvmArgs: [`-Dcrystal.smoke.screenshot=${shotName}`, ...peers.jvmArgs],
+    // CRYSTAL_SMOKE_JVM adds flags for special runs, e.g. -Dcrystal.smoke.bench=1.
+    extraJvmArgs: [`-Dcrystal.smoke.screenshot=${shotName}`, ...peers.jvmArgs, ...(process.env.CRYSTAL_SMOKE_JVM || '').split(' ').filter(Boolean)],
     extraGameArgs: ['--quickPlaySingleplayer', 'smoke'],
   }, (event, data) => {
     if (event === 'launch:started') pid = data.pid

@@ -93,6 +93,29 @@ public class CosmeticsFeatureRenderer extends RenderLayer<AvatarRenderState, Pla
 
         Item aura = itemIn.apply(CosmeticLoadout.AURA);
         if (aura != null) renderAura(matrices, queue, layer, aura, state.ageInTicks);
+
+        Item pet = itemIn.apply(CosmeticLoadout.PET);
+        if (pet != null && !pet.boxes().isEmpty()) renderPet(matrices, queue, layer, light, model, pet, state.ageInTicks);
+    }
+
+    /** Where a pet floats, in preview space (cosmeticShapes.ts PET_POS): beside the right shoulder. */
+    private static final float PET_X = -10f, PET_Y = 3f, PET_Z = 0f;
+
+    /**
+     * The pet beside the shoulder, bobbing and slowly looking around, the same
+     * motion as the launcher preview. It rides on the body so it turns with you.
+     */
+    private static void renderPet(PoseStack matrices, SubmitNodeCollector queue, RenderType layer, int light,
+                                  PlayerModel model, Item pet, float age) {
+        matrices.pushPose();
+        model.body.translateAndRotate(matrices);
+        matrices.scale(1 / 16f, 1 / 16f, 1 / 16f);
+        float bob = Mth.sin(age * 0.1f) * 0.8f;
+        // Preview space is y up and +z forward; model space is y down and +z back.
+        matrices.translate(PET_X, -(PET_Y + bob), -PET_Z);
+        matrices.mulPose(Axis.YP.rotation(Mth.sin(age * 0.03f) * 0.35f));
+        submit(matrices, queue, layer, light, pet.boxes(), 1);
+        matrices.popPose();
     }
 
     /**

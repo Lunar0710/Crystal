@@ -60,6 +60,10 @@ contextBridge.exposeInMainWorld('crystal', {
   getVersions:      () => ipcRenderer.invoke('minecraft:getVersions'),
   getVersionOptions: () => ipcRenderer.invoke('minecraft:versionOptions'),
   launchGame:       (opts: object) => ipcRenderer.invoke('minecraft:launch', opts),
+  listRunningGames: () => ipcRenderer.invoke('games:list'),
+  closeGame:        (instanceId: string) => ipcRenderer.invoke('games:close', instanceId),
+  analyzePerformance: (instanceId: string) => ipcRenderer.invoke('perfDoctor:analyze', instanceId),
+  applyPerformanceFix: (instanceId: string, fix: object) => ipcRenderer.invoke('perfDoctor:fix', instanceId, fix),
   tryWithCrystal:   (instanceId: string) => ipcRenderer.invoke('tryCrystal:run', instanceId),
   selectGameDir:    () => ipcRenderer.invoke('minecraft:selectDir'),
   getInstances:     () => ipcRenderer.invoke('instances:list'),
@@ -79,6 +83,7 @@ contextBridge.exposeInMainWorld('crystal', {
   removeScreenshot: (instanceId: string, fileName: string) => ipcRenderer.invoke('screenshots:remove', instanceId, fileName),
   createInstance:   (data: object) => ipcRenderer.invoke('instances:create', data),
   updateInstance:   (id: string, patch: object) => ipcRenderer.invoke('instances:update', id, patch),
+  createInstanceShortcut: (id: string) => ipcRenderer.invoke('instances:createShortcut', id),
   importInstance:   (version: string) => ipcRenderer.invoke('instances:import', version),
   deleteInstance:   (id: string) => ipcRenderer.invoke('instances:delete', id),
 
@@ -199,6 +204,8 @@ contextBridge.exposeInMainWorld('crystal', {
       'launch:progress', 'launch:error', 'launch:started', 'launch:exit', 'launch:notice',
       'update:available', 'update:progress', 'update:error',
       'tryCrystal:status',
+      'games:update',
+      'app:quickLaunch',
     ]
     if (!valid.includes(channel)) return () => {}
     const listener = (_e: unknown, ...args: unknown[]) => cb(...args)

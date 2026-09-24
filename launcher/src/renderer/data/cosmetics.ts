@@ -1,7 +1,7 @@
 import { RankId } from './ranks'
 import { shapeFor } from './cosmeticShapes'
 
-export type CosmeticSlot = 'cape' | 'hat' | 'bandana' | 'mask' | 'wings' | 'backpack' | 'aura'
+export type CosmeticSlot = 'cape' | 'hat' | 'bandana' | 'mask' | 'wings' | 'backpack' | 'aura' | 'pet'
 
 export interface CosmeticDef {
   id: string
@@ -24,6 +24,7 @@ export const SLOTS: { id: CosmeticSlot; label: string }[] = [
   { id: 'wings', label: 'Wings' },
   { id: 'backpack', label: 'Rucksäcke' },
   { id: 'aura', label: 'Auren' },
+  { id: 'pet', label: 'Pets' },
 ]
 
 const HATS: CosmeticDef[] = [
@@ -50,10 +51,18 @@ const HATS: CosmeticDef[] = [
   { id: 'ht-helmet',   name: 'Raumhelm',    slot: 'hat', color: '#e5e7eb', secondary: '#38bdf8', variant: 'helmet', requiredRank: 'crystal_plus' },
   { id: 'ht-mohawk',   name: 'Irokese',     slot: 'hat', color: '#22d3ee', secondary: '#0e7490', variant: 'mohawk', requiredRank: 'crystal_plus' },
   { id: 'ht-wreath',   name: 'Blätterkranz', slot: 'hat', color: '#4ade80', secondary: '#15803d', variant: 'wreath', requiredRank: 'crystal_plus' },
+  { id: 'ht-santa', name: 'Weihnachtsmütze', slot: 'hat', color: '#c0392b', secondary: '#f5f5f4', variant: 'santa', requiredRank: 'crystal_plus' },
+  { id: 'ht-graduation', name: 'Doktorhut', slot: 'hat', color: '#1c1c1e', secondary: '#d4a843', variant: 'graduation', requiredRank: 'crystal_plus' },
+  { id: 'ht-fedora', name: 'Fedora', slot: 'hat', color: '#3b3530', secondary: '#1c1917', variant: 'fedora', requiredRank: 'crystal_plus' },
+  { id: 'ht-samurai', name: 'Kabuto', slot: 'hat', color: '#2b2b2e', secondary: '#c9a24a', variant: 'samurai', requiredRank: 'crystal_plus' },
+  { id: 'ht-sombrero', name: 'Sombrero', slot: 'hat', color: '#d9b36c', secondary: '#b4412f', variant: 'sombrero', requiredRank: 'crystal_plus' },
+  { id: 'ht-bucket', name: 'Fischerhut', slot: 'hat', color: '#5d6b4f', secondary: '#4a553f', variant: 'bucket', requiredRank: 'crystal_plus' },
+  { id: 'ht-jester', name: 'Narrenkappe', slot: 'hat', color: '#6d2a8a', secondary: '#e0b83a', variant: 'jester', requiredRank: 'crystal_plus' },
+  { id: 'ht-unicorn', name: 'Einhorn', slot: 'hat', color: '#f4e7ff', secondary: '#e9c46a', variant: 'unicorn', requiredRank: 'crystal_plus' },
 ]
 
 const BANDANAS: CosmeticDef[] = [
-  { id: 'bd-crystal',  name: 'Nexora',  slot: 'bandana', color: '#5b8af5', secondary: '#7c6af5', requiredRank: 'crystal_plus' },
+  { id: 'bd-crystal',  name: 'Nexora',  slot: 'bandana', color: '#f0f0f0', secondary: '#8a8a8c', requiredRank: 'crystal_plus' },
   { id: 'bd-blossom',  name: 'Blossom',  slot: 'bandana', color: '#f56ba0', secondary: '#f5a3c7', requiredRank: 'crystal_plus' },
   { id: 'bd-ember',    name: 'Ember',    slot: 'bandana', color: '#f5455b', secondary: '#f59e0b', requiredRank: 'crystal_plus' },
   { id: 'bd-mint',     name: 'Mint',     slot: 'bandana', color: '#34d399', secondary: '#5bf5c9', requiredRank: 'crystal_plus' },
@@ -66,6 +75,8 @@ const BANDANAS: CosmeticDef[] = [
   { id: 'bd-ninja',    name: 'Ninja-Band',  slot: 'bandana', color: '#18181b', secondary: '#dc2626', variant: 'ninja', requiredRank: 'crystal_plus' },
   { id: 'bd-headband', name: 'Stirnband',   slot: 'bandana', color: '#f1f5f9', secondary: '#3b82f6', variant: 'headband', requiredRank: 'crystal_plus' },
   { id: 'bd-knot',     name: 'Piratentuch', slot: 'bandana', color: '#b91c1c', secondary: '#7f1d1d', variant: 'knot', requiredRank: 'crystal_plus' },
+  { id: 'bd-bow', name: 'Schleife', slot: 'bandana', color: '#e2566f', secondary: '#b83250', variant: 'bow', requiredRank: 'crystal_plus' },
+  { id: 'bd-wrap', name: 'Verband', slot: 'bandana', color: '#ece8e1', secondary: '#c9c2b6', variant: 'wrap', requiredRank: 'crystal_plus' },
 ]
 
 const MASKS: CosmeticDef[] = [
@@ -82,10 +93,15 @@ const MASKS: CosmeticDef[] = [
   { id: 'mk-bandit',   name: 'Banditentuch', slot: 'mask', color: '#b91c1c', secondary: '#7f1d1d', variant: 'bandit', requiredRank: 'crystal_plus' },
   { id: 'mk-eyepatch', name: 'Augenklappe', slot: 'mask', color: '#18181b', secondary: '#27272a', variant: 'eyepatch', requiredRank: 'crystal_plus' },
   { id: 'mk-plague',   name: 'Pestmaske',   slot: 'mask', color: '#1c1917', secondary: '#ca8a04', variant: 'plague', requiredRank: 'crystal_plus' },
+  { id: 'mk-hockey', name: 'Hockeymaske', slot: 'mask', color: '#eeeae2', secondary: '#c0392b', variant: 'hockey', requiredRank: 'crystal_plus' },
+  { id: 'mk-clown', name: 'Clownsnase', slot: 'mask', color: '#d63a2f', secondary: '#f2a7a0', variant: 'clown', requiredRank: 'crystal_plus' },
+  { id: 'mk-goggles', name: 'Fliegerbrille', slot: 'mask', color: '#6b4a2b', secondary: '#b58a3c', variant: 'goggles', requiredRank: 'crystal_plus' },
+  { id: 'mk-mustache', name: 'Schnurrbart', slot: 'mask', color: '#2a1d14', secondary: '#3a2a1e', variant: 'mustache', requiredRank: 'crystal_plus' },
+  { id: 'mk-vr', name: 'VR-Brille', slot: 'mask', color: '#e6e6e8', secondary: '#ffffff', variant: 'vr', requiredRank: 'crystal_plus' },
 ]
 
 const WINGS: CosmeticDef[] = [
-  { id: 'wg-crystal', name: 'Nexora',  slot: 'wings', color: '#7c6af5', secondary: '#5b8af5', variant: 'shard', requiredRank: 'crystal_plus' },
+  { id: 'wg-crystal', name: 'Nexora',  slot: 'wings', color: '#e8e8ea', secondary: '#9a9a9f', variant: 'shard', requiredRank: 'crystal_plus' },
   { id: 'wg-angel',   name: 'Angel',    slot: 'wings', color: '#f8fafc', secondary: '#cbd5e1', variant: 'feather', requiredRank: 'crystal_plus' },
   { id: 'wg-raven',   name: 'Raven',    slot: 'wings', color: '#18181b', secondary: '#3f3f46', variant: 'bat', requiredRank: 'crystal_plus' },
   { id: 'wg-phoenix', name: 'Phoenix',  slot: 'wings', color: '#ef4444', secondary: '#f59e0b', requiredRank: 'crystal_plus', variant: 'flame' },
@@ -99,19 +115,27 @@ const WINGS: CosmeticDef[] = [
   { id: 'wg-dragon',   name: 'Drachenflügel', slot: 'wings', color: '#7f1d1d', secondary: '#dc2626', variant: 'dragon', requiredRank: 'crystal_plus' },
   { id: 'wg-phoenix',  name: 'Phönix',      slot: 'wings', color: '#f97316', secondary: '#fde047', variant: 'phoenix', requiredRank: 'crystal_plus' },
   { id: 'wg-fairy',    name: 'Feenflügel',  slot: 'wings', color: '#a5f3fc', secondary: '#f0abfc', variant: 'fairy', requiredRank: 'crystal_plus' },
+  { id: 'wg-leaf', name: 'Blattflügel', slot: 'wings', color: '#4f7a3a', secondary: '#9cc27a', variant: 'leaf', requiredRank: 'crystal_plus' },
+  { id: 'wg-bone', name: 'Knochenflügel', slot: 'wings', color: '#e8e2d4', secondary: '#bfb6a3', variant: 'bone', requiredRank: 'crystal_plus' },
+  { id: 'wg-ice', name: 'Eisflügel', slot: 'wings', color: '#cfeaf5', secondary: '#ffffff', variant: 'ice', requiredRank: 'crystal_plus' },
+  { id: 'wg-moth', name: 'Mottenflügel', slot: 'wings', color: '#b8a58a', secondary: '#e8dcc6', variant: 'moth', requiredRank: 'crystal_plus' },
 ]
 
 const BACKPACKS: CosmeticDef[] = [
   { id: 'bp-hiker',   name: 'Hiker',     slot: 'backpack', color: '#65a30d', secondary: '#3f6212', variant: 'pack', requiredRank: 'crystal_plus' },
   { id: 'bp-jet',     name: 'Jetpack',   slot: 'backpack', color: '#94a3b8', secondary: '#f97316', requiredRank: 'crystal_plus', variant: 'jetpack' },
   { id: 'bp-satchel', name: 'Satchel',   slot: 'backpack', color: '#92400e', secondary: '#451a03', requiredRank: 'crystal_plus' },
-  { id: 'bp-crystal', name: 'Nexora',   slot: 'backpack', color: '#7c6af5', secondary: '#5b8af5', requiredRank: 'crystal_plus' },
+  { id: 'bp-crystal', name: 'Nexora',   slot: 'backpack', color: '#e8e8ea', secondary: '#9a9a9f', requiredRank: 'crystal_plus' },
   { id: 'bp-turtle',  name: 'Panzer',    slot: 'backpack', color: '#15803d', secondary: '#052e16', variant: 'shell', requiredRank: 'crystal_plus' },
   { id: 'bp-cube',    name: 'Cube',      slot: 'backpack', color: '#e11d48', secondary: '#4c0519', requiredRank: 'developer' },
   { id: 'bp-guitar',  name: 'Gitarre',   slot: 'backpack', color: '#b45309', secondary: '#292524', variant: 'guitar', requiredRank: 'crystal_plus' },
   { id: 'bp-katana',   name: 'Katana',      slot: 'backpack', color: '#dc2626', secondary: '#e5e7eb', variant: 'katana', requiredRank: 'crystal_plus' },
   { id: 'bp-quiver',   name: 'Köcher',      slot: 'backpack', color: '#92400e', secondary: '#f5f5f4', variant: 'quiver', requiredRank: 'crystal_plus' },
   { id: 'bp-boombox',  name: 'Ghettoblaster', slot: 'backpack', color: '#27272a', secondary: '#f59e0b', variant: 'boombox', requiredRank: 'crystal_plus' },
+  { id: 'bp-shield', name: 'Rundschild', slot: 'backpack', color: '#6b4a2b', secondary: '#b8b8bc', variant: 'shield', requiredRank: 'crystal_plus' },
+  { id: 'bp-chest', name: 'Schatztruhe', slot: 'backpack', color: '#7a4e2a', secondary: '#3a3a3c', variant: 'chest', requiredRank: 'crystal_plus' },
+  { id: 'bp-lantern', name: 'Laterne', slot: 'backpack', color: '#2b2b2e', secondary: '#6b4a2b', variant: 'lantern', requiredRank: 'crystal_plus' },
+  { id: 'bp-rod', name: 'Angel', slot: 'backpack', color: '#8a6a44', secondary: '#5c4630', variant: 'rod', requiredRank: 'crystal_plus' },
 ]
 
 const AURAS: CosmeticDef[] = [
@@ -132,6 +156,17 @@ const AURAS: CosmeticDef[] = [
   { id: 'au-leaves',  name: 'Blätter',   slot: 'aura', color: '#86efac', secondary: '#65a30d', variant: 'leaves', requiredRank: 'crystal_plus' },
 ]
 
+// A small companion that floats beside your shoulder.
+const PETS: CosmeticDef[] = [
+  { id: 'pt-cat',      name: 'Katze',          slot: 'pet', color: '#a1a1aa', secondary: '#f9a8d4', variant: 'cat', requiredRank: 'crystal_plus' },
+  { id: 'pt-blackcat', name: 'Schwarze Katze', slot: 'pet', color: '#27272a', secondary: '#f9a8d4', variant: 'cat', requiredRank: 'crystal_plus' },
+  { id: 'pt-fox',      name: 'Fuchs',          slot: 'pet', color: '#ea580c', secondary: '#fafaf9', variant: 'fox', requiredRank: 'crystal_plus' },
+  { id: 'pt-slime',    name: 'Slime',          slot: 'pet', color: '#65a30d', secondary: '#a3e635', variant: 'slime', requiredRank: 'crystal_plus' },
+  { id: 'pt-ghost',    name: 'Geist',          slot: 'pet', color: '#e4e4e7', secondary: '#e4e4e7', variant: 'ghost', requiredRank: 'crystal_plus' },
+  { id: 'pt-drone',    name: 'Drohne',         slot: 'pet', color: '#52525b', secondary: '#d4d4d8', variant: 'drone', requiredRank: 'crystal_plus' },
+  { id: 'pt-bee',      name: 'Biene',          slot: 'pet', color: '#facc15', secondary: '#f5f5f5', variant: 'bee', requiredRank: 'crystal_plus' },
+]
+
 export type NonCapeSlot = Exclude<CosmeticSlot, 'cape'>
 
 export const COSMETICS_BY_SLOT: Record<NonCapeSlot, CosmeticDef[]> = {
@@ -141,12 +176,13 @@ export const COSMETICS_BY_SLOT: Record<NonCapeSlot, CosmeticDef[]> = {
   wings: WINGS,
   backpack: BACKPACKS,
   aura: AURAS,
+  pet: PETS,
 }
 
 export type EquippedCosmetics = Record<CosmeticSlot, string | null>
 
 export const EMPTY_LOADOUT: EquippedCosmetics = {
-  cape: null, hat: null, bandana: null, mask: null, wings: null, backpack: null, aura: null,
+  cape: null, hat: null, bandana: null, mask: null, wings: null, backpack: null, aura: null, pet: null,
 }
 
 export function findCosmetic(slot: NonCapeSlot, id: string | null): CosmeticDef | null {

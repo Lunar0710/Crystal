@@ -18,13 +18,13 @@ public class ThemeManager {
 
     // The launcher's default theme (Nexora Mono): black with white as the accent.
     private int bg = 0xE5080809;
-    private int panel = 0xF00e0e10;
-    private int card = 0xFF141417;
-    private int border = 0xFF2a2a2f;
+    private int panel = 0xF00F0F0F;
+    private int card = 0xFF141415;
+    private int border = 0xFF2A2A2B;
     private int accent = 0xFFFFFFFF;
-    private int accent2 = 0xFFbebec4;
-    private int text = 0xFFf0f0f3;
-    private int muted = 0xFF85858e;
+    private int accent2 = 0xFFBEBEC0;
+    private int text = 0xFFF0F0F0;
+    private int muted = 0xFF8A8A8C;
 
     public void load() {
         Path themeFile = CrystalPaths.root().resolve("config").resolve("theme.json");
@@ -66,7 +66,13 @@ public class ThemeManager {
     public int getPanel() { return panel; }
     public int getCard() { return card; }
     public int getBorder() { return border; }
-    public int getAccent() { return accent; }
+    /** The accent chosen in the Nexora menu wins over the launcher's theme. */
+    public int getAccent() {
+        Integer chosen = dev.crystal.client.module.misc.CrystalMenu.accentOverride();
+        return chosen != null ? chosen : accent;
+    }
+    /** The launcher theme's accent, ignoring the Nexora menu override. */
+    public int getLauncherAccent() { return accent; }
     public int getAccent2() { return accent2; }
     public int getText() { return text; }
     public int getMuted() { return muted; }

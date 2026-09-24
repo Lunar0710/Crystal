@@ -30,7 +30,9 @@ import net.minecraft.resources.Identifier;
  * Live uniforms for Nexora's color_grade post effect. Vanilla fills a post
  * pass's uniform buffers once from the JSON, so the ColorSaturation sliders
  * would otherwise only apply after a resource reload. Here the buffer is
- * rewritten with the current slider values right before the pass draws.
+ * rewritten with the current slider values right before the pass draws, but
+ * only when they changed: writing a buffer the GPU may still be reading every
+ * frame can make the CPU wait for the GPU.
  */
 @Mixin(PostPass.class)
 public class MixinPostEffectPass {
@@ -39,6 +41,16 @@ public class MixinPostEffectPass {
     private static final String BLUR_BLOCK = "CrystalMotionBlur";
 
     @Shadow @Final private Map<String, GpuBuffer> customUniforms;
+
+    /** What each buffer was last filled with; a new buffer (after a reload) gets written once. */
+    private static final Map<GpuBuffer, float[]> WRITTEN = new java.util.WeakHashMap<>();
+
+    private static boolean changed(GpuBuffer buffer, float... values) {
+        float[] last = WRITTEN.get(buffer);
+        if (last != null && java.util.Arrays.equals(last, values)) return false;
+        WRITTEN.put(buffer, values);
+        return true;
+    }
 
     /** Vanilla creates the buffers as uniform-only; writing to them later also needs COPY_DST. */
     @ModifyConstant(method = "<init>", constant = @Constant(intValue = GpuBuffer.USAGE_UNIFORM))
@@ -52,7 +64,7 @@ public class MixinPostEffectPass {
         GpuBuffer blurBuffer = customUniforms.get(BLUR_BLOCK);
         if (blurBuffer != null) {
             MotionBlur blur = CrystalClient.getInstance().getModuleManager().get(MotionBlur.class);
-            if (blur != null) {
+            if (blur != null && changed(blurBuffer, blur.getBlend())) {
                 try (MemoryStack stack = MemoryStack.stackPush()) {
                     var data = Std140Builder.onStack(stack, 4).putFloat(blur.getBlend()).get();
                     RenderSystem.getDevice().createCommandEncoder().writeToBuffer(blurBuffer.slice(), data);
@@ -65,6 +77,7 @@ public class MixinPostEffectPass {
 
         ColorSaturation module = CrystalClient.getInstance().getModuleManager().get(ColorSaturation.class);
         if (module == null) return;
+        if (!changed(buffer, module.getSaturation(), module.getHue(), module.getBrightness(), module.getContrast())) return;
 
         try (MemoryStack stack = MemoryStack.stackPush()) {
             var data = Std140Builder.onStack(stack, 16)

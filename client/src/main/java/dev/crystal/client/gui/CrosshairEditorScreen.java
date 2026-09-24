@@ -104,11 +104,11 @@ public class CrosshairEditorScreen extends Screen {
         layout();
         int gridSize = cell * GRID;
 
-        ctx.drawString(font, "Fadenkreuz-Editor", gridX, gridY - 26, 0xFFE4E8F0, false);
-        ctx.drawString(font, "Linksklick malen · Rechtsklick radieren", gridX, gridY - 14, 0xFF8E97B0, false);
+        ctx.drawString(font, "Fadenkreuz-Editor", gridX, gridY - 26, 0xFFE8E8EA, false);
+        ctx.drawString(font, "Linksklick malen · Rechtsklick radieren", gridX, gridY - 14, 0xFF8F8F95, false);
 
         // Grid
-        GuiRender.roundedRect(ctx, gridX - 4, gridY - 4, gridX + gridSize + 4, gridY + gridSize + 4, 6, 0xFF10131A);
+        GuiRender.roundedRect(ctx, gridX - 4, gridY - 4, gridX + gridSize + 4, gridY + gridSize + 4, 6, 0xFF111112);
         int hx = (mouseX - gridX) / Math.max(1, cell), hy = (mouseY - gridY) / Math.max(1, cell);
         boolean hovering = mouseX >= gridX && mouseY >= gridY && hx < GRID && hy < GRID;
         int centre = GRID / 2;
@@ -126,16 +126,16 @@ public class CrosshairEditorScreen extends Screen {
 
         // Preview: real size on a sky/grass strip, and 3x to see detail.
         int px = gridX + gridSize + 24, py = gridY + 20;
-        ctx.drawString(font, "Vorschau", px, gridY + 4, 0xFF8E97B0, false);
+        ctx.drawString(font, "Vorschau", px, gridY + 4, 0xFF8F8F95, false);
         int pw = 120, ph = 56;
         GuiRender.roundedRect(ctx, px, py, px + pw, py + ph, 4, 0xFF87B7E8);
         ctx.fill(px, py + ph / 2 + 8, px + pw, py + ph, 0xFF4E8C3A);
         drawCells(ctx, px + pw / 2, py + ph / 2, Math.max(1, Math.round(crosshair.getThickness())));
 
-        GuiRender.roundedRect(ctx, px, py + ph + 6, px + pw, py + ph + 6 + 50, 4, 0xFF10131A);
+        GuiRender.roundedRect(ctx, px, py + ph + 6, px + pw, py + ph + 6 + 50, 4, 0xFF111112);
         drawCells(ctx, px + pw / 2, py + ph + 6 + 25, 3);
 
-        ctx.drawString(font, "Vorlagen", px, py + 108, 0xFF8E97B0, false);
+        ctx.drawString(font, "Vorlagen", px, py + 108, 0xFF8F8F95, false);
 
         for (Button b : buttons) {
             boolean hover = b.contains(mouseX, mouseY);
@@ -143,7 +143,7 @@ public class CrosshairEditorScreen extends Screen {
                     : (hover ? 0x33FFFFFF : 0x1FFFFFFF);
             GuiRender.roundedRect(ctx, b.x1, b.y1, b.x2, b.y2, 5, bg);
             int tw = font.width(b.label);
-            ctx.drawString(font, b.label, b.x1 + (b.x2 - b.x1 - tw) / 2, b.y1 + 5, b.primary ? 0xFF0B0D12 : 0xFFE4E8F0, false);
+            ctx.drawString(font, b.label, b.x1 + (b.x2 - b.x1 - tw) / 2, b.y1 + 5, b.primary ? 0xFF0C0C0D : 0xFFE8E8EA, false);
         }
     }
 

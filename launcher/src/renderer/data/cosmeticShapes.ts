@@ -16,7 +16,14 @@ import { CosmeticDef } from './cosmetics'
  *    The renderer mirrors it for the other side and animates the flap.
  */
 
-export type ShapeAnchor = 'head' | 'body' | 'wing'
+export type ShapeAnchor = 'head' | 'body' | 'wing' | 'pet'
+
+/**
+ * Where a pet floats: beside the right shoulder, a little above it, in body
+ * space (origin at the neck, y up). Preview and game both place it here and
+ * bob it up and down.
+ */
+export const PET_POS = { x: -10, y: 3, z: 0 }
 
 export interface ShapeBox {
   /** centre */
@@ -51,16 +58,69 @@ export function shapeFor(def: CosmeticDef): CosmeticShape | null {
     case 'bandana': return { anchor: 'head', boxes: bandana(def.variant, c, a, b) }
     case 'backpack': return { anchor: 'body', boxes: backpack(def.variant, c, a, b) }
     case 'wings': return { anchor: 'wing', boxes: wing(def.variant, c, a, b) }
+    case 'pet': return { anchor: 'pet', boxes: pet(def.variant, c, a, b) }
     default: return null
   }
 }
 
 type B = (x: number, y: number, z: number, w: number, h: number, d: number, color?: string, extra?: Partial<ShapeBox>) => ShapeBox
 
+const EYE = '#141414'
+
+/** Pets in their own space: centre of the pet, y up, +z where it looks. About 5 pixels big. */
+function pet(variant: string | undefined, c: string, a: string, b: B): ShapeBox[] {
+  const eyes = (y: number, z: number, gap = 0.65) => [b(-gap, y, z, 0.5, 0.5, 0.1, EYE), b(gap, y, z, 0.5, 0.5, 0.1, EYE)]
+  const legs = (y: number) => [b(-0.8, y, 0.8, 0.7, 0.9, 0.7), b(0.8, y, 0.8, 0.7, 0.9, 0.7), b(-0.8, y, -2, 0.7, 0.9, 0.7), b(0.8, y, -2, 0.7, 0.9, 0.7)]
+  switch (variant) {
+    case 'fox': return [
+      b(0, -0.8, -0.6, 2.6, 2.2, 4), b(0, -1.3, 1.1, 1.8, 1.1, 0.5, a),
+      b(0, 0.9, 1.8, 2.8, 2.4, 2.4), b(0, 0.4, 3.3, 1.2, 1, 0.8, a),
+      b(-0.9, 2.6, 1.6, 0.8, 1.2, 0.5), b(0.9, 2.6, 1.6, 0.8, 1.2, 0.5),
+      ...eyes(1.2, 3.05), ...legs(-2.3),
+      b(0, -0.5, -3.3, 1.4, 1.4, 2.2), b(0, -0.5, -4.7, 1.2, 1.2, 0.6, a),
+    ]
+    case 'slime': return [
+      b(0, 0, 0, 4, 4, 4), b(-1.4, 1.4, 0, 0.8, 0.8, 4.1, a), ...eyes(0.5, 2.05, 0.9), b(0.4, -0.7, 2.05, 0.6, 0.4, 0.1, EYE),
+    ]
+    case 'ghost': return [
+      b(0, 0.4, 0, 3.4, 3.6, 3, c, { glow: true }),
+      b(-1.15, -1.8, 0, 1.1, 0.8, 3, c, { glow: true }), b(0.9, -1.7, 0, 1.3, 0.6, 3, c, { glow: true }),
+      ...eyes(1, 1.55, 0.7), b(0, 0, 1.55, 0.7, 0.8, 0.1, EYE),
+    ]
+    case 'drone': return [
+      b(0, 0, 0, 2.4, 1.2, 2.4, a), b(0, 0, 0, 5.4, 0.4, 0.4), b(0, 0, 0, 0.4, 0.4, 5.4),
+      b(-2.7, 0.5, 0, 1.6, 0.2, 1.6), b(2.7, 0.5, 0, 1.6, 0.2, 1.6), b(0, 0.5, -2.7, 1.6, 0.2, 1.6), b(0, 0.5, 2.7, 1.6, 0.2, 1.6),
+      b(0, 0, 1.25, 0.8, 0.8, 0.1, EYE), b(0, -0.8, 0.9, 0.5, 0.4, 0.5, '#ef4444', { glow: true }),
+    ]
+    case 'bee': return [
+      b(0, 0, -1.2, 2.4, 2.4, 1, c), b(0, 0, -0.2, 2.4, 2.4, 1, EYE), b(0, 0, 0.8, 2.4, 2.4, 1, c),
+      b(0, 0, 1.9, 2, 2, 1.2, EYE), b(0, 0, -2, 0.4, 0.4, 0.6, EYE),
+      b(-1.4, 1.6, 0, 1.6, 0.2, 2, a, { rz: 0.4 }), b(1.4, 1.6, 0, 1.6, 0.2, 2, a, { rz: -0.4 }),
+    ]
+    // Cat, and the default.
+    default: return [
+      b(0, -0.8, -0.6, 2.6, 2.2, 4), b(0, 0.9, 1.8, 2.8, 2.4, 2.4),
+      b(-0.9, 2.5, 1.6, 0.8, 0.8, 0.6), b(0.9, 2.5, 1.6, 0.8, 0.8, 0.6),
+      ...eyes(1.1, 3.05), b(0, 0.5, 3.05, 0.4, 0.3, 0.1, a), ...legs(-2.3),
+      b(0, -0.4, -2.9, 0.6, 0.6, 1.2), b(0, 0.4, -3.4, 0.6, 1.4, 0.6),
+    ]
+  }
+}
+
 function bandana(variant: string | undefined, c: string, a: string, b: B): ShapeBox[] {
   const band = b(0, 3.2, 0, 8.7, 1.8, 8.7)
   switch (variant) {
     // Long tails down the back.
+    // Big bow on top of the head.
+    case 'bow': return [
+      b(0, 4.3, 1, 1.6, 1.4, 1.4, a), b(-2, 4.6, 1, 2.8, 2.4, 1, c, { rz: 0.35 }), b(2, 4.6, 1, 2.8, 2.4, 1, c, { rz: -0.35 }),
+      b(-1.2, 3.6, 1, 0.8, 1.6, 0.8, c, { rz: -0.4 }), b(1.2, 3.6, 1, 0.8, 1.6, 0.8, c, { rz: 0.4 }),
+    ]
+    // Bandage round the head, one loose end at the back.
+    case 'wrap': return [
+      b(0, 2.2, 0, 8.7, 1.2, 8.7), b(0, 0.9, 0, 8.6, 0.8, 8.6, a, { rz: 0.08 }),
+      b(1.4, 1.6, -4.8, 1.2, 3.4, 0.4, c, { rz: 0.3 }),
+    ]
     case 'ninja': return [band, b(1.4, 0.4, -5.1, 1.4, 6.5, 0.8, a), b(-1.2, 1.4, -5.1, 1.2, 4.5, 0.8, a), b(0, 3.2, -4.8, 2, 2, 1.6, a)]
     // Thin sweatband, nothing hanging off.
     case 'headband': return [b(0, 3.4, 0, 8.8, 1.1, 8.8), b(0, 3.4, FACE + 0.5, 3, 1.1, 0.6, a)]
@@ -81,6 +141,51 @@ function hat(variant: string | undefined, c: string, a: string, b: B): ShapeBox[
       boxes.push(b(0, T + 1, FACE + 0.5, 1.4, 1.4, 0.6, a, { glow: true }))
       return boxes
     }
+    // Santa hat: fur band, cone bending to one side, bobble at the tip.
+    case 'santa': return [
+      b(0, T + 0.8, 0, 9, 1.6, 9, a), b(0, T + 2.8, 0, 7.4, 2.6, 7.4), b(0.8, T + 4.8, -0.6, 5.2, 2, 5.2),
+      b(2.4, T + 6.2, -1.6, 3, 1.8, 3), b(4, T + 6.6, -2.6, 2, 2, 2, a),
+    ]
+    // Mortarboard: skull cap, flat square board, tassel off one corner.
+    case 'graduation': return [
+      b(0, T + 1, 0, 8.6, 2, 8.6), b(0, T + 2.3, 0, 12, 0.6, 12),
+      b(0, T + 2.8, 0, 1, 0.5, 1, a), b(5.4, T + 1, 5.4, 0.5, 3, 0.5, a), b(5.4, T - 0.8, 5.4, 1, 1, 1, a),
+    ]
+    // Fedora: pinched crown, narrow brim dipping at the front.
+    case 'fedora': return [
+      b(0, T + 0.4, 0, 11, 0.6, 11), b(0, T + 0.2, FACE + 1.4, 9, 0.5, 2.4),
+      b(0, T + 2.4, 0, 7.8, 3.4, 7.8), b(0, T + 1.2, 0, 8, 1, 8, a), b(0, T + 4.2, 0, 5, 0.5, 7.8),
+    ]
+    // Kabuto: bowl, flared neck guard, crescent crest on the brow.
+    case 'samurai': return [
+      b(0, T + 1.4, 0, 9.4, 3, 9.4), b(0, T - 1.4, -4.2, 11, 3, 1.4), b(-5, T - 1, 0, 1.2, 3, 8), b(5, T - 1, 0, 1.2, 3, 8),
+      b(-2.2, T + 4, FACE + 0.6, 1, 4, 0.6, a, { rz: 0.5 }), b(2.2, T + 4, FACE + 0.6, 1, 4, 0.6, a, { rz: -0.5 }),
+      b(0, T + 1.8, FACE + 0.8, 1.8, 1.8, 0.6, a),
+    ]
+    // Sombrero: very wide brim with a raised rim, tall crown.
+    case 'sombrero': return [
+      b(0, T + 0.4, 0, 18, 0.6, 18), b(0, T + 0.9, 8.8, 18, 1, 0.6, a), b(0, T + 0.9, -8.8, 18, 1, 0.6, a),
+      b(8.8, T + 0.9, 0, 0.6, 1, 18, a), b(-8.8, T + 0.9, 0, 0.6, 1, 18, a),
+      b(0, T + 3.2, 0, 7, 5, 7), b(0, T + 5.9, 0, 5, 0.8, 5), b(0, T + 1.3, 0, 7.4, 0.8, 7.4, a),
+    ]
+    // Bucket hat: soft crown, brim sloping down all round.
+    case 'bucket': return [
+      b(0, T + 1.8, 0, 8.8, 3.6, 8.8), b(0, T + 3.8, 0, 7.6, 0.6, 7.6),
+      b(0, T - 0.1, FACE + 1.1, 10.8, 0.6, 2.2, a), b(0, T - 0.1, -FACE - 1.1, 10.8, 0.6, 2.2, a),
+      b(FACE + 1.1, T - 0.1, 0, 2.2, 0.6, 8.8, a), b(-FACE - 1.1, T - 0.1, 0, 2.2, 0.6, 8.8, a),
+    ]
+    // Jester: three floppy points with bells.
+    case 'jester': return [
+      b(0, T + 0.8, 0, 9, 1.6, 9),
+      b(-4.2, T + 2.6, 0, 2.6, 3, 2.6, c, { rz: 0.7 }), b(-6.4, T + 2.2, 0, 1.2, 1.2, 1.2, a, { glow: true }),
+      b(0, T + 3.8, 0, 2.6, 5, 2.6, a), b(0, T + 6.6, 0, 1.2, 1.2, 1.2, c, { glow: true }),
+      b(4.2, T + 2.6, 0, 2.6, 3, 2.6, c, { rz: -0.7 }), b(6.4, T + 2.2, 0, 1.2, 1.2, 1.2, a, { glow: true }),
+    ]
+    // Unicorn horn: spiralled cone of shrinking rings on the brow.
+    case 'unicorn': return [
+      b(0, T + 0.6, 2.4, 2.4, 1.2, 2.4, a), b(0, T + 1.8, 2.8, 1.9, 1.4, 1.9), b(0, T + 3.2, 3.2, 1.4, 1.4, 1.4, a),
+      b(0, T + 4.5, 3.6, 0.9, 1.4, 0.9), b(0, T + 5.6, 3.9, 0.5, 1, 0.5, c, { glow: true }),
+    ]
     case 'tophat': return [b(0, T + 0.4, 0, 11.5, 0.8, 11.5), b(0, T + 3.8, 0, 7.4, 6, 7.4), b(0, T + 1.4, 0, 7.6, 1.2, 7.6, a)]
     case 'straw': return [b(0, T + 0.4, 0, 13, 0.7, 13), b(0, T + 2.1, 0, 8, 2.8, 8, a), b(0, T + 1.1, 0, 8.2, 0.7, 8.2, '#b45309')]
     case 'cap': return [b(0, T + 1.6, 0, 8.7, 3.2, 8.7), b(0, T + 0.3, FACE + 1.8, 8, 0.6, 3.8, a), b(0, T + 3.3, 0, 1.2, 0.5, 1.2, a)]
@@ -173,6 +278,37 @@ function mask(variant: string | undefined, c: string, a: string, b: B): ShapeBox
   const F = FACE + 0.3
   switch (variant) {
     case 'visor': return [b(0, 0.7, F, 8.6, 1.8, 0.6, c, { glow: true }), b(0, 1.8, F, 8.8, 0.4, 0.7, a), b(0, -0.4, F, 8.8, 0.4, 0.7, a)]
+    // Hockey mask: pale plate with breathing holes and red chevrons.
+    case 'hockey': {
+      const boxes = [b(0, 0, F, 8.2, 8, 0.6)]
+      for (const [x, y] of [[-2, -1.4], [0, -1.4], [2, -1.4], [-1, -2.8], [1, -2.8], [0, 2.8]]) boxes.push(b(x, y, F + 0.2, 0.8, 0.8, 0.4, '#1c1917'))
+      boxes.push(b(-2, 1, F + 0.2, 2.2, 1.2, 0.4, '#1c1917'), b(2, 1, F + 0.2, 2.2, 1.2, 0.4, '#1c1917'))
+      boxes.push(b(-2.4, 3, F + 0.25, 1.4, 0.5, 0.3, a, { rz: 0.5 }), b(2.4, 3, F + 0.25, 1.4, 0.5, 0.3, a, { rz: -0.5 }))
+      return boxes
+    }
+    // Clown: round red nose and painted cheeks.
+    case 'clown': return [
+      b(0, -0.2, F + 0.8, 2, 2, 2, c, { glow: true }),
+      b(-2.6, -1.4, F, 1.6, 1.2, 0.3, a), b(2.6, -1.4, F, 1.6, 1.2, 0.3, a),
+      b(0, -2.6, F, 3.4, 0.6, 0.3, c),
+    ]
+    // Brass goggles pushed up on the forehead, lenses catching the light.
+    case 'goggles': return [
+      b(0, 2.2, F - 0.1, 8.8, 1, 0.5, a), b(-4.4, 2.2, 0, 0.4, 1, 8.8, a), b(4.4, 2.2, 0, 0.4, 1, 8.8, a),
+      b(-2, 2.4, F + 0.4, 2.8, 2.8, 1), b(2, 2.4, F + 0.4, 2.8, 2.8, 1),
+      b(-2, 2.4, F + 0.95, 1.8, 1.8, 0.2, '#93c5fd', { glow: true }), b(2, 2.4, F + 0.95, 1.8, 1.8, 0.2, '#93c5fd', { glow: true }),
+    ]
+    // Curled moustache.
+    case 'mustache': return [
+      b(-1.3, -1.4, F, 2.4, 1, 0.5), b(1.3, -1.4, F, 2.4, 1, 0.5),
+      b(-3, -1, F, 1.4, 0.8, 0.5, c, { rz: -0.6 }), b(3, -1, F, 1.4, 0.8, 0.5, c, { rz: 0.6 }),
+      b(-3.7, -0.3, F, 0.7, 0.7, 0.5, a), b(3.7, -0.3, F, 0.7, 0.7, 0.5, a),
+    ]
+    // VR headset: deep front block with a lit strip, strap round the head.
+    case 'vr': return [
+      b(0, 1, F + 1, 8.4, 3.2, 2.4), b(0, 1, F + 2.25, 6, 0.6, 0.2, a, { glow: true }),
+      b(0, 1.4, 0, 8.8, 1, 8.8, '#27272a'),
+    ]
     case 'shades': return [
       b(-2, 0.7, F, 3, 1.6, 0.5), b(2, 0.7, F, 3, 1.6, 0.5), b(0, 1.2, F, 2, 0.5, 0.5, a),
       b(-4.3, 1.2, 2.2, 0.4, 0.5, 4.2, a), b(4.3, 1.2, 2.2, 0.4, 0.5, 4.2, a),
@@ -231,6 +367,29 @@ function backpack(variant: string | undefined, c: string, a: string, b: B): Shap
   const Z = BACK - 1.6
   const straps = [1, -1].map(s => b(s * 2.6, -4.5, BACK + 0.35, 1, 7, 0.4, a))
   switch (variant) {
+    // Round shield slung on the back, boss in the middle.
+    case 'shield': {
+      const boxes = [b(0, -5, Z + 0.6, 9, 9, 0.6), b(0, -5, Z + 0.2, 1.8, 1.8, 0.6, a, { glow: true })]
+      for (const [x, y] of [[0, -0.9], [0, -9.1], [-4.1, -5], [4.1, -5]]) boxes.push(b(x, y, Z + 0.35, 1, 1, 0.4, a))
+      return [...boxes, ...straps]
+    }
+    // Treasure chest: lid, lock and metal bands.
+    case 'chest': return [
+      b(0, -6, Z - 0.2, 7, 4.6, 3.6), b(0, -3.2, Z - 0.2, 7.2, 1.4, 3.8, a),
+      b(0, -4.2, Z - 2.05, 1.2, 1.6, 0.3, '#fde047', { glow: true }),
+      b(-2.8, -5.2, Z - 2.05, 0.5, 6, 0.3, a), b(2.8, -5.2, Z - 2.05, 0.5, 6, 0.3, a), ...straps,
+    ]
+    // Lantern hanging off a pole over the shoulder.
+    case 'lantern': return [
+      b(-1.5, -4, Z + 0.6, 0.6, 14, 0.6, a, { rz: -0.35 }), b(1.2, 3.2, Z + 0.6, 2.6, 0.5, 0.6, a),
+      b(2.4, 1.6, Z + 0.6, 2, 2.6, 2), b(2.4, 1.6, Z + 0.6, 1.4, 2, 1.4, '#fbbf24', { glow: true }),
+      b(2.4, 3, Z + 0.6, 1.2, 0.4, 1.2, a),
+    ]
+    // Fishing rod over the shoulder, line and a red float.
+    case 'rod': return [
+      b(0, -3, Z + 0.6, 0.5, 17, 0.5, a, { rz: 0.55 }), b(-2.4, -5.8, Z + 0.6, 1.2, 1.2, 1.2, c),
+      b(4.6, 3.6, Z + 0.6, 0.15, 5, 0.15, '#e5e7eb'), b(4.6, 1, Z + 0.6, 0.9, 1.2, 0.9, '#ef4444'),
+    ]
     case 'jetpack': return [
       b(-1.8, -5, Z, 3, 7.5, 3), b(1.8, -5, Z, 3, 7.5, 3), b(0, -3, Z + 0.5, 1.4, 3, 2, a),
       b(-1.8, -9.4, Z, 2, 1.4, 2, '#f97316', { glow: true }), b(1.8, -9.4, Z, 2, 1.4, 2, '#f97316', { glow: true }), ...straps,
@@ -268,6 +427,28 @@ function wing(variant: string | undefined, c: string, a: string, b: B): ShapeBox
       return b(Math.cos(angle) * len / 2, Math.sin(angle) * len / 2, -i * 0.15, len, thickness - i * 0.15, 0.7, i % 2 ? a : c, { rz: angle, glow })
     })
   switch (variant) {
+    // Leaf wings: broad leaves, each with a lighter vein.
+    case 'leaf': return [
+      b(5.5, 3.2, 0, 10, 3.6, 0.35, c, { rz: 0.45 }), b(5.4, 3.2, 0.2, 9, 0.4, 0.2, a, { rz: 0.45 }),
+      b(6, -0.2, 0, 11, 3.6, 0.35, c, { rz: 0.05 }), b(5.9, -0.2, 0.2, 10, 0.4, 0.2, a, { rz: 0.05 }),
+      b(5, -3.6, 0, 9, 3.2, 0.35, c, { rz: -0.35 }), b(4.9, -3.6, 0.2, 8, 0.4, 0.2, a, { rz: -0.35 }),
+    ]
+    // Bone wings: bare struts and knuckles, no membrane.
+    case 'bone': return [
+      ...fan([15, 13, 10.5, 8], 0.7, 0.55, 0.3),
+      b(0.8, 0, 0.1, 2, 2, 1.2, a), b(7.4, 3.2, 0.1, 1.2, 1.2, 1, a), b(6.6, -0.8, 0.1, 1.2, 1.2, 1, a),
+    ]
+    // Ice wings: pale lit shards, uneven lengths.
+    case 'ice': return [
+      ...fan([13, 15, 12, 9, 6], 1.3, 0.62, 0.26, true),
+      b(3, 1, 0.2, 5, 5, 0.3, a, { rz: 0.8, glow: true }),
+    ]
+    // Moth: two soft pairs with eye spots.
+    case 'moth': return [
+      b(5.2, 2.6, 0, 9.5, 7, 0.4, c, { rz: 0.25 }), b(4, -3.6, 0, 7, 5.2, 0.4, c, { rz: -0.4 }),
+      b(6.4, 3.2, 0.25, 2.4, 2.4, 0.2, a), b(6.4, 3.2, 0.35, 1, 1, 0.2, '#18181b'),
+      b(4.6, -4, 0.25, 1.8, 1.8, 0.2, a),
+    ]
     case 'bat': return [
       ...fan([15, 13.5, 11, 8], 0.8, 0.5, 0.28),
       b(6, -1.5, 0.1, 11, 7, 0.3, c, { rz: 0.1 }),

@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Play, ChevronDown, Plus, ExternalLink, X, FlaskConical, CheckCircle2, RotateCcw, AlertTriangle, Boxes } from 'lucide-react'
+import { Play, ChevronDown, Plus, ExternalLink, X, FlaskConical, CheckCircle2, RotateCcw, AlertTriangle, Boxes, MonitorSmartphone } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { notify } from '../../store/notificationStore'
 import { LoginPanel } from '../ui/LoginPanel'
 import { CrashDialog, type DetectedProblem } from '../ui/CrashDialog'
 import { Page, PageHeader, EmptyState } from '../ui/Page'
+import { RunningGamesPanel, useRunningGames } from '../ui/RunningGamesPanel'
+import { GroupLaunch } from '../ui/GroupLaunch'
+import { PerfDoctorPanel } from '../ui/PerfDoctorPanel'
 
 interface ExternalClient {
   id: string
@@ -19,6 +22,7 @@ interface Instance {
   loader: string
   gameDir: string
   useCrystalClient: boolean
+  accountUuid?: string
 }
 
 interface Profile {
@@ -49,6 +53,11 @@ export function Launch() {
   const [lastError, setLastError] = useState<string | null>(null)
   const [crashOpen, setCrashOpen] = useState(false)
   const launchedInstanceRef = useRef<string | null>(null)
+  const autostartDone = useRef(false)
+  // Whether login and the account list have been looked at, so a shortcut can tell "no account" from "not loaded yet".
+  const [accountsChecked, setAccountsChecked] = useState(false)
+  const runningGames = useRunningGames()
+  const [accounts, setAccounts] = useState<Profile[]>([])
 
   function refreshInstances() {
     api?.getInstances().then((list: Instance[]) => {
@@ -75,10 +84,14 @@ export function Launch() {
       setMaxRam(saved || mem?.suggestedMb || DEFAULT_RAM)
     })
 
-    api?.getProfile().then((p: Profile | null) => {
-      if (p) setProfile(p)
-      else api?.autoLogin().then((auto: Profile | null) => auto && setProfile(auto))
-    })
+    Promise.all([
+      api?.listAccounts().then((list: Profile[]) => setAccounts(list || [])),
+      api?.getProfile().then(async (p: Profile | null) => {
+        if (p) { setProfile(p); return }
+        const auto: Profile | null = await api?.autoLogin()
+        if (auto) setProfile(auto)
+      }),
+    ]).finally(() => setAccountsChecked(true))
 
     // Subscribed once for the page's lifetime rather than per click: a second
     // Play press no longer stacks duplicate listeners, and a crash that happens
@@ -88,14 +101,16 @@ export function Launch() {
       // The game still starts; this only says why it got less RAM than set.
       api?.on('launch:notice', (message: string) => notify({ type: 'warning', title: 'Wenig freier Speicher', message })),
       api?.on('launch:started', () => {
-        notify({ type: 'success', title: 'Nexora', message: 'Minecraft wurde gestartet' })
+        notify({ type: 'success', title: 'Nexora', message: 'Minecraft wurde gestartet. Du kannst jetzt eine weitere Instanz mit einem anderen Konto starten.' })
         setLaunching(false)
         setProgress(null)
       }),
-      api?.on('launch:error', async (msg: string) => {
+      api?.on('launch:error', async (msg: string, fromInstance?: string) => {
         setLaunching(false)
         setProgress(null)
         setLastError(msg)
+        // With several games running, a crash can come from one started earlier.
+        if (fromInstance) launchedInstanceRef.current = fromInstance
         const target = launchedInstanceRef.current
         const found: DetectedProblem[] = target ? (await api?.analyzeFailure(target, msg)) || [] : []
         setProblems(found)
@@ -153,7 +168,7 @@ export function Launch() {
   }
 
   async function launch() {
-    if (!profile) {
+    if (!profile && !ownAccount) {
       notify({ type: 'error', title: 'Nicht angemeldet', message: 'Bitte zuerst anmelden.' })
       return
     }
@@ -182,6 +197,40 @@ export function Launch() {
 
   const busy = launching || trying
 
+  // A shortcut or link can ask for another instance while the page is open.
+  useEffect(() => {
+    const requested = searchParams.get('instance')
+    if (requested && instances.some(i => i.id === requested)) setInstanceId(requested)
+  }, [searchParams, instances])
+
+  // Opened from a desktop shortcut: start the instance once everything is loaded.
+  useEffect(() => {
+    // Cleared once handled, which also re-arms it for the next shortcut click.
+    if (searchParams.get('autostart') !== '1') { autostartDone.current = false; return }
+    if (autostartDone.current || !accountsChecked) return
+    if (!instance || instance.id !== searchParams.get('instance')) return
+    autostartDone.current = true
+    const next = new URLSearchParams(searchParams)
+    next.delete('autostart')
+    setSearchParams(next, { replace: true })
+    if (runningGames.some(g => g.instanceId === instance.id)) return
+    // launch() itself says what is missing (no account) instead of waiting for a login.
+    launch()
+  })
+  // One game per instance; the button says so instead of starting it twice.
+  const instanceRunning = !!instance && runningGames.some(g => g.instanceId === instance.id)
+  // The account this start plays on: the instance's own, or the active one.
+  const ownAccount = instance?.accountUuid ? accounts.find(a => a.uuid === instance.accountUuid) : undefined
+  const launchAccount = ownAccount ?? profile
+  const accountBusy = launchAccount ? runningGames.find(g => g.accountUuid === launchAccount.uuid) : undefined
+
+  async function setInstanceAccount(uuid: string) {
+    if (!instance) return
+    await api?.updateInstance(instance.id, { accountUuid: uuid })
+    refreshInstances()
+  }
+  const playLabel = launching ? 'Startet…' : instanceRunning ? 'Läuft' : 'Spielen'
+
   return (
     <Page>
       <PageHeader title="Starten" description="Wähle Konto und Instanz, dann kann es losgehen." />
@@ -204,11 +253,11 @@ export function Launch() {
           </div>
           <button
             onClick={launch}
-            disabled={busy || !instance}
+            disabled={busy || !instance || instanceRunning}
             className="crystal-btn-primary px-7 py-3 text-[15px] disabled:opacity-60"
           >
             <Play size={16} />
-            {launching ? 'Startet…' : 'Spielen'}
+            {playLabel}
           </button>
         </div>
       </section>
@@ -231,9 +280,16 @@ export function Launch() {
       )}
 
       <div className="space-y-6">
+        <RunningGamesPanel games={runningGames} />
+
         <section>
           <h2 className="text-[13px] font-semibold text-crystal-text mb-2 px-0.5">Konto</h2>
-          <LoginPanel profile={profile} onProfileChange={setProfile} />
+          <LoginPanel profile={profile} onProfileChange={p => { setProfile(p); api?.listAccounts().then((list: Profile[]) => setAccounts(list || [])) }} />
+          {accountBusy && !launching && !instanceRunning && (
+            <p className="mt-2 px-0.5 text-xs text-crystal-warning">
+              {launchAccount?.username} spielt schon in „{accountBusy.instanceName}“. Wähle für diese Instanz ein anderes Konto, unten bei der Instanz oder hier.
+            </p>
+          )}
         </section>
 
         <section>
@@ -269,6 +325,26 @@ export function Launch() {
               </div>
 
               {instance && (
+                <>
+                <label className="flex items-center gap-3 text-xs">
+                  <span className="text-crystal-muted shrink-0 w-24">Startet als</span>
+                  <span className="relative flex-1">
+                    <select
+                      value={ownAccount ? ownAccount.uuid : ''}
+                      onChange={e => setInstanceAccount(e.target.value)}
+                      disabled={busy || instanceRunning}
+                      className="crystal-input w-full appearance-none pr-9 cursor-pointer text-[13px]"
+                    >
+                      <option value="">Aktives Konto{profile ? ` (${profile.username})` : ''}</option>
+                      {accounts.map(a => (
+                        <option key={a.uuid} value={a.uuid}>
+                          Immer {a.username}{a.type === 'offline' ? ' (offline)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-crystal-muted pointer-events-none" />
+                  </span>
+                </label>
                 <dl className="grid grid-cols-3 gap-3 text-xs">
                   <div>
                     <dt className="text-crystal-muted">Version</dt>
@@ -283,6 +359,7 @@ export function Launch() {
                     <dd className="text-crystal-text mt-0.5 tabular">{(maxRam / 1024).toLocaleString('de-DE', { maximumFractionDigits: 1 })} GB</dd>
                   </div>
                 </dl>
+                </>
               )}
 
               {progress && (
@@ -298,9 +375,9 @@ export function Launch() {
               )}
 
               <div className="flex gap-2">
-                <button onClick={launch} disabled={busy || !instance} className="crystal-btn-primary flex-1 py-2.5 text-[14px] disabled:opacity-60">
+                <button onClick={launch} disabled={busy || !instance || instanceRunning} className="crystal-btn-primary flex-1 py-2.5 text-[14px] disabled:opacity-60">
                   <Play size={15} fill="currentColor" />
-                  {launching ? 'Startet…' : 'Spielen'}
+                  {playLabel}
                 </button>
                 <button
                   onClick={tryWithCrystal}
@@ -311,6 +388,20 @@ export function Launch() {
                   <FlaskConical size={14} strokeWidth={1.75} />
                   {trying ? 'Teste…' : 'Mit Nexora testen'}
                 </button>
+                {navigator.userAgent.includes('Windows') && (
+                  <button
+                    onClick={async () => {
+                      const r = await api?.createInstanceShortcut(instance!.id)
+                      notify({ type: r?.ok ? 'success' : 'error', title: 'Desktop-Verknüpfung', message: r?.message ?? 'Fehlgeschlagen.' })
+                    }}
+                    disabled={!instance}
+                    title="Legt ein Symbol auf den Desktop, das diese Instanz direkt startet"
+                    aria-label="Desktop-Verknüpfung anlegen"
+                    className="crystal-btn-ghost border border-crystal-border text-crystal-text disabled:opacity-60"
+                  >
+                    <MonitorSmartphone size={14} strokeWidth={1.75} />
+                  </button>
+                )}
               </div>
 
               {tryStatus && (
@@ -326,6 +417,10 @@ export function Launch() {
             </div>
           )}
         </section>
+
+        {instance && <PerfDoctorPanel instanceId={instance.id} running={instanceRunning} onRamChanged={setMaxRam} />}
+
+        <GroupLaunch instances={instances} accounts={accounts} profile={profile} running={runningGames} maxRam={maxRam} disabled={busy} />
 
         {problems !== null && lastError && launchedInstanceRef.current && (
           <section aria-live="polite">

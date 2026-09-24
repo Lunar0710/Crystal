@@ -25,7 +25,7 @@ public abstract class HudModule extends Module implements HudRenderable {
 
     private float x;
     private float y;
-    private int textColor = 0xFFE4E8F0;
+    private int textColor = 0xFFE8E8EA;
     private boolean shadow = true;
     private boolean background = false;
     private int backgroundColor = 0xFF000000;
@@ -160,7 +160,7 @@ public abstract class HudModule extends Module implements HudRenderable {
         all.add(new EnumSetting("Look", () -> look, v -> look = v, List.of(LOOK_CRYSTAL, LOOK_CLASSIC)));
         all.add(new SliderSetting("X", () -> x, v -> x = v, 0f, 1920f, 1f, 0));
         all.add(new SliderSetting("Y", () -> y, v -> y = v, 0f, 1080f, 1f, 0));
-        all.add(new ColorSetting("Text Color", () -> textColor, v -> textColor = v, 0xFFE4E8F0));
+        all.add(new ColorSetting("Text Color", () -> textColor, v -> textColor = v, 0xFFE8E8EA));
         all.add(new SliderSetting("Scale", () -> scale, v -> scale = v, 0.5f, 2f, 0.1f, 1));
         all.add(new BooleanSetting("Shadow", () -> shadow, v -> shadow = v, true));
         all.add(new BooleanSetting("Background", () -> background, v -> background = v, false));

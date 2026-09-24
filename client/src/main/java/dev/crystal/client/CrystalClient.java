@@ -26,7 +26,7 @@ public class CrystalClient implements ClientModInitializer {
 
     public static final String MOD_ID = "crystal";
     public static final String NAME = "Nexora Client";
-    public static final String VERSION = "1.4.0";
+    public static final String VERSION = "1.5.0";
     /** What players see: "1.2", with hotfixes named in the release, not the number. */
     public static final String DISPLAY_VERSION = VERSION.replaceFirst("^(\\d+\\.\\d+)\\..*$", "$1");
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
@@ -96,6 +96,9 @@ public class CrystalClient implements ClientModInitializer {
 
         // Colour grading and motion blur post effects.
         dev.crystal.client.util.PostEffects.register();
+
+        // Frame rate per session, for the launcher's performance history.
+        dev.crystal.client.util.PerfRecorder.register();
 
         // No-op unless started by the launcher's automated world test.
         dev.crystal.client.util.SmokeTest.registerIfRequested();

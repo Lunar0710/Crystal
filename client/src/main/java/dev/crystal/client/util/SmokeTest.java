@@ -26,8 +26,16 @@ public final class SmokeTest {
     private static final String PROPERTY = "crystal.smoke.screenshot";
     /** Set instead of loading a world: photograph the main menu and quit. */
     private static final String MENU_ONLY = "crystal.smoke.menu";
+    /** Set to photograph the landscape from a few angles, for the menu backdrop. */
+    private static final String SCENE = "crystal.smoke.scene";
+    private static final int SCENE_SHOTS = 6;
+    /** Set to measure frame rate with groups of Nexora modules switched off in turn. */
+    private static final String BENCH = "crystal.smoke.bench";
     private static int worldTicks = 0;
     private static int menuTicks = 0;
+    private static int sceneStart = -1;
+    /** When the world test asked to leave through the pause menu; 0 before and after. */
+    private static long leftAt = 0;
 
     private SmokeTest() {}
 
@@ -44,6 +52,22 @@ public final class SmokeTest {
         // sees it, so it gets a run of its own: launched without a world, this
         // waits for the menu, photographs it and quits.
         if (mc.level == null) {
+            // Back at the menu after the world test left through the pause menu.
+            if (finished && leftAt > 0) {
+                if (mc.getOverlay() == null && mc.screen instanceof dev.crystal.client.gui.CrystalTitleScreen) {
+                    CrystalClient.LOGGER.info("[Nexora] Quit to title PASS: menu after {} ms",
+                            System.currentTimeMillis() - leftAt);
+                    leftAt = 0;
+                    CrystalClient.LOGGER.info("CRYSTAL_SMOKE_WORLD_DONE");
+                    mc.stop();
+                } else if (System.currentTimeMillis() - leftAt > 60_000) {
+                    CrystalClient.LOGGER.info("[Nexora] Quit to title FAILED: world closed, menu never came");
+                    leftAt = 0;
+                    CrystalClient.LOGGER.info("CRYSTAL_SMOKE_WORLD_DONE");
+                    mc.stop();
+                }
+                return;
+            }
             if (System.getProperty(MENU_ONLY) == null) return;
             // Ticks run through the loading screens too, so count only the ones
             // where a menu is actually up: the loading overlay is gone and a
@@ -67,6 +91,19 @@ public final class SmokeTest {
         }
         if (mc.player == null) return;
         worldTicks++;
+
+        if (System.getProperty(BENCH) != null) {
+            benchTick(mc);
+            return;
+        }
+
+        // A run that only takes landscape pictures, for the menu's backdrop.
+        if (System.getProperty(SCENE) != null) {
+            sceneTick(mc, screenshotName);
+            return;
+        }
+
+        if (worldTicks == 30) profileTest();
 
         if (worldTicks == 40) {
             mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
@@ -252,8 +289,18 @@ public final class SmokeTest {
         if (!finished && uiShotsDone && worldTicks > Math.max(peerTest ? 355 : 325, BUILDER_SHOT_TICK)
                 && cullingResult != null && builderResult != null) {
             finished = true;
-            // Out to the menu first: the run ends there, with the panorama shot
-            // taken, and quits from the tick above.
+            // Leave the way a player does, through Nexora's pause menu. That
+            // button once went straight to the title screen and a world sat on
+            // "Saving world" for good; the tick above checks the menu arrives.
+            var pause = new dev.crystal.client.gui.NexoraPauseScreen();
+            mc.setScreen(pause);
+            pause.leaveWorld();
+            leftAt = System.currentTimeMillis();
+        }
+        // Still in the world long after leaving was asked for: that is the hang.
+        if (finished && leftAt > 0 && System.currentTimeMillis() - leftAt > 60_000) {
+            CrystalClient.LOGGER.info("[Nexora] Quit to title FAILED: still in the world after 60 s");
+            CrystalClient.LOGGER.info("CRYSTAL_SMOKE_WORLD_DONE");
             mc.stop();
         }
     }
@@ -851,5 +898,242 @@ public final class SmokeTest {
     private static void equip(ServerPlayer player, EquipmentSlot slot, ItemStack stack, float wear) {
         if (stack.isDamageableItem()) stack.setDamageValue(Math.round(stack.getMaxDamage() * wear));
         player.setItemSlot(slot, stack);
+    }
+
+    /**
+     * A run that only takes landscape pictures: hide everything the player
+     * would see, look around from above the ground, and save one picture per
+     * direction. They become the menu's backdrop after being darkened.
+     */
+    /**
+     * Module profiles: save one with FrameGraph off, switch it on, load the
+     * profile, and FrameGraph must be off again. Slot 5, so a player's own
+     * profiles are never touched by the test instance anyway.
+     */
+    private static void profileTest() {
+        var modules = CrystalClient.getInstance().getModuleManager();
+        var config = CrystalClient.getInstance().getConfigManager();
+        var graph = modules.getModuleByName("FrameGraph").orElse(null);
+        if (graph == null) { CrystalClient.LOGGER.info("[Nexora] Profiles FAILED: no FrameGraph"); return; }
+        boolean before = graph.isSwitchedOn();
+        graph.setEnabled(false);
+        boolean saved = config.saveProfile(5, "Smoke");
+        graph.setEnabled(true);
+        boolean loaded = config.loadProfile(5);
+        boolean ok = saved && loaded && !graph.isSwitchedOn() && "Smoke".equals(config.profileName(5));
+        CrystalClient.LOGGER.info("[Nexora] Profiles {}: saved={} loaded={} graphOff={} name={}",
+                ok ? "PASS" : "FAILED", saved, loaded, !graph.isSwitchedOn(), config.profileName(5));
+        graph.setEnabled(before);
+        config.save();
+    }
+
+    // ---------------------------------------------------------------- bench
+
+    /**
+     * The phases of the frame rate run: what is switched off in each. The
+     * first and last are the same, so drift over the run (chunks still
+     * building, the machine warming up) shows as a difference between them.
+     */
+    private static final java.util.List<String> BENCH_PHASES = new java.util.ArrayList<>();
+    private static final int BENCH_WARMUP = 400, BENCH_PHASE = 240;
+    private static final java.util.List<dev.crystal.client.module.Module> benchWasOn = new java.util.ArrayList<>();
+    private static final java.util.List<Integer> benchSamples = new java.util.ArrayList<>();
+    private static int benchPhase = -1;
+
+    private static void benchTick(Minecraft mc) {
+        if (worldTicks == 20) {
+            mc.options.framerateLimit().set(260);
+            mc.options.enableVsync().set(false);
+            // Minecraft drops to 30 fps after a minute without input, and BackgroundFps
+            // does too when the window loses focus; neither may cut into the numbers.
+            mc.options.inactivityFpsLimit().set(net.minecraft.client.InactivityFpsLimit.MINIMIZED);
+            CrystalClient.getInstance().getModuleManager().getModuleByName("BackgroundFps").ifPresent(m -> m.setEnabled(false));
+            // First person, the way the game is played; third person adds your own nametag.
+            mc.options.setCameraType(CameraType.FIRST_PERSON);
+            for (var m : CrystalClient.getInstance().getModuleManager().getModules()) {
+                if (m.isEnabled()) benchWasOn.add(m);
+            }
+            CrystalClient.LOGGER.info("[Nexora] Bench: {} modules on: {}", benchWasOn.size(),
+                    benchWasOn.stream().map(dev.crystal.client.module.Module::getName).toList());
+            // Each measurement right after a reference with everything on, so the
+            // slow drift over a run (chunks finishing, the machine warming up)
+            // cancels out of the difference.
+            java.util.List<String> tests = new java.util.ArrayList<>(java.util.List.of("HUD off"));
+            for (var m : benchWasOn) {
+                // -Dcrystal.smoke.bench=each: every module on its own, not only the Render ones.
+                if (m.getCategory() == dev.crystal.client.module.ModuleCategory.RENDER || "each".equals(System.getProperty(BENCH))) tests.add("-" + m.getName());
+            }
+            tests.add("all off");
+            // -Dcrystal.smoke.bench=onoff: only everything on against everything off, three times.
+            if ("onoff".equals(System.getProperty(BENCH))) tests = java.util.List.of("all off", "all off", "all off");
+            for (String t : tests) {
+                BENCH_PHASES.add("all on");
+                BENCH_PHASES.add(t);
+            }
+            // The flat world spawns slimes, and a dead player measures the death screen.
+            var server = mc.getSingleplayerServer();
+            if (server != null) {
+                var uuid = mc.player.getUUID();
+                server.execute(() -> {
+                    server.setDifficulty(net.minecraft.world.Difficulty.PEACEFUL, true);
+                    ServerPlayer sp = server.getPlayerList().getPlayer(uuid);
+                    if (sp != null) sp.setGameMode(net.minecraft.world.level.GameType.CREATIVE);
+                });
+            }
+        }
+        if (mc.player.isDeadOrDying() && worldTicks % 100 == 0) CrystalClient.LOGGER.info("[Nexora] Bench: player died, numbers are off");
+        // Turn slowly, so every phase draws the same mix of near and far chunks.
+        mc.player.setYRot(worldTicks * 0.9f);
+        mc.player.setXRot(5f);
+        if (worldTicks < BENCH_WARMUP) return;
+
+        int phase = (worldTicks - BENCH_WARMUP) / BENCH_PHASE;
+        if (phase != benchPhase) {
+            if (benchPhase >= 0) benchReport(BENCH_PHASES.get(benchPhase));
+            benchPhase = phase;
+            if (phase >= BENCH_PHASES.size()) {
+                CrystalClient.LOGGER.info("CRYSTAL_SMOKE_WORLD_DONE");
+                mc.stop();
+                return;
+            }
+            benchApply(BENCH_PHASES.get(phase));
+        }
+        // Skip the first two seconds of a phase: toggling can cost a frame or two.
+        if ((worldTicks - BENCH_WARMUP) % BENCH_PHASE >= 40 && worldTicks % 20 == 0) benchSamples.add(mc.getFps());
+    }
+
+    private static void benchApply(String phase) {
+        for (var m : benchWasOn) {
+            var c = m.getCategory();
+            boolean off = switch (phase) {
+                case "HUD off" -> c == dev.crystal.client.module.ModuleCategory.HUD;
+                case "all off" -> true;
+                default -> phase.equals("-" + m.getName());
+            };
+            if (m.isEnabled() == off) m.setEnabled(!off);
+        }
+    }
+
+    private static double benchRefFps = 0;
+
+    private static void benchReport(String phase) {
+        if (benchSamples.isEmpty()) return;
+        java.util.List<Integer> sorted = new java.util.ArrayList<>(benchSamples);
+        java.util.Collections.sort(sorted);
+        double avg = sorted.stream().mapToInt(Integer::intValue).average().orElse(0);
+        if (phase.equals("all on")) {
+            benchRefFps = avg;
+        } else if (benchRefFps > 0 && avg > 0) {
+            // What this saves per frame, against the reference just before it.
+            double saved = 1000.0 / benchRefFps - 1000.0 / avg;
+            CrystalClient.LOGGER.info("[Nexora] Bench {}: {} fps against {} with all on, costs {} ms per frame",
+                    phase, Math.round(avg), Math.round(benchRefFps), String.format(java.util.Locale.ROOT, "%.3f", saved));
+        }
+        benchSamples.clear();
+    }
+
+    private static void sceneTick(Minecraft mc, String screenshotName) {
+        String base = screenshotName.endsWith(".png")
+                ? screenshotName.substring(0, screenshotName.length() - 4) : screenshotName;
+        var server = mc.getSingleplayerServer();
+
+        if (worldTicks == 20) {
+            //? if <26 {
+            mc.options.hideGui = true;
+            //?}
+            mc.options.setCameraType(CameraType.FIRST_PERSON);
+            if (server != null) {
+                var uuid = mc.player.getUUID();
+                server.execute(() -> {
+                    ServerPlayer sp = server.getPlayerList().getPlayer(uuid);
+                    if (sp == null) return;
+                    // Spectator: no body, no hand, and it can sit in the air.
+                    sp.setGameMode(net.minecraft.world.level.GameType.SPECTATOR);
+                    // Spawn is as often as not a beach or open water. A forest is
+                    // what the backdrop wants, so move to the nearest one.
+                    int x = sp.getBlockX(), z = sp.getBlockZ();
+                    // The pale garden first: its washed out trees suit a black and
+                    // white client. A darker forest will do if there is none near.
+                    // Only this build needs the tool, and the older ones have no
+                    // such search.
+                    //? if >=1.21.11 && <26 {
+                    var found = sp.level().findClosestBiome3d(
+                            h -> h.is(net.minecraft.world.level.biome.Biomes.PALE_GARDEN),
+                            sp.blockPosition(), 12800, 32, 64);
+                    if (found == null) found = sp.level().findClosestBiome3d(
+                            h -> h.is(net.minecraft.world.level.biome.Biomes.DARK_FOREST)
+                                    || h.is(net.minecraft.world.level.biome.Biomes.OLD_GROWTH_BIRCH_FOREST)
+                                    || h.is(net.minecraft.world.level.biome.Biomes.FOREST),
+                            sp.blockPosition(), 6400, 32, 64);
+                    if (found != null) {
+                        x = found.getFirst().getX();
+                        z = found.getFirst().getZ();
+                    }
+                    CrystalClient.LOGGER.info("[Nexora] Scene spot: {} {} (biome found: {})", x, z, found != null);
+                    //?}
+                    int ground = sp.level().getHeight(
+                            net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, x, z);
+                    sp.teleportTo(x + 0.5, ground + 5.0, z + 0.5);
+                });
+            }
+        }
+
+        // The move is a long one and the ground there may still be being made,
+        // so the sweep waits for solid blocks under the camera rather than for
+        // a set number of ticks, then gives the view a moment to draw.
+        if (sceneStart < 0) {
+            boolean ground = worldTicks > 60
+                    && !mc.level.getBlockState(mc.player.blockPosition().below(6)).isAir();
+            if (ground) {
+                // The first jump used a surface height from ground that had not
+                // been made yet, which can leave the camera inside a hill. Now
+                // that the area is really there, put it above the treetops.
+                var srv = mc.getSingleplayerServer();
+                int px = mc.player.blockPosition().getX();
+                int pz = mc.player.blockPosition().getZ();
+                int surface = mc.level.getHeight(
+                        net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, px, pz);
+                if (srv != null) {
+                    var uuid = mc.player.getUUID();
+                    srv.execute(() -> {
+                        ServerPlayer sp = srv.getPlayerList().getPlayer(uuid);
+                        if (sp != null) sp.teleportTo(px + 0.5, surface + 7.0, pz + 0.5);
+                    });
+                }
+                sceneStart = worldTicks + 60;
+            }
+            if (worldTicks > 1400) {
+                CrystalClient.LOGGER.info("[Nexora] Scene: no ground under the camera, giving up");
+                CrystalClient.LOGGER.info("CRYSTAL_SMOKE_WORLD_DONE");
+                mc.stop();
+            }
+            return;
+        }
+
+        int phase = worldTicks - sceneStart;
+        if (phase < 0) return;
+
+        // One direction every 20 ticks, photographed ten ticks after turning so
+        // the chunks in that direction have drawn.
+        if (phase % 20 == 0 && phase / 20 < SCENE_SHOTS) {
+            mc.player.setYRot(phase / 20 * (360f / SCENE_SHOTS));
+            int index = phase / 20;
+            var srv = mc.getSingleplayerServer();
+            if (srv != null) srv.execute(() -> {
+                //? if >=1.21.6 && <26 {
+                srv.overworld().setDayTime(index < SCENE_SHOTS / 2 ? 5800L : 13000L);
+                //?}
+            });
+            mc.player.setXRot(12f);
+        }
+        if (phase >= 10 && (phase - 10) % 20 == 0 && (phase - 10) / 20 < SCENE_SHOTS) {
+            int index = (phase - 10) / 20;
+            Screenshot.grab(mc.gameDirectory, base + "-scene" + index + ".png", mc.getMainRenderTarget(), 1,
+                    msg -> CrystalClient.LOGGER.info("[Nexora] Smoke screenshot: {}", msg.getString()));
+        }
+        if (phase > SCENE_SHOTS * 20 + 20) {
+            CrystalClient.LOGGER.info("CRYSTAL_SMOKE_WORLD_DONE");
+            mc.stop();
+        }
     }
 }

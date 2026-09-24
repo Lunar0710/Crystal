@@ -2,6 +2,7 @@ package dev.crystal.client.gui;
 
 import dev.crystal.client.module.ModuleManager;
 import dev.crystal.client.module.hud.ArmorDisplay;
+import dev.crystal.client.module.hud.FrameGraph;
 import dev.crystal.client.module.hud.HudModule;
 import dev.crystal.client.module.player.DurabilityWarning;
 import dev.crystal.client.module.player.LowHealthWarning;
@@ -44,6 +45,8 @@ public class CrystalHUD {
                 drawLowHealth(context, warning);
             } else if (module instanceof DurabilityWarning warning) {
                 drawDurabilityWarning(context, warning);
+            } else if (module instanceof FrameGraph graph) {
+                drawFrameGraph(context, graph);
             } else if (module instanceof HudModule hud) {
                 drawStyledText(context, hud);
             } else if (module instanceof HudRenderable renderable) {
@@ -71,6 +74,10 @@ public class CrystalHUD {
             return new int[]{x, y, x + w, y + h};
         }
         float s = module.getScale();
+        if (module instanceof FrameGraph graph) {
+            int[] size = frameGraphSize(graph);
+            return new int[]{x - Math.round(3 * s), y - Math.round(2 * s), x + Math.round((size[0] + 3) * s), y + Math.round((size[1] + 2) * s)};
+        }
         if (module instanceof ArmorDisplay armor && armor.isIconStyle()) {
             int[] size = armorSize(armor);
             return new int[]{x - Math.round(3 * s), y - Math.round(3 * s), x + Math.round((size[0] + 3) * s), y + Math.round((size[1] + 3) * s)};
@@ -158,9 +165,51 @@ public class CrystalHUD {
 
         boolean blinkOn = System.currentTimeMillis() / 450 % 2 == 0;
         GuiRender.roundedRect(context, x - 5, y - 3, x + totalW + 5, y + 19, 0x99000000);
-        GuiRender.roundedOutline(context, x - 5, y - 3, x + totalW + 5, y + 19, blinkOn ? 0xFFEF4444 : 0x66EF4444);
+        GuiRender.roundedOutline(context, x - 5, y - 3, x + totalW + 5, y + 19, blinkOn ? 0xFFC94F49 : 0x66C94F49);
         context.renderItem(stack, x, y);
-        context.drawString(mc.font, text, x + 20, y + 4, blinkOn ? 0xFFFCA5A5 : 0xFFEF4444, true);
+        context.drawString(mc.font, text, x + 20, y + 4, blinkOn ? 0xFFE3938E : 0xFFC94F49, true);
+    }
+
+    private static final int GRAPH_H = 24;
+
+    /** Unscaled {width, height} of the frame graph: the text line, then the bars. */
+    private int[] frameGraphSize(FrameGraph graph) {
+        int textW = Minecraft.getInstance().font.width(graph.getText());
+        return new int[]{Math.max(graph.getBars(), textW), 10 + GRAPH_H};
+    }
+
+    /**
+     * The frame graph: one 1px bar per frame, as tall as the frame took against
+     * the "Top" setting. A frame twice as long as the typical one is orange, one
+     * over 50 ms (a real hitch) red.
+     */
+    private void drawFrameGraph(GuiGraphics context, FrameGraph graph) {
+        graph.frame();
+        int[] size = frameGraphSize(graph);
+        float scale = graph.getScale();
+        context.pose().pushMatrix();
+        context.pose().translate(graph.getX(), graph.getY());
+        context.pose().scale(scale, scale);
+
+        GuiRender.roundedRect(context, -3, -2, size[0] + 3, size[1] + 2, 3, 0x9E0C0C0D);
+        context.drawString(Minecraft.getInstance().font, graph.getText(), 0, 0, graph.getEffectiveTextColor(), false);
+
+        float[] frames = graph.recent(graph.getBars());
+        float[] sorted = frames.clone();
+        java.util.Arrays.sort(sorted);
+        float typical = sorted.length == 0 ? 0 : sorted[sorted.length / 2];
+        int accent = dev.crystal.client.CrystalClient.getInstance().getThemeManager().getAccent();
+        int bottom = size[1];
+        // A faint line at half the scale, so bar heights can be read.
+        context.fill(0, bottom - GRAPH_H / 2, size[0], bottom - GRAPH_H / 2 + 1, 0x22FFFFFF);
+        int x0 = size[0] - frames.length;
+        for (int i = 0; i < frames.length; i++) {
+            float ms = frames[i];
+            int h = Math.max(1, Math.round(Math.min(1f, ms / graph.getCeilingMs()) * GRAPH_H));
+            int color = ms > 50f ? 0xFFE5484D : ms > typical * 2f && ms > 8f ? 0xFFF08C3A : GuiRender.withAlpha(accent, 0xCC);
+            context.fill(x0 + i, bottom - h, x0 + i + 1, bottom, color);
+        }
+        context.pose().popMatrix();
     }
 
     /** Space an icon (like the server logo) takes in front of a HUD line: 9px image plus a gap. */
@@ -189,7 +238,7 @@ public class CrystalHUD {
             drawStyled(context, module, -4, -3, textWidth + 4, 11, fill);
         } else if (crystalLook) {
             // 11px tall, so HUD lines on the default 12px rows keep a 1px gap.
-            GuiRender.roundedRect(context, -3, -2, textWidth + 3, 9, 3, 0x9E0A0D15);
+            GuiRender.roundedRect(context, -3, -2, textWidth + 3, 9, 3, 0x9E0C0C0D);
         }
 
         if (icon != null) {
@@ -361,7 +410,7 @@ public class CrystalHUD {
     private void drawPlainText(GuiGraphics context, String text, int x, int y) {
         Minecraft mc = Minecraft.getInstance();
         context.drawString(mc.font, text, x + 1, y + 1, 0x80000000, false);
-        context.drawString(mc.font, text, x, y, 0xFFE4E8F0, false);
+        context.drawString(mc.font, text, x, y, 0xFFE8E8EA, false);
     }
 
     /** A 3x2 WASD grid plus jump/attack/use indicators, each box lit while the key is held. */

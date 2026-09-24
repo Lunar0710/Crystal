@@ -10,7 +10,6 @@
     "MixinListSkin",
     "MixinSliderSkin",
     "SliderAccessor",
-    "ScreenInvoker",
     "MixinLevelRendererLegacy",
     "KeyMappingAccessor",
     "MixinClientClockManager",

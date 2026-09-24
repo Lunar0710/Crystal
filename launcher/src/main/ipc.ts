@@ -27,6 +27,8 @@ import { CrashDoctor } from './minecraft/CrashDoctor'
 import { ScreenshotService } from './screenshots/ScreenshotService'
 import { ServerListService, isValidServerAddress } from './servers/ServerListService'
 import { StatsService } from './stats/StatsService'
+import { RunningGames } from './minecraft/RunningGames'
+import { PerfDoctor, type PerfFix } from './minecraft/PerfDoctor'
 import { crystalPath, crystalRoot, defaultCrystalRoot, setCrystalRoot, canUseAsRoot } from './paths'
 
 export function registerIpcHandlers(store: Store) {
@@ -345,22 +347,82 @@ export function registerIpcHandlers(store: Store) {
       crystal: minecraft.hasCrystalFor(v.id),
     }))
   })
-  ipcMain.handle('minecraft:launch', async (_e, rawOpts) => {
-    const win = BrowserWindow.getFocusedWindow()
+  // Several games can run at once, each on its own instance and account.
+  const running = new RunningGames(games => {
+    for (const w of BrowserWindow.getAllWindows()) if (!w.isDestroyed()) w.webContents.send('games:update', games)
+  })
+  /** Instances between the Play click and a running game; a second click must not start them again. */
+  const starting = new Set<string>()
+  ipcMain.handle('games:list', () => running.list())
+  ipcMain.handle('games:close', (_e, instanceId: string) => running.close(String(instanceId)))
+
+  // FPS-Doktor: what in an instance costs frames, and one-click fixes for it.
+  const perfDoctor = new PerfDoctor(instances)
+  ipcMain.handle('perfDoctor:analyze', (_e, instanceId: string) =>
+    perfDoctor.analyze(String(instanceId), (store.get('maxRam') as number) || 4096))
+  ipcMain.handle('perfDoctor:fix', async (_e, instanceId: string, fix: PerfFix) => {
+    const id = String(instanceId)
+    const instance = instances.get(id)
+    if (!instance || !fix) return { ok: false, message: 'Instanz nicht gefunden.' }
+    if (running.isInstanceRunning(id) && fix.kind !== 'set-ram') {
+      return { ok: false, message: 'Schließ die Instanz erst, sie läuft gerade.' }
+    }
+    switch (fix.kind) {
+      case 'disable-mod': return perfDoctor.disableMod(id, fix.modFile)
+      case 'disable-module': return perfDoctor.disableModule(id, fix.module)
+      case 'set-ram': {
+        const ram = Math.round(Number(fix.ram))
+        if (!Number.isFinite(ram) || ram < 1024 || ram > 65536) return { ok: false, message: 'Ungültiger Wert.' }
+        store.set('maxRam', ram)
+        return { ok: true, message: 'Arbeitsspeicher auf ' + (ram / 1024).toFixed(1) + ' GB gesetzt.' }
+      }
+      case 'install-perf-pack': {
+        const result = await modrinth.installPerformancePack(id, instance.version)
+        return result.failed.length === 0
+          ? { ok: true, message: 'Performance-Paket installiert.' }
+          : { ok: false, message: 'Nicht alles ließ sich laden: ' + result.failed.map(f => f.title).join(', ') }
+      }
+      default: return { ok: false, message: 'Unbekannte Aktion.' }
+    }
+  })
+
+  ipcMain.handle('minecraft:launch', async (e, rawOpts) => {
+    // The window that asked, not the focused one: a group start or a desktop
+    // shortcut runs while the launcher is minimised or in the background.
+    const win = BrowserWindow.fromWebContents(e.sender)
+    // One game per instance: a second one would share its worlds and settings,
+    // and replacing the Nexora jar under a running game fails.
+    const launchId = String(rawOpts?.instanceId ?? '')
+    if (launchId && (running.isInstanceRunning(launchId) || starting.has(launchId))) {
+      win?.webContents.send('launch:error', 'Diese Instanz läuft schon. Eine Instanz kann nur einmal gleichzeitig laufen, für ein zweites Spiel nimm eine andere Instanz.', launchId)
+      return false
+    }
     // Extra JVM/game arguments are for the automated tests only; a page must
     // never be able to pass its own. Joining a server is the one supported
     // extra, and only with an address that is a plain host[:port].
     const { extraJvmArgs: _jvm, extraGameArgs: _game, joinServer, ...opts } = rawOpts ?? {}
     if (isValidServerAddress(joinServer)) opts.extraGameArgs = ['--quickPlayMultiplayer', joinServer]
+    // The player's own switch, not something a page passes in.
+    opts.autoRam = store.get('autoRam') !== false
     const crystalServer = crystalServerAddress(store)
     if (crystalServer) opts.extraJvmArgs = [`-Dcrystal.server=${crystalServer}`]
     // Renews an expired Microsoft token first; a stale one gets every
     // multiplayer join rejected with "Invalid session".
-    const { profile, error: sessionError } = await auth.ensureFreshProfile()
+    // An instance with its own account starts on that one, whatever is active.
+    const instanceAccount = launchId ? instances.get(launchId)?.accountUuid : undefined
+    const { profile, error: sessionError } = await auth.ensureFreshProfile(instanceAccount)
     if (sessionError) {
-      win?.webContents.send('launch:error', sessionError)
+      win?.webContents.send('launch:error', sessionError, launchId)
       return false
     }
+    // A Minecraft account can only be online once; the server would kick the first game.
+    const busyWith = profile ? running.gameForAccount(profile.uuid) : undefined
+    if (busyWith) {
+      win?.webContents.send('launch:error',
+        `Das Konto ${profile!.username} spielt schon in "${busyWith.instanceName}". Wechsle oben unter Konto auf einen anderen Account, um eine zweite Instanz zu starten.`, launchId)
+      return false
+    }
+    if (launchId) starting.add(launchId)
 
     // A launch never waits on this — an update becomes a dismissible banner
     // (see UpdateBanner.tsx), never a blocker standing between the user and Play.
@@ -394,8 +456,30 @@ export function registerIpcHandlers(store: Store) {
     // the game. Only a window we minimised gets brought back afterwards.
     let minimizedByLaunch = false
     let playStartedAt = 0
+    let sessionUsage: ReturnType<RunningGames['sessionUsage']> = null
     return minecraft.launch({ ...opts, profile }, (event, data) => {
-      if (event === 'launch:started') playStartedAt = Date.now()
+      if (event === 'launch:started') {
+        playStartedAt = Date.now()
+        starting.delete(launchId)
+        const pid = (data as { pid?: number })?.pid
+        if (launchId && pid && profile) {
+          running.add({
+            instanceId: launchId,
+            instanceName,
+            version: String(opts.version ?? '?'),
+            username: profile.username,
+            accountUuid: profile.uuid,
+            pid,
+            startedAt: playStartedAt,
+            maxRamMb: Number(opts.maxRam) || 0,
+          })
+        }
+      }
+      if (event === 'launch:exit' || event === 'launch:error') {
+        starting.delete(launchId)
+        sessionUsage = running.sessionUsage(launchId)
+        running.remove(launchId)
+      }
       if (event === 'launch:started' && win && store.get('minimizeOnLaunch') !== false && !win.isMinimized()) {
         win.minimize()
         minimizedByLaunch = true
@@ -413,19 +497,21 @@ export function registerIpcHandlers(store: Store) {
               instanceId: String(opts.instanceId ?? ''),
               instanceName: instance?.name ?? '',
               crystal: !!opts.injectCrystal,
-            }, instance?.gameDir || crystalPath('instances', String(opts.instanceId ?? '')))
+            }, instance?.gameDir || crystalPath('instances', String(opts.instanceId ?? '')), sessionUsage)
           } catch (err) {
             logger.warn('launcher', 'Spielzeit konnte nicht gespeichert werden', String(err))
           }
           playStartedAt = 0
         }
-        discord.idle()
+        // Another game may still run; the status only goes idle with the last one.
+        if (running.list().length === 0) discord.idle()
         // After a crash this also puts the auto-fix panel in front of the user.
         if (minimizedByLaunch && win && !win.isDestroyed() && win.isMinimized()) win.restore()
         minimizedByLaunch = false
       }
-      if (win && !win.isDestroyed()) win.webContents.send(event, data)
-    })
+      // The instance goes along, so the page can tell which of several games an event is about.
+      if (win && !win.isDestroyed()) win.webContents.send(event, data, launchId)
+    }).finally(() => starting.delete(launchId))
   })
   ipcMain.handle('minecraft:selectDir', async () => {
     const result = await dialog.showOpenDialog({ properties: ['openDirectory'] })
@@ -438,6 +524,24 @@ export function registerIpcHandlers(store: Store) {
   ipcMain.handle('instances:update', (_e, id: string, patch) => instances.update(id, patch))
   ipcMain.handle('instances:import', (_e, version: string) => instances.importFromDisk(version))
   ipcMain.handle('instances:delete', (_e, id: string) => instances.delete(id))
+  // A desktop icon that starts the instance straight away (Windows).
+  ipcMain.handle('instances:createShortcut', (_e, id: string) => {
+    const instance = instances.get(String(id))
+    if (!instance) return { ok: false, message: 'Instanz nicht gefunden.' }
+    if (process.platform !== 'win32') return { ok: false, message: 'Verknüpfungen gibt es bisher nur unter Windows.' }
+    const name = instance.name.replace(/[<>:"/\\|?*\x00-\x1f]/g, '').trim() || 'Minecraft'
+    const file = path.join(app.getPath('desktop'), `${name} (Nexora).lnk`)
+    // A development run is electron.exe with the app folder as its first argument.
+    const args = [...(app.isPackaged ? [] : [`"${app.getAppPath()}"`]), `--launch-instance=${instance.id}`].join(' ')
+    const ok = shell.writeShortcutLink(file, 'create', {
+      target: process.execPath,
+      args,
+      description: `Startet ${instance.name} mit Nexora`,
+      icon: process.execPath,
+      iconIndex: 0,
+    })
+    return ok ? { ok: true, message: `"${name} (Nexora)" liegt jetzt auf dem Desktop.` } : { ok: false, message: 'Die Verknüpfung ließ sich nicht anlegen.' }
+  })
   ipcMain.handle('trash:open', () => {
     const dir = crystalPath('trash')
     fs.mkdirSync(dir, { recursive: true })
@@ -578,7 +682,7 @@ export function registerIpcHandlers(store: Store) {
     const isHex = (v: unknown): v is string => typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v)
     const num = (v: unknown, limit: number) => typeof v === 'number' && Number.isFinite(v) ? Math.max(-limit, Math.min(limit, v)) : 0
     const clean: Record<string, unknown> = {}
-    for (const slot of ['hat', 'bandana', 'mask', 'wings', 'backpack', 'aura']) {
+    for (const slot of ['hat', 'bandana', 'mask', 'wings', 'backpack', 'aura', 'pet']) {
       const item = items?.[slot]
       if (!item || !isHex(item.color)) continue
       // Shape boxes, bounded: a few dozen boxes of sane size around the player.
@@ -595,7 +699,7 @@ export function registerIpcHandlers(store: Store) {
         secondary: isHex(item.secondary) ? item.secondary : null,
         variant: typeof item.variant === 'string' ? item.variant : null,
         plusOnly: !!item.plusOnly,
-        anchor: ['head', 'body', 'wing'].includes(item.anchor as string) ? item.anchor : null,
+        anchor: ['head', 'body', 'wing', 'pet'].includes(item.anchor as string) ? item.anchor : null,
         boxes,
       }
     }

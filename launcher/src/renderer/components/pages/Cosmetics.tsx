@@ -164,7 +164,7 @@ export function Cosmetics() {
   // Hats, masks, wings… reach the game the same way: the resolved colours and
   // shapes go to a file the Java client reads. Rank-locked items are flagged so
   // the client hides them again if the rank runs out.
-  const nonCapeKey = `${loadout.hat}|${loadout.bandana}|${loadout.mask}|${loadout.wings}|${loadout.backpack}|${loadout.aura}`
+  const nonCapeKey = `${loadout.hat}|${loadout.bandana}|${loadout.mask}|${loadout.wings}|${loadout.backpack}|${loadout.aura}|${loadout.pet}`
   useEffect(() => {
     // Not before the saved loadout has arrived: syncing the empty initial state
     // briefly took everything off in a running game each time the page opened.
@@ -232,6 +232,7 @@ export function Cosmetics() {
                 wings={findCosmetic('wings', loadout.wings)}
                 backpack={findCosmetic('backpack', loadout.backpack)}
                 aura={findCosmetic('aura', loadout.aura)}
+                pet={findCosmetic('pet', loadout.pet)}
                 width={270}
                 height={300}
               />

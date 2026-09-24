@@ -39,6 +39,7 @@ public final class CosmeticLoadout {
     public static final String WINGS = "wings";
     public static final String BACKPACK = "backpack";
     public static final String AURA = "aura";
+    public static final String PET = "pet";
 
     private static final long CHECK_INTERVAL_MS = 1000;
     private static final ExecutorService READER = Executors.newSingleThreadExecutor(r -> {
@@ -105,7 +106,7 @@ public final class CosmeticLoadout {
      */
     public static Map<String, Item> parse(JsonObject root) {
         java.util.HashMap<String, Item> parsed = new java.util.HashMap<>();
-        for (String slot : new String[]{HAT, BANDANA, MASK, WINGS, BACKPACK, AURA}) {
+        for (String slot : new String[]{HAT, BANDANA, MASK, WINGS, BACKPACK, AURA, PET}) {
             JsonElement el = root.get(slot);
             if (el == null || !el.isJsonObject()) continue;
             JsonObject o = el.getAsJsonObject();

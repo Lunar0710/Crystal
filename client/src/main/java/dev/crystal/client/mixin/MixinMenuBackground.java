@@ -32,7 +32,7 @@ public class MixinMenuBackground {
         if (menu == null || !menu.isEnabled()) return;
 
         Screen screen = (Screen) (Object) this;
-        NexoraBackground.draw(screen, ctx, screen.width, screen.height, delta);
+        NexoraBackground.draw(ctx, screen.width, screen.height);
         ci.cancel();
     }
 

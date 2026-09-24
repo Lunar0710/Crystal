@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { Clock, Gamepad2, Flame, Timer, type LucideIcon } from 'lucide-react'
 import { Page, PageHeader, EmptyState } from '../ui/Page'
+import { PerfChart, type PerfPoint } from '../ui/PerfChart'
 
 const api = (window as any).crystal
 
@@ -16,6 +17,7 @@ interface StatsSummary {
   byServer: Ranked[]
   byInstance: Ranked[]
   trackedSince: number | null
+  perf?: PerfPoint[]
 }
 
 /** "3 Std. 20 Min.", "45 Min.", "< 1 Min." */
@@ -70,6 +72,13 @@ export function Stats() {
           ) : (
             <>
               <DayChart days={stats.days} />
+              {stats.perf && stats.perf.length > 0 ? (
+                <PerfChart points={stats.perf} />
+              ) : (
+                <p className="crystal-card px-4 py-3 text-xs text-crystal-muted">
+                  Leistung pro Sitzung: Ab der nächsten Runde mit Nexora 1.5 steht hier, wie viele FPS du hattest, mit welcher Version, und wie viel CPU und RAM das Spiel brauchte.
+                </p>
+              )}
               <div className="grid lg:grid-cols-3 gap-3">
                 <RankList title="Server" items={stats.byServer} empty="Noch auf keinem Server gespielt." />
                 <RankList title="Minecraft-Version" items={stats.byVersion} empty="–" />

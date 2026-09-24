@@ -48,7 +48,7 @@ public class WorldEditCUI extends Module {
 
     private static final int PROTOCOL = 4;
 
-    private int boxColor = 0xFFEF4444;
+    private int boxColor = 0xFFC94F49;
     private int gridColor = 0xFF5B8AF5;
     private float lineWidth = 2f;
 
@@ -180,7 +180,7 @@ public class WorldEditCUI extends Module {
     @Override
     public List<Setting<?>> getSettings() {
         return List.of(
-                new ColorSetting("Selection Color", () -> boxColor, v -> boxColor = v, 0xFFEF4444),
+                new ColorSetting("Selection Color", () -> boxColor, v -> boxColor = v, 0xFFC94F49),
                 new ColorSetting("Second Corner Color", () -> gridColor, v -> gridColor = v, 0xFF5B8AF5),
                 new SliderSetting("Line Width", () -> lineWidth, v -> lineWidth = v, 1f, 6f, 0.5f, 1));
     }

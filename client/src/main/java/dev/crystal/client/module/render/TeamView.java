@@ -19,7 +19,7 @@ import net.minecraft.world.entity.player.Player;
 public class TeamView extends Module {
 
     private int teamColor = 0xFF22C55E;
-    private int enemyColor = 0xFFEF4444;
+    private int enemyColor = 0xFFC94F49;
     private boolean markEnemies = true;
 
     public TeamView() {
@@ -45,7 +45,7 @@ public class TeamView extends Module {
     public List<Setting<?>> getSettings() {
         return List.of(
                 new ColorSetting("Team Color", () -> teamColor, v -> teamColor = v, 0xFF22C55E),
-                new ColorSetting("Enemy Color", () -> enemyColor, v -> enemyColor = v, 0xFFEF4444),
+                new ColorSetting("Enemy Color", () -> enemyColor, v -> enemyColor = v, 0xFFC94F49),
                 new BooleanSetting("Mark Enemies", () -> markEnemies, v -> markEnemies = v, true));
     }
 }

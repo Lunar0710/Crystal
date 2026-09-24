@@ -32,6 +32,8 @@ export interface LaunchPipelineOptions {
   gameDir: string
   javaPath: string
   maxRam: number
+  /** Lower the heap for this start when Windows is short on memory. Off = exactly maxRam. */
+  autoRam?: boolean
   profile: AuthProfile
   /** Test runs only (scripts/smoke-world.cjs); a normal launch never sets these. */
   extraJvmArgs?: string[]
@@ -205,7 +207,7 @@ export class LaunchPipeline {
 
     // Measured as late as possible: what is free right before the start counts.
     const free = await freeMemory
-    const heap = fitHeap(opts.maxRam, free)
+    const heap = opts.autoRam === false ? { heapMb: opts.maxRam, notice: undefined } : fitHeap(opts.maxRam, free)
     if (heap.notice) {
       logger.warn('client', 'RAM für diesen Start gesenkt', { requested: opts.maxRam, used: heap.heapMb, freeCommitMb: free })
       emit('launch:notice', heap.notice)

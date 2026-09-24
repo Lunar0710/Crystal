@@ -44,12 +44,16 @@ function setSplashStatus(text: string, percent?: number) {
   splashWindow?.webContents.send('splash:status', { text, percent })
 }
 
+const UI_ZOOM = 0.88
+
 function createMainWindow() {
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 800,
-    minWidth: 1100,
-    minHeight: 700,
+    // Compact like Feather's launcher: the page is drawn at UI_ZOOM, so this
+    // window still holds the ~1100px layout the pages were built for.
+    width: 1040,
+    height: 650,
+    minWidth: 940,
+    minHeight: 590,
     // macOS keeps its native traffic lights, inset into our own title bar;
     // Windows and Linux get a frameless window with the custom caption buttons.
     ...(process.platform === 'darwin'
@@ -82,6 +86,10 @@ function createMainWindow() {
     mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
   }
 
+  // Everything a little smaller, the way Feather's launcher reads. Set on every
+  // load, because a reload would otherwise fall back to 100%.
+  mainWindow.webContents.on('did-finish-load', () => mainWindow?.webContents.setZoomFactor(UI_ZOOM))
+
   mainWindow.once('ready-to-show', () => {
     splashWindow?.close()
     splashWindow = null
@@ -100,6 +108,34 @@ function createMainWindow() {
 // instantly when no release channel is configured), which would make the splash
 // flash by unseen. Hold it long enough to actually read.
 const MIN_SPLASH_MS = 2600
+
+/** The instance a desktop shortcut asks for: "--launch-instance=<id>". */
+function quickLaunchArg(argv: string[]): string | null {
+  return validInstanceId(argv.find(a => a.startsWith('--launch-instance='))?.slice('--launch-instance='.length))
+}
+
+/** Instance ids are UUIDs; anything else from outside is ignored. */
+function validInstanceId(id: unknown): string | null {
+  return typeof id === 'string' && /^[\w-]{1,64}$/.test(id) ? id : null
+}
+let pendingQuickLaunch = quickLaunchArg(process.argv)
+
+// One launcher at a time. A shortcut clicked while it is open hands its
+// instance to the open window instead of starting a second launcher.
+// The instance also travels as additionalData: Chromium may rewrite the
+// command line it hands to the running launcher.
+if (!app.requestSingleInstanceLock({ quickLaunch: pendingQuickLaunch })) {
+  app.exit(0)
+} else {
+  app.on('second-instance', (_e, argv, _cwd, data) => {
+    const id = validInstanceId((data as { quickLaunch?: unknown } | null)?.quickLaunch) ?? quickLaunchArg(argv)
+    logger.info('launcher', 'Zweiter Start: Fenster nach vorne' + (id ? ', Instanz ' + id : ''))
+    if (!mainWindow) return
+    if (mainWindow.isMinimized()) mainWindow.restore()
+    mainWindow.focus()
+    if (id) mainWindow.webContents.send('app:quickLaunch', id)
+  })
+}
 
 // Anything that escapes a handler still ends up on disk instead of vanishing.
 process.on('uncaughtException', err => logger.error('launcher', 'Uncaught exception', err))
@@ -196,6 +232,8 @@ app.whenReady().then(async () => {
     else wc.once('did-finish-load', () => resolve())
   })
   rendererReady.then(() => {
+    if (pendingQuickLaunch) mainWindow?.webContents.send('app:quickLaunch', pendingQuickLaunch)
+    pendingQuickLaunch = null
     if (updateInfo.available) mainWindow?.webContents.send('update:available', updateInfo)
   })
 

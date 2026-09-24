@@ -12,7 +12,7 @@ import java.util.List;
 public class Scoreboard extends Module {
 
     private int titleColor = 0xFF60a5fa;
-    private int textColor = 0xFFE4E8F0;
+    private int textColor = 0xFFE8E8EA;
     private int backgroundColor = 0xA01B1E26;
     private boolean showScores = true;
 
@@ -30,7 +30,7 @@ public class Scoreboard extends Module {
     public List<Setting<?>> getSettings() {
         return List.of(
                 new ColorSetting("Title Color", () -> titleColor, v -> titleColor = v, 0xFF60a5fa),
-                new ColorSetting("Text Color", () -> textColor, v -> textColor = v, 0xFFE4E8F0),
+                new ColorSetting("Text Color", () -> textColor, v -> textColor = v, 0xFFE8E8EA),
                 new ColorSetting("Background", () -> backgroundColor, v -> backgroundColor = v, 0xA01B1E26),
                 new BooleanSetting("Show Scores", () -> showScores, v -> showScores = v, true)
         );

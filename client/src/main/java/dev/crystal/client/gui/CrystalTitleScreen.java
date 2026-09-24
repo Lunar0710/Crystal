@@ -82,10 +82,7 @@ public class CrystalTitleScreen extends Screen {
 
     @Override
     public void renderBackground(GuiGraphics context, int mouseX, int mouseY, float delta) {
-        // Minecraft's own panorama, darkened: the menu sits in the game rather
-        // than on a surface of its own.
-        renderPanorama(context, delta);
-        NexoraBackground.shade(context, width, height);
+        NexoraBackground.draw(context, width, height);
     }
 
     @Override
@@ -115,7 +112,7 @@ public class CrystalTitleScreen extends Screen {
 
             // Quit is plain text under the panel.
             if (b.danger) {
-                int quitColor = hover ? 0xFFF87171 : 0xFFB94A4A;
+                int quitColor = hover ? 0xFFD9605A : 0xFFB94A4A;
                 int qw = font.width(b.label);
                 context.drawString(font, b.label, b.x + (b.w - qw) / 2, b.y + 2, GuiRender.withAlpha(quitColor, alpha), false);
                 continue;
@@ -132,15 +129,15 @@ public class CrystalTitleScreen extends Screen {
 
             // Icon in its own column on the left, label next to it.
             int iconX = b.x + 11, iconY = b.y + b.h / 2;
-            int iconColor = b.primary ? 0xFF0C0D11 : hover ? 0xFFFFFFFF : 0xFFBFC6D2;
+            int iconColor = b.primary ? 0xFF0C0C0D : hover ? 0xFFFFFFFF : 0xFFBEBEC2;
             drawIcon(context, b.icon, iconX, iconY, GuiRender.withAlpha(iconColor, alpha), accent);
 
-            int textColor = b.primary ? 0xFF0C0D11 : hover ? 0xFFFFFFFF : 0xFFD7DCE5;
+            int textColor = b.primary ? 0xFF0C0C0D : hover ? 0xFFFFFFFF : 0xFFD9D9DC;
             context.drawString(font, b.label, b.x + 24, b.y + (b.h - 8) / 2, GuiRender.withAlpha(textColor, alpha), false);
         }
 
         String account = minecraft.getUser() != null ? minecraft.getUser().getName() : "";
-        context.drawString(font, Component.literal(account), 6, height - 12, GuiRender.withAlpha(0xFFB8BFCC, alpha), true);
+        context.drawString(font, Component.literal(account), 6, height - 12, GuiRender.withAlpha(0xFFBABABE, alpha), true);
         if (CrystalProfile.hasPerks()) {
             // Small Nexora+ tag after the name, in the accent colour.
             String tag = "Nexora+";
@@ -152,7 +149,7 @@ public class CrystalTitleScreen extends Screen {
         String version = "Nexora " + CrystalClient.DISPLAY_VERSION + "  Minecraft 1.21.11";
         // A row above the bottom: Minecraft's copyright line sits in that corner.
         context.drawString(font, Component.literal(version), width - font.width(version) - 6, height - 22,
-                GuiRender.withAlpha(0xFF8A93A3, alpha), true);
+                GuiRender.withAlpha(0xFF8A8A90, alpha), true);
     }
 
     /** The small drawings in front of the labels, built from rectangles. */
@@ -202,7 +199,7 @@ public class CrystalTitleScreen extends Screen {
         String sub = "C L I E N T";
         int subWidth = font.width(sub);
         context.drawString(font, sub, Math.round(left + markSize + gap + (logoWidth - subWidth) / 2f), Math.round(centreY + 8),
-                GuiRender.withAlpha(0xFF8A93A3, alpha), false);
+                GuiRender.withAlpha(0xFF8A8A90, alpha), false);
     }
 
     @Override

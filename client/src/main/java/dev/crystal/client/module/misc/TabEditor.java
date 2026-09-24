@@ -13,7 +13,7 @@ import java.util.List;
 public class TabEditor extends Module {
 
     private int backgroundColor = 0xC01B1E26;
-    private int textColor = 0xFFE4E8F0;
+    private int textColor = 0xFFE8E8EA;
     private boolean showPing = true;
     private float columnWidth = 90f;
 
@@ -31,7 +31,7 @@ public class TabEditor extends Module {
     public List<Setting<?>> getSettings() {
         return List.of(
                 new ColorSetting("Background", () -> backgroundColor, v -> backgroundColor = v, 0xC01B1E26),
-                new ColorSetting("Text Color", () -> textColor, v -> textColor = v, 0xFFE4E8F0),
+                new ColorSetting("Text Color", () -> textColor, v -> textColor = v, 0xFFE8E8EA),
                 new BooleanSetting("Show Ping", () -> showPing, v -> showPing = v, true),
                 new SliderSetting("Column Width", () -> columnWidth, v -> columnWidth = v, 60f, 160f, 5f, 0)
         );

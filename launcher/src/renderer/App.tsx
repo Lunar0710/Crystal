@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react'
 import { EquippedCosmetics, syncLoadoutToGame } from './data/cosmetics'
 import { fillCapeCache } from './data/capeCache'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { Sidebar } from './components/sidebar/Sidebar'
 import { TitleBar } from './components/ui/TitleBar'
 import { Dashboard } from './components/pages/Dashboard'
@@ -19,6 +19,12 @@ import { NotificationContainer } from './components/ui/Notifications'
 import { UpdateBanner } from './components/ui/UpdateBanner'
 
 export default function App() {
+  const navigate = useNavigate()
+  // A desktop shortcut: open the start page on that instance and start it.
+  useEffect(() => (window as any).crystal?.on('app:quickLaunch', (id: string) => {
+    navigate(`/launch?instance=${encodeURIComponent(id)}&autostart=1`)
+  }), [navigate])
+
   // Equipped cosmetics reach the game even if the Cosmetics page is never opened.
   useEffect(() => {
     const api = (window as any).crystal

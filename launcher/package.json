@@ -1,6 +1,6 @@
 {
   "name": "crystal-launcher",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Nexora Client Launcher",
   "main": "dist/main/index.js",
   "scripts": {

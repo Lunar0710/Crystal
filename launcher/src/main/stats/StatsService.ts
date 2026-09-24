@@ -12,6 +12,27 @@ export interface SessionRecord {
   crystal: boolean
   /** Time on each server during the session, in ms ("Einzelspieler" for local worlds). */
   servers: Record<string, number>
+  /** How the game ran, when it was measured (Nexora instances, launcher 1.5 and later). */
+  perf?: SessionPerf
+}
+
+export interface SessionPerf {
+  /** Frame rate in a world: average and 1% low, from the client's perf-session.json. */
+  avgFps?: number
+  lowFps?: number
+  /** Nexora version the session ran on, so a drop after an update shows. */
+  nexora?: string
+  cpuAvg?: number
+  ramAvgMb?: number
+  ramPeakMb?: number
+}
+
+/** One session in the performance history. */
+export interface PerfPoint {
+  start: number
+  instanceName: string
+  version: string
+  perf: SessionPerf
 }
 
 export interface StatsSummary {
@@ -27,6 +48,8 @@ export interface StatsSummary {
   byInstance: { name: string; ms: number }[]
   /** Sessions recorded per session (not just totals) — older launchers only kept totals. */
   trackedSince: number | null
+  /** The last sessions with frame rate data, oldest first. */
+  perf: PerfPoint[]
 }
 
 const MAX_RECORDS = 2000
@@ -51,12 +74,30 @@ export class StatsService {
     return Array.isArray(raw) ? raw as SessionRecord[] : []
   }
 
-  record(session: Omit<SessionRecord, 'servers'>, gameDir: string): void {
+  record(session: Omit<SessionRecord, 'servers' | 'perf'>, gameDir: string, usage?: { cpuAvg: number; ramAvgMb: number; ramPeakMb: number } | null): void {
     const servers = this.serversFromLog(path.join(gameDir, 'crystal-launch.log'), session.start, session.end)
-    const next = [...this.records(), { ...session, servers }].slice(-MAX_RECORDS)
+    const fps = this.fpsFromClient(gameDir, session.start)
+    const perf: SessionPerf | undefined = fps || usage ? { ...fps, ...(usage ?? {}) } : undefined
+    const next = [...this.records(), { ...session, servers, ...(perf ? { perf } : {}) }].slice(-MAX_RECORDS)
     this.store.set('stats.log', next)
     this.store.set('stats.playtimeMs', (Number(this.store.get('stats.playtimeMs')) || 0) + (session.end - session.start))
     this.store.set('stats.sessions', (Number(this.store.get('stats.sessions')) || 0) + 1)
+  }
+
+  /**
+   * The frame rate the Nexora client wrote for this session. The file is
+   * rewritten each session, so one that started before this launch is left
+   * over from an earlier one and ignored.
+   */
+  private fpsFromClient(gameDir: string, start: number): Pick<SessionPerf, 'avgFps' | 'lowFps' | 'nexora'> | null {
+    try {
+      const json = JSON.parse(fs.readFileSync(path.join(gameDir, '.crystal', 'perf-session.json'), 'utf8'))
+      if (typeof json?.startedAt !== 'number' || json.startedAt < start - 60_000) return null
+      if (typeof json.avgFps !== 'number') return null
+      return { avgFps: json.avgFps, lowFps: typeof json.lowFps === 'number' ? json.lowFps : undefined, nexora: typeof json.nexora === 'string' ? json.nexora : undefined }
+    } catch {
+      return null
+    }
   }
 
   /** Splits [start, end] by the server connects the game logged. */
@@ -132,6 +173,10 @@ export class StatsService {
       byServer: top(perServer, 8),
       byInstance: top(perInstance, 6),
       trackedSince: records[0]?.start ?? null,
+      perf: records
+        .filter(r => r.perf?.avgFps !== undefined)
+        .slice(-40)
+        .map(r => ({ start: r.start, instanceName: r.instanceName, version: r.version, perf: r.perf! })),
     }
   }
 }

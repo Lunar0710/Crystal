@@ -3,7 +3,7 @@ import * as skinview3d from 'skinview3d'
 import * as THREE from 'three'
 import { RotateCw, Pause, Play } from 'lucide-react'
 import { CosmeticDef } from '../../data/cosmetics'
-import { shapeFor, ShapeBox } from '../../data/cosmeticShapes'
+import { shapeFor, ShapeBox, PET_POS } from '../../data/cosmeticShapes'
 
 const COSMETIC_GROUP = 'crystal-cosmetics'
 
@@ -26,6 +26,7 @@ export function SkinPreview3D({
   wings,
   backpack,
   aura,
+  pet,
   width = 240,
   height = 320,
 }: {
@@ -38,6 +39,7 @@ export function SkinPreview3D({
   wings?: CosmeticDef | null
   backpack?: CosmeticDef | null
   aura?: CosmeticDef | null
+  pet?: CosmeticDef | null
   width?: number
   height?: number
 }) {
@@ -45,6 +47,7 @@ export function SkinPreview3D({
   const viewerRef = useRef<skinview3d.SkinViewer | null>(null)
   const wingRefs = useRef<{ left: THREE.Object3D; right: THREE.Object3D } | null>(null)
   const auraRef = useRef<THREE.Points | null>(null)
+  const petRef = useRef<THREE.Object3D | null>(null)
   const frameRef = useRef<number>(0)
 
   const [autoRotate, setAutoRotate] = useState(true)
@@ -71,6 +74,12 @@ export function SkinPreview3D({
         const sweep = 0.8 + Math.sin(t * 2) * 0.22
         wingRefs.current.right.rotation.y = sweep
         wingRefs.current.left.rotation.y = -sweep
+      }
+
+      if (petRef.current) {
+        // Bobs and looks around slowly, the same motion as in-game.
+        petRef.current.position.y = PET_POS.y + Math.sin(t * 2) * 0.8
+        petRef.current.rotation.y = Math.sin(t * 0.6) * 0.35
       }
 
       if (auraRef.current) {
@@ -188,6 +197,7 @@ export function SkinPreview3D({
     }
     wingRefs.current = null
     auraRef.current = null
+    petRef.current = null
 
     const group = new THREE.Group()
     group.name = COSMETIC_GROUP
@@ -214,6 +224,15 @@ export function SkinPreview3D({
     }
     const packShape = backpack ? shapeFor(backpack) : null
     if (packShape) addBoxes(group, packShape.boxes)
+
+    const petShape = pet ? shapeFor(pet) : null
+    if (petShape) {
+      const holder = new THREE.Group()
+      holder.position.set(PET_POS.x, PET_POS.y, PET_POS.z)
+      addBoxes(holder, petShape.boxes)
+      group.add(holder)
+      petRef.current = holder
+    }
 
     const wingShape = wings ? shapeFor(wings) : null
     if (wingShape) {
@@ -334,7 +353,7 @@ export function SkinPreview3D({
     }
 
     player.add(group)
-  }, [hat, bandana, mask, wings, backpack, aura])
+  }, [hat, bandana, mask, wings, backpack, aura, pet])
 
   return (
     <div className="relative flex flex-col items-center gap-2">

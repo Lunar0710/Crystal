@@ -210,8 +210,10 @@ export class AuthManager {
    * refreshed, so the launch stops with a clear message rather than failing
    * later on the server.
    */
-  async ensureFreshProfile(): Promise<{ profile: AuthProfile | null; error?: string }> {
-    const profile = this.getStoredProfile()
+  async ensureFreshProfile(uuid?: string): Promise<{ profile: AuthProfile | null; error?: string }> {
+    const active = this.getStoredProfile()
+    if (uuid && uuid !== active?.uuid) return this.freshProfileOf(uuid)
+    const profile = active
     if (!profile || profile.type !== 'microsoft') return { profile }
 
     // Keep a token with more than 30 minutes left; anything shorter is renewed
@@ -244,6 +246,42 @@ export class AuthManager {
         profile: null,
         error: 'Deine Microsoft-Anmeldung konnte nicht erneuert werden. Prüfe deine Internetverbindung oder melde dich neu an.',
       }
+    }
+  }
+
+  /**
+   * Like ensureFreshProfile, for an added account that is not the active one
+   * (an instance that always plays on its own account). The active account
+   * stays as it is.
+   */
+  private async freshProfileOf(uuid: string): Promise<{ profile: AuthProfile | null; error?: string }> {
+    const account = this.getAccounts().find(a => a.profile.uuid === uuid)
+    if (!account) {
+      return { profile: null, error: 'Das Konto, mit dem diese Instanz startet, ist nicht mehr angemeldet. Wähle bei der Instanz ein anderes Konto.' }
+    }
+    if (account.profile.type !== 'microsoft') return { profile: account.profile }
+    const expiresAt = tokenExpiry(account.profile.accessToken)
+    if (expiresAt !== null && expiresAt - Date.now() > 30 * 60 * 1000) return { profile: account.profile }
+    if (!account.xboxCache) {
+      return { profile: null, error: `Die Anmeldung von ${account.profile.username} ist abgelaufen. Bitte melde das Konto neu an.` }
+    }
+    try {
+      const xboxToken = await this.auth.refresh(account.xboxCache)
+      const minecraft = await xboxToken.getMinecraft()
+      if (!minecraft.profile) throw new Error('No Minecraft profile found on this account')
+      const fresh: AuthProfile = {
+        username: minecraft.profile.name,
+        uuid: minecraft.profile.id,
+        accessToken: minecraft.mcToken,
+        type: 'microsoft',
+      }
+      const accounts = this.getAccounts().map(a => a.profile.uuid === uuid ? { profile: fresh, xboxCache: xboxToken.save() } : a)
+      this.store.set('auth.accounts', accounts)
+      logger.info('launcher', `Microsoft-Sitzung für ${fresh.username} erneuert`)
+      return { profile: fresh }
+    } catch (err) {
+      logger.warn('launcher', `Sitzung von ${account.profile.username} konnte nicht erneuert werden`, String(err))
+      return { profile: null, error: `Die Anmeldung von ${account.profile.username} konnte nicht erneuert werden. Prüfe deine Internetverbindung oder melde das Konto neu an.` }
     }
   }
 

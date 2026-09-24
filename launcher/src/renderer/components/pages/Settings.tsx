@@ -31,10 +31,12 @@ export function Settings() {
   const [dataRoot, setDataRoot] = useState<{ current?: string; default?: string }>({})
   const [systemMb, setSystemMb] = useState<number | null>(null)
   const [minimizeOnLaunch, setMinimizeOnLaunch] = useState(true)
+  const [autoRam, setAutoRam] = useState(true)
   const [autoPerformancePack, setAutoPerformancePack] = useState(true)
 
   useEffect(() => {
     api?.getSetting('minimizeOnLaunch').then((v: boolean | undefined) => setMinimizeOnLaunch(v !== false))
+    api?.getSetting('autoRam').then((v: boolean | undefined) => setAutoRam(v !== false))
     api?.getSetting('autoPerformancePack').then((v: boolean | undefined) => setAutoPerformancePack(v !== false))
     api?.getDataRoot().then((r: { current: string; default: string }) => r && setDataRoot(r))
     api?.getVersionInfo().then((v: { launcher: string; client: string | null }) => v && setVersions(v))
@@ -190,6 +192,17 @@ export function Settings() {
               {(maxRam / 1024).toLocaleString('de-DE', { maximumFractionDigits: 1 })} GB
             </span>
           </div>
+        </Field>
+
+        <Field
+          label="RAM automatisch anpassen"
+          hint="Ist Windows beim Start knapp an freiem Speicher, startet Minecraft mit weniger RAM, statt abzustürzen. Aus: Es wird immer genau der eingestellte Wert genommen."
+        >
+          <Switch
+            checked={autoRam}
+            onChange={v => { setAutoRam(v); api?.setSetting('autoRam', v) }}
+            label="RAM automatisch anpassen"
+          />
         </Field>
 
         <Field

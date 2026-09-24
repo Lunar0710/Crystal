@@ -8,8 +8,8 @@
 const CAPES = require('./cape-ranks.json')
 const { meetsRank, hasPerks } = require('./ranks')
 
-const SLOTS = ['hat', 'bandana', 'mask', 'wings', 'backpack', 'aura']
-const ANCHORS = ['head', 'body', 'wing']
+const SLOTS = ['hat', 'bandana', 'mask', 'wings', 'backpack', 'aura', 'pet']
+const ANCHORS = ['head', 'body', 'wing', 'pet']
 const EMOTES = ['WAVE', 'CHEER', 'CLAP', 'DANCE', 'BOW', 'FACEPALM', 'POINT']
 const MAX_BOXES = 64
 
