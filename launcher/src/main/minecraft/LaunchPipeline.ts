@@ -261,7 +261,11 @@ export class LaunchPipeline {
       classpathEntries: libPaths.length + 1,
     })
 
-    const proc = spawn(opts.javaPath, [...jvmArgs, mainClass, ...gameArgs], { cwd: opts.gameDir })
+    // detached: without it, Node puts the game in a Windows job object that
+    // ends it together with the launcher, so closing the launcher closed the
+    // game. Detached, it keeps running; its output pipe then just breaks,
+    // which Java ignores (the game's own log is logs/latest.log anyway).
+    const proc = spawn(opts.javaPath, [...jvmArgs, mainClass, ...gameArgs], { cwd: opts.gameDir, detached: true })
 
     // Keep the tail of the game's own output so a startup crash can be
     // reported back to the user instead of silently "succeeding".
