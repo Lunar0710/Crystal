@@ -6,7 +6,7 @@ import { JarReader } from '../util/jarReader'
 import { crystalPath, isPlainFileName } from '../paths'
 import { logger } from '../logs/Logger'
 
-export type PerfFixKind = 'disable-mod' | 'disable-module' | 'install-perf-pack' | 'set-ram'
+export type PerfFixKind = 'disable-mod' | 'disable-module' | 'install-perf-pack' | 'set-ram' | 'set-option'
 
 export interface PerfFix {
   kind: PerfFixKind
@@ -14,7 +14,29 @@ export interface PerfFix {
   modFile?: string
   module?: string
   ram?: number
+  /** set-option: a key in the instance's options.txt and the value to write. */
+  option?: string
+  value?: string
 }
+
+/**
+ * Minecraft settings that cost the most frames, what is too much, and the value
+ * the fix writes. Keys as options.txt spells them.
+ */
+const OPTION_RULES: { key: string; tooMuch: (v: string) => boolean; value: string; level: PerfFinding['level']; title: string; detail: string; label: string }[] = [
+  { key: 'graphicsMode', tooMuch: v => v === '2', value: '1', level: 'high', title: 'Grafik auf „Fabelhaft“',
+    detail: 'Fabelhaft zeichnet durchsichtige Blöcke und Wolken in eigenen Durchgängen und kostet oft ein Drittel der FPS. „Schön“ sieht fast gleich aus.', label: 'Auf „Schön“ stellen' },
+  { key: 'renderDistance', tooMuch: v => Number(v) > 16, value: '12', level: 'medium', title: 'Sehr große Sichtweite',
+    detail: 'Jeder Chunk mehr Sichtweite kostet mehr als der davor. Auf Servern schickt der Server oft ohnehin nicht mehr als 10 bis 12.', label: 'Auf 12 Chunks' },
+  { key: 'simulationDistance', tooMuch: v => Number(v) > 10, value: '8', level: 'info', title: 'Große Simulationsweite',
+    detail: 'Bestimmt, wie weit Mobs und Redstone in Einzelspieler-Welten laufen. Auf Servern zählt nur die des Servers.', label: 'Auf 8 Chunks' },
+  { key: 'enableVsync', tooMuch: v => v === 'true', value: 'false', level: 'info', title: 'V-Sync ist an',
+    detail: 'V-Sync hält die FPS bei der Bildschirmfrequenz und fügt etwas Verzögerung zwischen Klick und Bild hinzu.', label: 'V-Sync aus' },
+  { key: 'particles', tooMuch: v => v === '0', value: '1', level: 'info', title: 'Alle Partikel an',
+    detail: 'Bei Explosionen, Tränken und Regen entstehen tausende Partikel. „Verringert“ spart viel, ohne dass etwas fehlt.', label: 'Auf „Verringert“' },
+  { key: 'biomeBlendRadius', tooMuch: v => Number(v) > 2, value: '1', level: 'info', title: 'Hoher Biom-Übergang',
+    detail: 'Weiche Farbübergänge zwischen Biomen machen das Laden neuer Chunks langsamer.', label: 'Auf 3x3' },
+]
 
 export interface PerfFinding {
   id: string
@@ -75,6 +97,18 @@ export class PerfDoctor {
         if (typeof json?.id === 'string') map.set(json.id.toLowerCase(), file)
       } catch { /* an unreadable jar says nothing about performance */ }
     }
+    return map
+  }
+
+  /** The instance's Minecraft settings (options.txt) as key/value, empty if there are none yet. */
+  private options(instanceId: string): Map<string, string> {
+    const map = new Map<string, string>()
+    try {
+      for (const line of fs.readFileSync(path.join(this.gameDir(instanceId), 'options.txt'), 'utf8').split(/\r?\n/)) {
+        const at = line.indexOf(':')
+        if (at > 0) map.set(line.slice(0, at), line.slice(at + 1))
+      }
+    } catch { /* never started: nothing to check */ }
     return map
   }
 
@@ -153,6 +187,16 @@ export class PerfDoctor {
       })
     }
 
+    const options = this.options(instanceId)
+    for (const rule of OPTION_RULES) {
+      const current = options.get(rule.key)
+      if (current === undefined || !rule.tooMuch(current)) continue
+      findings.push({
+        id: `option-${rule.key}`, level: rule.level, title: rule.title, detail: rule.detail,
+        fix: { kind: 'set-option', label: rule.label, option: rule.key, value: rule.value },
+      })
+    }
+
     const totalMb = Math.round(os.totalmem() / (1024 * 1024))
     if (maxRamMb > totalMb * 0.75) {
       const ram = Math.floor((totalMb * 0.5) / 512) * 512
@@ -185,6 +229,23 @@ export class PerfDoctor {
     fs.renameSync(file, `${file}.disabled`)
     logger.info('client', `FPS-Doktor: ${modFile} ausgeschaltet`)
     return { ok: true, message: `${modFile} ist aus. Im Mods-Tab kannst du ihn wieder einschalten.` }
+  }
+
+  /**
+   * Writes one of the known settings to options.txt; only values from
+   * OPTION_RULES, so a page can't write anything else into the file.
+   */
+  setOption(instanceId: string, key: string | undefined, value: string | undefined): { ok: boolean; message: string } {
+    const rule = OPTION_RULES.find(r => r.key === key && r.value === value)
+    if (!rule) return { ok: false, message: 'Unbekannte Einstellung.' }
+    const file = path.join(this.gameDir(instanceId), 'options.txt')
+    let text: string
+    try { text = fs.readFileSync(file, 'utf8') } catch { return { ok: false, message: 'options.txt nicht gefunden.' } }
+    const pattern = new RegExp(`^${rule.key}:.*$`, 'm')
+    if (!pattern.test(text)) return { ok: false, message: 'Einstellung nicht gefunden.' }
+    fs.writeFileSync(file, text.replace(pattern, `${rule.key}:${rule.value}`))
+    logger.info('client', `FPS-Doktor: ${rule.key} auf ${rule.value}`)
+    return { ok: true, message: `${rule.label}: erledigt. Gilt beim nächsten Start.` }
   }
 
   /**

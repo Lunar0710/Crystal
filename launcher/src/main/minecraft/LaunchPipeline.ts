@@ -8,8 +8,26 @@ import { AuthProfile } from '../auth/AuthManager'
 import { logger } from '../logs/Logger'
 import { crystalRoot } from '../paths'
 import { mojangOs, nativesSuffix, rulesAllow, OsRule } from './platform'
-import { fabricMetaFor } from './versions'
+import { fabricMetaFor, downloadJavaMajor } from './versions'
 import { fitHeap, freeCommitMb } from './MemoryBudget'
+
+/**
+ * Garbage collector flags. G1 is the default, tuned for short pauses. With the
+ * player's "fewer stutters" switch on Java 21 or newer, generational ZGC
+ * instead: it collects alongside the game, so there are hardly any pauses to
+ * feel. Java 21 to 23 need it switched on; from 24 it is the only ZGC and the
+ * flag would only print a warning. Java 17 knows no generational ZGC at all.
+ */
+function gcArgs(lowStutter: boolean, javaMajor: number): string[] {
+  if (lowStutter && javaMajor >= 21) {
+    return ['-XX:+UseZGC', ...(javaMajor < 24 ? ['-XX:+ZGenerational'] : [])]
+  }
+  return [
+    '-XX:+UseG1GC', '-XX:+ParallelRefProcEnabled', '-XX:MaxGCPauseMillis=40',
+    '-XX:+UnlockExperimentalVMOptions', '-XX:G1NewSizePercent=20', '-XX:G1ReservePercent=20',
+    '-XX:G1HeapRegionSize=16M',
+  ]
+}
 
 // Electron/Node 18+ ships a global fetch; not covered by this tsconfig's
 // ES2020-only lib, so declared locally instead of pulling in a DOM lib.
@@ -34,6 +52,8 @@ export interface LaunchPipelineOptions {
   maxRam: number
   /** Lower the heap for this start when Windows is short on memory. Off = exactly maxRam. */
   autoRam?: boolean
+  /** Generational ZGC instead of G1: hardly any collector pauses, a bit more memory. Java 21+ only. */
+  lowStutterGc?: boolean
   profile: AuthProfile
   /** Test runs only (scripts/smoke-world.cjs); a normal launch never sets these. */
   extraJvmArgs?: string[]
@@ -223,9 +243,8 @@ export class LaunchPipeline {
       // Tuned for smooth frames rather than raw throughput: the old 200 ms
       // pause target let the collector freeze the game for visible stutters.
       // A short target with a larger young generation spreads that work out.
-      '-XX:+UseG1GC', '-XX:+ParallelRefProcEnabled', '-XX:MaxGCPauseMillis=40',
-      '-XX:+UnlockExperimentalVMOptions', '-XX:G1NewSizePercent=20', '-XX:G1ReservePercent=20',
-      '-XX:G1HeapRegionSize=16M', '-XX:+DisableExplicitGC', '-XX:+PerfDisableSharedMem',
+      ...gcArgs(opts.lowStutterGc === true, downloadJavaMajor(opts.version)),
+      '-XX:+DisableExplicitGC', '-XX:+PerfDisableSharedMem',
       ...loggingArgs,
       // Tells the in-game client where the launcher keeps cosmetics/theme files,
       // so a moved data folder doesn't silently break cape and theme sync.

@@ -34,6 +34,7 @@ export interface LaunchOptions {
   maxRam: number
   /** See LaunchPipeline: off keeps exactly maxRam even when memory is short. */
   autoRam?: boolean
+  lowStutterGc?: boolean
   loader?: 'vanilla' | 'fabric' | 'forge'
   profile?: AuthProfile | null
   // Whether to inject Nexora's own Fabric mod (HUD + QoL modules) into this
@@ -178,6 +179,7 @@ export class MinecraftManager {
         javaPath,
         maxRam: opts.maxRam,
         autoRam: opts.autoRam,
+        lowStutterGc: opts.lowStutterGc,
         profile: opts.profile,
         extraJvmArgs: opts.extraJvmArgs,
         extraGameArgs: opts.extraGameArgs,

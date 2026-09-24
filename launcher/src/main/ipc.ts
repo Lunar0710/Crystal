@@ -370,6 +370,7 @@ export function registerIpcHandlers(store: Store) {
     switch (fix.kind) {
       case 'disable-mod': return perfDoctor.disableMod(id, fix.modFile)
       case 'disable-module': return perfDoctor.disableModule(id, fix.module)
+      case 'set-option': return perfDoctor.setOption(id, fix.option, fix.value)
       case 'set-ram': {
         const ram = Math.round(Number(fix.ram))
         if (!Number.isFinite(ram) || ram < 1024 || ram > 65536) return { ok: false, message: 'Ungültiger Wert.' }
@@ -404,6 +405,7 @@ export function registerIpcHandlers(store: Store) {
     if (isValidServerAddress(joinServer)) opts.extraGameArgs = ['--quickPlayMultiplayer', joinServer]
     // The player's own switch, not something a page passes in.
     opts.autoRam = store.get('autoRam') !== false
+    opts.lowStutterGc = store.get('lowStutterGc') === true
     const crystalServer = crystalServerAddress(store)
     if (crystalServer) opts.extraJvmArgs = [`-Dcrystal.server=${crystalServer}`]
     // Renews an expired Microsoft token first; a stale one gets every

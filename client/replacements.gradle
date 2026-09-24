@@ -55,7 +55,7 @@ stonecutter.replacements.regex(at26) {
 
     // Moved packages.
     r 'net([./])minecraft([./])client([./])GuiMessage', 'net$1minecraft$2client$3multiplayer$3chat$3GuiMessage'
-    r 'renderer([./])state([./])(CameraRenderState|BlockOutlineRenderState)', 'renderer$1state$2level$2$3'
+    r 'renderer([./])state([./])(CameraRenderState|BlockOutlineRenderState|SkyRenderState)', 'renderer$1state$2level$2$3'
 }
 
 // 1.21.9 changed input events, player skins and entity drawing; for the versions before it.

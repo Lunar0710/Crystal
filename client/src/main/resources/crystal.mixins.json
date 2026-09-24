@@ -9,6 +9,7 @@
     "MixinButtonSkin",
     "MixinListSkin",
     "MixinSliderSkin",
+    "MixinSkyColor",
     "SliderAccessor",
     "MixinLevelRendererLegacy",
     "KeyMappingAccessor",

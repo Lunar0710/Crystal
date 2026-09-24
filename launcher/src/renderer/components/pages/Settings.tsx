@@ -32,11 +32,13 @@ export function Settings() {
   const [systemMb, setSystemMb] = useState<number | null>(null)
   const [minimizeOnLaunch, setMinimizeOnLaunch] = useState(true)
   const [autoRam, setAutoRam] = useState(true)
+  const [lowStutterGc, setLowStutterGc] = useState(false)
   const [autoPerformancePack, setAutoPerformancePack] = useState(true)
 
   useEffect(() => {
     api?.getSetting('minimizeOnLaunch').then((v: boolean | undefined) => setMinimizeOnLaunch(v !== false))
     api?.getSetting('autoRam').then((v: boolean | undefined) => setAutoRam(v !== false))
+    api?.getSetting('lowStutterGc').then((v: boolean | undefined) => setLowStutterGc(v === true))
     api?.getSetting('autoPerformancePack').then((v: boolean | undefined) => setAutoPerformancePack(v !== false))
     api?.getDataRoot().then((r: { current: string; default: string }) => r && setDataRoot(r))
     api?.getVersionInfo().then((v: { launcher: string; client: string | null }) => v && setVersions(v))
@@ -202,6 +204,17 @@ export function Settings() {
             checked={autoRam}
             onChange={v => { setAutoRam(v); api?.setSetting('autoRam', v) }}
             label="RAM automatisch anpassen"
+          />
+        </Field>
+
+        <Field
+          label="Weniger Ruckler (ZGC)"
+          hint="Java räumt den Speicher dann nebenher auf statt in kurzen Pausen, dadurch fallen kleine Hänger weg. Braucht etwas mehr RAM. Ab Minecraft 1.20.5."
+        >
+          <Switch
+            checked={lowStutterGc}
+            onChange={v => { setLowStutterGc(v); api?.setSetting('lowStutterGc', v) }}
+            label="Weniger Ruckler (ZGC)"
           />
         </Field>
 

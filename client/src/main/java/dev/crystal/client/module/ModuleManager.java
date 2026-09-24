@@ -66,6 +66,7 @@ public class ModuleManager {
         register(new ColorSaturation());
         register(new Crosshair());
         register(new FogCustomizer());
+        register(new dev.crystal.client.module.render.SkyColor());
         register(new PerformanceMode());
         register(new BackgroundFps());
         register(new CapeFlutter());

@@ -45,6 +45,7 @@ public class CrystalMenu extends Module {
     private static int menuKey = GLFW.GLFW_KEY_RIGHT_SHIFT;
     private static String accent = FOLLOW_LAUNCHER;
     private static String size = "Normal";
+    private static boolean menuFps = true;
 
     public CrystalMenu() {
         super("NexoraMenu", "Menu key and the accent colour of Nexora's screens", ModuleCategory.MISC);
@@ -73,6 +74,11 @@ public class CrystalMenu extends Module {
         return target / gui;
     }
 
+    /** Pause and option screens over a world capped at 60 fps (MixinInactivityFpsLimiter). */
+    public static boolean limitMenuFps() {
+        return menuFps;
+    }
+
     /** Whether this is the accent picker, which the menu draws as colour swatches. */
     public static boolean isAccentSetting(dev.crystal.client.module.Setting<?> setting) {
         return setting instanceof EnumSetting && "Akzentfarbe".equals(setting.getName());
@@ -96,6 +102,7 @@ public class CrystalMenu extends Module {
                         v -> accent = ACCENTS.containsKey(v) ? v : FOLLOW_LAUNCHER,
                         List.copyOf(ACCENTS.keySet())),
                 new EnumSetting("Menügröße", () -> size,
-                        v -> size = SIZES.contains(v) ? v : "Normal", SIZES));
+                        v -> size = SIZES.contains(v) ? v : "Normal", SIZES),
+                new dev.crystal.client.module.BooleanSetting("Menüs mit 60 FPS", () -> menuFps, v -> menuFps = v, true));
     }
 }

@@ -1051,6 +1051,8 @@ public class CrystalClientScreen extends Screen {
             if (textBuffer.length() < editingText.getMaxLength()) textBuffer.append(chr);
             return true;
         }
+        // Typing anywhere in the tile list starts a search, no click on the field needed.
+        if (!searchFocused && openModule == null && capturingSetting == null && !capturingModuleKey && chr != ' ') searchFocused = true;
         if (searchFocused) {
             search.append(chr);
             openModule = null;

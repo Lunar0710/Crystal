@@ -99,6 +99,7 @@ function writeTestSettings(gameDir) {
       NameTags: { enabled: true },
       // 1.5: the frame graph, so its bars show in the HUD screenshot.
       FrameGraph: { enabled: true },
+      SkyColor: { enabled: true, settings: { 'Farbe von': 'Mint' } },
       ItemPhysics: { enabled: true },
       ParticleChanger: { enabled: true },
       BetterSounds: { enabled: true },
