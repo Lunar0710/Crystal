@@ -323,9 +323,10 @@ $StartupSources = @(
     @{ id = 'commonfolder'; label = 'Autostart-Ordner (alle)'; dir = [Environment]::GetFolderPath('CommonStartup'); approved = 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\StartupFolder'; admin = $true }
 )
 function Get-StartupEnabled($approvedPath, $name) {
-    $v = Get-RegValue $approvedPath $name
-    if ($null -eq $v -or -not ($v -is [byte[]]) -or $v.Length -lt 1) { return $true }
-    return (($v[0] -band 1) -eq 0)
+    # @(): a byte[] returned from a function arrives as loose bytes.
+    $v = @(Get-RegValue $approvedPath $name)
+    if ($v.Count -lt 1 -or $null -eq $v[0]) { return $true }
+    return ((([int]$v[0]) -band 1) -eq 0)
 }
 function Get-StartupItems {
     $items = @()
