@@ -47,14 +47,11 @@ public class MixinItemEntityRenderer {
         ((ItemGroundState) state).crystal$setOnGround(entity.onGround());
     }
 
-    @Redirect(method = DRAW, at = @At(value = "INVOKE", target = SIN))
-    //? if >=1.21.11 {
-    private float crystal$bob(double value) {
-    //?} else {
-    /*private float crystal$bob(float value) {
-    *///?}
+    // The value is modified, not the call redirected: this chains with other item mods hooking the same call.
+    @com.llamalad7.mixinextras.injector.ModifyExpressionValue(method = DRAW, at = @At(value = "INVOKE", target = SIN))
+    private float crystal$bob(float vanilla) {
         // sin() = -1 makes vanilla's "sin * 0.1 + 0.1" bob offset exactly 0.
-        return crystal$items2D() != null || crystal$physics() != null ? -1f : Mth.sin(value);
+        return crystal$items2D() != null || crystal$physics() != null ? -1f : vanilla;
     }
 
     //? if >=1.21.5 {
