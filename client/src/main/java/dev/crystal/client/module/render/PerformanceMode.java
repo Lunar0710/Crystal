@@ -17,6 +17,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.function.Consumer;
 import net.minecraft.client.CloudStatus;
+import net.minecraft.client.GraphicsStatus;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Options;
 import net.minecraft.server.level.ParticleStatus;
@@ -42,6 +43,8 @@ public class PerformanceMode extends Module {
     private boolean disableBiomeBlend = true;
     private boolean disableSmoothLighting = true;
     private float entityDistance = 75f;
+    private boolean noFabulous = true;
+    private boolean fastGraphics = false;
 
     private boolean applied = false;
     private final Consumer<TickEvent> tickListener = this::onTick;
@@ -82,6 +85,7 @@ public class PerformanceMode extends Module {
             saved.addProperty("biomeBlend", o.biomeBlendRadius().get());
             saved.addProperty("smoothLighting", o.ambientOcclusion().get());
             saved.addProperty("entityDistance", o.entityDistanceScaling().get());
+            saved.addProperty("graphics", o.graphicsMode().get().name());
             try {
                 dev.crystal.client.util.SafeFiles.writeAtomic(backup, GSON.toJson(saved));
             } catch (IOException e) {
@@ -90,6 +94,9 @@ public class PerformanceMode extends Module {
                 applied = true;
                 return;
             }
+        } else if (!addGraphicsToBackup(backup, o)) {
+            applied = true;
+            return;
         }
 
         o.renderDistance().set(Math.min(o.renderDistance().get(), Math.round(viewDistance)));
@@ -102,8 +109,31 @@ public class PerformanceMode extends Module {
         if (disableSmoothLighting) o.ambientOcclusion().set(false);
         // Mobs and items far off are drawn less far; 100% leaves it alone.
         o.entityDistanceScaling().set(Math.min(o.entityDistanceScaling().get(), entityDistance / 100.0));
+        // Fabulous draws every translucent layer (water, glass, particles) into
+        // its own buffer and merges them with a shader: the most expensive
+        // single option. Fast also drops transparent leaves.
+        if (fastGraphics) o.graphicsMode().set(GraphicsStatus.FAST);
+        else if (noFabulous && o.graphicsMode().get() == GraphicsStatus.FABULOUS) o.graphicsMode().set(GraphicsStatus.FANCY);
         o.save();
         applied = true;
+    }
+
+    /**
+     * A backup from before the graphics option existed doesn't hold it. Graphics
+     * were never touched back then, so the current value is still the original.
+     * False when the backup can't be updated: then graphics stay as they are.
+     */
+    private boolean addGraphicsToBackup(Path backup, Options o) {
+        try {
+            JsonObject saved = GSON.fromJson(Files.readString(backup), JsonObject.class);
+            if (saved.has("graphics")) return true;
+            saved.addProperty("graphics", o.graphicsMode().get().name());
+            dev.crystal.client.util.SafeFiles.writeAtomic(backup, GSON.toJson(saved));
+            return true;
+        } catch (Exception e) {
+            CrystalClient.LOGGER.error("[Nexora] Leistungsmodus: Sicherung nicht lesbar: {}", e.getMessage());
+            return false;
+        }
     }
 
     private void restore() {
@@ -124,6 +154,7 @@ public class PerformanceMode extends Module {
             // Backups written before these two were added don't have them.
             if (saved.has("smoothLighting")) o.ambientOcclusion().set(saved.get("smoothLighting").getAsBoolean());
             if (saved.has("entityDistance")) o.entityDistanceScaling().set(saved.get("entityDistance").getAsDouble());
+            if (saved.has("graphics")) o.graphicsMode().set(GraphicsStatus.valueOf(saved.get("graphics").getAsString()));
             o.save();
             Files.delete(backup);
         } catch (Exception e) {
@@ -152,7 +183,9 @@ public class PerformanceMode extends Module {
                 new BooleanSetting("No Entity Shadows", () -> disableEntityShadows, v -> { disableEntityShadows = v; reapply(); }, true),
                 new BooleanSetting("No Biome Blend", () -> disableBiomeBlend, v -> { disableBiomeBlend = v; reapply(); }, true),
                 new BooleanSetting("Keine weiche Beleuchtung", () -> disableSmoothLighting, v -> { disableSmoothLighting = v; reapply(); }, true),
-                new SliderSetting("Entity-Sichtweite (%)", () -> entityDistance, v -> { entityDistance = v; reapply(); }, 50f, 100f, 5f, 0)
+                new SliderSetting("Entity-Sichtweite (%)", () -> entityDistance, v -> { entityDistance = v; reapply(); }, 50f, 100f, 5f, 0),
+                new BooleanSetting("Kein Fabulous-Grafik", () -> noFabulous, v -> { noFabulous = v; reapply(); }, true),
+                new BooleanSetting("Schnelle Grafik (Fast)", () -> fastGraphics, v -> { fastGraphics = v; reapply(); }, false)
         );
     }
 }
