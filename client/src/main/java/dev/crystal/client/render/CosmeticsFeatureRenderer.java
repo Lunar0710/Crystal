@@ -34,6 +34,7 @@ public class CosmeticsFeatureRenderer extends RenderLayer<AvatarRenderState, Pla
 
     private static final Identifier WHITE = Identifier.fromNamespaceAndPath("crystal", "textures/cosmetics/white.png");
     private static final int GLOW_LIGHT = 0xF000F0;
+    private static final String[] HEAD_SLOTS = {CosmeticLoadout.HAT, CosmeticLoadout.BANDANA, CosmeticLoadout.MASK};
 
     public CosmeticsFeatureRenderer(RenderLayerParent<AvatarRenderState, PlayerModel> context) {
         super(context);
@@ -68,7 +69,7 @@ public class CosmeticsFeatureRenderer extends RenderLayer<AvatarRenderState, Pla
         RenderType layer = RenderTypes.entityCutoutNoCull(WHITE);
         PlayerModel model = getParentModel();
 
-        for (String slot : new String[]{CosmeticLoadout.HAT, CosmeticLoadout.BANDANA, CosmeticLoadout.MASK}) {
+        for (String slot : HEAD_SLOTS) {
             Item item = itemIn.apply(slot);
             if (item == null || item.boxes().isEmpty()) continue;
             matrices.pushPose();
@@ -124,7 +125,7 @@ public class CosmeticsFeatureRenderer extends RenderLayer<AvatarRenderState, Pla
      */
     private static void renderWings(PoseStack matrices, SubmitNodeCollector queue, RenderType layer, int light, Item wings, float age) {
         float flap = Mth.sin(age * 0.12f) * 0.22f;
-        for (int side : new int[]{1, -1}) {
+        for (int side = 1; side >= -1; side -= 2) {
             matrices.pushPose();
             // Hinge: upper back, just off the spine (model space: y down, +z = back).
             matrices.translate(side * 1.5f, 2.5f, 2.6f);
@@ -255,39 +256,47 @@ public class CosmeticsFeatureRenderer extends RenderLayer<AvatarRenderState, Pla
         });
     }
 
+    /**
+     * Corners of the box being drawn, x/y/z per corner. Reused for every box:
+     * building them as float[8][3] plus the loop arrays was 16 small arrays per
+     * box, and a hat alone has dozens of boxes, for every player in every frame.
+     * Geometry is only emitted on the render thread.
+     */
+    private static final float[] CORNERS = new float[24];
+
     /** Box around (cx, cy, cz) with half sizes, rotated by {@code angle} around z. */
     private static void drawBox(PoseStack.Pose e, VertexConsumer vc, float cx, float cy, float cz,
                                 float hx, float hy, float hz, float angle, int color, int light) {
         float cos = Mth.cos(angle), sin = Mth.sin(angle);
-        float[][] corners = new float[8][3];
-        int i = 0;
-        for (int sx : new int[]{-1, 1}) for (int sy : new int[]{-1, 1}) for (int sz : new int[]{-1, 1}) {
-            float lx = sx * hx, ly = sy * hy;
-            corners[i][0] = cx + lx * cos - ly * sin;
-            corners[i][1] = cy + lx * sin + ly * cos;
-            corners[i][2] = cz + sz * hz;
-            i++;
-        }
+        float[] c = CORNERS;
         // corner index = (sx>0)*4 + (sy>0)*2 + (sz>0)
+        for (int i = 0; i < 8; i++) {
+            float lx = (i & 4) != 0 ? hx : -hx;
+            float ly = (i & 2) != 0 ? hy : -hy;
+            c[i * 3] = cx + lx * cos - ly * sin;
+            c[i * 3 + 1] = cy + lx * sin + ly * cos;
+            c[i * 3 + 2] = cz + ((i & 1) != 0 ? hz : -hz);
+        }
         float nxX = cos, nxY = sin, nyX = -sin, nyY = cos;
-        quad(e, vc, color, light, 0, 0, -1, corners[0], corners[4], corners[6], corners[2]); // -z
-        quad(e, vc, color, light, 0, 0, 1, corners[5], corners[1], corners[3], corners[7]);  // +z
-        quad(e, vc, color, light, -nxX, -nxY, 0, corners[1], corners[0], corners[2], corners[3]); // -x
-        quad(e, vc, color, light, nxX, nxY, 0, corners[4], corners[5], corners[7], corners[6]);   // +x
-        quad(e, vc, color, light, -nyX, -nyY, 0, corners[1], corners[5], corners[4], corners[0]); // -y
-        quad(e, vc, color, light, nyX, nyY, 0, corners[2], corners[6], corners[7], corners[3]);   // +y
+        quad(e, vc, color, light, 0, 0, -1, c, 0, 4, 6, 2); // -z
+        quad(e, vc, color, light, 0, 0, 1, c, 5, 1, 3, 7);  // +z
+        quad(e, vc, color, light, -nxX, -nxY, 0, c, 1, 0, 2, 3); // -x
+        quad(e, vc, color, light, nxX, nxY, 0, c, 4, 5, 7, 6);   // +x
+        quad(e, vc, color, light, -nyX, -nyY, 0, c, 1, 5, 4, 0); // -y
+        quad(e, vc, color, light, nyX, nyY, 0, c, 2, 6, 7, 3);   // +y
     }
 
     private static void quad(PoseStack.Pose e, VertexConsumer vc, int color, int light, float nx, float ny, float nz,
-                             float[] a, float[] b, float[] c, float[] d) {
-        vertex(e, vc, color, light, nx, ny, nz, a, 0, 0);
-        vertex(e, vc, color, light, nx, ny, nz, b, 1, 0);
-        vertex(e, vc, color, light, nx, ny, nz, c, 1, 1);
-        vertex(e, vc, color, light, nx, ny, nz, d, 0, 1);
+                             float[] c, int a, int b, int cc, int d) {
+        vertex(e, vc, color, light, nx, ny, nz, c, a, 0, 0);
+        vertex(e, vc, color, light, nx, ny, nz, c, b, 1, 0);
+        vertex(e, vc, color, light, nx, ny, nz, c, cc, 1, 1);
+        vertex(e, vc, color, light, nx, ny, nz, c, d, 0, 1);
     }
 
     private static void vertex(PoseStack.Pose e, VertexConsumer vc, int color, int light, float nx, float ny, float nz,
-                               float[] p, float u, float v) {
-        vc.addVertex(e, p[0], p[1], p[2]).setColor(color).setUv(u, v).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(e, nx, ny, nz);
+                               float[] c, int corner, float u, float v) {
+        int p = corner * 3;
+        vc.addVertex(e, c[p], c[p + 1], c[p + 2]).setColor(color).setUv(u, v).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(e, nx, ny, nz);
     }
 }

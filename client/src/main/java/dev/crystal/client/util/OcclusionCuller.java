@@ -37,15 +37,32 @@ public final class OcclusionCuller {
     /** Camera movement below this (blocks) counts as standing still. */
     private static final double STILL_DISTANCE = 0.05;
 
-    private record Target(AABB box, long lastAsked) {}
+    /**
+     * One box the render thread asks about. It is created once and then only
+     * updated: a new record, a new AABB for every block entity and a second
+     * map entry per box and frame added up to thousands of throwaway objects a
+     * second with many chests or mobs in view, and with them GC pauses.
+     */
+    private static final class Target {
+        volatile AABB box;
+        volatile long lastAsked;
+        volatile boolean hidden;
+        // Worker thread only: the box as last checked, and in which round of checks.
+        AABB checkedBox;
+        long checkedRound = -1;
 
-    /** Box each key had when it was last checked from the current camera position. */
-    private static final Map<Long, AABB> CHECKED = new ConcurrentHashMap<>();
+        Target(AABB box, long lastAsked) {
+            this.box = box;
+            this.lastAsked = lastAsked;
+        }
+    }
+
+    /** Goes up whenever every box needs fresh rays (the camera moved, or the periodic refresh). */
+    private static long round = 0;
     private static Vec3 lastEye = null;
     private static long lastFullPass = 0;
 
     private static final Map<Long, Target> TARGETS = new ConcurrentHashMap<>();
-    private static final Map<Long, Boolean> HIDDEN = new ConcurrentHashMap<>();
     private static volatile Vec3 camera = Vec3.ZERO;
     private static volatile boolean enabled = false;
     private static volatile double maxDistanceSq = 128 * 128;
@@ -58,8 +75,6 @@ public final class OcclusionCuller {
         enabled = on;
         if (!on) {
             TARGETS.clear();
-            HIDDEN.clear();
-            CHECKED.clear();
             return;
         }
         if (worker == null || !worker.isAlive()) {
@@ -81,22 +96,34 @@ public final class OcclusionCuller {
 
     /** State of the culler in one line, for the world test's failure output. */
     public static String debugState() {
-        return "enabled=" + enabled + " camera=" + camera + " targets=" + TARGETS.size() + " hidden=" + HIDDEN.size();
+        return "enabled=" + enabled + " camera=" + camera + " targets=" + TARGETS.size()
+                + " hidden=" + TARGETS.values().stream().filter(t -> t.hidden).count();
     }
 
     public static boolean isEntityHidden(int entityId, AABB box) {
-        return isHidden(entityId, box);
+        if (!enabled) return false;
+        Target target = TARGETS.get((long) entityId);
+        if (target == null) {
+            TARGETS.put((long) entityId, new Target(box, System.currentTimeMillis()));
+            return false;
+        }
+        target.lastAsked = System.currentTimeMillis();
+        target.box = box;
+        return target.hidden;
     }
 
     public static boolean isBlockEntityHidden(BlockPos pos) {
-        // Block entity keys are negative so they never collide with entity ids.
-        return isHidden(-1L - pos.asLong(), new AABB(pos));
-    }
-
-    private static boolean isHidden(long key, AABB box) {
         if (!enabled) return false;
-        TARGETS.put(key, new Target(box, System.currentTimeMillis()));
-        return HIDDEN.getOrDefault(key, Boolean.FALSE);
+        // Block entity keys are negative so they never collide with entity ids.
+        long key = -1L - pos.asLong();
+        Target target = TARGETS.get(key);
+        if (target == null) {
+            // A block entity never moves, so its box is made once.
+            TARGETS.put(key, new Target(new AABB(pos), System.currentTimeMillis()));
+            return false;
+        }
+        target.lastAsked = System.currentTimeMillis();
+        return target.hidden;
     }
 
     // ---------------------------------------------------------------- worker
@@ -123,8 +150,6 @@ public final class OcclusionCuller {
         ClientLevel level = Minecraft.getInstance().level;
         if (level == null) {
             TARGETS.clear();
-            HIDDEN.clear();
-            CHECKED.clear();
             return;
         }
         Vec3 eye = camera;
@@ -136,26 +161,23 @@ public final class OcclusionCuller {
         boolean still = lastEye != null && lastEye.distanceToSqr(eye) < STILL_DISTANCE * STILL_DISTANCE
                 && now - lastFullPass < STILL_REFRESH_MS;
         if (!still) {
-            CHECKED.clear();
+            round++;
             lastEye = eye;
             lastFullPass = now;
         }
 
         for (var entry : TARGETS.entrySet()) {
-            long key = entry.getKey();
             Target target = entry.getValue();
-            if (now - target.lastAsked() > FORGET_AFTER_MS) {
-                TARGETS.remove(key);
-                HIDDEN.remove(key);
-                CHECKED.remove(key);
+            if (now - target.lastAsked > FORGET_AFTER_MS) {
+                TARGETS.remove(entry.getKey(), target);
                 continue;
             }
             // A mob walking out from behind a wall moves its box: that always gets rays.
-            AABB checkedBox = CHECKED.get(key);
-            if (still && checkedBox != null && sameBox(checkedBox, target.box())) continue;
-            boolean hidden = !eyeInBlock && isOccluded(level, eye, target.box());
-            if (hidden) HIDDEN.put(key, Boolean.TRUE); else HIDDEN.remove(key);
-            CHECKED.put(key, target.box());
+            AABB box = target.box;
+            if (still && target.checkedRound == round && sameBox(target.checkedBox, box)) continue;
+            target.hidden = !eyeInBlock && isOccluded(level, eye, box);
+            target.checkedBox = box;
+            target.checkedRound = round;
         }
     }
 

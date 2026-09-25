@@ -46,9 +46,6 @@ public class MixinDrawContext {
 
     private ScrollableTooltips scrollModule() {
         if (CrystalClient.getInstance() == null) return null;
-        return CrystalClient.getInstance().getModuleManager().getModuleByName("ScrollableTooltips")
-                .filter(m -> m.isEnabled())
-                .map(m -> (ScrollableTooltips) m)
-                .orElse(null);
+        return CrystalClient.getInstance().getModuleManager().getEnabled(ScrollableTooltips.class);
     }
 }
