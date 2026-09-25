@@ -143,6 +143,11 @@ async function check(name, fn) {
   const health = await (await fetch(`http://127.0.0.1:${port}/`)).json()
   await check('Status-Seite zählt Spieler', () => assert.strictEqual(health.players, 2))
 
+  // Member left above; PlusPlayer is still connected; the third id never was.
+  const unknown = '00000000-0000-3000-8000-000000000000'
+  const presence = await (await fetch(`http://127.0.0.1:${port}/presence?u=${plus.uuid},${member.uuid},${unknown},../x`)).json()
+  await check('Online-Status: nur wer gerade verbunden ist', () => assert.deepStrictEqual(presence.online, [plus.uuid]))
+
   plus.ws.close(); elsewhere.ws.close()
   srv.close(); ranksServer.close()
   console.log(failures ? `${failures} FEHLER` : 'alle Tests bestanden')

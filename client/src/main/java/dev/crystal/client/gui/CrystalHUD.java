@@ -29,6 +29,8 @@ public class CrystalHUD {
         for (dev.crystal.client.module.Module module : moduleManager.getModules()) {
             if (module.isEnabled()) drawModule(context, module);
         }
+        dev.crystal.client.module.render.HitMarker marker = moduleManager.getEnabled(dev.crystal.client.module.render.HitMarker.class);
+        if (marker != null) marker.draw(context, context.guiWidth(), context.guiHeight());
     }
 
     /**

@@ -63,6 +63,8 @@ contextBridge.exposeInMainWorld('crystal', {
   listRunningGames: () => ipcRenderer.invoke('games:list'),
   closeGame:        (instanceId: string) => ipcRenderer.invoke('games:close', instanceId),
   analyzePerformance: (instanceId: string) => ipcRenderer.invoke('perfDoctor:analyze', instanceId),
+  listFights:       () => ipcRenderer.invoke('fights:list'),
+  readFight:        (instanceId: string, file: string) => ipcRenderer.invoke('fights:read', instanceId, file),
   applyPerformanceFix: (instanceId: string, fix: object) => ipcRenderer.invoke('perfDoctor:fix', instanceId, fix),
   tryWithCrystal:   (instanceId: string) => ipcRenderer.invoke('tryCrystal:run', instanceId),
   selectGameDir:    () => ipcRenderer.invoke('minecraft:selectDir'),
@@ -98,6 +100,7 @@ contextBridge.exposeInMainWorld('crystal', {
   listFriends:  () => ipcRenderer.invoke('friends:list'),
   addFriend:    (username: string) => ipcRenderer.invoke('friends:add', username),
   removeFriend: (id: string) => ipcRenderer.invoke('friends:remove', id),
+  friendsPresence: () => ipcRenderer.invoke('friends:presence'),
 
   // External clients
   listExternalClients:   () => ipcRenderer.invoke('externalClients:list'),

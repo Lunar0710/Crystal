@@ -104,6 +104,8 @@ public final class SmokeTest {
         }
 
         if (worldTicks == 30) profileTest();
+        // After tick 40, which fills the hotbar with the test gear.
+        if (worldTicks >= 46 && worldTicks <= 72) pvpTest(mc);
 
         if (worldTicks == 40) {
             mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
@@ -925,6 +927,40 @@ public final class SmokeTest {
                 ok ? "PASS" : "FAILED", saved, loaded, !graph.isSwitchedOn(), config.profileName(5));
         graph.setEnabled(before);
         config.save();
+    }
+
+    /**
+     * PvP HUD: three healing splash potions and a pig in front of the player,
+     * one attack through the normal attack path. CombatTracker must count it
+     * as a confirmed hit, and PotCounter must read 3.
+     */
+    private static void pvpTest(Minecraft mc) {
+        var server = mc.getSingleplayerServer();
+        if (server == null || mc.player == null) return;
+        if (worldTicks == 46) {
+            String name = mc.player.getName().getString();
+            var pos = mc.player.blockPosition();
+            server.execute(() -> {
+                var source = server.createCommandSourceStack();
+                server.getCommands().performPrefixedCommand(source,
+                        "give " + name + " splash_potion[potion_contents={potion:\"minecraft:healing\"}] 3");
+                server.getCommands().performPrefixedCommand(source,
+                        "summon pig " + pos.getX() + " " + pos.getY() + " " + (pos.getZ() + 2) + " {NoAI:1b}");
+            });
+        } else if (worldTicks == 56) {
+            var pig = mc.level.getEntities(mc.player, mc.player.getBoundingBox().inflate(6),
+                    e -> e.getType() == net.minecraft.world.entity.EntityType.PIG).stream().findFirst().orElse(null);
+            if (pig == null) { CrystalClient.LOGGER.info("[Nexora] PvP HUD FAILED: no pig"); return; }
+            mc.gameMode.attack(mc.player, pig);
+            mc.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+        } else if (worldTicks == 68) {
+            var round = CombatTracker.current();
+            String pots = CrystalClient.getInstance().getModuleManager().getModuleByName("PotCounter")
+                    .map(m -> ((dev.crystal.client.module.hud.PotCounter) m).getText()).orElse("?");
+            boolean ok = round != null && round.hits() >= 1 && "Pots: 3".equals(pots);
+            CrystalClient.LOGGER.info("[Nexora] PvP HUD {}: hits={} swings={} pots=\"{}\"",
+                    ok ? "PASS" : "FAILED", round == null ? -1 : round.hits(), round == null ? -1 : round.swings(), pots);
+        }
     }
 
     // ---------------------------------------------------------------- bench

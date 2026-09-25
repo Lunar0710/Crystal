@@ -24,4 +24,13 @@ public class MixinMinecraftClient {
             CrystalClient.getInstance().getConfigManager().save();
         }
     }
+
+    /** A click that hit nothing counts as a miss for the fight's hit rate (CombatTracker). */
+    @Inject(method = "startAttack", at = @At("HEAD"))
+    private void crystal$missCheck(org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<Boolean> cir) {
+        var hit = ((Minecraft) (Object) this).hitResult;
+        if (hit != null && hit.getType() == net.minecraft.world.phys.HitResult.Type.MISS) {
+            dev.crystal.client.util.CombatTracker.onMiss();
+        }
+    }
 }

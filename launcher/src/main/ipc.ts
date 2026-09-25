@@ -29,6 +29,7 @@ import { ServerListService, isValidServerAddress } from './servers/ServerListSer
 import { StatsService } from './stats/StatsService'
 import { RunningGames, gameMarkers } from './minecraft/RunningGames'
 import { PerfDoctor, type PerfFix } from './minecraft/PerfDoctor'
+import { FightService } from './stats/FightService'
 import { crystalPath, crystalRoot, defaultCrystalRoot, setCrystalRoot, canUseAsRoot } from './paths'
 
 export function registerIpcHandlers(store: Store) {
@@ -361,6 +362,11 @@ export function registerIpcHandlers(store: Store) {
   ipcMain.handle('games:list', () => running.list())
   ipcMain.handle('games:close', (_e, instanceId: string) => running.close(String(instanceId)))
 
+  // Fight replay: the rounds the client recorded, and one with all its frames.
+  const fights = new FightService(() => instances.list())
+  ipcMain.handle('fights:list', () => fights.list())
+  ipcMain.handle('fights:read', (_e, instanceId: string, file: string) => fights.read(String(instanceId), String(file)))
+
   // FPS-Doktor: what in an instance costs frames, and one-click fixes for it.
   const perfDoctor = new PerfDoctor(instances)
   ipcMain.handle('perfDoctor:analyze', (_e, instanceId: string) =>
@@ -579,6 +585,24 @@ export function registerIpcHandlers(store: Store) {
   ipcMain.handle('friends:list', () => friends.list())
   ipcMain.handle('friends:add', (_e, username: string) => friends.add(username))
   ipcMain.handle('friends:remove', (_e, id: string) => friends.remove(id))
+  // Which friends are playing with Nexora right now, asked from the Nexora
+  // server; empty while no server is set or it can't be reached.
+  ipcMain.handle('friends:presence', async () => {
+    const address = crystalServerAddress(store)
+    const list = friends.list().filter(f => f.uuid)
+    if (!address || list.length === 0) return { available: !!address, online: [] }
+    const dashed = (id: string) => id.includes('-') ? id.toLowerCase()
+      : `${id.slice(0, 8)}-${id.slice(8, 12)}-${id.slice(12, 16)}-${id.slice(16, 20)}-${id.slice(20)}`.toLowerCase()
+    const byUuid = new Map(list.map(f => [dashed(f.uuid!), f.id]))
+    const url = address.replace(/^ws/, 'http').replace(/\/+$/, '') + '/presence?u=' + [...byUuid.keys()].join(',')
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(4000) })
+      const data = await res.json() as { online?: string[] }
+      return { available: true, online: (data.online ?? []).map(u => byUuid.get(u.toLowerCase())).filter(Boolean) }
+    } catch {
+      return { available: false, online: [] }
+    }
+  })
 
   // Instance content (mods / resourcepacks / shaderpacks) — read straight off disk
   ipcMain.handle('content:list', (_e, instanceId: string, type: ContentType) => content.list(instanceId, type))

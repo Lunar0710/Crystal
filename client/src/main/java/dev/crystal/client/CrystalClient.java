@@ -100,6 +100,9 @@ public class CrystalClient implements ClientModInitializer {
         // Frame rate per session, for the launcher's performance history.
         dev.crystal.client.util.PerfRecorder.register();
 
+        // Hits, misses and rounds for the PvP HUD (HitMarker, FightSummary).
+        dev.crystal.client.util.CombatTracker.register();
+
         // No-op unless started by the launcher's automated world test.
         dev.crystal.client.util.SmokeTest.registerIfRequested();
 

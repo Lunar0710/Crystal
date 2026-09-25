@@ -41,6 +41,9 @@ const ranks = new RankBook({
   owners: (process.env.OWNERS || '').split(',').map(s => s.trim()).filter(Boolean),
 })
 
+/** uuid -> number of authenticated connections, for the friends list's "playing now" */
+const online = new Map()
+
 /** room hash -> Set of authenticated clients in it */
 const rooms = new Map()
 
@@ -125,6 +128,7 @@ async function handle(client, message) {
     client.name = profile.name
     client.rank = ranks.rankOf(profile.name)
     clearTimeout(client.authTimer)
+    online.set(client.uuid, (online.get(client.uuid) || 0) + 1)
     send(client.ws, { t: 'welcome', uuid: client.uuid, rank: client.rank })
     return
   }
@@ -162,6 +166,15 @@ async function handle(client, message) {
 
 function start(port = PORT) {
   const server = http.createServer((req, res) => {
+    // Which of up to 100 players (dashed uuids) are playing with Nexora right
+    // now. Only that yes or no, never where: the room stays private.
+    const url = new URL(req.url || '/', 'http://localhost')
+    if (url.pathname === '/presence') {
+      const asked = (url.searchParams.get('u') || '').split(',').filter(u => /^[0-9a-f-]{32,36}$/i.test(u)).slice(0, 100)
+      res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' })
+      res.end(JSON.stringify({ online: asked.filter(u => online.has(u.toLowerCase())) }))
+      return
+    }
     // Plain HTTP answers a health check; everything else is the WebSocket.
     res.writeHead(200, { 'content-type': 'application/json' })
     let players = 0
@@ -201,6 +214,11 @@ function start(port = PORT) {
     ws.on('close', () => {
       clearTimeout(client.authTimer)
       leaveRoom(client)
+      if (client.uuid) {
+        const left = (online.get(client.uuid) || 1) - 1
+        if (left > 0) online.set(client.uuid, left)
+        else online.delete(client.uuid)
+      }
     })
   })
 

@@ -68,6 +68,9 @@ public class ModuleManager {
         register(new FogCustomizer());
         register(new dev.crystal.client.module.render.SkyColor());
         register(new dev.crystal.client.module.render.RenderLimits());
+        register(new dev.crystal.client.module.render.HitMarker());
+        register(new dev.crystal.client.module.hud.PotCounter());
+        register(new dev.crystal.client.module.hud.FightSummary());
         register(new PerformanceMode());
         register(new BackgroundFps());
         register(new CapeFlutter());
