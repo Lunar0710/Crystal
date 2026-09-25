@@ -75,6 +75,7 @@ public class ModuleManager {
         register(new dev.crystal.client.module.render.LowFire());
         register(new dev.crystal.client.module.render.KillEffect());
         register(new dev.crystal.client.module.hud.InventoryHUD());
+        register(new dev.crystal.client.module.hud.TPSDisplay());
         register(new PerformanceMode());
         register(new BackgroundFps());
         register(new CapeFlutter());

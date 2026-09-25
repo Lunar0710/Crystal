@@ -107,6 +107,7 @@ public class CrystalClient implements ClientModInitializer {
         // tied to that server loads itself.
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
             dev.crystal.client.module.player.TotemPops.reset();
+            dev.crystal.client.module.hud.TPSDisplay.reset();
             client.execute(dev.crystal.client.module.misc.Profiles::onJoin);
         });
 

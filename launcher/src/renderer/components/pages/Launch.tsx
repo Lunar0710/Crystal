@@ -209,6 +209,15 @@ export function Launch() {
 
   const busy = launching || trying
 
+  // Ctrl+Enter starts the selected instance from anywhere on the page.
+  const launchRef = useRef<() => void>(() => {})
+  launchRef.current = () => { if (!busy && instance && !instanceRunning) launch() }
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); launchRef.current() } }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
   // A shortcut or link can ask for another instance while the page is open.
   useEffect(() => {
     const requested = searchParams.get('instance')
