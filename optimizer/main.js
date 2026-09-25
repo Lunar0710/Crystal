@@ -441,7 +441,7 @@ async function selftest(file) {
     await step('apply-all', async () => { const r = await engine('apply', { ids, elevate: true }); if (!r.ok || r.results.some(x => !x.ok)) throw new Error(JSON.stringify(r)); return r })
     await step('state-after-apply', async () => {
       const r = await engine('state')
-      const missing = r.tweaks.filter(t => !t.applied).map(t => t.id)
+      const missing = r.tweaks.filter(t => !t.applied).map(t => `${t.id} (${t.actual || '?'})`)
       if (missing.length) throw new Error('not applied: ' + missing.join(','))
       return r.powerPlan
     })

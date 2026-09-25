@@ -598,8 +598,12 @@ try {
         'state' {
             $b = Get-Backup
             $list = foreach ($t in $Tweaks) {
+                $ap = Test-Applied $t
+                # For a registry tweak that isn't on: what the registry holds (and its type), for diagnosis.
+                $actual = $null
+                if (-not $ap -and -not $t.svc -and -not $t.custom) { $actual = (@(Get-Regs $t) | ForEach-Object { $v = Get-RegValue $_[0] $_[1]; "$($_[1])=$v [$(if ($null -ne $v) { $v.GetType().Name })]" }) -join '; ' }
                 [pscustomobject]@{ id = $t.id; name = $t.name; desc = $t.desc; cat = $t.cat; admin = $t.admin; reboot = $t.reboot; impact = $t.impact
-                                   optional = [bool]$t.optional; applied = (Test-Applied $t) }
+                                   optional = [bool]$t.optional; applied = $ap; actual = $actual }
             }
             Write-Result ([pscustomobject]@{ ok = $true; admin = $IsAdmin; tweaks = @($list); backup = (Test-Path $BackupFile); powerPlan = (Get-ActiveScheme).name })
         }
