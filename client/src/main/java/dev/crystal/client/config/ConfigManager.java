@@ -27,8 +27,7 @@ public class ConfigManager {
         root.add("modules", snapshot(m -> true));
 
         try {
-            Files.createDirectories(configDir);
-            Files.writeString(configFile, gson.toJson(root));
+            dev.crystal.client.util.SafeFiles.writeAtomic(configFile, gson.toJson(root));
         } catch (IOException e) {
             CrystalClient.LOGGER.error("Failed to save config: {}", e.getMessage());
         }
@@ -54,8 +53,7 @@ public class ConfigManager {
         root.addProperty("name", name);
         root.add("modules", snapshot(ConfigManager::inProfile));
         try {
-            Files.createDirectories(profileFile(slot).getParent());
-            Files.writeString(profileFile(slot), gson.toJson(root));
+            dev.crystal.client.util.SafeFiles.writeAtomic(profileFile(slot), gson.toJson(root));
             return true;
         } catch (IOException e) {
             CrystalClient.LOGGER.error("Failed to save profile {}: {}", slot, e.getMessage());
@@ -123,7 +121,10 @@ public class ConfigManager {
             CrystalClient.LOGGER.info("[Nexora] Config loaded.");
             return true;
         } catch (Exception e) {
-            CrystalClient.LOGGER.error("Failed to load config: {}", e.getMessage());
+            // Kept as crystal.json.broken: the defaults that load now would
+            // otherwise overwrite it on the next save and the settings are gone.
+            CrystalClient.LOGGER.error("Failed to load config, kept as crystal.json.broken: {}", e.getMessage());
+            dev.crystal.client.util.SafeFiles.keepBroken(configFile);
             return false;
         }
     }
