@@ -384,6 +384,22 @@
   .toast.on { translate: -50% 0; opacity: 1; }
   .toast b { color: var(--ink); font-weight: 600; }
 
+  /* ---------- Lunar Optimizer ---------- */
+  .lunar { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 56px; align-items: center; }
+  .lunar h2 { margin-top: 20px; font-size: clamp(44px, 6vw, 92px); line-height: .9; font-weight: 870;
+    background: linear-gradient(180deg, #ffffff 20%, #8ea2ff); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .lunar .lede { margin-top: 22px; color: var(--ash); font-weight: 300; font-size: 17px; max-width: 34em; }
+  .lunar-list { margin: 26px 0 0; padding: 0; list-style: none; }
+  .lunar-list li { display: flex; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--hair); font-size: 14.5px; }
+  .lunar-list li span { color: var(--ash); font-weight: 300; text-align: right; }
+  .lunar-cta { margin-top: 30px; display: flex; gap: 12px; flex-wrap: wrap; }
+  .lunar-meta { margin-top: 16px; font-size: 13px; color: var(--dim); }
+  .lunar-shot { perspective: 1600px; }
+  .lunar-shot .shell { transform: rotateY(-10deg) rotateX(4deg); transition: transform 1s var(--out); box-shadow: 0 0 0 1px var(--hair), 0 60px 120px -40px rgba(0, 0, 0, .9), 0 0 140px -40px rgba(142, 162, 255, .45); }
+  .lunar-shot:hover .shell { transform: rotateY(-3deg) rotateX(1deg); }
+  .lunar-shot img { display: block; width: 100%; height: auto; }
+  @media (max-width: 1080px) { .lunar { grid-template-columns: 1fr; } .lunar-shot .shell { transform: none; } }
+
   /* ---------- Motion ---------- */
   @property --ang { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
   .progress { position: fixed; top: 0; left: 0; right: 0; height: 2px; z-index: 50; pointer-events: none; transform-origin: left; transform: scaleX(0);
@@ -913,12 +929,37 @@
       </div>
     </div>
   </section>
+
+  <section class="wrap" id="lunar">
+    <div class="lunar">
+      <div class="lunar-text">
+        <span class="eyebrow rv"><b>Neu</b> Auch von uns</span>
+        <h2 class="rv no-split">Lunar Optimizer.</h2>
+        <p class="lede rv">Die App, die Windows fürs Gaming einstellt. Sie prüft deine Hardware, zeigt live, was Leistung frisst, misst deinen Ping und stellt mit einem Klick alles auf Spielen. Jede Änderung lässt sich zurücknehmen.</p>
+        <ul class="lunar-list rv">
+          <li><b>Gaming-Score</b><span>Findet alte Treiber, 60-Hz-Bildschirme, volle Platten und mehr</span></li>
+          <li><b>Tweaks</b><span>Energiesparplan ohne Core Parking, GPU-Planung, Maus 1:1, Nagle aus und mehr</span></li>
+          <li><b>Live-Monitor</b><span>CPU, GPU, RAM, Netzwerk und die größten Fresser</span></li>
+          <li><b>Latenz</b><span>Ping, Jitter und Paketverlust, dazu ein Reaktionstest</span></li>
+          <li><b>Autostart und Aufräumen</b><span>Schneller hochfahren, Platz schaffen</span></li>
+        </ul>
+        <div class="cta rv lunar-cta">
+          <a class="btn btn-solid" data-dl data-os="win" href="optimizer/Lunar-Optimizer-Setup.exe">Lunar Optimizer laden<span class="ic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v9m0 0L4.5 8M8 11.5 11.5 8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+          <a class="btn btn-ghost" data-dl data-os="win" href="optimizer/Lunar-Optimizer-Portable.exe">Ohne Installation<span class="ic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v9m0 0L4.5 8M8 11.5 11.5 8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+        </div>
+        <p class="meta lunar-meta rv">Kostenlos · Windows 10 und 11 · Defender, Updates und Firewall bleiben an</p>
+      </div>
+      <div class="lunar-shot rv">
+        <div class="shell"><div class="core"><img src="lunar-optimizer.jpg" alt="Lunar Optimizer: Übersicht mit Gaming-Score, Live-Werten und gefundenen Problemen" width="1320" height="840" loading="lazy"></div></div>
+      </div>
+    </div>
+  </section>
 </main>
 
 <footer class="wrap">
   <div class="foot">
     <span>Nexora ist kein offizielles Minecraft-Produkt und nicht mit Mojang oder Microsoft verbunden.</span>
-    <span style="display:flex;gap:24px"><a href="https://github.com/Lunar0710/Crystal/releases">Alle Versionen</a><a href="#top">Nach oben</a></span>
+    <span style="display:flex;gap:24px"><a href="#lunar">Lunar Optimizer</a><a href="https://github.com/Lunar0710/Crystal/releases">Alle Versionen</a><a href="#top">Nach oben</a></span>
   </div>
   <div class="wordmark" aria-hidden="true">Nexora</div>
 </footer>
@@ -1399,7 +1440,7 @@
 
   // Section headings split into words that rise on reveal (plain-text headings only).
   document.querySelectorAll('main h2').forEach(h => {
-    if (still || h.children.length || h.closest('.hero')) return;
+    if (still || h.children.length || h.closest('.hero') || h.classList.contains('no-split')) return;
     let n = 0;
     h.innerHTML = h.textContent.split(/(\s+)/).map(t => /^\s+$/.test(t) || !t ? t : `<span class="w"><span style="--i:${n++}">${t}</span></span>`).join('');
     h.classList.add('split');

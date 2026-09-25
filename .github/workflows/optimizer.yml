@@ -48,7 +48,9 @@ jobs:
         run: |
           VERSION=$(node -p "require('./package.json').version")
           mkdir -p "$RUNNER_TEMP/dist"
-          cp release/*.exe "$RUNNER_TEMP/dist/"
+          # Fixed names, so the website's download links never change.
+          cp release/Lunar-Optimizer-Setup-*.exe "$RUNNER_TEMP/dist/Lunar-Optimizer-Setup.exe"
+          cp release/Lunar-Optimizer-*-Portable.exe "$RUNNER_TEMP/dist/Lunar-Optimizer-Portable.exe"
           cd "$RUNNER_TEMP/dist"
           git init -q -b optimizer-dist
           git config user.name "github-actions[bot]"
