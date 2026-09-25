@@ -240,7 +240,8 @@ public class CrystalHUD {
         context.pose().popMatrix();
     }
 
-    private static final int SPOT_W = 176, SPOT_H = 46, LYR_W = 260, LYR_H = 30;
+    private static final int SPOT_W = 176, SPOT_H = 46, LYR_W = 260, LYR_H = 64;
+    private static final int LYR_MAX_UPCOMING = 4;
     private static final int SPOTIFY_GREEN = 0xFF1DB954;
 
     private static boolean inEditor() {
@@ -309,25 +310,32 @@ public class CrystalHUD {
     }
 
     /**
-     * The lyrics: the line being sung, centred and bright, and the next one
-     * fainter below it. A new line slides up and fades in.
+     * The lyrics: the line being sung at the top, bright and marked in
+     * Spotify green, and under it every line that starts within the next few
+     * seconds, fainter the further off it is. When the song moves on, the
+     * list slides up one line.
      */
     private void drawLyrics(GuiGraphics context, dev.crystal.client.module.hud.SpotifyLyrics module) {
         dev.crystal.client.util.NowPlaying.Track track = dev.crystal.client.util.NowPlaying.current();
         List<dev.crystal.client.util.NowPlaying.Line> lines = track == null ? List.of() : dev.crystal.client.util.NowPlaying.lyrics();
-        String current, next = "";
+        String current;
+        List<String> upcoming = new java.util.ArrayList<>();
         long since = 10_000;
         if (track != null && !lines.isEmpty()) {
-            // Picked a little ahead of the music (the "Vorlauf"), so each line is up before it is sung.
-            long pos = module.lookAt(track.position());
+            long pos = track.position();
             int i = dev.crystal.client.module.hud.SpotifyLyrics.lineAt(lines, pos);
-            current = i < 0 ? "♪" : lines.get(i).text();
-            if (current.isEmpty()) current = "♪";
-            if (i + 1 < lines.size()) next = lines.get(i + 1).text();
+            current = i < 0 || lines.get(i).text().isEmpty() ? "\u266A" : lines.get(i).text();
             since = i < 0 ? 10_000 : pos - lines.get(i).timeMs();
+            if (module.showNext()) {
+                for (int j = i + 1; j < lines.size() && upcoming.size() < LYR_MAX_UPCOMING; j++) {
+                    if (lines.get(j).timeMs() > pos + module.windowMs()) break;
+                    if (!lines.get(j).text().isEmpty()) upcoming.add(lines.get(j).text());
+                }
+            }
         } else if (inEditor()) {
             current = track == null ? "Songtext erscheint hier" : dev.crystal.client.util.NowPlaying.lyricsLoading() ? "Songtext wird geladen…" : "Kein Songtext für diesen Song";
-            next = "Lyrics";
+            upcoming.add("Die nächsten Sekunden stehen darunter");
+            upcoming.add("Lyrics");
         } else {
             return;
         }
@@ -335,20 +343,25 @@ public class CrystalHUD {
         context.pose().pushMatrix();
         context.pose().translate(module.getX(), module.getY());
         context.pose().scale(s, s);
-        float t = Math.min(1f, since / 260f);
-        float ease = GuiRender.spring(t);
-        int alpha = Math.round(255 * (0.25f + 0.75f * ease));
-        int lift = Math.round((1f - ease) * 5);
+        // A new current line: everything slides up from where the next line sat.
+        float ease = GuiRender.spring(Math.min(1f, since / 320f));
+        float slide = (1f - ease) * 12f;
 
-        String shown = GuiRender.trimToWidth(current, LYR_W - 8);
+        String shown = GuiRender.trimToWidth(current, LYR_W - 16);
         int w = Math.round(GuiRender.boldWidth(shown) * 1.15f);
-        // A soft dark band behind the line so it reads over any sky.
-        GuiRender.roundedRect(context, (LYR_W - w) / 2 - 8, 1 + lift, (LYR_W + w) / 2 + 8, 15 + lift, 7, GuiRender.withAlpha(0x000000, Math.round(0x70 * (alpha / 255f))));
-        GuiRender.heading(context, shown, (LYR_W - w) / 2f, 3.5f + lift, 1.15f, GuiRender.withAlpha(0xFFFFFF, alpha));
-        if (module.showNext() && !next.isEmpty()) {
-            String n = GuiRender.trimToWidth(next, Math.round((LYR_W - 8) / 0.85f));
+        int x1 = (LYR_W - w) / 2 - 10, x2 = (LYR_W + w) / 2 + 8;
+        int y0 = Math.round(slide);
+        // The current line: dark band, a green mark on its left, bright bold text.
+        GuiRender.roundedRect(context, x1, y0, x2, y0 + 16, 8, GuiRender.withAlpha(0x000000, Math.round(0x80 * ease + 0x30)));
+        GuiRender.pill(context, x1 + 4, y0 + 4, x1 + 6, y0 + 12, GuiRender.withAlpha(SPOTIFY_GREEN, Math.round(255 * ease)));
+        GuiRender.heading(context, shown, (LYR_W - w) / 2f + 2, y0 + 4f, 1.15f, GuiRender.withAlpha(0xFFFFFF, Math.round(255 * (0.4f + 0.6f * ease))));
+
+        // What comes next, each line a little fainter.
+        for (int k = 0; k < upcoming.size(); k++) {
+            String n = GuiRender.trimToWidth(upcoming.get(k), Math.round((LYR_W - 8) / 0.85f));
             int nw = GuiRender.scaledWidth(n, 0.85f);
-            GuiRender.scaledText(context, n, (LYR_W - nw) / 2, 19, 0.85f, 0xB0FFFFFF);
+            int a = Math.max(0x40, 0xC0 - k * 0x28);
+            GuiRender.scaledText(context, n, (LYR_W - nw) / 2, y0 + 20 + k * 11, 0.85f, GuiRender.withAlpha(0xFFFFFF, a));
         }
         context.pose().popMatrix();
     }
