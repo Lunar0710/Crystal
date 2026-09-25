@@ -52,6 +52,18 @@ public class CosmeticsFeatureRenderer extends RenderLayer<AvatarRenderState, Pla
     //? if >=1.21.9
     @Override
     public void submit(PoseStack matrices, SubmitNodeCollector queue, int light, AvatarRenderState state, float limbAngle, float limbDistance) {
+        // A bug here would end in the crash screen; instead this layer is skipped from then on.
+        if (dev.crystal.client.util.SafeRender.hasFailed("Cosmetics")) return;
+        PoseStack.Pose before = matrices.last();
+        try {
+            draw(matrices, queue, light, state);
+        } catch (RuntimeException e) {
+            while (matrices.last() != before) matrices.popPose();
+            dev.crystal.client.util.SafeRender.failed("Cosmetics", e);
+        }
+    }
+
+    private void draw(PoseStack matrices, SubmitNodeCollector queue, int light, AvatarRenderState state) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || state.isInvisible) return;
         // Your own loadout comes from the launcher's file, other Nexora

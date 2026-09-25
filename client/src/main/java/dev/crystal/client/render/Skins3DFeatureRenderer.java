@@ -69,6 +69,18 @@ public class Skins3DFeatureRenderer extends RenderLayer<AvatarRenderState, Playe
     //? if >=1.21.9
     @Override
     public void submit(PoseStack matrices, SubmitNodeCollector queue, int light, AvatarRenderState state, float limbAngle, float limbDistance) {
+        // A bug here would end in the crash screen; instead this layer is skipped from then on.
+        if (dev.crystal.client.util.SafeRender.hasFailed("3D Skins")) return;
+        PoseStack.Pose before = matrices.last();
+        try {
+            draw(matrices, queue, light, state);
+        } catch (RuntimeException e) {
+            while (matrices.last() != before) matrices.popPose();
+            dev.crystal.client.util.SafeRender.failed("3D Skins", e);
+        }
+    }
+
+    private void draw(PoseStack matrices, SubmitNodeCollector queue, int light, AvatarRenderState state) {
         if (!activeFor(state)) return;
         PlayerModel model = getParentModel();
         RenderType layer = RenderTypes.entityCutoutNoCull(SkinCompat.bodyTexture(state.skin));
