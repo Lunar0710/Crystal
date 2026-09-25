@@ -57,6 +57,13 @@ public final class CombatTracker {
     /** Set during a tick when a hit is confirmed or damage taken, written into that tick's frame. */
     private static boolean hitThisTick = false, hurtThisTick = false;
     private static Round lastRound = null;
+
+    /** Ticks the kill cam replays: the last 5 seconds before your death. */
+    private static final int KILLCAM_FRAMES = 100;
+    /** The fight's last frames when you died in it, until you respawn; null otherwise. */
+    private static java.util.List<float[]> deathReplay = null;
+    private static String deathBy = null;
+    private static long deathAt = 0;
     private static long lastRoundAt = 0;
 
     private CombatTracker() {}
@@ -115,6 +122,7 @@ public final class CombatTracker {
         float health = mc.player.getHealth();
         boolean dead = mc.player.isDeadOrDying();
         if (dead && !wasDead) sessionDeaths++;
+        if (!dead && wasDead) deathReplay = null; // respawned: the kill cam is over
         wasDead = dead;
 
         if (inFight && lastHealth >= 0 && health < lastHealth) {
@@ -129,6 +137,11 @@ public final class CombatTracker {
         record(mc);
         // Dead, not merely gone: an opponent running out of view ends the fight by the timeout instead.
         boolean opponentDead = opponentEntity != null && opponentEntity.isDeadOrDying();
+        if (!mc.player.isAlive() && frames.size() >= 2) {
+            deathReplay = new java.util.ArrayList<>(frames.subList(Math.max(0, frames.size() - KILLCAM_FRAMES), frames.size()));
+            deathBy = opponent;
+            deathAt = System.currentTimeMillis();
+        }
         if (opponentDead || tick - lastActionTick > FIGHT_OVER_TICKS || !mc.player.isAlive()) {
             endFight(opponentDead && mc.player.isAlive());
         }
@@ -164,6 +177,7 @@ public final class CombatTracker {
 
     private static void reset() {
         inFight = false;
+        deathReplay = null;
         opponentEntity = null;
         pendingTarget = null;
         lastHealth = -1;
@@ -235,6 +249,11 @@ public final class CombatTracker {
     }
 
     public static Round lastRound() { return lastRound; }
+
+    /** The last seconds of the fight you just died in (frames as recorded), or null. */
+    public static java.util.List<float[]> deathReplay() { return deathReplay; }
+    public static String deathBy() { return deathBy; }
+    public static long deathAt() { return deathAt; }
     public static long lastRoundAt() { return lastRoundAt; }
     public static int combo() { return inFight ? combo : 0; }
     public static int sessionKills() { return sessionKills; }

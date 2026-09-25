@@ -287,8 +287,12 @@ public final class SmokeTest {
             }
         }
 
+        // Kill cam, last because it kills the player: hit a pig, die mid-fight,
+        // the death screen must carry the replay; after respawning it must be gone.
+        if (uiShotsDone && !killCamDone) killCamTest(mc, base);
+
         // Done once every check has an answer and the last screenshot is taken.
-        if (!finished && uiShotsDone && worldTicks > Math.max(peerTest ? 355 : 325, BUILDER_SHOT_TICK)
+        if (!finished && uiShotsDone && killCamDone && worldTicks > Math.max(peerTest ? 355 : 325, BUILDER_SHOT_TICK)
                 && cullingResult != null && builderResult != null) {
             finished = true;
             // Leave the way a player does, through Nexora's pause menu. That
@@ -313,6 +317,52 @@ public final class SmokeTest {
     private static boolean finished = false;
     private static int uiShotsStart = 0;
     private static boolean uiShotsDone = false;
+    private static int killCamStart = 0, killCamHit = 0;
+    private static boolean killCamDone = false;
+
+    private static void killCamTest(Minecraft mc, String base) {
+        var server = mc.getSingleplayerServer();
+        if (server == null || mc.player == null) { killCamDone = true; return; }
+        if (killCamStart == 0) killCamStart = worldTicks;
+        int since = worldTicks - killCamStart;
+        String name = mc.player.getName().getString();
+        if (since == 1) {
+            CombatTracker.countMobs = true;
+            var pos = mc.player.blockPosition();
+            server.execute(() -> server.getCommands().performPrefixedCommand(server.createCommandSourceStack(),
+                    "summon pig " + pos.getX() + " " + pos.getY() + " " + (pos.getZ() + 2) + " {NoAI:1b}"));
+        } else if (killCamHit == 0 && since >= 10) {
+            var pig = mc.level.getEntities(mc.player, mc.player.getBoundingBox().inflate(12),
+                    e -> e.getType() == net.minecraft.world.entity.EntityType.PIG && e.isAlive()).stream().findFirst().orElse(null);
+            if (pig != null) {
+                mc.gameMode.attack(mc.player, pig);
+                mc.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+                killCamHit = worldTicks;
+            } else if (since > 40) {
+                CrystalClient.LOGGER.info("[Nexora] Kill cam FAILED: no pig");
+                killCamDone = true;
+            }
+        } else if (killCamHit > 0 && worldTicks == killCamHit + 8) {
+            server.execute(() -> server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), "kill " + name));
+        } else if (killCamHit > 0 && worldTicks == killCamHit + 24) {
+            var cam = CrystalClient.getInstance().getModuleManager().getEnabled(dev.crystal.client.module.hud.KillCam.class);
+            var replay = cam == null ? null : cam.replay();
+            killCamShown = replay != null && replay.size() >= 2 && mc.screen instanceof net.minecraft.client.gui.screens.DeathScreen;
+            killCamFrames = replay == null ? -1 : replay.size();
+            Screenshot.grab(mc.gameDirectory, base + "-killcam.png", mc.getMainRenderTarget(), 1,
+                    msg -> CrystalClient.LOGGER.info("[Nexora] Smoke screenshot: {}", msg.getString()));
+        } else if (killCamHit > 0 && worldTicks == killCamHit + 28) {
+            mc.player.respawn();
+            mc.setScreen(null);
+        } else if (killCamHit > 0 && worldTicks == killCamHit + 50) {
+            boolean cleared = CombatTracker.deathReplay() == null && mc.player.isAlive();
+            CrystalClient.LOGGER.info("[Nexora] Kill cam {}: shown={} frames={} clearedAfterRespawn={}",
+                    killCamShown && cleared ? "PASS" : "FAILED", killCamShown, killCamFrames, cleared);
+            killCamDone = true;
+        }
+    }
+    private static boolean killCamShown = false;
+    private static int killCamFrames = 0;
 
     /** The test peer's id: the test server derives it from the name (FAKE_AUTH in server.js). */
     private static final java.util.UUID PEER_UUID = fakeUuid("PeerBot");

@@ -51,6 +51,8 @@ public class CrystalHUD {
                 drawFrameGraph(context, graph);
             } else if (module instanceof dev.crystal.client.module.hud.InventoryHUD inventory) {
                 drawInventory(context, inventory);
+            } else if (module instanceof dev.crystal.client.module.hud.KillCam cam) {
+                drawKillCam(context, cam);
             } else if (module instanceof HudModule hud) {
                 drawStyledText(context, hud);
             } else if (module instanceof HudRenderable renderable) {
@@ -80,6 +82,9 @@ public class CrystalHUD {
         float s = module.getScale();
         if (module instanceof dev.crystal.client.module.hud.InventoryHUD) {
             return new int[]{x - Math.round(2 * s), y - Math.round(2 * s), x + Math.round((INV_W + 2) * s), y + Math.round((INV_H + 2) * s)};
+        }
+        if (module instanceof dev.crystal.client.module.hud.KillCam) {
+            return new int[]{x - Math.round(3 * s), y - Math.round(2 * s), x + Math.round((CAM_W + 3) * s), y + Math.round((CAM_H + 2) * s)};
         }
         if (module instanceof FrameGraph graph) {
             int[] size = frameGraphSize(graph);
@@ -203,6 +208,87 @@ public class CrystalHUD {
             }
         }
         context.pose().popMatrix();
+    }
+
+    private static final int CAM_W = 128, CAM_H = 118, CAM_MAP = 96;
+
+    /**
+     * The kill cam: a top-down map (north up) of the last seconds, replayed in
+     * real time with a one-second hold on the death, then two health bars.
+     * You are blue, the opponent red; a ring flashes on whoever took a hit.
+     */
+    private void drawKillCam(GuiGraphics context, dev.crystal.client.module.hud.KillCam cam) {
+        List<float[]> frames = cam.replay();
+        if (frames == null || frames.isEmpty()) return;
+        Minecraft mc = Minecraft.getInstance();
+        float scale = cam.getScale();
+        context.pose().pushMatrix();
+        context.pose().translate(cam.getX(), cam.getY());
+        context.pose().scale(scale, scale);
+        GuiRender.roundedRect(context, -3, -2, CAM_W + 3, CAM_H + 2, 3, 0xC00C0C0D);
+
+        int n = frames.size();
+        int index = (int) ((System.currentTimeMillis() - dev.crystal.client.util.CombatTracker.deathAt()) / 50 % (n + 20));
+        index = Math.min(index, n - 1);
+        float[] now = frames.get(index);
+        String time = String.format("-%.1fs", (n - 1 - index) / 20f);
+        context.drawString(mc.font, cam.getText(), 0, 0, cam.getEffectiveTextColor(), false);
+        context.drawString(mc.font, time, CAM_W - mc.font.width(time), 0, 0xFFA1A1AA, false);
+
+        // Fit both paths into the square map, at least 8 blocks across so a still fight isn't a blur.
+        float minX = Float.MAX_VALUE, maxX = -Float.MAX_VALUE, minZ = Float.MAX_VALUE, maxZ = -Float.MAX_VALUE;
+        for (float[] f : frames) {
+            minX = Math.min(minX, Math.min(f[0], f[5])); maxX = Math.max(maxX, Math.max(f[0], f[5]));
+            minZ = Math.min(minZ, Math.min(f[2], f[7])); maxZ = Math.max(maxZ, Math.max(f[2], f[7]));
+        }
+        float span = Math.max(8f, Math.max(maxX - minX, maxZ - minZ)) * 1.15f;
+        float cx = (minX + maxX) / 2, cz = (minZ + maxZ) / 2;
+        int mapX = (CAM_W - CAM_MAP) / 2, mapY = 11;
+        context.fill(mapX, mapY, mapX + CAM_MAP, mapY + CAM_MAP, 0x33FFFFFF);
+        float px = CAM_MAP / span;
+        int blue = 0xFF4EA1FF, red = 0xFFE5484D;
+
+        // Trails up to now, fainter the older they are.
+        for (int i = 0; i <= index; i++) {
+            float[] f = frames.get(i);
+            int alpha = 0x30 + 0x60 * i / Math.max(1, index);
+            int mx = mapX + Math.round((f[0] - cx) * px + CAM_MAP / 2f), mz = mapY + Math.round((f[2] - cz) * px + CAM_MAP / 2f);
+            int ox = mapX + Math.round((f[5] - cx) * px + CAM_MAP / 2f), oz = mapY + Math.round((f[7] - cz) * px + CAM_MAP / 2f);
+            context.fill(mx, mz, mx + 1, mz + 1, (alpha << 24) | (blue & 0xFFFFFF));
+            context.fill(ox, oz, ox + 1, oz + 1, (alpha << 24) | (red & 0xFFFFFF));
+        }
+        // Hits flash for a few ticks after they land.
+        boolean hitLanded = false, hitTaken = false;
+        for (int i = Math.max(0, index - 3); i <= index; i++) {
+            int flags = Math.round(frames.get(i)[10]);
+            hitLanded |= (flags & 1) != 0;
+            hitTaken |= (flags & 2) != 0;
+        }
+        drawCamPlayer(context, now[0], now[2], now[3], cx, cz, px, mapX, mapY, blue, hitTaken);
+        drawCamPlayer(context, now[5], now[7], now[8], cx, cz, px, mapX, mapY, red, hitLanded);
+
+        int barY = mapY + CAM_MAP + 4;
+        drawCamHealth(context, 0, barY, now[4], blue);
+        drawCamHealth(context, CAM_W / 2 + 2, barY, now[9], red);
+        context.pose().popMatrix();
+    }
+
+    /** One player on the kill cam map: a dot, a short line the way they face, a ring when hit. */
+    private void drawCamPlayer(GuiGraphics context, float wx, float wz, float yaw, float cx, float cz, float px, int mapX, int mapY, int color, boolean hit) {
+        int x = mapX + Math.round((wx - cx) * px + CAM_MAP / 2f), y = mapY + Math.round((wz - cz) * px + CAM_MAP / 2f);
+        if (hit) context.fill(x - 3, y - 3, x + 4, y + 4, 0xAAFFFFFF);
+        context.fill(x - 2, y - 2, x + 3, y + 3, color);
+        double rad = Math.toRadians(yaw);
+        for (int step = 3; step <= 7; step++) {
+            int lx = x + (int) Math.round(-Math.sin(rad) * step), ly = y + (int) Math.round(Math.cos(rad) * step);
+            context.fill(lx, ly, lx + 1, ly + 1, color);
+        }
+    }
+
+    private void drawCamHealth(GuiGraphics context, int x, int y, float health, int color) {
+        int w = CAM_W / 2 - 2;
+        context.fill(x, y, x + w, y + 3, 0x44FFFFFF);
+        context.fill(x, y, x + Math.round(w * Math.max(0f, Math.min(1f, health / 20f))), y + 3, color);
     }
 
     /** Unscaled {width, height} of the frame graph: the text line, then the bars. */
