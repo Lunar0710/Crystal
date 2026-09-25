@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Check, Upload, Trash2, X, Lock } from 'lucide-react'
 import { Page, PageHeader, EmptyState } from '../ui/Page'
 import { notify } from '../../store/notificationStore'
-import { BUILTIN_CAPES, CAPE_CATEGORIES, CapeCategory, capeTextureUrl, capePreviewUrl, isCapeTexture, pictureToCapeTexture, canUseCape, capeFrameUrls, capeAnimationStrip } from '../../data/capes'
+import { BUILTIN_CAPES, CAPE_CATEGORIES, CapeCategory, capeTextureUrl, capePreviewUrl, isCapeTexture, pictureToCapeTexture, canUseCape, capeFrameUrls, capeAnimationStrip, type CapeDef } from '../../data/capes'
 import { ANIMATION_FRAMES, ANIMATION_FPS } from '../../data/animatedCapes'
 import {
   SLOTS, CosmeticSlot, NonCapeSlot, COSMETICS_BY_SLOT, EMPTY_LOADOUT,
@@ -152,14 +152,6 @@ export function Cosmetics() {
     api?.syncEquippedCape(equippedCapeUrl, equippedDef?.id ?? null)
   }, [equippedCapeUrl, animatedDef?.id])
 
-  // The 3D preview plays animated capes at the same speed as the game.
-  const [frame, setFrame] = useState(0)
-  useEffect(() => {
-    if (!animatedDef) return
-    const timer = setInterval(() => setFrame(f => (f + 1) % ANIMATION_FRAMES), 1000 / ANIMATION_FPS)
-    return () => clearInterval(timer)
-  }, [animatedDef?.id])
-  const previewCapeUrl = animatedDef ? capeFrameUrls(animatedDef)[frame] ?? equippedCapeUrl : equippedCapeUrl
 
   // Hats, masks, wings… reach the game the same way: the resolved colours and
   // shapes go to a file the Java client reads. Rank-locked items are flagged so
@@ -222,10 +214,11 @@ export function Cosmetics() {
         <aside className="lg:sticky lg:top-4 space-y-3">
           <div className="crystal-card overflow-hidden">
             <div className="flex justify-center bg-crystal-panel/60 border-b border-crystal-border">
-              <SkinPreview3D
+              <AnimatedCapePreview
+                animatedDef={animatedDef}
                 skinDataUrl={skinDataUrl}
                 slim={skinSlim}
-                capeUrl={previewCapeUrl}
+                capeUrl={equippedCapeUrl}
                 hat={findCosmetic('hat', loadout.hat)}
                 bandana={findCosmetic('bandana', loadout.bandana)}
                 mask={findCosmetic('mask', loadout.mask)}
@@ -448,4 +441,20 @@ function Tile({
       </div>
     </div>
   )
+}
+
+/**
+ * The 3D preview, playing an animated cape at the same speed as the game.
+ * The frame counter lives here rather than in the page: there it re-rendered
+ * the whole Cosmetics page, every tile included, ten times a second.
+ */
+function AnimatedCapePreview({ animatedDef, capeUrl, ...props }: React.ComponentProps<typeof SkinPreview3D> & { animatedDef?: CapeDef }) {
+  const [frame, setFrame] = useState(0)
+  useEffect(() => {
+    if (!animatedDef) return
+    const timer = setInterval(() => setFrame(f => (f + 1) % ANIMATION_FRAMES), 1000 / ANIMATION_FPS)
+    return () => clearInterval(timer)
+  }, [animatedDef?.id])
+  const url = animatedDef ? capeFrameUrls(animatedDef)[frame] ?? capeUrl : capeUrl
+  return <SkinPreview3D {...props} capeUrl={url} />
 }
