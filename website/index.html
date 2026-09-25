@@ -302,6 +302,140 @@
   .wordmark { font-family: var(--display); font-stretch: 125%; font-weight: 900; font-size: clamp(80px, 21vw, 330px); line-height: .78; letter-spacing: -.05em; text-align: center; margin-top: 30px;
     background: linear-gradient(180deg, rgba(255, 255, 255, .14), rgba(255, 255, 255, 0) 85%); -webkit-background-clip: text; background-clip: text; color: transparent; user-select: none; }
 
+
+  /* ---------- Jar downloads ---------- */
+  .jars { margin-top: 24px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .jars a { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px 8px 12px; border-radius: 999px; font: 500 13px var(--mono); font-variant-numeric: tabular-nums;
+    color: var(--ink); background: rgba(255, 255, 255, .04); box-shadow: inset 0 0 0 1px var(--hair-2);
+    transition: background .4s var(--spring), color .4s var(--spring), translate .4s var(--spring), box-shadow .4s var(--spring); }
+  .jars a::before { content: ""; width: 12px; height: 12px; flex: none; background: currentColor; opacity: .7;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 2.5v9m0 0L4.5 8M8 11.5 11.5 8M3 14h10' fill='none' stroke='%23000' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 2.5v9m0 0L4.5 8M8 11.5 11.5 8M3 14h10' fill='none' stroke='%23000' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat; }
+  .jars a:hover { background: var(--accent); color: var(--accent-ink); translate: 0 -2px; box-shadow: 0 10px 30px -10px var(--accent); }
+  .jars a.main { background: var(--accent); color: var(--accent-ink); }
+  .jars a small { font: 400 11px var(--body); opacity: .65; }
+  .js .jars.go a { animation: fadeUp .7s var(--out) both; animation-delay: calc(var(--i) * 55ms); }
+  .jars-note { margin-top: 14px !important; font-size: 13px; }
+  .jars-note a { color: var(--ink); text-decoration: underline; text-decoration-color: var(--hair-2); text-underline-offset: 3px; }
+
+  /* ---------- Motion ---------- */
+  @property --ang { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+  .progress { position: fixed; top: 0; left: 0; right: 0; height: 2px; z-index: 50; pointer-events: none; transform-origin: left; transform: scaleX(0);
+    background: linear-gradient(90deg, var(--glow), var(--accent)); box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 70%, transparent); }
+  .cursor-glow { position: fixed; left: 0; top: 0; width: 560px; height: 560px; margin: -280px 0 0 -280px; border-radius: 50%; pointer-events: none; z-index: 0;
+    background: radial-gradient(circle, color-mix(in srgb, var(--accent) 8%, transparent), transparent 62%); opacity: 0; transition: opacity .8s var(--out); will-change: transform; }
+  .cursor-glow.on { opacity: 1; }
+  .orbs i:nth-child(1) { animation: drift1 26s ease-in-out infinite alternate; }
+  .orbs i:nth-child(2) { animation: drift2 32s ease-in-out infinite alternate; }
+  @keyframes drift1 { to { translate: 14vw 12vh; scale: 1.15; } }
+  @keyframes drift2 { to { translate: -12vw 18vh; scale: .88; } }
+
+  /* Nav tucks away while scrolling down, comes back on the way up. */
+  .nav { transition: translate .7s var(--spring), background .6s var(--spring); }
+  .nav.hide { translate: 0 calc(-100% - 40px); }
+  .nav.solid { background: rgba(12, 12, 13, .82); }
+
+  /* Headline: every word rises out of its own mask. */
+  .hero h1.split .soft { background: none; }
+  .hero h1 .w { display: inline-block; overflow: hidden; vertical-align: top; padding: .02em .02em .22em; margin: -.02em 0 -.22em; }
+  .hero h1 .w > span { display: inline-block; transform: translateY(115%) rotate(7deg); transform-origin: 0 100%; animation: rise 1.2s var(--out) forwards; animation-delay: calc(var(--i) * 90ms + 120ms); }
+  .hero h1 .soft .w > span { background: linear-gradient(180deg, #8d8d94, #3b3b40); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  @keyframes rise { to { transform: none; } }
+  .intro { animation: fadeUp 1.1s var(--out) both; animation-delay: var(--d, 0s); }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(26px); filter: blur(8px); } }
+
+  .eyebrow b { animation: ping 2.6s var(--out) infinite; }
+  @keyframes ping { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); } 70%, 100% { box-shadow: 0 0 0 9px transparent; } }
+
+  /* Buttons: a light sweep, and they lean toward the pointer. */
+  .btn { position: relative; overflow: hidden; isolation: isolate; transition: transform .6s var(--spring), translate .5s var(--spring), background .6s var(--spring), box-shadow .6s var(--spring); }
+  .btn::after { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; translate: -130% 0; transition: translate .9s var(--out);
+    background: linear-gradient(100deg, transparent 35%, rgba(255, 255, 255, .22) 50%, transparent 65%); }
+  .btn-solid::after { background: linear-gradient(100deg, transparent 35%, color-mix(in srgb, var(--accent-ink) 8%, transparent) 50%, transparent 65%); }
+  .btn:hover::after { translate: 130% 0; }
+  #heroDl::after, #mainDl::after { animation: sweep 5s var(--out) 1.8s infinite; }
+  @keyframes sweep { 0% { translate: -130% 0; } 35%, 100% { translate: 130% 0; } }
+
+  /* Product shot: chips float on their own. */
+  .chip { animation: bob 6s ease-in-out infinite; }
+  .chip.c2 { animation-delay: -1.6s; } .chip.c3 { animation-delay: -3.1s; animation-duration: 7s; } .chip.c4 { animation-delay: -4.4s; animation-duration: 5.4s; }
+  @keyframes bob { 50% { translate: 0 -10px; } }
+  .kpi b, .gl b { display: inline-block; }
+  .kpi { transition: background .5s var(--spring), translate .5s var(--spring); }
+  .kpi:hover { background: rgba(255, 255, 255, .05); translate: 0 -2px; }
+  .row { transition: background .4s var(--spring), translate .4s var(--spring); }
+  .row:hover { background: rgba(255, 255, 255, .04); translate: 3px 0; }
+
+  .marquee:hover .track { animation-play-state: paused; }
+  .track span { transition: color .4s var(--spring), background .4s var(--spring), box-shadow .4s var(--spring); }
+  .track span:hover { color: var(--accent-ink); background: var(--accent); box-shadow: 0 0 24px -4px var(--accent); }
+
+  /* Bento: the border lights up where the pointer is, the card lifts. */
+  .cell.shell { --sx: 50%; --sy: -30%; transition: translate .6s var(--spring), box-shadow .6s var(--spring);
+    background: radial-gradient(420px circle at var(--sx) var(--sy), color-mix(in srgb, var(--accent) 30%, transparent), rgba(255, 255, 255, .025) 60%); }
+  .cell > .core::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .6s var(--out);
+    background: radial-gradient(520px circle at var(--sx) var(--sy), color-mix(in srgb, var(--accent) 7%, transparent), transparent 55%); }
+  .cell:hover { translate: 0 -4px; box-shadow: 0 0 0 1px var(--hair-2), 0 50px 90px -40px rgba(0, 0, 0, .9); }
+  .cell:hover > .core::before { opacity: 1; }
+
+  /* FPS-Doktor fixes its findings one after another. */
+  .doc div { transition: opacity .6s var(--out), translate .6s var(--spring), background .6s var(--spring); }
+  .doc .sev { transition: background .4s var(--out), transform .6s var(--spring); }
+  .doc em { transition: background .4s var(--out), color .4s var(--out); }
+  .doc div.fixed { opacity: .6; translate: 4px 0; }
+  .doc div.fixed .sev { background: #3dbe7a !important; transform: scale(1.35); box-shadow: 0 0 10px #3dbe7a; }
+  .doc div.fixed em { background: rgba(61, 190, 122, .16); color: #6be3a2; }
+
+  /* Versions: the line draws itself, the dots follow. */
+  .js .tl::before { transform-origin: left; transform: scaleX(0); transition: transform 1.8s var(--out); }
+  .js .tl div { opacity: 0; translate: 0 12px; transition: opacity .7s var(--out), translate .7s var(--spring); transition-delay: calc(var(--i) * 110ms + .2s); }
+  .js .tl.go::before { transform: scaleX(1); }
+  .js .tl.go div { opacity: 1; translate: 0 0; }
+  .tl div.new::before { animation: beacon 2.2s var(--out) infinite; }
+  @keyframes beacon { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 60%, transparent), 0 0 24px var(--accent); } 100% { box-shadow: 0 0 0 12px transparent, 0 0 24px var(--accent); } }
+
+  /* Nexora+ */
+  .js .perks li { opacity: 0; translate: -18px 0; transition: opacity .8s var(--out), translate .8s var(--spring); transition-delay: calc(var(--i) * 90ms + .15s); }
+  .js .perks.go li { opacity: 1; translate: 0 0; }
+  .perks li { transition: padding .4s var(--spring); }
+  .perks li:hover { padding-left: 8px; }
+  .member { animation: hover 7s ease-in-out infinite; }
+  @keyframes hover { 50% { translate: 0 -14px; } }
+  .member .in::after { content: ""; position: absolute; inset: -60%; pointer-events: none; animation: sheen 6s var(--out) infinite;
+    background: linear-gradient(115deg, transparent 42%, rgba(255, 255, 255, .13) 50%, transparent 58%); }
+  @keyframes sheen { 0% { translate: -45% 0; } 45%, 100% { translate: 45% 0; } }
+
+  /* Terminal types its lines. */
+  .js .term .ln { display: inline-block; clip-path: inset(0 100% 0 0); }
+  .term.go .ln { animation: type .8s steps(22, end) forwards; animation-delay: calc(var(--i) * .65s + .2s); }
+  @keyframes type { to { clip-path: inset(0 0 0 0); } }
+  .caret { display: inline-block; width: 7px; height: 1.1em; margin-left: 4px; vertical-align: -.2em; background: var(--accent); animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* Download: a light runs around the frame. */
+  .dl { position: relative; }
+  .dl::before { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1.5px; pointer-events: none; z-index: 2;
+    background: conic-gradient(from var(--ang), transparent 0 62%, color-mix(in srgb, var(--accent) 90%, transparent) 80%, transparent 96%);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; animation: spin 6s linear infinite; }
+  @keyframes spin { to { --ang: 360deg; } }
+  .dl > .core::before { animation: breathe 5s ease-in-out infinite; }
+  @keyframes breathe { 50% { opacity: .55; scale: 1.08; } }
+  .oses a { transition: color .4s var(--spring), background .4s var(--spring), translate .4s var(--spring); }
+  .oses a:hover { translate: 0 -2px; }
+
+  /* Footer wordmark: letters rise in. */
+  .wordmark.split { background: none; }
+  .wordmark span { display: inline-block; background: linear-gradient(180deg, rgba(255, 255, 255, .16), rgba(255, 255, 255, 0) 85%); -webkit-background-clip: text; background-clip: text; color: transparent;
+    transition: transform 1.2s var(--out), opacity 1.2s var(--out); transition-delay: calc(var(--i) * 70ms); }
+  .js .wordmark.split:not(.go) span { transform: translateY(45%); opacity: 0; }
+  .wordmark span:hover { transform: translateY(-6%); transition-delay: 0s; transition-duration: .5s; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; }
+    .hero h1 .w > span { transform: none; }
+    .cursor-glow { display: none; }
+  }
+
   /* ---------- Responsive ---------- */
   @media (max-width: 1080px) {
     .win { grid-template-columns: 56px 1fr; }
@@ -339,6 +473,8 @@
 <body>
 <div class="orbs" aria-hidden="true"><i></i><i></i></div>
 <div class="grain" aria-hidden="true"></div>
+<div class="cursor-glow" id="cursorGlow" aria-hidden="true"></div>
+<div class="progress" id="progress" aria-hidden="true"></div>
 
 <header class="nav" id="nav">
   <a class="brand" href="#top" aria-label="Nexora, nach oben">
@@ -389,10 +525,10 @@
               <div class="pane">
                 <div class="pane-head"><h4>Kämpfe</h4><span>Heute, 21:14 · Hypixel Duels</span></div>
                 <div class="kpis">
-                  <div class="kpi"><small>Kämpfe</small><b>48</b></div>
-                  <div class="kpi"><small>Siege</small><b>31</b></div>
-                  <div class="kpi"><small>Trefferquote</small><b>68 %</b></div>
-                  <div class="kpi"><small>Beste Combo</small><b>7</b></div>
+                  <div class="kpi"><small>Kämpfe</small><b data-count>48</b></div>
+                  <div class="kpi"><small>Siege</small><b data-count>31</b></div>
+                  <div class="kpi"><small>Trefferquote</small><b><span data-count>68</span> %</b></div>
+                  <div class="kpi"><small>Beste Combo</small><b data-count>7</b></div>
                 </div>
                 <div class="map">
                   <canvas id="heroMap" role="img" aria-label="Replay: zwei Spieler umkreisen sich, Treffer blinken auf, der Gegner fällt."></canvas>
@@ -423,7 +559,7 @@
         </div>
       </div>
       <div class="chip c1" data-depth="26"><span class="xmark"></span><span>HitMarker <small>Treffer zählt</small></span></div>
-      <div class="chip c2" data-depth="40"><span class="k">FPS 412</span><small>1%-Low 238</small></div>
+      <div class="chip c2" data-depth="40"><span class="k">FPS <span data-count>412</span></span><small>1%-Low 238</small></div>
       <div class="chip c3" data-depth="34"><span class="pop"></span><span>Steve_PvP <small>2 Totems gepoppt</small></span></div>
       <div class="chip c4" data-depth="18"><span class="k">K/D 3.50</span><small>Kills 7 · Tode 2</small></div>
     </div>
@@ -436,7 +572,7 @@
 
   <section class="wrap" id="features">
     <div class="head">
-      <div><span class="eyebrow rv">113 Module</span><h2 class="rv">Alles drin. Nichts zusammensuchen.</h2></div>
+      <div><span class="eyebrow rv"><span data-count>113</span> Module</span><h2 class="rv">Alles drin. Nichts zusammensuchen.</h2></div>
       <p class="rv">Was du sonst aus zehn Mods baust, steckt in einem Client. Jedes Modul lässt sich einzeln schalten und im HUD-Editor frei platzieren.</p>
     </div>
 
@@ -554,6 +690,10 @@
           <span class="eyebrow">Mod-Datei</span>
           <h3 style="margin-top:18px">Lieber dein eigener Launcher?</h3>
           <p>Jedes Release hat Nexora auch als einzelne Jar, eine pro Minecraft-Version. Sie läuft in Prism, MultiMC und dem normalen Launcher. Nexora+ gibt es nur mit Anmeldung im Nexora-Launcher.</p>
+          <div class="jars" id="jars" role="list" aria-label="Mod-Datei pro Minecraft-Version">
+            <a role="listitem" href="https://github.com/Lunar0710/Crystal/releases/latest">1.21.11</a><a role="listitem" href="https://github.com/Lunar0710/Crystal/releases/latest">26.2</a><a role="listitem" href="https://github.com/Lunar0710/Crystal/releases/latest">1.21.10</a><a role="listitem" href="https://github.com/Lunar0710/Crystal/releases/latest">1.21.9</a><a role="listitem" href="https://github.com/Lunar0710/Crystal/releases/latest">1.21.8</a><a role="listitem" href="https://github.com/Lunar0710/Crystal/releases/latest">1.21.7</a><a role="listitem" href="https://github.com/Lunar0710/Crystal/releases/latest">1.21.6</a><a role="listitem" href="https://github.com/Lunar0710/Crystal/releases/latest">1.21.5</a><a role="listitem" href="https://github.com/Lunar0710/Crystal/releases/latest">1.21.4</a>
+          </div>
+          <p class="jars-note" id="jarsNote">Wähl deine Minecraft-Version. Dazu gehört die <a href="https://modrinth.com/mod/fabric-api/versions">Fabric API</a> in denselben mods-Ordner.</p>
         </div>
         <div class="term">
           <div class="term-top"><span>.minecraft/mods</span><button type="button" id="copyJar">Name kopieren</button></div>
@@ -577,7 +717,7 @@
           <a href="https://github.com/Lunar0710/Crystal/releases/latest">Windows .exe</a>
           <a href="https://github.com/Lunar0710/Crystal/releases/latest">macOS .dmg</a>
           <a href="https://github.com/Lunar0710/Crystal/releases/latest">Linux .AppImage</a>
-          <a href="https://github.com/Lunar0710/Crystal/releases/latest">Nur die Mod .jar</a>
+          <a href="#jar">Nur die Mod .jar</a>
         </div>
       </div>
     </div>
@@ -756,6 +896,158 @@
   const ua = navigator.userAgent;
   const os = /Mac/i.test(ua) ? 'macOS' : /Linux|X11/i.test(ua) && !/Android/i.test(ua) ? 'Linux' : 'Windows';
   $('mainDlText').textContent = `Für ${os} herunterladen`;
+
+
+  // ---- Motion ----
+  root.classList.add('js');
+  const seen = (el, fn, margin = '0px 0px -10% 0px') => {
+    if (still || !('IntersectionObserver' in window)) { fn(); return; }
+    const o = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { o.disconnect(); fn(); } }, { rootMargin: margin });
+    o.observe(el);
+  };
+
+  // Headline words rise one after another; the rest of the hero follows.
+  const h1 = document.querySelector('.hero h1');
+  if (!still) {
+    let n = 0;
+    const words = node => node.textContent.split(/(\s+)/).map(t => /^\s+$/.test(t) || !t ? t : `<span class="w"><span style="--i:${n++}">${t}</span></span>`).join('');
+    const soft = h1.querySelector('.soft');
+    const first = h1.firstChild.textContent;
+    h1.innerHTML = words({ textContent: first }) + `<span class="soft">${words(soft)}</span>`;
+    h1.classList.add('split');
+    // A long word ("Aufgezeichnet.") must not run off a narrow phone screen.
+    const fit = () => {
+      h1.style.fontSize = '';
+      const room = h1.getBoundingClientRect().right;
+      const widest = Math.max(...[...h1.querySelectorAll('.w')].map(w => w.getBoundingClientRect().right));
+      if (widest > room + 1) {
+        const left = h1.getBoundingClientRect().left;
+        h1.style.fontSize = `${parseFloat(getComputedStyle(h1).fontSize) * (room - left) / (widest - left) * .98}px`;
+      }
+    };
+    fit(); addEventListener('resize', fit); document.fonts && document.fonts.ready.then(fit);
+    [...document.querySelectorAll('.hero > .rv')].filter(el => el !== h1).forEach((el, i) => {
+      el.classList.add('intro'); el.style.setProperty('--d', `${i === 0 ? 0 : .25 + i * .12}s`);
+    });
+  }
+
+  // Numbers count up the first time they come into view.
+  document.querySelectorAll('[data-count]').forEach(el => {
+    const end = parseFloat(el.textContent);
+    if (!isFinite(end) || still) return;
+    el.textContent = '0';
+    seen(el, () => {
+      const t0 = performance.now(), dur = 1400 + Math.min(900, end * 4);
+      (function step(now) {
+        const p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 4);
+        el.textContent = Math.round(end * e);
+        if (p < 1) requestAnimationFrame(step);
+      })(t0);
+    }, '0px');
+  });
+
+  // Scroll: progress bar, nav tucks away going down.
+  const bar = $('progress'), nav = $('nav');
+  let lastY = scrollY, ticking = false;
+  addEventListener('scroll', () => {
+    if (ticking) return; ticking = true;
+    requestAnimationFrame(() => {
+      const y = scrollY, max = document.documentElement.scrollHeight - innerHeight;
+      bar.style.transform = `scaleX(${max > 0 ? y / max : 0})`;
+      if (!still && !document.body.classList.contains('menu-open')) nav.classList.toggle('hide', y > lastY && y > 260);
+      nav.classList.toggle('solid', y > 40);
+      lastY = y; ticking = false;
+    });
+  }, { passive: true });
+
+  if (!still && matchMedia('(pointer: fine)').matches) {
+    // A soft light follows the pointer across the page.
+    const glow = $('cursorGlow');
+    let gx = innerWidth / 2, gy = innerHeight / 3, tx = gx, ty = gy, running = false;
+    const follow = () => {
+      gx += (tx - gx) * .12; gy += (ty - gy) * .12;
+      glow.style.transform = `translate3d(${gx}px, ${gy}px, 0)`;
+      if (Math.abs(tx - gx) + Math.abs(ty - gy) > .5) requestAnimationFrame(follow); else running = false;
+    };
+    addEventListener('pointermove', e => { tx = e.clientX; ty = e.clientY; glow.classList.add('on'); if (!running) { running = true; requestAnimationFrame(follow); } }, { passive: true });
+    document.addEventListener('pointerleave', () => glow.classList.remove('on'));
+
+    // Bento cards: the border lights up under the pointer.
+    document.querySelectorAll('.cell.shell').forEach(c => c.addEventListener('pointermove', e => {
+      const r = c.getBoundingClientRect();
+      c.style.setProperty('--sx', `${e.clientX - r.left}px`); c.style.setProperty('--sy', `${e.clientY - r.top}px`);
+    }));
+
+    // Buttons lean toward the pointer.
+    document.querySelectorAll('.btn').forEach(b => {
+      b.addEventListener('pointermove', e => {
+        const r = b.getBoundingClientRect();
+        b.style.translate = `${(e.clientX - r.left - r.width / 2) * .15}px ${(e.clientY - r.top - r.height / 2) * .25}px`;
+      });
+      b.addEventListener('pointerleave', () => { b.style.translate = ''; });
+    });
+  }
+
+  // Cards revealed together come in one after another, not all at once.
+  document.querySelectorAll('.bento .rv').forEach((el, i) => { el.style.transitionDelay = `${(i % 3) * 110}ms`; });
+  setTimeout(() => document.querySelectorAll('.bento .rv').forEach(el => { el.style.transitionDelay = ''; }), 4000);
+  document.querySelectorAll('.bento .rv').forEach(el => el.addEventListener('transitionend', () => { el.style.transitionDelay = ''; }, { once: true }));
+
+  // Version timeline, perks, terminal and footer: each plays once when reached.
+  const tl = document.querySelector('.tl');
+  tl.querySelectorAll('div').forEach((d, i) => d.style.setProperty('--i', i));
+  seen(tl, () => tl.classList.add('go'));
+  const perks = document.querySelector('.perks');
+  perks.querySelectorAll('li').forEach((li, i) => li.style.setProperty('--i', i));
+  seen(perks, () => perks.classList.add('go'));
+
+  const term = document.querySelector('.term'), pre = term.querySelector('pre');
+  pre.innerHTML = pre.innerHTML.split('\n').map((l, i) => `<span class="ln" style="--i:${i}">${l}</span>`).join('\n') + '<span class="caret"></span>';
+  seen(term, () => term.classList.add('go'));
+
+  const mark = document.querySelector('.wordmark');
+  mark.innerHTML = [...mark.textContent].map((c, i) => `<span style="--i:${i}">${c}</span>`).join('');
+  mark.classList.add('split');
+  seen(mark, () => mark.classList.add('go'), '0px');
+
+  // FPS-Doktor: works through its findings, then starts over.
+  const doc = [...document.querySelectorAll('.doc div')];
+  if (!still) seen(doc[0].parentElement, () => {
+    let i = 0;
+    const next = () => {
+      if (i < doc.length) {
+        doc[i].classList.add('fixed'); doc[i].querySelector('em').textContent = 'Behoben';
+        i++; setTimeout(next, 1100);
+      } else {
+        setTimeout(() => { doc.forEach(d => { d.classList.remove('fixed'); d.querySelector('em').textContent = 'Beheben'; }); i = 0; setTimeout(next, 1600); }, 3200);
+      }
+    };
+    setTimeout(next, 900);
+  });
+
+
+  // ---- Mod jars: straight from the newest release that has them ----
+  const jars = $('jars');
+  const mcOrder = v => v.split('.').map(Number).reduce((a, n, i) => a + n * [1e6, 1e3, 1][i], 0);
+  const showJars = (release) => {
+    const list = release.assets
+      .filter(a => /\+[\d.]+\.jar$/.test(a.name) && !/-sources/.test(a.name))
+      .map(a => ({ mc: a.name.match(/\+([\d.]+)\.jar$/)[1], url: a.browser_download_url, name: a.name, mb: (a.size / 1048576).toFixed(1) }))
+      .sort((x, y) => mcOrder(y.mc) - mcOrder(x.mc));
+    if (!list.length) return false;
+    // The version most players are on first; the rest newest to oldest.
+    const pick = list.find(j => j.mc === '1.21.11') || list[0];
+    const ordered = [pick, ...list.filter(j => j !== pick)];
+    jars.innerHTML = ordered.map((j, i) => `<a role="listitem" href="${j.url}" download class="${i === 0 ? 'main' : ''}" style="--i:${i}" title="${j.name}">${j.mc}<small>${j.mb} MB</small></a>`).join('');
+    $('jarName').textContent = pick.name;
+    $('jarsNote').innerHTML = `Nexora ${release.tag_name.replace(/^v/, '')}. Wähl deine Minecraft-Version. Dazu gehört die <a href="https://modrinth.com/mod/fabric-api/versions">Fabric API</a> in denselben mods-Ordner.`;
+    return true;
+  };
+  fetch('https://api.github.com/repos/Lunar0710/Crystal/releases?per_page=8', { headers: { Accept: 'application/vnd.github+json' } })
+    .then(r => r.ok ? r.json() : [])
+    .then(rs => { const r = rs.find(x => !x.draft && !x.prerelease && x.assets.some(a => /\+[\d.]+\.jar$/.test(a.name))); if (r) showJars(r); })
+    .catch(() => {})
+    .finally(() => seen(jars, () => jars.classList.add('go')));
 
   // ---- Copy the jar name ----
   $('copyJar').addEventListener('click', async e => {
