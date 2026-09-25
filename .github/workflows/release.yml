@@ -8,6 +8,10 @@ name: Release
 on:
   push:
     tags: ['v*']
+  # Also by hand (Actions tab > Run workflow) on a branch: the version then
+  # comes from launcher/package.json and the tag is created at this commit
+  # when the release is published.
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -83,23 +87,28 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            TAG="$GITHUB_REF_NAME"
+          else
+            TAG="v$(node -p "require('./launcher/package.json').version")"
+          fi
+          VERSION="${TAG#v}"
           NOTES=".github/release-notes/${VERSION}.md"
           TITLE="$(head -n 1 .github/release-notes/${VERSION}.title)"
           test -f "$NOTES"
           ls -la dist
           # A draft may already exist from a run whose upload failed; finish that one.
-          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
-            gh release edit "$GITHUB_REF_NAME" --title "$TITLE" --notes-file "$NOTES"
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release edit "$TAG" --title "$TITLE" --notes-file "$NOTES"
           else
-            gh release create "$GITHUB_REF_NAME" --draft --title "$TITLE" --notes-file "$NOTES"
+            gh release create "$TAG" --draft --target "$GITHUB_SHA" --title "$TITLE" --notes-file "$NOTES"
           fi
           # GitHub's upload endpoint sometimes answers 500; retry each file.
           for f in dist/*; do
             for attempt in 1 2 3 4; do
-              gh release upload "$GITHUB_REF_NAME" "$f" --clobber && break
+              gh release upload "$TAG" "$f" --clobber && break
               echo "upload of $f failed (attempt $attempt), retrying"
               sleep 15
             done
           done
-          gh release edit "$GITHUB_REF_NAME" --draft=false --latest
+          gh release edit "$TAG" --draft=false --latest
