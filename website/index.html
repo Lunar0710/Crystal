@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="icon" href="icon.png">
+<meta name="theme-color" content="#050505">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Nexora">
+<meta property="og:title" content="Nexora Client: jeder Kampf aufgezeichnet">
+<meta property="og:description" content="Kostenloser Minecraft-Client mit eigenem Launcher: Kampf-Replays, Kill-Cam, PvP-HUD und mehr FPS. Für 1.21.4 bis 26.2.">
+<meta property="og:url" content="https://lunar0710.github.io/Crystal/">
+<meta property="og:image" content="https://lunar0710.github.io/Crystal/icon.png">
+<meta name="twitter:card" content="summary">
 <title>Nexora Client</title>
 <meta name="description" content="Nexora ist ein kostenloser Minecraft-Client mit eigenem Launcher: Kampf-Replays, Kill-Cam, PvP-HUD und mehr FPS. Für Minecraft 1.21.4 bis 26.2.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -82,7 +90,7 @@
   .overlay a { font-family: var(--display); font-stretch: 125%; font-weight: 800; font-size: 40px; letter-spacing: -.03em; transform: translateY(48px); opacity: 0; transition: transform .8s var(--spring), opacity .8s var(--spring); }
   .menu-open .overlay { opacity: 1; pointer-events: auto; }
   .menu-open .overlay a { transform: none; opacity: 1; }
-  .overlay a:nth-child(2) { transition-delay: .05s; } .overlay a:nth-child(3) { transition-delay: .1s; } .overlay a:nth-child(4) { transition-delay: .15s; } .overlay a:nth-child(5) { transition-delay: .2s; }
+  .overlay a:nth-child(2) { transition-delay: .05s; } .overlay a:nth-child(3) { transition-delay: .1s; } .overlay a:nth-child(4) { transition-delay: .15s; } .overlay a:nth-child(5) { transition-delay: .2s; } .overlay a:nth-child(6) { transition-delay: .25s; } .overlay a:nth-child(7) { transition-delay: .3s; }
 
   /* ---------- Buttons: island with nested icon ---------- */
   .btn { display: inline-flex; align-items: center; gap: 14px; padding: 7px 7px 7px 22px; border-radius: 999px; font-weight: 500; font-size: 15px; cursor: pointer; border: 0;
@@ -318,6 +326,37 @@
   .jars-note { margin-top: 14px !important; font-size: 13px; }
   .jars-note a { color: var(--ink); text-decoration: underline; text-decoration-color: var(--hair-2); text-underline-offset: 3px; }
 
+  /* ---------- What's new ---------- */
+  .news { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; counter-reset: n; }
+  .news .core { flex: 1; padding: 28px; display: flex; flex-direction: column; gap: 10px; }
+  .news article { display: flex; transition: translate .6s var(--spring); }
+  .news article:hover { translate: 0 -4px; }
+  .news .n { font: 500 12px var(--mono); color: var(--dim); letter-spacing: .1em; }
+  .news h3 { font-size: 21px; font-weight: 760; font-stretch: 118%; line-height: 1.1; }
+  .news p { color: var(--ash); font-size: 15px; font-weight: 300; }
+  .news article:hover .n { color: var(--accent); }
+  .news-all { margin-top: 26px; text-align: center; font-size: 14px; }
+  .news-all a { color: var(--ash); border-bottom: 1px solid var(--hair-2); padding-bottom: 2px; transition: color .4s var(--spring), border-color .4s var(--spring); }
+  .news-all a:hover { color: var(--ink); border-color: var(--accent); }
+
+  /* ---------- FAQ ---------- */
+  .faq { display: grid; gap: 10px; max-width: 880px; }
+  .faq details { border-radius: 20px; background: rgba(255, 255, 255, .025); box-shadow: inset 0 0 0 1px var(--hair); transition: background .5s var(--spring), box-shadow .5s var(--spring); }
+  .faq details[open] { background: rgba(255, 255, 255, .045); box-shadow: inset 0 0 0 1px var(--hair-2); }
+  .faq summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 20px 22px; font-size: 16.5px; font-weight: 500; }
+  .faq summary::-webkit-details-marker { display: none; }
+  .faq summary::after { content: ""; width: 26px; height: 26px; flex: none; border-radius: 50%; background: rgba(255, 255, 255, .06) center / 12px no-repeat
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M6 1v10M1 6h10' stroke='%23f4f4f5' stroke-width='1.4' stroke-linecap='round'/%3E%3C/svg%3E");
+    transition: transform .6s var(--spring), background-color .4s var(--spring); }
+  .faq details[open] summary::after { transform: rotate(135deg); background-color: rgba(255, 255, 255, .12); }
+  .faq .a { overflow: hidden; }
+  .faq .a p { padding: 0 22px 22px; color: var(--ash); font-weight: 300; max-width: 44em; }
+  .faq .a a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--hair-2); }
+  .live-meta { margin-left: 10px; padding: 3px 10px; border-radius: 999px; background: rgba(255, 255, 255, .04); box-shadow: inset 0 0 0 1px var(--hair); color: var(--ash); white-space: nowrap; }
+  .live-meta i { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #3dbe7a; margin-right: 6px; vertical-align: 1px; box-shadow: 0 0 0 3px rgba(61, 190, 122, .18); }
+  @media (max-width: 1080px) { .news { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 767px) { .news { grid-template-columns: 1fr; } .faq summary { padding: 18px; } .faq .a p { padding: 0 18px 18px; } .live-meta { display: inline-block; margin: 8px 0 0; } }
+
   /* ---------- Motion ---------- */
   @property --ang { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
   .progress { position: fixed; top: 0; left: 0; right: 0; height: 2px; z-index: 50; pointer-events: none; transform-origin: left; transform: scaleX(0);
@@ -484,8 +523,10 @@
   <nav class="nav-links" aria-label="Seiten">
     <a href="#features">Features</a>
     <a href="#versionen">Versionen</a>
+    <a href="#neu">Neu</a>
     <a href="#plus">Nexora+</a>
     <a href="#jar">Mod-Datei</a>
+    <a href="#faq">FAQ</a>
   </nav>
   <a class="btn btn-solid btn-sm" href="#download">Download<span class="ic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v9m0 0L4.5 8M8 11.5 11.5 8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
   <button class="burger" id="burger" type="button" aria-label="Menü öffnen" aria-expanded="false"><i></i><i></i></button>
@@ -494,7 +535,9 @@
   <a href="#features">Features</a>
   <a href="#versionen">Versionen</a>
   <a href="#plus">Nexora+</a>
+  <a href="#neu">Neu</a>
   <a href="#jar">Mod-Datei</a>
+  <a href="#faq">FAQ</a>
   <a href="#download">Download</a>
 </div>
 
@@ -507,7 +550,7 @@
       <a class="btn btn-solid" href="#download" id="heroDl">Nexora herunterladen<span class="ic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v9m0 0L4.5 8M8 11.5 11.5 8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
       <a class="btn btn-ghost" href="#features">Alle Features<span class="ic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 11.5l7-7m0 0H6m5.5 0V10" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
     </div>
-    <p class="meta rv">Windows, macOS, Linux. Minecraft 1.21.4 bis 26.2 mit Fabric.</p>
+    <p class="meta rv">Windows, macOS, Linux. Minecraft 1.21.4 bis 26.2 mit Fabric.<span id="liveMeta"></span></p>
 
     <div class="stage rv" id="stage">
       <div class="tilt" id="tilt">
@@ -654,6 +697,22 @@
     </div>
   </section>
 
+  <section class="wrap" id="neu">
+    <div class="head">
+      <div><span class="eyebrow rv" id="neuTag"><b>1.6</b> Changelog</span><h2 class="rv" id="neuTitle">Neu in Nexora 1.6.</h2></div>
+      <p class="rv">Die größten Neuerungen im letzten Update. Der Launcher aktualisiert sich selbst, du musst nichts tun.</p>
+    </div>
+    <div class="news" id="news">
+      <article class="shell rv"><div class="core"><span class="n">01</span><h3>Kampf-Replay</h3><p>Jeder Kampf wird aufgezeichnet. Im Launcher siehst du ihn von oben noch einmal, mit Laufwegen, Treffern und Leben.</p></div></article>
+      <article class="shell rv"><div class="core"><span class="n">02</span><h3>Kill-Cam</h3><p>Der Todesbildschirm zeigt die letzten fünf Sekunden vor deinem Tod von oben.</p></div></article>
+      <article class="shell rv"><div class="core"><span class="n">03</span><h3>HitMarker</h3><p>Ein kurzes Kreuz am Fadenkreuz, wenn ein Treffer wirklich zählt.</p></div></article>
+      <article class="shell rv"><div class="core"><span class="n">04</span><h3>TotemPops</h3><p>Wie viele Totems jeder Spieler seit seinem letzten Tod verloren hat, am Namensschild und im Chat.</p></div></article>
+      <article class="shell rv"><div class="core"><span class="n">05</span><h3>Instanz teilen</h3><p>Dein Setup als .mrpack-Datei, mit Mods, Resource Packs, Shadern und Einstellungen.</p></div></article>
+      <article class="shell rv"><div class="core"><span class="n">06</span><h3>Mehr FPS</h3><p>3D Skins bis zu viermal leichter, schnellerer Start und ein Leistungsmodus, der die teuersten Optionen zurückdreht.</p></div></article>
+    </div>
+    <p class="news-all rv"><a href="https://github.com/Lunar0710/Crystal/releases" id="newsAll">Alle Änderungen ansehen</a></p>
+  </section>
+
   <section class="wrap" id="plus">
     <div class="plus">
       <div>
@@ -703,6 +762,21 @@
   iris.jar</pre>
         </div>
       </div>
+    </div>
+  </section>
+
+  <section class="wrap" id="faq">
+    <div class="head">
+      <div><span class="eyebrow rv">Fragen</span><h2 class="rv">Kurz beantwortet.</h2></div>
+      <p class="rv">Was Spieler vor dem ersten Start am häufigsten wissen wollen.</p>
+    </div>
+    <div class="faq rv">
+      <details><summary>Kostet Nexora etwas?</summary><div class="a"><p>Nein. Launcher, Client, alle Module und Capes sind kostenlos. Nur Nexora+ mit Pets, Hüten, KillEffect und mehr Themes ist eine freiwillige Mitgliedschaft.</p></div></details>
+      <details><summary>Brauche ich Java oder Fabric?</summary><div class="a"><p>Nein. Der Launcher lädt die passende Java-Version, Fabric und Nexora selbst herunter. Du meldest dich nur mit deinem Microsoft-Konto an.</p></div></details>
+      <details><summary>Läuft Nexora auf meinem PC?</summary><div class="a"><p>Auf Windows 10 und 11, macOS (Intel und Apple Silicon) und Linux. Der Launcher installiert beim ersten Start Sodium und weitere Leistungs-Mods, und der FPS-Doktor schlägt passende Einstellungen für schwächere Rechner vor.</p></div></details>
+      <details><summary>Kann ich meine eigenen Mods und Shader nutzen?</summary><div class="a"><p>Ja. Jede Instanz hat ihren eigenen mods-Ordner, Mods von Modrinth installierst du direkt im Launcher. Shader laufen über Iris.</p></div></details>
+      <details><summary>Ich nutze Prism, MultiMC oder den normalen Launcher.</summary><div class="a"><p>Dann nimm die <a href="#jar">Mod-Datei</a> für deine Minecraft-Version und leg sie zusammen mit der Fabric API in den mods-Ordner. Nexora+ gibt es nur mit Anmeldung im Nexora-Launcher.</p></div></details>
+      <details><summary>Wie bekomme ich Updates?</summary><div class="a"><p>Automatisch. Der Launcher prüft beim Start auf eine neue Version und bietet sie dir an, der Client wird beim nächsten Spielstart mit aktualisiert.</p></div></details>
     </div>
   </section>
 
@@ -1043,11 +1117,51 @@
     $('jarsNote').innerHTML = `Nexora ${release.tag_name.replace(/^v/, '')}. Wähl deine Minecraft-Version. Dazu gehört die <a href="https://modrinth.com/mod/fabric-api/versions">Fabric API</a> in denselben mods-Ordner.`;
     return true;
   };
-  fetch('https://api.github.com/repos/Lunar0710/Crystal/releases?per_page=8', { headers: { Accept: 'application/vnd.github+json' } })
-    .then(r => r.ok ? r.json() : [])
-    .then(rs => { const r = rs.find(x => !x.draft && !x.prerelease && x.assets.some(a => /\+[\d.]+\.jar$/.test(a.name))); if (r) showJars(r); })
-    .catch(() => {})
+  const releases = fetch('https://api.github.com/repos/Lunar0710/Crystal/releases?per_page=100', { headers: { Accept: 'application/vnd.github+json' } })
+    .then(r => r.ok ? r.json() : []).then(rs => Array.isArray(rs) ? rs.filter(x => !x.draft && !x.prerelease) : []).catch(() => []);
+  releases
+    .then(rs => { const r = rs.find(x => x.assets.some(a => /\+[\d.]+\.jar$/.test(a.name))); if (r) showJars(r); })
     .finally(() => seen(jars, () => jars.classList.add('go')));
+
+  // ---- Live: newest version and total downloads ----
+  const semver = v => v.replace(/^v/, '').split(/[.-]/).slice(0, 3).map(Number);
+  const newer = (a, b) => { const x = semver(a), y = semver(b); for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); return false; };
+  releases.then(rs => {
+    if (!rs.length) return;
+    const latest = rs[0], v = latest.tag_name.replace(/^v/, '');
+    const total = rs.reduce((n, r) => n + r.assets.reduce((m, a) => m + (/\.(exe|dmg|AppImage|jar)$/.test(a.name) ? a.download_count : 0), 0), 0);
+    const meta = $('liveMeta');
+    meta.className = 'live-meta';
+    meta.innerHTML = `<i></i>Version ${v}` + (total >= 100 ? ` · ${total.toLocaleString('de-DE')} Downloads` : '');
+
+    // What's new: from the release notes, once a release is at least as new as this page.
+    if (newer('1.6.0', v)) return;
+    const neu = (latest.body || '').split(/^## /m).find(part => /^Neu\b/.test(part));
+    const items = (neu || '').split('\n').map(l => l.match(/^- \*\*(.+?):?\*\*:?\s*(.+)$/)).filter(m => m && !/^Website$/i.test(m[1])).slice(0, 6);
+    if (items.length < 3) return;
+    const esc = t => t.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const first = t => { const m = t.match(/^.+?[.!?](\s|$)/); const f = m ? m[0].trim() : t; return f.length > 150 ? f.slice(0, f.lastIndexOf(' ', 145)) + ' …' : f; };
+    $('news').innerHTML = items.map((m, i) => `<article class="shell"><div class="core"><span class="n">${String(i + 1).padStart(2, '0')}</span><h3>${esc(m[1])}</h3><p>${esc(first(m[2]))}</p></div></article>`).join('');
+    $('neuTitle').textContent = `Neu in Nexora ${v.replace(/\.0$/, '')}.`;
+    $('neuTag').innerHTML = `<b>${esc(v.replace(/\.0$/, ''))}</b> Changelog`;
+    $('newsAll').href = latest.html_url;
+  });
+
+  // ---- FAQ: open and close with a height animation ----
+  document.querySelectorAll('.faq details').forEach(d => {
+    const sum = d.querySelector('summary'), body = d.querySelector('.a');
+    sum.addEventListener('click', e => {
+      if (still) return;
+      e.preventDefault();
+      if (d.open) {
+        const a = body.animate([{ height: body.offsetHeight + 'px', opacity: 1 }, { height: '0px', opacity: 0 }], { duration: 380, easing: 'cubic-bezier(.32,.72,0,1)' });
+        a.onfinish = () => { d.open = false; };
+      } else {
+        d.open = true;
+        body.animate([{ height: '0px', opacity: 0 }, { height: body.offsetHeight + 'px', opacity: 1 }], { duration: 520, easing: 'cubic-bezier(.32,.72,0,1)' });
+      }
+    });
+  });
 
   // ---- Copy the jar name ----
   $('copyJar').addEventListener('click', async e => {
