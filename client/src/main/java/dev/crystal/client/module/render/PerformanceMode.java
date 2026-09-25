@@ -83,8 +83,7 @@ public class PerformanceMode extends Module {
             saved.addProperty("smoothLighting", o.ambientOcclusion().get());
             saved.addProperty("entityDistance", o.entityDistanceScaling().get());
             try {
-                Files.createDirectories(backup.getParent());
-                Files.writeString(backup, GSON.toJson(saved));
+                dev.crystal.client.util.SafeFiles.writeAtomic(backup, GSON.toJson(saved));
             } catch (IOException e) {
                 // Without a backup we can't promise a clean restore, so change nothing.
                 CrystalClient.LOGGER.error("[Nexora] Leistungsmodus: Sicherung fehlgeschlagen, keine Optionen geändert: {}", e.getMessage());

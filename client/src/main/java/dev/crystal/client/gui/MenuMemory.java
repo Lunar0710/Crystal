@@ -54,8 +54,7 @@ final class MenuMemory {
         root.add("favourites", fav);
         root.add("recent", rec);
         try {
-            Files.createDirectories(file().getParent());
-            Files.writeString(file(), root.toString());
+            dev.crystal.client.util.SafeFiles.writeAtomic(file(), root.toString());
         } catch (Exception e) {
             CrystalClient.LOGGER.debug("[Nexora] Menu memory not saved: {}", e.toString());
         }
