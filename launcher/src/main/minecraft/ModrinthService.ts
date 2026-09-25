@@ -496,7 +496,7 @@ export class ModrinthService {
       if (!fs.existsSync(dir)) continue
       for (const name of fs.readdirSync(dir)) {
         const file = path.join(dir, name)
-        if (name.endsWith('.disabled') || /^crystal-client-.*\.jar$/.test(name) || !fs.statSync(file).isFile()) continue
+        if (name.endsWith('.disabled') || /^(?:nexora|crystal-client)-\d.*\.jar$/.test(name) || !fs.statSync(file).isFile()) continue
         const sha1 = this.sha1Of(file)
         if (sha1) content.push({ rel: `${folder}/${name}`, file, sha1 })
       }

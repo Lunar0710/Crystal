@@ -22,7 +22,9 @@ declare function fetch(url: string, init?: { headers?: Record<string, string> })
   arrayBuffer(): Promise<ArrayBuffer>
 }>
 
-const CRYSTAL_MOD_MARKER = 'crystal-client-'
+// Nexora's own jar is nexora-<mod>+<mc>.jar; before 1.6 it was crystal-client-…,
+// which older instances and build folders may still hold.
+const CRYSTAL_MOD_JAR = /^(?:nexora|crystal-client)-([\d.]+)(?:\+([\d.]+))?\.jar$/
 const FABRIC_API_MARKER = 'fabric-api-'
 const MODRINTH_HEADERS = { 'User-Agent': 'crystal-client/1.0.0 (github.com/crystal-client)' }
 
@@ -211,7 +213,7 @@ export class MinecraftManager {
 
   /**
    * The newest client jar built for this Minecraft version. Jars are named
-   * crystal-client-<mod>+<mc>.jar (one per Minecraft version); the older
+   * nexora-<mod>+<mc>.jar (one per Minecraft version); the older
    * crystal-client-<mod>.jar without "+<mc>" is the 1.21.11 build.
    */
   private findBundledCrystalJar(mcVersion: string): string | null {
@@ -224,15 +226,15 @@ export class MinecraftManager {
     const jars = fs.readdirSync(dir)
       .map(f => ({ f, info: this.parseJarName(f) }))
       .filter((j): j is { f: string; info: { mod: string; mc: string } } => j.info !== null && j.info.mc === mcVersion)
-      .sort((a, b) => this.compareVersions(a.info.mod, b.info.mod))
+      // Same version under both names (a build folder from before the rename): the new name wins.
+      .sort((a, b) => this.compareVersions(a.info.mod, b.info.mod) || Number(a.f.startsWith('nexora-')) - Number(b.f.startsWith('nexora-')))
 
     const jar = jars[jars.length - 1]
     return jar ? path.join(dir, jar.f) : null
   }
 
   private parseJarName(fileName: string): { mod: string; mc: string } | null {
-    if (!fileName.startsWith(CRYSTAL_MOD_MARKER) || !fileName.endsWith('.jar') || fileName.endsWith('-sources.jar')) return null
-    const match = fileName.match(/^crystal-client-([\d.]+)(?:\+([\d.]+))?\.jar$/)
+    const match = fileName.match(CRYSTAL_MOD_JAR)
     return match ? { mod: match[1], mc: match[2] ?? LEGACY_JAR_MC_VERSION } : null
   }
 
@@ -305,7 +307,7 @@ export class MinecraftManager {
   private removeCrystalMod(modsDir: string): void {
     if (!fs.existsSync(modsDir)) return
     for (const file of fs.readdirSync(modsDir)) {
-      if (file.startsWith(CRYSTAL_MOD_MARKER) && file.endsWith('.jar')) {
+      if (CRYSTAL_MOD_JAR.test(file)) {
         fs.unlinkSync(path.join(modsDir, file))
       }
     }

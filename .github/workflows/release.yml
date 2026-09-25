@@ -68,6 +68,16 @@ jobs:
             launcher/release/latest*.yml
           if-no-files-found: error
 
+      # The mod on its own, one jar per Minecraft version, for other launchers
+      # (Prism, MultiMC, the vanilla launcher with Fabric). Built the same on
+      # every OS, so it is uploaded once.
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'Windows'
+        with:
+          name: mod-jars
+          path: client/build/libs/nexora-*+*.jar
+          if-no-files-found: error
+
   publish:
     needs: build
     runs-on: ubuntu-latest

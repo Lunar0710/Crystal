@@ -88,8 +88,8 @@
         "from": "../client/build/libs",
         "to": "crystal-mod",
         "filter": [
-          "crystal-client-*.jar",
-          "!crystal-client-*-sources.jar"
+          "nexora-*.jar",
+          "!nexora-*-sources.jar"
         ]
       },
       {
