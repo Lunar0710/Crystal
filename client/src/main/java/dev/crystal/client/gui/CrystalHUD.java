@@ -26,13 +26,31 @@ public class CrystalHUD {
     }
 
     public void render(GuiGraphics context, float tickDelta) {
+        // One broken module switches itself off (SafeRender) instead of crashing the game.
         for (dev.crystal.client.module.Module module : moduleManager.getModules()) {
-            if (module.isEnabled()) drawModule(context, module);
+            if (!module.isEnabled()) continue;
+            try {
+                drawModule(context, module);
+            } catch (RuntimeException e) {
+                dev.crystal.client.util.SafeRender.moduleFailed(module, e);
+            }
         }
         dev.crystal.client.module.render.HitMarker marker = moduleManager.getEnabled(dev.crystal.client.module.render.HitMarker.class);
-        if (marker != null) marker.draw(context, context.guiWidth(), context.guiHeight());
+        if (marker != null) {
+            try {
+                marker.draw(context, context.guiWidth(), context.guiHeight());
+            } catch (RuntimeException e) {
+                dev.crystal.client.util.SafeRender.moduleFailed(marker, e);
+            }
+        }
         dev.crystal.client.module.player.AttackIndicator attack = moduleManager.getEnabled(dev.crystal.client.module.player.AttackIndicator.class);
-        if (attack != null) attack.draw(context, context.guiWidth(), context.guiHeight(), tickDelta);
+        if (attack != null) {
+            try {
+                attack.draw(context, context.guiWidth(), context.guiHeight(), tickDelta);
+            } catch (RuntimeException e) {
+                dev.crystal.client.util.SafeRender.moduleFailed(attack, e);
+            }
+        }
     }
 
     /**
