@@ -57,7 +57,7 @@ public class CrystalClientScreen extends Screen {
     private static final int TILE_H = 68;
     private static final int TILE_GAP = 8;
     private static final int ROW_H = 24;
-    private static final int OPEN_ANIM_MS = 160;
+    private static final int OPEN_ANIM_MS = 420;
 
     private final int colPanel, colSurface, colTile, colBorder, colText, colMuted;
     // Not final: picking an accent in this menu recolours it right away.
@@ -89,6 +89,8 @@ public class CrystalClientScreen extends Screen {
     private long lastFrame = System.currentTimeMillis();
     private final Map<Object, Float> hoverAnim = new HashMap<>();
     private final Map<Object, Float> toggleAnim = new HashMap<>();
+    /** Where the selected tab's pill is drawn; it slides to the chosen tab. */
+    private float tabPillX = -1, tabPillW = 0;
 
     private record Box(int x1, int y1, int x2, int y2) {
         boolean contains(double mx, double my) { return mx >= x1 && mx < x2 && my >= y1 && my < y2; }
@@ -153,11 +155,11 @@ public class CrystalClientScreen extends Screen {
         float dt = Math.min(0.1f, (now - lastFrame) / 1000f);
         lastFrame = now;
 
-        float open = ease(Math.min(1f, (now - openedAt) / (float) OPEN_ANIM_MS));
-        ctx.fill(0, 0, width, height, GuiRender.withAlpha(0xFF05060A, Math.round(0xA8 * open)));
+        float open = GuiRender.spring(Math.min(1f, (now - openedAt) / (float) OPEN_ANIM_MS));
+        ctx.fill(0, 0, width, height, GuiRender.withAlpha(0xFF050506, Math.round(0xC4 * open)));
 
         int px = panelX(), py = panelY(), pw = panelW(), ph = panelH();
-        float scale = (0.96f + 0.04f * open) * ui();
+        float scale = (0.94f + 0.06f * open) * ui();
         ctx.pose().pushMatrix();
         ctx.pose().translate(width / 2f, height / 2f);
         ctx.pose().scale(scale, scale);
@@ -165,10 +167,7 @@ public class CrystalClientScreen extends Screen {
         int mx = Math.round((mouseX - width / 2f) / scale + width / 2f);
         int my = Math.round((mouseY - height / 2f) / scale + height / 2f);
 
-        GuiRender.roundedRect(ctx, px - 1, py - 1, px + pw + 1, py + ph + 1, 0x60000000);
-        // Softer corners than the old 2px, to match the launcher.
-        GuiRender.roundedRect(ctx, px, py, px + pw, py + ph, 8, colPanel);
-        GuiRender.roundedOutline(ctx, px, py, px + pw, py + ph, 8, GuiRender.withAlpha(colBorder, 0xCC));
+        drawPanel(ctx, px, py, pw, ph, open);
 
         scroll += (scrollTarget - scroll) * Math.min(1f, dt * 16f);
 
@@ -178,23 +177,54 @@ public class CrystalClientScreen extends Screen {
         ctx.pose().popMatrix();
     }
 
+    /**
+     * The panel: a soft shadow, a faint accent glow behind the top edge, then
+     * the double bezel (a thin shell with a hairline around the core) in the
+     * theme's colours, with a lit top edge.
+     */
+    private void drawPanel(GuiGraphics ctx, int px, int py, int pw, int ph, float open) {
+        GuiRender.shadow(ctx, px - 4, py - 4, px + pw + 4, py + ph + 4, 18, 22, 10, open);
+        GuiRender.glow(ctx, px + pw / 3, py, Math.min(pw, ph) / 2, colAccent, 0.07f * open);
+        GuiRender.roundedRect(ctx, px - 4, py - 4, px + pw + 4, py + ph + 4, 18, 0x0CFFFFFF);
+        GuiRender.roundedOutline(ctx, px - 4, py - 4, px + pw + 4, py + ph + 4, 18, 0x16FFFFFF);
+        int top = GuiRender.blend(GuiRender.withAlpha(colSurface, 0xFF), 0xFFFFFFFF, 0.025f);
+        int bottom = GuiRender.withAlpha(colPanel, 0xFF);
+        GuiRender.roundedGradient(ctx, px, py, px + pw, py + ph, 14, top, bottom);
+        GuiRender.roundedOutline(ctx, px, py, px + pw, py + ph, 14, 0x12FFFFFF);
+        ctx.fill(px + 14, py, px + pw - 14, py + 1, 0x26FFFFFF);
+    }
+
+    /** A round icon button with a hairline; lights up under the pointer. */
+    private void roundButton(GuiGraphics ctx, Box box, boolean hover, int hoverTint) {
+        int cx = (box.x1 + box.x2) / 2, cy = (box.y1 + box.y2) / 2, r = (box.x2 - box.x1) / 2;
+        GuiRender.circle(ctx, cx, cy, r, hover ? hoverTint : 0x0DFFFFFF);
+        GuiRender.roundedOutline(ctx, box.x1, box.y1, box.x2, box.y2, r, hover ? 0x33FFFFFF : 0x16FFFFFF);
+    }
+
+    /** Dark or light text, whichever reads on the accent. */
+    private int onAccent() {
+        int c = colAccent;
+        float luma = 0.299f * ((c >> 16) & 0xFF) + 0.587f * ((c >> 8) & 0xFF) + 0.114f * (c & 0xFF);
+        return luma > 150 ? 0xFF0A0A0B : 0xFFFFFFFF;
+    }
+
     // ---------------------------------------------------------------- header
 
     private void renderHeader(GuiGraphics ctx, int px, int py, int pw, int mx, int my) {
         tabs.clear();
-        ctx.fill(px + 1, py + HEADER_H, px + pw - 1, py + HEADER_H + 1, GuiRender.withAlpha(colBorder, 0xAA));
+        ctx.fill(px + 10, py + HEADER_H, px + pw - 10, py + HEADER_H + 1, 0x10FFFFFF);
 
         // Back to the HUD editor
         hudBox = new Box(px + 8, py + 8, px + 26, py + 26);
         boolean hudHover = hudBox.contains(mx, my);
-        GuiRender.roundedRect(ctx, hudBox.x1, hudBox.y1, hudBox.x2, hudBox.y2, hudHover ? GuiRender.withAlpha(colAccent, 0x40) : 0x14FFFFFF);
+        roundButton(ctx, hudBox, hudHover, 0x1FFFFFFF);
         drawIcon(ctx, ICON_BACK, hudBox.x1 + 5, hudBox.y1 + 6, hudHover ? colText : colMuted, 1);
-        drawIcon(ctx, ICON_GEM, px + 34, py + 13, colAccent, 1);
+        GuiRender.nexoraMark(ctx, px + 37.5f, py + 17f, 13f, colText);
 
         // Close and search on the right
         closeBox = new Box(px + pw - 26, py + 8, px + pw - 8, py + 26);
         boolean closeHover = closeBox.contains(mx, my);
-        GuiRender.roundedRect(ctx, closeBox.x1, closeBox.y1, closeBox.x2, closeBox.y2, closeHover ? GuiRender.withAlpha(COL_DANGER, 0x40) : 0x14FFFFFF);
+        roundButton(ctx, closeBox, closeHover, GuiRender.withAlpha(COL_DANGER, 0x33));
         drawIcon(ctx, ICON_CLOSE, closeBox.x1 + 5, closeBox.y1 + 5, closeHover ? COL_DANGER : colMuted, 1);
 
         // Tab labels, measured first so a narrow window gives the tabs room by
@@ -208,7 +238,7 @@ public class CrystalClientScreen extends Screen {
         labels[order.size() + 1] = "Favoriten";
         labels[order.size() + 2] = "Zuletzt";
         int natural = 0;
-        for (String l : labels) natural += font.width(l) + 14;
+        for (String l : labels) natural += GuiRender.width(l) + 14;
 
         int tabsX1 = px + 50;
         int gaps = 2 * (labels.length - 1);
@@ -220,33 +250,55 @@ public class CrystalClientScreen extends Screen {
         int sw = !collapsed ? fullSearch : searchOpen ? closeBox.x1 - 6 - tabsX1 : 18;
         searchBox = new Box(closeBox.x1 - 6 - sw, py + 8, closeBox.x1 - 6, py + 26);
         boolean searchHover = searchBox.contains(mx, my);
-        GuiRender.roundedRect(ctx, searchBox.x1, searchBox.y1, searchBox.x2, searchBox.y2, searchFocused ? 0x66000000 : searchHover ? 0x1AFFFFFF : 0x40000000);
-        GuiRender.roundedOutline(ctx, searchBox.x1, searchBox.y1, searchBox.x2, searchBox.y2, searchFocused ? colAccent : GuiRender.withAlpha(colBorder, 0xAA));
+        GuiRender.pill(ctx, searchBox.x1, searchBox.y1, searchBox.x2, searchBox.y2, searchFocused ? 0x55000000 : searchHover ? 0x14FFFFFF : 0x0AFFFFFF);
+        GuiRender.pillOutline(ctx, searchBox.x1, searchBox.y1, searchBox.x2, searchBox.y2, searchFocused ? colAccent : searchHover ? 0x2AFFFFFF : 0x16FFFFFF);
         drawIcon(ctx, ICON_SEARCH, searchBox.x1 + 6, searchBox.y1 + 6, searchFocused ? colAccent : colMuted, 1);
         if (sw > 40) {
             boolean empty = search.length() == 0;
             String caret = searchFocused && System.currentTimeMillis() / 500 % 2 == 0 ? "_" : "";
-            ctx.drawString(font, GuiRender.trimToWidth(empty ? "Suchen" : search.toString(), sw - 26) + (empty ? "" : caret),
-                    searchBox.x1 + 16, searchBox.y1 + 5, empty ? colMuted : colText, false);
+            GuiRender.text(ctx, GuiRender.trimToWidth(empty ? "Suchen" : search.toString(), sw - 26) + (empty ? "" : caret),
+                    searchBox.x1 + 16, searchBox.y1 + 5, empty ? colMuted : colText);
         }
         if (collapsed && searchOpen) return; // the open search covers the tab row
 
         // Tabs in between, shrinking the font if they don't fit.
         int tabsX2 = searchBox.x1 - 6;
         float fs = natural + gaps <= tabsX2 - tabsX1 ? 1f : Math.max(0.6f, (tabsX2 - tabsX1 - gaps) / (float) natural);
+        // The tabs sit in one track, and the selected one is a pill that slides
+        // over to whichever tab is chosen.
+        int trackW = 0;
+        for (String l : labels) trackW += Math.round((GuiRender.width(l) + 14) * fs) + 2;
+        GuiRender.pill(ctx, tabsX1 - 3, py + 6, tabsX1 + trackW + 1, py + 28, 0x08FFFFFF);
+        GuiRender.pillOutline(ctx, tabsX1 - 3, py + 6, tabsX1 + trackW + 1, py + 28, 0x12FFFFFF);
         int tx = tabsX1;
         for (int i = 0; i < labels.length; i++) {
             int mode = i < order.size() ? MODE_CATEGORY : MODE_ACTIVE + (i - order.size());
             ModuleCategory cat = mode == MODE_CATEGORY ? order.get(i) : null;
             boolean selected = search.length() == 0 && listMode == mode && (mode != MODE_CATEGORY || cat == category);
-            int tw = Math.round((font.width(labels[i]) + 14) * fs);
+            int tw = Math.round((GuiRender.width(labels[i]) + 14) * fs);
+            if (selected) {
+                float dtab = Math.min(0.1f, Math.max(0.001f, (System.currentTimeMillis() - lastFrame + 16) / 1000f));
+                if (tabPillX < 0) { tabPillX = tx; tabPillW = tw; }
+                tabPillX = GuiRender.approach(tabPillX, tx, dtab, 18f);
+                tabPillW = GuiRender.approach(tabPillW, tw, dtab, 18f);
+                int x1 = Math.round(tabPillX), x2 = Math.round(tabPillX + tabPillW);
+                GuiRender.glow(ctx, (x1 + x2) / 2, py + 17, 16, colAccent, 0.12f);
+                GuiRender.pill(ctx, x1, py + 8, x2, py + 26, colAccent);
+            }
+            tx += tw + 2;
+        }
+        tx = tabsX1;
+        for (int i = 0; i < labels.length; i++) {
+            int mode = i < order.size() ? MODE_CATEGORY : MODE_ACTIVE + (i - order.size());
+            ModuleCategory cat = mode == MODE_CATEGORY ? order.get(i) : null;
+            boolean selected = search.length() == 0 && listMode == mode && (mode != MODE_CATEGORY || cat == category);
+            int tw = Math.round((GuiRender.width(labels[i]) + 14) * fs);
             Box box = new Box(tx, py + 8, tx + tw, py + 26);
             tabs.add(new Tab(cat, mode, box));
             boolean hover = box.contains(mx, my);
-            if (selected) GuiRender.roundedRect(ctx, box.x1, box.y1, box.x2, box.y2, colAccent);
-            else if (hover) GuiRender.roundedRect(ctx, box.x1, box.y1, box.x2, box.y2, 0x1AFFFFFF);
+            if (!selected && hover) GuiRender.pill(ctx, box.x1, box.y1, box.x2, box.y2, 0x12FFFFFF);
             GuiRender.scaledText(ctx, labels[i], box.x1 + Math.round(7 * fs), box.y1 + (fs < 1f ? 6 : 5), fs,
-                    selected ? 0xFF0C0C0D : hover ? colText : colMuted);
+                    selected ? onAccent() : hover ? colText : colMuted);
             tx += tw + 2;
         }
     }
@@ -274,7 +326,7 @@ public class CrystalClientScreen extends Screen {
                     : listMode == MODE_FAVOURITES ? "Noch keine Favoriten. Fahr über ein Modul und klick den Stern."
                     : listMode == MODE_RECENT ? "Noch nichts benutzt."
                     : "Keine Module.";
-            ctx.drawString(font, msg, px + PAD + 4, top + 4, colMuted, false);
+            GuiRender.text(ctx, msg, px + PAD + 4, top + 4, colMuted);
         }
         for (int i = 0; i < modules.size(); i++) {
             int tx = px + PAD + (i % columns) * (tileW + TILE_GAP);
@@ -304,23 +356,31 @@ public class CrystalClientScreen extends Screen {
         float hover = animate(hoverAnim, module, hovered ? 1f : 0f, dt);
         float on = animate(toggleAnim, module, enabled ? 1f : 0f, dt);
 
-        GuiRender.roundedRect(ctx, box.x1, box.y1, box.x2, box.y2, 5, GuiRender.blend(colTile, 0xFFFFFFFF, 0.05f * hover));
-        GuiRender.roundedOutline(ctx, box.x1, box.y1, box.x2, box.y2,
-                GuiRender.blend(GuiRender.withAlpha(colBorder, 0x99), colAccent, Math.max(hover * 0.6f, on * 0.3f)));
+        // Lifts a little under the pointer.
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(0, -1.5f * hover);
+        if (hover > 0.01f) GuiRender.shadow(ctx, box.x1, box.y1, box.x2, box.y2, 10, 6, 3, hover * 0.8f);
+        GuiRender.card(ctx, box.x1, box.y1, box.x2, box.y2, 10, hover, on > 0.01f ? GuiRender.withAlpha(colAccent, Math.round(0x0C * on)) : 0);
+        if (on > 0.01f) GuiRender.roundedOutline(ctx, box.x1, box.y1, box.x2, box.y2, 10, GuiRender.withAlpha(colAccent, Math.round(0x50 * on)));
 
-        // Icon, drawn 2x from the 8px sprites.
-        int iconColor = GuiRender.blend(colMuted, colText, Math.max(on, hover * 0.6f));
-        drawIcon(ctx, iconFor(module), x + w / 2 - 8, y + 13, iconColor, 2);
+        // Icon in a round well that lights up in the accent when the module is on.
+        int icx = x + w / 2, icy = y + 21;
+        if (on > 0.01f) GuiRender.glow(ctx, icx, icy, 18, colAccent, 0.16f * on);
+        GuiRender.circle(ctx, icx, icy, 11, GuiRender.blend(0x0DFFFFFF, GuiRender.withAlpha(colAccent, 0x2E), on));
+        GuiRender.roundedOutline(ctx, icx - 11, icy - 11, icx + 11, icy + 11, 11, GuiRender.blend(0x12FFFFFF, GuiRender.withAlpha(colAccent, 0x66), on));
+        int iconColor = GuiRender.blend(GuiRender.blend(colMuted, colText, hover * 0.6f), colAccent == 0xFFFFFFFF ? colText : colAccent, on);
+        drawIcon(ctx, iconFor(module), icx - 8, icy - 8, iconColor, 2);
 
-        String name = GuiRender.trimToWidth(pretty(module.getName()), w - 8);
-        ctx.drawString(font, name, x + (w - font.width(name)) / 2, y + 35, colText, false);
+        String name = GuiRender.trimToWidth(pretty(module.getName()), w - 10);
+        GuiRender.text(ctx, name, x + (w - GuiRender.width(name)) / 2, y + 37, GuiRender.blend(colText, 0xFFFFFFFF, on));
 
         boolean bound = module.getKeybind() != GLFW.GLFW_KEY_UNKNOWN;
         boolean capturing = capturingModuleKey && captureTileModule == module;
         if (bound || capturing) {
             String label = capturing ? "..." : keyName(module.getKeybind());
             int lw = GuiRender.scaledWidth(label, 0.75f) + 6;
-            GuiRender.roundedRect(ctx, x + 4, y + 4, x + 4 + lw, y + 14, 0x40000000);
+            GuiRender.pill(ctx, x + 4, y + 4, x + 4 + lw, y + 14, 0x33000000);
+            GuiRender.pillOutline(ctx, x + 4, y + 4, x + 4 + lw, y + 14, 0x14FFFFFF);
             GuiRender.scaledText(ctx, label, x + 7, y + 7, 0.75f, capturing ? colAccent : colMuted);
         }
 
@@ -329,7 +389,7 @@ public class CrystalClientScreen extends Screen {
             // Nexora+ tag in the top right corner, with a lock while it isn't unlocked.
             boolean locked = module.isLocked();
             int tw = GuiRender.scaledWidth("Nexora+", 0.75f) + (locked ? 13 : 8);
-            GuiRender.roundedRect(ctx, x + w - 4 - tw, y + 4, x + w - 4, y + 14, GuiRender.withAlpha(COL_PLUS, 0x30));
+            GuiRender.pill(ctx, x + w - 4 - tw, y + 4, x + w - 4, y + 14, GuiRender.withAlpha(COL_PLUS, 0x26));
             if (locked) drawIcon(ctx, ICON_LOCK, x + w - 1 - tw, y + 5, COL_PLUS, 1);
             GuiRender.scaledText(ctx, "Nexora+", x + w - tw + (locked ? 5 : 0), y + 7, 0.75f, COL_PLUS);
         }
@@ -350,16 +410,22 @@ public class CrystalClientScreen extends Screen {
 
         if (showGear) {
             boolean gearHover = gear.contains(mx, my);
-            GuiRender.roundedRect(ctx, gear.x1, gear.y1, gear.x2, gear.y2, gearHover ? GuiRender.withAlpha(colAccent, 0x55) : 0x1AFFFFFF);
+            GuiRender.circle(ctx, (gear.x1 + gear.x2) / 2, (gear.y1 + gear.y2) / 2, 7, gearHover ? GuiRender.withAlpha(colAccent, 0x55) : 0x16FFFFFF);
             drawIcon(ctx, ICON_GEAR, gear.x1 + 3, gear.y1 + 3, gearHover ? colText : colMuted, 1);
         }
 
-        int barColor = GuiRender.blend(0x22FFFFFF, GuiRender.withAlpha(COL_ON, 0x3A), on);
-        if (bar.contains(mx, my) && contentBox.contains(mx, my)) barColor = GuiRender.blend(barColor, 0xFFFFFFFF, 0.1f);
-        GuiRender.roundedRect(ctx, bar.x1, bar.y1, bar.x2, bar.y2, barColor);
-        String status = module.isLocked() ? "Nur Nexora+" : enabled ? "AN" : "AUS";
-        ctx.drawString(font, status, bar.x1 + (bar.x2 - bar.x1 - font.width(status)) / 2, bar.y1 + 2,
-                module.isLocked() ? COL_PLUS : GuiRender.blend(colMuted, COL_ON, on), false);
+        // Bottom row: the state in words on the left, a switch on the right.
+        ctx.fill(bar.x1 + 2, bar.y1 - 3, bar.x2 - 2, bar.y1 - 2, 0x0CFFFFFF);
+        boolean barHover = bar.contains(mx, my) && contentBox.contains(mx, my);
+        if (module.isLocked()) {
+            String locked = "Nur Nexora+";
+            GuiRender.scaledText(ctx, locked, bar.x1 + (bar.x2 - bar.x1 - GuiRender.scaledWidth(locked, 0.85f)) / 2, bar.y1 + 3, 0.85f, COL_PLUS);
+        } else {
+            GuiRender.scaledText(ctx, enabled ? "An" : "Aus", bar.x1 + 2, bar.y1 + 3, 0.85f,
+                    GuiRender.blend(barHover ? colText : colMuted, colText, on));
+            GuiRender.switchPill(ctx, bar.x2 - 20, bar.y1 + 1, bar.x2, bar.y1 + 11, on, colAccent);
+        }
+        ctx.pose().popMatrix();
     }
 
     // ---------------------------------------------------------------- settings view
@@ -374,18 +440,19 @@ public class CrystalClientScreen extends Screen {
         // Header: back, name, toggle, close
         backBox = new Box(px + 8, py + 8, px + 26, py + 26);
         boolean backHover = backBox.contains(mx, my);
-        GuiRender.roundedRect(ctx, backBox.x1, backBox.y1, backBox.x2, backBox.y2, backHover ? GuiRender.withAlpha(colAccent, 0x40) : 0x14FFFFFF);
+        roundButton(ctx, backBox, backHover, 0x1FFFFFFF);
         drawIcon(ctx, ICON_BACK, backBox.x1 + 5, backBox.y1 + 6, backHover ? colText : colMuted, 1);
-        drawIcon(ctx, iconFor(module), px + 34, py + 13, colAccent, 1);
-        GuiRender.scaledText(ctx, pretty(module.getName()), px + 46, py + 11, 1.2f, colText);
+        GuiRender.circle(ctx, px + 42, py + 17, 9, GuiRender.withAlpha(colAccent, 0x26));
+        drawIcon(ctx, iconFor(module), px + 38, py + 13, colAccent == 0xFFFFFFFF ? colText : colAccent, 1);
+        GuiRender.heading(ctx, pretty(module.getName()), px + 56, py + 11, 1.15f, colText);
 
         closeBox = new Box(px + pw - 26, py + 8, px + pw - 8, py + 26);
         boolean closeHover = closeBox.contains(mx, my);
-        GuiRender.roundedRect(ctx, closeBox.x1, closeBox.y1, closeBox.x2, closeBox.y2, closeHover ? GuiRender.withAlpha(COL_DANGER, 0x40) : 0x14FFFFFF);
+        roundButton(ctx, closeBox, closeHover, GuiRender.withAlpha(COL_DANGER, 0x33));
         drawIcon(ctx, ICON_CLOSE, closeBox.x1 + 5, closeBox.y1 + 5, closeHover ? COL_DANGER : colMuted, 1);
         bigToggleBox = new Box(closeBox.x1 - 40, py + 11, closeBox.x1 - 10, py + 23);
         drawSwitch(ctx, bigToggleBox, animate(toggleAnim, module, module.isEnabled() ? 1f : 0f, dt));
-        ctx.fill(px + 1, py + HEADER_H, px + pw - 1, py + HEADER_H + 1, GuiRender.withAlpha(colBorder, 0xAA));
+        ctx.fill(px + 10, py + HEADER_H, px + pw - 10, py + HEADER_H + 1, 0x10FFFFFF);
 
         // Right: live preview and description
         int split = px + Math.round(pw * 0.56f);
@@ -394,7 +461,7 @@ public class CrystalClientScreen extends Screen {
         renderPreview(ctx, module, previewX1, previewY1, previewX2, previewY2);
         List<String> desc = wrap(module.getDescription(), previewX2 - previewX1, 4);
         for (int i = 0; i < desc.size(); i++) {
-            ctx.drawString(font, desc.get(i), previewX1, previewY2 + 8 + i * 10, colMuted, false);
+            GuiRender.text(ctx, desc.get(i), previewX1, previewY2 + 8 + i * 10, colMuted);
         }
 
         // Left: settings list
@@ -409,24 +476,24 @@ public class CrystalClientScreen extends Screen {
 
         List<Setting<?>> settings = module.settings().stream().filter(st -> !st.isHidden()).toList();
         if (!settings.isEmpty()) {
-            GuiRender.roundedRect(ctx, rowX, top, rowX + rowW, top + settings.size() * ROW_H, colTile);
-            GuiRender.roundedOutline(ctx, rowX, top, rowX + rowW, top + settings.size() * ROW_H, GuiRender.withAlpha(colBorder, 0x88));
+            GuiRender.card(ctx, rowX, top, rowX + rowW, top + settings.size() * ROW_H, 10, 0f, 0);
         }
         for (int i = 0; i < settings.size(); i++) {
             renderSettingRow(ctx, settings.get(i), rowX, top + i * ROW_H, rowW, i > 0, mx, my, dt);
         }
         top += settings.size() * ROW_H + 8;
 
-        resetBox = new Box(rowX, top, rowX + font.width("Zurücksetzen") + 16, top + 16);
+        resetBox = new Box(rowX, top, rowX + GuiRender.width("Zurücksetzen") + 16, top + 16);
         boolean resetHover = resetBox.contains(mx, my) && contentBox.contains(mx, my);
-        GuiRender.roundedRect(ctx, resetBox.x1, resetBox.y1, resetBox.x2, resetBox.y2, resetHover ? GuiRender.withAlpha(COL_DANGER, 0x30) : 0x0CFFFFFF);
-        ctx.drawString(font, "Zurücksetzen", resetBox.x1 + 8, resetBox.y1 + 4, resetHover ? COL_DANGER : colMuted, false);
+        GuiRender.pill(ctx, resetBox.x1, resetBox.y1, resetBox.x2, resetBox.y2, resetHover ? GuiRender.withAlpha(COL_DANGER, 0x2A) : 0x0AFFFFFF);
+        GuiRender.pillOutline(ctx, resetBox.x1, resetBox.y1, resetBox.x2, resetBox.y2, resetHover ? GuiRender.withAlpha(COL_DANGER, 0x66) : 0x14FFFFFF);
+        GuiRender.text(ctx, "Zurücksetzen", resetBox.x1 + 8, resetBox.y1 + 4, resetHover ? COL_DANGER : colMuted);
         top += 24;
 
         contentHeight = top + Math.round(scroll) - contentBox.y1;
         ctx.disableScissor();
         renderScrollbar(ctx, split - 4, contentBox.y1 + 4, contentBox.y2 - contentBox.y1 - 8);
-        ctx.fill(split, contentBox.y1 + 6, split + 1, contentBox.y2 - 6, GuiRender.withAlpha(colBorder, 0x88));
+        ctx.fill(split, contentBox.y1 + 10, split + 1, contentBox.y2 - 10, 0x10FFFFFF);
     }
 
     /** A small game scene with what the module does drawn into it. */
@@ -436,7 +503,7 @@ public class CrystalClientScreen extends Screen {
         ctx.fillGradient(x1, y1, x2, y1 + h * 3 / 5, 0xFF7DB2EA, 0xFFB9D7F2);
         ctx.fill(x1, y1 + h * 3 / 5, x2, y1 + h * 3 / 5 + 4, 0xFF5E9B3A);
         ctx.fill(x1, y1 + h * 3 / 5 + 4, x2, y2, 0xFF7A5A3A);
-        GuiRender.roundedOutline(ctx, x1, y1, x2, y2, GuiRender.withAlpha(colBorder, 0xCC));
+        GuiRender.roundedOutline(ctx, x1, y1, x2, y2, 0x26FFFFFF);
         int cx = (x1 + x2) / 2, cy = (y1 + y2) / 2;
 
         ctx.enableScissor(x1 + 1, y1 + 1, x2 - 1, y2 - 1);
@@ -469,11 +536,11 @@ public class CrystalClientScreen extends Screen {
                 ctx.fill(x2 - next, y1 + next, x2 - in, y2 - next, c);
             }
             String hearts = "♥ " + Math.round(warning.getThreshold() / 2f) + " Herzen";
-            ctx.drawString(font, hearts, cx - font.width(hearts) / 2, cy - 4, 0xFFFFFFFF, true);
+            ctx.drawString(font, hearts, cx - GuiRender.width(hearts) / 2, cy - 4, 0xFFFFFFFF, true);
         } else if (module instanceof DurabilityWarning) {
             ItemStack chest = new ItemStack(Items.DIAMOND_CHESTPLATE);
             String text = "Diamantbrustplatte 7%";
-            int tw = font.width(text) + 20;
+            int tw = GuiRender.width(text) + 20;
             GuiRender.roundedRect(ctx, cx - tw / 2 - 5, cy - 11, cx + tw / 2 + 5, cy + 11, 0x99000000);
             GuiRender.roundedOutline(ctx, cx - tw / 2 - 5, cy - 11, cx + tw / 2 + 5, cy + 11, 0xFFC94F49);
             ctx.renderItem(chest, cx - tw / 2, cy - 8);
@@ -482,16 +549,16 @@ public class CrystalClientScreen extends Screen {
             String factor = String.format(Locale.ROOT, "%.1f×", zoom.getFactor());
             GuiRender.scaledText(ctx, factor, cx - GuiRender.scaledWidth(factor, 2f) / 2, cy - 8, 2f, 0xFFFFFFFF);
             String hint = zoom.isScrollToZoom() ? "Mausrad zoomt weiter" : "Fester Zoom";
-            ctx.drawString(font, hint, cx - font.width(hint) / 2, cy + 14, 0xFF1E1E20, false);
+            GuiRender.text(ctx, hint, cx - GuiRender.width(hint) / 2, cy + 14, 0xFF1E1E20);
         } else {
             drawIcon(ctx, iconFor(module), cx - 16, cy - 20, module.isEnabled() ? 0xFFFFFFFF : 0xAAFFFFFF, 4);
             String state = module.isEnabled() ? "Aktiv" : "Aus";
-            ctx.drawString(font, state, cx - font.width(state) / 2, cy + 18, module.isEnabled() ? COL_ON : 0xFF1E1E20, false);
+            GuiRender.text(ctx, state, cx - GuiRender.width(state) / 2, cy + 18, module.isEnabled() ? COL_ON : 0xFF1E1E20);
         }
         ctx.disableScissor();
 
-        GuiRender.roundedRect(ctx, x1 + 5, y1 + 5, x1 + 5 + GuiRender.scaledWidth("VORSCHAU", 0.75f) + 8, y1 + 15, 0x80000000);
-        GuiRender.scaledText(ctx, "VORSCHAU", x1 + 9, y1 + 8, 0.75f, 0xFFE2E8F0);
+        GuiRender.pill(ctx, x1 + 5, y1 + 5, x1 + 5 + GuiRender.scaledWidth("Vorschau", 0.75f) + 10, y1 + 15, 0x99000000);
+        GuiRender.scaledText(ctx, "Vorschau", x1 + 10, y1 + 7, 0.75f, 0xFFE2E8F0);
     }
 
     /** Before/after swatches using the same maths as the color_grade shader. */
@@ -499,8 +566,8 @@ public class CrystalClientScreen extends Screen {
         int[] samples = {0xFF7DB2EA, 0xFF5E9B3A, 0xFF7A5A3A, 0xFFD94A3A, 0xFFE8C547, 0xFF9B59B6};
         int w = (x2 - x1 - 20) / samples.length;
         int topY = y1 + 26, botY = y1 + (y2 - y1) / 2 + 12;
-        ctx.drawString(font, "Vorher", x1 + 10, topY - 10, 0xFF1E1E20, false);
-        ctx.drawString(font, "Nachher", x1 + 10, botY - 10, 0xFF1E1E20, false);
+        GuiRender.text(ctx, "Vorher", x1 + 10, topY - 10, 0xFF1E1E20);
+        GuiRender.text(ctx, "Nachher", x1 + 10, botY - 10, 0xFF1E1E20);
         for (int i = 0; i < samples.length; i++) {
             int sx = x1 + 10 + i * w;
             ctx.fill(sx, topY, sx + w - 2, topY + 22, samples[i]);
@@ -531,21 +598,20 @@ public class CrystalClientScreen extends Screen {
     }
 
     private Box drawKeyRow(GuiGraphics ctx, int key, boolean capturing, int x, int y, int w, int mx, int my) {
-        GuiRender.roundedRect(ctx, x, y, x + w, y + ROW_H, colTile);
-        GuiRender.roundedOutline(ctx, x, y, x + w, y + ROW_H, GuiRender.withAlpha(colBorder, 0x88));
-        ctx.drawString(font, "Tastenbelegung", x + 9, y + 7, colText, false);
+        GuiRender.card(ctx, x, y, x + w, y + ROW_H, 10, 0f, 0);
+        GuiRender.text(ctx, "Tastenbelegung", x + 9, y + 7, colText);
         String value = capturing ? "Taste drücken..." : key == GLFW.GLFW_KEY_UNKNOWN ? "Keine" : keyName(key);
-        int vw = font.width(value) + 14;
+        int vw = GuiRender.width(value) + 14;
         Box chip = new Box(x + w - vw - 6, y + 4, x + w - 6, y + ROW_H - 4);
         boolean hover = chip.contains(mx, my) && contentBox.contains(mx, my);
-        GuiRender.roundedRect(ctx, chip.x1, chip.y1, chip.x2, chip.y2, capturing ? GuiRender.withAlpha(colAccent, 0x40) : hover ? 0x18FFFFFF : 0x40000000);
-        if (capturing) GuiRender.roundedOutline(ctx, chip.x1, chip.y1, chip.x2, chip.y2, colAccent);
-        ctx.drawString(font, value, chip.x1 + 7, chip.y1 + 4, key == GLFW.GLFW_KEY_UNKNOWN && !capturing ? colMuted : colText, false);
+        GuiRender.pill(ctx, chip.x1, chip.y1, chip.x2, chip.y2, capturing ? GuiRender.withAlpha(colAccent, 0x33) : hover ? 0x16FFFFFF : 0x0AFFFFFF);
+        GuiRender.pillOutline(ctx, chip.x1, chip.y1, chip.x2, chip.y2, capturing ? colAccent : 0x16FFFFFF);
+        GuiRender.text(ctx, value, chip.x1 + 7, chip.y1 + 4, key == GLFW.GLFW_KEY_UNKNOWN && !capturing ? colMuted : colText);
         return chip;
     }
 
     private void renderSettingRow(GuiGraphics ctx, Setting<?> setting, int x, int y, int w, boolean divider, int mx, int my, float dt) {
-        if (divider) ctx.fill(x + 8, y, x + w - 8, y + 1, GuiRender.withAlpha(colBorder, 0x55));
+        if (divider) ctx.fill(x + 10, y, x + w - 10, y + 1, 0x0DFFFFFF);
         String name = setting.getName();
         boolean plusOnly = name.endsWith("(Nexora+)");
         if (plusOnly) name = name.substring(0, name.length() - 10).trim();
@@ -553,10 +619,10 @@ public class CrystalClientScreen extends Screen {
 
         int controlW = Math.min(120, w / 2 - 4);
         String shownName = GuiRender.trimToWidth(name, w - controlW - (plusOnly ? 58 : 20));
-        ctx.drawString(font, shownName, x + 9, y + 7, locked ? colMuted : colText, false);
+        GuiRender.text(ctx, shownName, x + 9, y + 7, locked ? colMuted : colText);
         if (plusOnly) {
-            int tx = x + 14 + font.width(shownName);
-            GuiRender.roundedRect(ctx, tx, y + 6, tx + 38, y + 16, GuiRender.withAlpha(COL_PLUS, 0x30));
+            int tx = x + 14 + GuiRender.width(shownName);
+            GuiRender.pill(ctx, tx, y + 6, tx + 38, y + 16, GuiRender.withAlpha(COL_PLUS, 0x26));
             if (locked) drawIcon(ctx, ICON_LOCK, tx + 3, y + 7, COL_PLUS, 1);
             GuiRender.scaledText(ctx, "Nexora+", tx + (locked ? 10 : 5), y + 9, 0.75f, COL_PLUS);
         }
@@ -572,17 +638,21 @@ public class CrystalClientScreen extends Screen {
             case SLIDER -> {
                 SliderSetting s = (SliderSetting) setting;
                 String value = s.getDisplayValue();
-                int valueW = Math.max(26, font.width(value) + 8);
+                int valueW = Math.max(26, GuiRender.width(value) + 8);
                 int t1 = control.x1, t2 = control.x2 - valueW - 5;
                 float fraction = (s.getValue() - s.getMin()) / Math.max(0.0001f, s.getMax() - s.getMin());
                 int cy = y + ROW_H / 2;
-                GuiRender.roundedRect(ctx, t1, cy - 2, t2, cy + 2, GuiRender.withAlpha(colBorder, alpha));
+                GuiRender.pill(ctx, t1, cy - 2, t2, cy + 2, GuiRender.withAlpha(0x1FFFFFFF, Math.round(0x1F * alpha / 255f)));
                 int fill = t1 + Math.round((t2 - t1) * Math.max(0f, Math.min(1f, fraction)));
-                if (fill > t1 + 1) GuiRender.roundedRect(ctx, t1, cy - 2, fill, cy + 2, GuiRender.withAlpha(colAccent, alpha));
-                int knob = draggingSlider == s || hover ? 4 : 3;
-                GuiRender.roundedRect(ctx, fill - knob, cy - knob, fill + knob, cy + knob, GuiRender.withAlpha(0xFFFFFFFF, alpha));
-                GuiRender.roundedRect(ctx, t2 + 5, y + 4, control.x2, y + ROW_H - 4, 0x40000000);
-                ctx.drawString(font, value, t2 + 5 + (valueW - font.width(value)) / 2, y + 7, GuiRender.withAlpha(colText, alpha), false);
+                if (fill > t1 + 3) GuiRender.pill(ctx, t1, cy - 2, fill, cy + 2, GuiRender.withAlpha(colAccent, alpha));
+                boolean active = draggingSlider == s || hover;
+                if (active) GuiRender.glow(ctx, fill, cy, 12, colAccent, 0.18f);
+                int knob = active ? 5 : 4;
+                GuiRender.circle(ctx, fill, cy + 1, knob, 0x55000000);
+                GuiRender.circle(ctx, fill, cy, knob, GuiRender.withAlpha(0xFFFFFFFF, alpha));
+                GuiRender.pill(ctx, t2 + 5, y + 4, control.x2, y + ROW_H - 4, 0x0DFFFFFF);
+                GuiRender.pillOutline(ctx, t2 + 5, y + 4, control.x2, y + ROW_H - 4, 0x14FFFFFF);
+                GuiRender.text(ctx, value, t2 + 5 + (valueW - GuiRender.width(value)) / 2, y + 7, GuiRender.withAlpha(colText, alpha));
             }
             case ENUM -> {
                 if (CrystalMenu.isAccentSetting(setting)) {
@@ -590,10 +660,11 @@ public class CrystalClientScreen extends Screen {
                     break;
                 }
                 String value = GuiRender.trimToWidth(stripPlus(((EnumSetting) setting).getValue()), controlW - 26);
-                GuiRender.roundedRect(ctx, control.x1, control.y1, control.x2, control.y2, hover ? 0x14FFFFFF : 0x40000000);
+                GuiRender.pill(ctx, control.x1, control.y1, control.x2, control.y2, hover ? 0x16FFFFFF : 0x0AFFFFFF);
+                GuiRender.pillOutline(ctx, control.x1, control.y1, control.x2, control.y2, hover ? 0x2AFFFFFF : 0x14FFFFFF);
                 drawIcon(ctx, ICON_LEFT, control.x1 + 4, control.y1 + 4, GuiRender.withAlpha(colAccent, alpha), 1);
                 drawIcon(ctx, ICON_RIGHT, control.x2 - 7, control.y1 + 4, GuiRender.withAlpha(colAccent, alpha), 1);
-                ctx.drawString(font, value, control.x1 + (controlW - font.width(value)) / 2, y + 7, GuiRender.withAlpha(colText, alpha), false);
+                GuiRender.text(ctx, value, control.x1 + (controlW - GuiRender.width(value)) / 2, y + 7, GuiRender.withAlpha(colText, alpha));
             }
             case COLOR -> {
                 ColorSetting c = (ColorSetting) setting;
@@ -610,23 +681,25 @@ public class CrystalClientScreen extends Screen {
             case KEYBIND -> {
                 boolean capturing = setting == capturingSetting;
                 String value = capturing ? "Taste..." : setting.getDisplayValue();
-                int vw = font.width(value) + 12;
-                GuiRender.roundedRect(ctx, control.x2 - vw, control.y1, control.x2, control.y2, capturing ? GuiRender.withAlpha(colAccent, 0x40) : 0x40000000);
-                ctx.drawString(font, value, control.x2 - vw + 6, y + 7, colText, false);
+                int vw = GuiRender.width(value) + 12;
+                GuiRender.pill(ctx, control.x2 - vw, control.y1, control.x2, control.y2, capturing ? GuiRender.withAlpha(colAccent, 0x33) : 0x0DFFFFFF);
+                GuiRender.pillOutline(ctx, control.x2 - vw, control.y1, control.x2, control.y2, capturing ? colAccent : 0x14FFFFFF);
+                GuiRender.text(ctx, value, control.x2 - vw + 6, y + 7, colText);
             }
             case ACTION -> {
                 String label = setting.getDisplayValue();
-                int bw = Math.min(controlW, font.width(label) + 16);
-                GuiRender.roundedRect(ctx, control.x2 - bw, control.y1, control.x2, control.y2, hover ? colAccent : GuiRender.withAlpha(colAccent, 0x40));
-                ctx.drawString(font, GuiRender.trimToWidth(label, bw - 8), control.x2 - bw + 8, y + 7, hover ? 0xFF0C0C0D : colText, false);
+                int bw = Math.min(controlW, GuiRender.width(label) + 16);
+                if (hover) GuiRender.glow(ctx, control.x2 - bw / 2, (control.y1 + control.y2) / 2, bw / 2 + 4, colAccent, 0.12f);
+                GuiRender.pill(ctx, control.x2 - bw, control.y1, control.x2, control.y2, hover ? colAccent : GuiRender.withAlpha(colAccent, 0x33));
+                GuiRender.text(ctx, GuiRender.trimToWidth(label, bw - 8), control.x2 - bw + 8, y + 7, hover ? onAccent() : colText);
             }
             case TEXT -> {
                 boolean editing = setting == editingText;
                 String shown = editing ? textBuffer + (System.currentTimeMillis() / 500 % 2 == 0 ? "_" : "") : setting.getDisplayValue();
-                GuiRender.roundedRect(ctx, control.x1, control.y1, control.x2, control.y2, 0x50000000);
-                GuiRender.roundedOutline(ctx, control.x1, control.y1, control.x2, control.y2, editing ? colAccent : GuiRender.withAlpha(colBorder, 0xAA));
+                GuiRender.roundedRect(ctx, control.x1, control.y1, control.x2, control.y2, 6, 0x40000000);
+                GuiRender.roundedOutline(ctx, control.x1, control.y1, control.x2, control.y2, 6, editing ? colAccent : 0x1AFFFFFF);
                 String text = shown.isEmpty() && !editing ? "Klicken" : GuiRender.trimToWidth(shown, controlW - 10);
-                ctx.drawString(font, text, control.x1 + 5, y + 7, shown.isEmpty() && !editing ? colMuted : colText, false);
+                GuiRender.text(ctx, text, control.x1 + 5, y + 7, shown.isEmpty() && !editing ? colMuted : colText);
             }
         }
     }
@@ -659,11 +732,7 @@ public class CrystalClientScreen extends Screen {
     }
 
     private void drawSwitch(GuiGraphics ctx, Box box, float on) {
-        int track = GuiRender.blend(0x33FFFFFF, colAccent, on);
-        GuiRender.roundedRect(ctx, box.x1, box.y1, box.x2, box.y2, track);
-        int knob = box.y2 - box.y1 - 4;
-        int kx = box.x1 + 2 + Math.round((box.x2 - box.x1 - 4 - knob) * on);
-        GuiRender.roundedRect(ctx, kx, box.y1 + 2, kx + knob, box.y2 - 2, 0xFFFFFFFF);
+        GuiRender.switchPill(ctx, box.x1, box.y1, box.x2, box.y2, on, colAccent);
     }
 
     private void renderScrollbar(GuiGraphics ctx, int x, int y, int h) {
@@ -672,7 +741,7 @@ public class CrystalClientScreen extends Screen {
         int visible = contentBox.y2 - contentBox.y1;
         int thumb = Math.max(18, h * visible / Math.max(1, contentHeight));
         int ty = y + Math.round((h - thumb) * (scroll / max));
-        GuiRender.roundedRect(ctx, x, ty, x + 3, ty + thumb, GuiRender.withAlpha(colMuted, 0x99));
+        GuiRender.pill(ctx, x, ty, x + 3, ty + thumb, 0x33FFFFFF);
     }
 
     private int maxScroll() {
@@ -732,7 +801,7 @@ public class CrystalClientScreen extends Screen {
         StringBuilder line = new StringBuilder();
         for (String word : text.split(" ")) {
             String candidate = line.length() == 0 ? word : line + " " + word;
-            if (font.width(candidate) <= maxWidth) {
+            if (GuiRender.width(candidate) <= maxWidth) {
                 line.setLength(0);
                 line.append(candidate);
             } else {
@@ -771,8 +840,7 @@ public class CrystalClientScreen extends Screen {
 
     private static float animate(Map<Object, Float> store, Object key, float target, float dt) {
         float current = store.getOrDefault(key, target);
-        float next = current + (target - current) * Math.min(1f, dt * 14f);
-        if (Math.abs(next - target) < 0.01f) next = target;
+        float next = GuiRender.approach(current, target, dt, 16f);
         store.put(key, next);
         return next;
     }
@@ -866,8 +934,8 @@ public class CrystalClientScreen extends Screen {
     // ================================================================ input
 
     private double[] toPanel(double mouseX, double mouseY) {
-        float open = ease(Math.min(1f, (System.currentTimeMillis() - openedAt) / (float) OPEN_ANIM_MS));
-        float scale = (0.96f + 0.04f * open) * ui();
+        float open = GuiRender.spring(Math.min(1f, (System.currentTimeMillis() - openedAt) / (float) OPEN_ANIM_MS));
+        float scale = (0.94f + 0.06f * open) * ui();
         return new double[]{(mouseX - width / 2.0) / scale + width / 2.0, (mouseY - height / 2.0) / scale + height / 2.0};
     }
 
@@ -964,7 +1032,7 @@ public class CrystalClientScreen extends Screen {
                 case SLIDER -> {
                     if (!c.contains(mx, my)) return true;
                     SliderSetting s = (SliderSetting) setting;
-                    int valueW = Math.max(26, font.width(s.getDisplayValue()) + 8);
+                    int valueW = Math.max(26, GuiRender.width(s.getDisplayValue()) + 8);
                     dragX = c.x1;
                     dragW = c.x2 - valueW - 5 - c.x1;
                     draggingSlider = s;

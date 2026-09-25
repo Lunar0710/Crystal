@@ -24,9 +24,9 @@ import net.minecraft.network.chat.Component;
  */
 public class NexoraPauseScreen extends Screen {
 
-    private static final int ROW_W = 176;
-    private static final int ROW_H = 20;
-    private static final int GAP = 3;
+    private static final int ROW_W = 188;
+    private static final int ROW_H = 22;
+    private static final int GAP = 5;
 
     private enum Icon { PLAY, OPTIONS, MARK, NONE }
 
@@ -37,7 +37,8 @@ public class NexoraPauseScreen extends Screen {
     }
 
     private final List<Row> rows = new ArrayList<>();
-    private long openedAt;
+    private final float[] hover = new float[6];
+    private long openedAt, lastFrame;
 
     public NexoraPauseScreen() {
         super(Component.translatable("menu.game"));
@@ -49,7 +50,7 @@ public class NexoraPauseScreen extends Screen {
         rows.clear();
 
         int x = (width - ROW_W) / 2;
-        int y = height / 2 - 24;
+        int y = height / 2 - 20;
         int step = ROW_H + GAP;
 
         rows.add(new Row(x, y, ROW_W, ROW_H, Component.translatable("menu.returnToGame"), this::resume, Icon.PLAY, true, false));
@@ -101,47 +102,50 @@ public class NexoraPauseScreen extends Screen {
 
         ThemeManager theme = CrystalClient.getInstance().getThemeManager();
         int accent = theme.getAccent();
-        float appear = Math.min(1f, (System.currentTimeMillis() - openedAt) / 250f);
+        long now = System.currentTimeMillis();
+        float dt = lastFrame == 0 ? 0.016f : Math.min(0.1f, (now - lastFrame) / 1000f);
+        lastFrame = now;
+        float appear = GuiRender.spring((now - openedAt) / 500f);
         int alpha = Math.round(255 * appear);
 
         Row first = rows.get(0), last = rows.get(rows.size() - 1);
-        int py1 = first.y - 44;
-        // A soft shadow behind the column instead of a box around it.
-        int cx1 = first.x - 40, cx2 = first.x + ROW_W + 40, bottom = last.y + 26;
-        context.fillGradient(cx1, py1 - 16, cx2, (py1 + bottom) / 2, 0x00000000, GuiRender.withAlpha(0x66000000, Math.round(0x66 * appear)));
-        context.fillGradient(cx1, (py1 + bottom) / 2, cx2, bottom, GuiRender.withAlpha(0x66000000, Math.round(0x66 * appear)), 0x00000000);
+        // The rows sit on a panel in a double bezel, with a soft shadow under it.
+        int px1 = first.x - 16, px2 = first.x + ROW_W + 16, py1 = first.y - 50, py2 = last.y + last.h + 14;
+        float scale = 0.95f + 0.05f * appear;
+        context.pose().pushMatrix();
+        context.pose().translate(width / 2f, height / 2f);
+        context.pose().scale(scale, scale);
+        context.pose().translate(-width / 2f, -height / 2f);
+        GuiRender.shadow(context, px1, py1, px2, py2, 18, 18, 8, appear);
+        GuiRender.glow(context, width / 2, py1, (px2 - px1) / 2, accent, 0.06f * appear);
+        GuiRender.bezel(context, px1 - 4, py1 - 4, px2 + 4, py2 + 4, 20, 4, appear);
 
-        // Mark and name, smaller than on the main menu.
-        String name = "NEXORA";
-        int nameWidth = font.width(name);
-        float markSize = 14f;
-        float left = (width - (markSize + 6 + nameWidth)) / 2f;
-        float centreY = py1 + 22f;
+        // Mark and name.
+        String name = "Nexora";
+        float nameScale = 1.5f;
+        int nameWidth = Math.round(GuiRender.boldWidth(name) * nameScale);
+        float markSize = 16f;
+        float left = (width - (markSize + 7 + nameWidth)) / 2f;
+        float centreY = py1 + 24f;
         GuiRender.nexoraMark(context, left + markSize / 2f, centreY, markSize, GuiRender.withAlpha(0xFFFFFFFF, alpha));
-        context.drawString(font, name, Math.round(left + markSize + 6), Math.round(centreY - 4),
-                GuiRender.withAlpha(0xFFFFFFFF, alpha), false);
+        GuiRender.heading(context, name, left + markSize + 7, centreY - 6, nameScale, GuiRender.withAlpha(0xFFFFFFFF, alpha));
 
-        for (Row row : rows) {
-            boolean hover = row.contains(mouseX, mouseY);
+        for (int i = 0; i < rows.size(); i++) {
+            Row row = rows.get(i);
+            hover[i] = GuiRender.approach(hover[i], row.contains(mouseX, mouseY) ? 1f : 0f, dt, 18f);
+            float rowAppear = GuiRender.spring((now - openedAt - 50L * i) / 500f);
             if (row.danger) {
-                int color = hover ? 0xFFD9605A : 0xFFB94A4A;
-                int w = font.width(row.label);
-                context.drawString(font, row.label, row.x + (row.w - w) / 2, row.y + 2, GuiRender.withAlpha(color, alpha), false);
+                int color = GuiRender.blend(0xFFB94A4A, 0xFFFF6B66, hover[i]);
+                int w = GuiRender.width(row.label);
+                GuiRender.text(context, row.label, row.x + (row.w - w) / 2, row.y + 2, GuiRender.withAlpha(color, Math.round(255 * rowAppear)));
                 continue;
             }
-
-            int fill = row.primary
-                    ? (hover ? GuiRender.blend(accent, 0xFFFFFFFF, 0.15f) : accent)
-                    : (hover ? 0x2EFFFFFF : 0x14FFFFFF);
-            int fillAlpha = row.primary ? alpha : Math.round(((fill >>> 24) & 0xFF) * appear);
-            GuiRender.roundedRect(context, row.x, row.y, row.x + row.w, row.y + row.h, 4, GuiRender.withAlpha(fill, fillAlpha));
-
-            int iconColor = row.primary ? 0xFF0C0C0D : hover ? 0xFFFFFFFF : 0xFFBEBEC2;
-            drawIcon(context, row.icon, row.x + 11, row.y + row.h / 2, GuiRender.withAlpha(iconColor, alpha));
-
-            int textColor = row.primary ? 0xFF0C0C0D : hover ? 0xFFFFFFFF : 0xFFD9D9DC;
-            context.drawString(font, row.label, row.x + 24, row.y + (row.h - 8) / 2, GuiRender.withAlpha(textColor, alpha), false);
+            final Row r = row;
+            final int[] iconColor = new int[1];
+            GuiRender.menuRow(context, row.x, row.y, row.w, row.h, row.label, row.primary, hover[i], rowAppear, accent,
+                    (cx, cy) -> drawIcon(context, r.icon, cx, cy, iconColor[0]), iconColor);
         }
+        context.pose().popMatrix();
     }
 
     private void drawIcon(GuiGraphics context, Icon icon, int cx, int cy, int color) {

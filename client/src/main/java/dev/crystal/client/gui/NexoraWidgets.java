@@ -17,15 +17,13 @@ public final class NexoraWidgets {
     public static void button(GuiGraphics ctx, int x, int y, int width, int height,
                               Component label, boolean hovered, boolean active, float alpha) {
         int a = Math.round(Math.max(0f, Math.min(1f, alpha)) * 255f);
-        int fill = !active ? 0x0AFFFFFF : hovered ? 0x2EFFFFFF : 0x14FFFFFF;
-        int fillAlpha = Math.round(((fill >>> 24) & 0xFF) * (a / 255f));
-        GuiRender.roundedRect(ctx, x, y, x + width, y + height, 4, GuiRender.withAlpha(fill, fillAlpha));
-
-        // A bar down the left edge marks the row under the pointer, rather than
-        // a line across its top, which read as a seam between rows.
-        if (active && hovered) {
-            GuiRender.roundedRect(ctx, x, y + 3, x + 2, y + height - 3, 1, GuiRender.withAlpha(0xFFFFFFFF, a));
-        }
+        int fill = !active ? 0x08FFFFFF : hovered ? 0x1CFFFFFF : 0x0CFFFFFF;
+        int line = !active ? 0x0CFFFFFF : hovered ? 0x33FFFFFF : 0x16FFFFFF;
+        int radius = Math.min(height / 2, 8);
+        GuiRender.roundedRect(ctx, x, y, x + width, y + height, radius, GuiRender.withAlpha(fill, Math.round(((fill >>> 24) & 0xFF) * (a / 255f))));
+        GuiRender.roundedOutline(ctx, x, y, x + width, y + height, radius, GuiRender.withAlpha(line, Math.round(((line >>> 24) & 0xFF) * (a / 255f))));
+        // Lit top edge, like every Nexora surface.
+        ctx.fill(x + radius, y, x + width - radius, y + 1, GuiRender.withAlpha(0xFFFFFF, Math.round((hovered ? 0x30 : 0x18) * (a / 255f))));
 
         Font font = Minecraft.getInstance().font;
         int textY = y + (height - 8) / 2;
@@ -41,8 +39,8 @@ public final class NexoraWidgets {
         if (split > 0 && width >= 90) {
             String name = plain.substring(0, split);
             String value = plain.substring(split + 2);
-            ctx.drawString(font, name, x + 10, textY, GuiRender.withAlpha(weak, a), false);
-            ctx.drawString(font, value, x + width - 10 - font.width(value), textY, GuiRender.withAlpha(strong, a), false);
+            GuiRender.text(ctx, name, x + 10, textY, GuiRender.withAlpha(weak, a));
+            GuiRender.text(ctx, value, x + width - 10 - GuiRender.width(value), textY, GuiRender.withAlpha(strong, a));
             return;
         }
 
@@ -51,12 +49,12 @@ public final class NexoraWidgets {
         boolean leadsOn = plain.endsWith("...") || plain.endsWith("…");
         if (leadsOn && width >= 90) {
             String name = plain.substring(0, plain.length() - (plain.endsWith("…") ? 1 : 3)).trim();
-            ctx.drawString(font, name, x + 10, textY, GuiRender.withAlpha(strong, a), false);
+            GuiRender.text(ctx, name, x + 10, textY, GuiRender.withAlpha(strong, a));
             chevron(ctx, x + width - 12, y + height / 2, GuiRender.withAlpha(weak, a));
             return;
         }
 
-        ctx.drawString(font, label, x + (width - font.width(label)) / 2, textY, GuiRender.withAlpha(strong, a), false);
+        GuiRender.text(ctx, label, x + (width - GuiRender.width(label)) / 2, textY, GuiRender.withAlpha(strong, a));
     }
 
     /** The small ">" at the end of a row that leads somewhere. */
@@ -70,19 +68,21 @@ public final class NexoraWidgets {
     /** The option sliders that sit next to those buttons, in the same language. */
     public static void slider(GuiGraphics ctx, int x, int y, int width, int height,
                               Component label, double value, boolean hovered, boolean active) {
-        GuiRender.roundedRect(ctx, x, y, x + width, y + height, 4, active ? 0x1AFFFFFF : 0x0AFFFFFF);
+        int radius = Math.min(height / 2, 8);
+        GuiRender.roundedRect(ctx, x, y, x + width, y + height, radius, active ? (hovered ? 0x1CFFFFFF : 0x0CFFFFFF) : 0x08FFFFFF);
+        GuiRender.roundedOutline(ctx, x, y, x + width, y + height, radius, active ? (hovered ? 0x33FFFFFF : 0x16FFFFFF) : 0x0CFFFFFF);
+        ctx.fill(x + radius, y, x + width - radius, y + 1, hovered ? 0x30FFFFFF : 0x18FFFFFF);
 
         // A thin track along the bottom of the row rather than a block filling
         // it: the value belongs with the name, and the bar only says how far
         // along it sits.
         int trackY = y + height - 5;
         int left = x + 8, right = x + width - 8;
-        ctx.fill(left, trackY, right, trackY + 2, active ? 0x26FFFFFF : 0x14FFFFFF);
+        GuiRender.pill(ctx, left, trackY, right, trackY + 2, active ? 0x26FFFFFF : 0x14FFFFFF);
         int filled = (int) Math.round(Math.max(0, Math.min(1, value)) * (right - left));
-        ctx.fill(left, trackY, left + filled, trackY + 2, active ? (hovered ? 0xFFFFFFFF : 0xFFBEBEC2) : 0xFF58585A);
+        if (filled > 1) GuiRender.pill(ctx, left, trackY, left + filled, trackY + 2, active ? (hovered ? 0xFFFFFFFF : 0xFFBEBEC2) : 0xFF58585A);
         int knob = left + filled;
-        GuiRender.roundedRect(ctx, knob - 1, trackY - 2, knob + 2, trackY + 4, 1,
-                active ? 0xFFFFFFFF : 0xFF6E6E70);
+        GuiRender.circle(ctx, knob, trackY + 1, hovered ? 3 : 2, active ? 0xFFFFFFFF : 0xFF6E6E70);
 
         Font font = Minecraft.getInstance().font;
         // A touch above centre, to leave the track its room.
@@ -94,11 +94,11 @@ public final class NexoraWidgets {
         String plain = label.getString();
         int split = plain.indexOf(": ");
         if (split > 0 && width >= 90) {
-            ctx.drawString(font, plain.substring(0, split), x + 10, textY, weak, false);
+            GuiRender.text(ctx, plain.substring(0, split), x + 10, textY, weak);
             String shown = plain.substring(split + 2);
-            ctx.drawString(font, shown, x + width - 10 - font.width(shown), textY, strong, false);
+            GuiRender.text(ctx, shown, x + width - 10 - GuiRender.width(shown), textY, strong);
             return;
         }
-        ctx.drawString(font, label, x + (width - font.width(label)) / 2, textY, strong, false);
+        GuiRender.text(ctx, label, x + (width - GuiRender.width(label)) / 2, textY, strong);
     }
 }
