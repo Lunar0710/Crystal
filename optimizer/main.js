@@ -310,6 +310,39 @@ function startAutoUpdate() {
   setInterval(check, 6 * 60 * 60 * 1000)
 }
 
+// ---------------------------------------------------------------- bufferbloat
+// Ping at rest, then while a large download fills the line. If the ping
+// jumps, the router queues too much (bufferbloat): the most common cause of
+// lag spikes when someone else streams or downloads. Cloudflare's speed test
+// endpoint serves the download.
+async function bufferbloat(sendProgress) {
+  const ping = () => tcpPing('1.1.1.1', 443, 1500)
+  const idle = []
+  for (let i = 0; i < 8; i++) { const ms = await ping(); if (ms != null) idle.push(ms); await new Promise(r => setTimeout(r, 150)) }
+  sendProgress && sendProgress({ phase: 'load' })
+  const { net: enet } = require('electron')
+  const ctrl = new AbortController()
+  let bytes = 0, started = Date.now(), stopped = false
+  const dl = (async () => {
+    try {
+      const res = await enet.fetch('https://speed.cloudflare.com/__down?bytes=200000000', { signal: ctrl.signal, cache: 'no-store' })
+      const reader = res.body.getReader()
+      while (!stopped) { const { done, value } = await reader.read(); if (done) break; bytes += value.length }
+    } catch {}
+  })()
+  const loaded = []
+  const until = Date.now() + 8000
+  await new Promise(r => setTimeout(r, 1200))
+  while (Date.now() < until) { const ms = await ping(); if (ms != null) loaded.push(ms); sendProgress && sendProgress({ phase: 'load', mbps: bytes * 8 / ((Date.now() - started) / 1000) / 1e6 }); await new Promise(r => setTimeout(r, 250)) }
+  stopped = true; ctrl.abort(); await dl
+  const med = a => { const x = [...a].sort((p, q) => p - q); return x.length ? x[Math.floor(x.length / 2)] : null }
+  const idleMs = med(idle), loadMs = med(loaded)
+  const mbps = bytes * 8 / ((Date.now() - started) / 1000) / 1e6
+  const plus = idleMs != null && loadMs != null ? loadMs - idleMs : null
+  const grade = plus == null ? '?' : plus < 5 ? 'A+' : plus < 30 ? 'A' : plus < 60 ? 'B' : plus < 200 ? 'C' : 'D'
+  return { idle: idleMs, loaded: loadMs, plus, mbps, grade }
+}
+
 // ---------------------------------------------------------------- update check
 const VERSION_URL = 'https://lunar0710.github.io/Crystal/optimizer/version.json'
 async function checkUpdate() {
@@ -480,6 +513,7 @@ ipcMain.handle('proc:kill', (_e, pids) => {
 ipcMain.handle('net:ping', (_e, { host, port }) => tcpPing(host, port))
 ipcMain.handle('net:dns', (_e, current) => dnsBench(current))
 ipcMain.handle('net:info', () => network())
+ipcMain.handle('net:bloat', e => bufferbloat(p => e.sender.send('bloat:progress', p)))
 ipcMain.handle('app:update', () => checkUpdate())
 ipcMain.handle('boost:list', () => boostList())
 ipcMain.handle('boost:close', (_e, exes) => boostClose(exes))
@@ -545,7 +579,7 @@ async function selftest(file) {
     await step('apply-all', async () => { const r = await engine('apply', { ids, elevate: true }); if (!r.ok || r.results.some(x => !x.ok)) throw new Error(JSON.stringify(r)); return r })
     await step('state-after-apply', async () => {
       const r = await engine('state')
-      const missing = r.tweaks.filter(t => !t.applied).map(t => `${t.id} (${t.actual || '?'})`)
+      const missing = r.tweaks.filter(t => !t.applied && !t.unsupported).map(t => `${t.id} (${t.actual || '?'})`)
       if (missing.length) throw new Error('not applied: ' + missing.join(','))
       return r.powerPlan
     })
@@ -583,6 +617,7 @@ async function selftest(file) {
       return { adapters: g.adapters, bench }
     })
     await step('boost-list', () => boostList())
+    await step('bufferbloat', async () => { const r = await bufferbloat(); if (r.idle == null) throw new Error('no ping'); return r })
     await step('game-scan', async () => { const p = await tasklist(); if (!p.length) throw new Error('tasklist empty'); return { processes: p.length, sample: p.slice(0, 3) } })
     await step('settings', async () => { loadSettings(); settings.customGames = ['test.exe']; saveSettings(); loadSettings(); if (settings.customGames[0] !== 'test.exe') throw new Error('not saved'); settings.customGames = []; saveSettings(); return settings })
     await step('network', () => network())

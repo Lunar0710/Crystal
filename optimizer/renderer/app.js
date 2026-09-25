@@ -229,8 +229,8 @@
     if (!shown.length) { $('tweaks').innerHTML = '<div class="empty">Nichts gefunden.</div>'; return }
     $('tweaks').innerHTML = cats.filter(c => shown.some(t => t.cat === c)).map(c => `<div class="cat">${esc(c)}</div><div class="tw">${shown.filter(t => t.cat === c).map(t => `
       <div class="twc shell"><div class="core"><div class="body"><b>${esc(t.name)}</b><p>${esc(t.desc)}</p><div class="tags">
-        ${t.applied ? '<span class="tag done">aktiv</span>' : ''}<span class="tag ${t.impact === 'hoch' ? 'hoch' : ''}">Wirkung ${esc(t.impact)}</span>${t.admin ? '<span class="tag">Admin</span>' : ''}${t.reboot ? '<span class="tag">Neustart</span>' : ''}${t.optional ? '<span class="tag">optional</span>' : ''}
-      </div></div><div class="switch ${t.applied ? 'on' : ''}" data-tweak="${t.id}" role="switch" aria-checked="${t.applied}" tabindex="0"></div></div></div>`).join('')}</div>`).join('')
+        ${t.unsupported ? '<span class="tag">auf diesem PC nicht verfügbar</span>' : ''}${t.applied ? '<span class="tag done">aktiv</span>' : ''}<span class="tag ${t.impact === 'hoch' ? 'hoch' : ''}">Wirkung ${esc(t.impact)}</span>${t.admin ? '<span class="tag">Admin</span>' : ''}${t.reboot ? '<span class="tag">Neustart</span>' : ''}${t.optional ? '<span class="tag">optional</span>' : ''}
+      </div></div><div class="switch ${t.applied ? 'on' : ''} ${t.unsupported ? 'busy' : ''}" data-tweak="${t.id}" role="switch" aria-checked="${t.applied}" tabindex="0"></div></div></div>`).join('')}</div>`).join('')
   }
   $('twSearch').oninput = e => { twQuery = e.target.value; renderTweaks() }
   document.addEventListener('click', e => { const b = e.target.closest('[data-twcat]'); if (b) { twCat = b.dataset.twcat; renderTweaks() } })
@@ -238,7 +238,7 @@
     const b = e.target.closest('[data-preset]'); if (!b || !S.tweaks) return
     const mode = b.dataset.preset
     if (mode === 'none') { $('undoAll').click(); return }
-    const todo = S.tweaks.filter(t => !t.applied && (mode === 'max' || !t.optional))
+    const todo = S.tweaks.filter(t => !t.applied && !t.unsupported && (mode === 'max' || !t.optional))
     if (!todo.length) { toast('Schon alles aktiv.'); return }
     if (mode === 'max' && !await confirmBox('Alles aktivieren?', `${todo.length} Einstellungen, auch Dienste wie Windows-Suche, Druckdienst und SysMain sowie der Ruhezustand. Alles lässt sich einzeln oder mit „Original“ zurücknehmen.`, 'Alles aktivieren')) return
     await busy(b, async () => {
@@ -265,7 +265,7 @@
 
   async function applyRecommended(btn) {
     if (!S.tweaks) return
-    const todo = S.tweaks.filter(t => !t.optional && !t.applied)
+    const todo = S.tweaks.filter(t => !t.optional && !t.applied && !t.unsupported)
     if (!todo.length) { toast('Alles Empfohlene ist schon aktiv.'); return }
     await busy(btn, async () => {
       const r = await api.engine('apply', { ids: todo.map(t => t.id), elevate: todo.some(t => t.admin) })
@@ -476,6 +476,28 @@
   $('dnsRun').onclick = e => runDns(e.currentTarget)
   document.addEventListener('click', e => { const b = e.target.closest('[data-dns]'); if (b) setDns(b, b.dataset.dns.split(',')) })
 
+  // ------------------------------------------------------------ bufferbloat
+  const bloatTips = {
+    'A+': 'Hervorragend: Dein Ping bleibt stabil, auch wenn die Leitung voll ist.',
+    A: 'Sehr gut: Downloads und Streams im Netz stören beim Spielen kaum.',
+    B: 'Merkbar: Lädt jemand nebenbei, steigt dein Ping etwas. Im Router QoS oder „Gaming-Priorität“ für deinen PC einschalten hilft.',
+    C: 'Deutlich: Lädt oder streamt jemand, laggst du. Schalte im Router QoS / „Smart Queue“ (SQM) ein oder gib deinem PC Priorität. Bei der FRITZ!Box: Internet > Filter > Priorisierung.',
+    D: 'Stark: Dein Router puffert zu viel. Mit QoS/SQM im Router lässt sich das fast immer beheben. Kurzfristig: Downloads und Streams im Netz pausieren, während du spielst.',
+  }
+  api.onBloat && api.onBloat(p => { const s = $('bloatStatus'); if (s) s.textContent = p.mbps ? `Lädt … ${p.mbps.toFixed(0)} Mbit/s` : 'Misst Ping in Ruhe …' })
+  $('bloatRun').onclick = async e => {
+    await busy(e.currentTarget, async () => {
+      $('bloat').insertAdjacentHTML('afterbegin', '<div class="li" id="bloatWait"><div><b>Test läuft …</b><small id="bloatStatus">Misst Ping in Ruhe …</small></div></div>')
+      const r = await api.bufferbloat().catch(() => null)
+      if (!r || r.idle == null) { toast('Test fehlgeschlagen, keine Verbindung.', true); $('bloatWait') && $('bloatWait').remove(); return }
+      const col = { 'A+': 'good', A: 'good', B: 'warn', C: 'bad', D: 'bad' }[r.grade] || 'info'
+      $('bloat').innerHTML = `<div class="li"><span class="grade ${col}">${esc(r.grade)}</span><div><b>Ping in Ruhe ${Math.round(r.idle)} ms · unter Last ${r.loaded != null ? Math.round(r.loaded) + ' ms' : '–'}${r.plus != null ? ` (+${Math.max(0, Math.round(r.plus))} ms)` : ''}</b><small>${esc(bloatTips[r.grade] || '')}</small></div><span class="ms">${r.mbps.toFixed(0)} Mbit/s</span></div>
+        <div class="li"><div><small>Download-Geschwindigkeit gemessen über Cloudflare. Upload wird nicht getestet.</small></div><button class="btn ghost sm" id="bloatRun2"><span>Nochmal</span></button></div>`
+      $('bloatRun2').onclick = () => $('bloatRun').onclick({ currentTarget: $('bloatRun2') })
+      S.bloat = r; render()
+    })
+  }
+
   // ------------------------------------------------------------ boost
   const boostPick = new Set()
   let boostApps = []
@@ -549,7 +571,7 @@
   function issues() {
     const list = []
     if (S.tweaks) {
-      const miss = S.tweaks.filter(t => !t.optional && !t.applied)
+      const miss = S.tweaks.filter(t => !t.optional && !t.applied && !t.unsupported)
       if (miss.length) list.push({ sev: miss.length > 3 ? 'bad' : 'warn', pts: Math.min(30, miss.length * 4), title: `${miss.length} Windows-Einstellungen bremsen beim Spielen`, detail: miss.map(t => t.name).join(', '), act: ['Optimieren', 'tweaks'] })
     }
     for (const g of gpus()) {
@@ -566,6 +588,7 @@
     if (S.startup) { const on = S.startup.filter(i => i.enabled).length; if (on > 8) list.push({ sev: 'warn', pts: 5, title: `${on} Programme starten mit Windows`, detail: 'Jedes davon kostet beim Hochfahren Zeit und läuft danach im Hintergrund.', act: ['Autostart', 'startup'] }) }
     if (S.clean) { const junk = S.clean.targets.filter(t => t.id !== 'recycle').reduce((a, t) => a + t.bytes, 0); if (junk > 2 * GB) list.push({ sev: 'info', pts: 3, title: `${fmtBytes(junk)} Datenmüll`, detail: 'Temporäre Dateien und alte Update-Downloads.', act: ['Aufräumen', 'clean'] }) }
     if (S.cpuSamples.length >= 20) { const avg = S.cpuSamples.reduce((a, b) => a + b, 0) / S.cpuSamples.length; if (avg > 35) list.push({ sev: 'warn', pts: 6, title: `CPU im Leerlauf zu ${Math.round(avg)} % ausgelastet`, detail: 'Irgendetwas läuft im Hintergrund mit. Der Live-Monitor zeigt was.', act: ['Ansehen', 'monitor'] }) }
+    if (S.bloat && (S.bloat.grade === 'C' || S.bloat.grade === 'D')) list.push({ sev: S.bloat.grade === 'D' ? 'bad' : 'warn', pts: S.bloat.grade === 'D' ? 8 : 5, title: `Ping steigt unter Last um ${Math.round(S.bloat.plus)} ms`, detail: 'Streamt oder lädt jemand im Netz, laggst du. QoS/SQM im Router hilft.', act: ['Details', 'latency'] })
     const wlan = (S.dnsState && S.dnsState.adapters.some(a => a.wireless)) || (S.net && S.net.type === 'wireless')
     if (wlan) list.push({ sev: 'info', pts: 4, title: 'Du bist über WLAN verbunden', detail: 'WLAN hat mehr Ping-Schwankungen und Paketverlust als ein LAN-Kabel. Für Online-Spiele ist Kabel fast immer besser.', act: ['Latenz messen', 'latency'] })
     if (S.maxCpuTemp > 90) list.push({ sev: 'bad', pts: 8, title: `CPU wird ${Math.round(S.maxCpuTemp)} °C heiß`, detail: 'Ab etwa 90 °C taktet sie herunter. Lüfter und Staub prüfen, Wärmeleitpaste ist nach Jahren oft trocken.', act: ['Live-Monitor', 'monitor'] })

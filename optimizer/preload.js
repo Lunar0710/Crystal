@@ -10,6 +10,8 @@ contextBridge.exposeInMainWorld('lunar', {
   ping: (host, port) => ipcRenderer.invoke('net:ping', { host, port }),
   dnsBench: current => ipcRenderer.invoke('net:dns', current),
   netInfo: () => ipcRenderer.invoke('net:info'),
+  bufferbloat: () => ipcRenderer.invoke('net:bloat'),
+  onBloat: fn => ipcRenderer.on('bloat:progress', (_e, p) => fn(p)),
   checkUpdate: () => ipcRenderer.invoke('app:update'),
   onUpdate: fn => ipcRenderer.on('update:state', (_e, st) => fn(st)),
   installUpdate: () => ipcRenderer.invoke('update:install'),

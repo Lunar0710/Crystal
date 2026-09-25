@@ -166,6 +166,42 @@ function Revert-Power($Backup) {
     Save-Backup $Backup
 }
 
+# ------------------------------------------------------------------ network adapter
+# Advanced driver settings, by their fixed registry keyword (the display names
+# are translated and differ per driver). Only what the adapter actually has.
+$NicSets = @{
+    'nic-eee' = @(@('*EEE', '0'), @('EEELinkAdvertisement', '0'), @('AdvancedEEE', '0'), @('EnableGreenEthernet', '0'), @('GigaLite', '0'), @('PowerSavingMode', '0'))
+    'nic-irq' = @(@('*InterruptModeration', '0'))
+}
+function Get-NicProps($id) {
+    $want = @($NicSets[$id])
+    $list = @()
+    foreach ($a in Get-NetAdapter -Physical -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq 'Up' }) {
+        foreach ($w in $want) {
+            $p = Get-NetAdapterAdvancedProperty -Name $a.Name -RegistryKeyword $w[0] -ErrorAction SilentlyContinue
+            if ($p) { $list += [pscustomobject]@{ adapter = $a.Name; keyword = $w[0]; value = "$($p.RegistryValue)"; target = $w[1] } }
+        }
+    }
+    return , $list
+}
+function Apply-Nic($Backup, $id) {
+    if (-not ($Backup.PSObject.Properties.Name -contains 'nic')) { $Backup | Add-Member -NotePropertyName nic -NotePropertyValue ([pscustomobject]@{}) }
+    foreach ($p in Get-NicProps $id) {
+        $key = "$id|$($p.adapter)|$($p.keyword)"
+        if (-not ($Backup.nic.PSObject.Properties.Name -contains $key)) { $Backup.nic | Add-Member -NotePropertyName $key -NotePropertyValue $p.value; Save-Backup $Backup }
+        if ($p.value -ne $p.target) { Set-NetAdapterAdvancedProperty -Name $p.adapter -RegistryKeyword $p.keyword -RegistryValue $p.target -ErrorAction Stop }
+    }
+}
+function Revert-Nic($Backup, $id) {
+    if (-not ($Backup.PSObject.Properties.Name -contains 'nic')) { return }
+    foreach ($prop in @($Backup.nic.PSObject.Properties | Where-Object { $_.Name.StartsWith("$id|") })) {
+        $parts = $prop.Name.Split('|')
+        Set-NetAdapterAdvancedProperty -Name $parts[1] -RegistryKeyword $parts[2] -RegistryValue $prop.Value -ErrorAction SilentlyContinue
+        $Backup.nic.PSObject.Properties.Remove($prop.Name)
+    }
+    Save-Backup $Backup
+}
+
 # ------------------------------------------------------------------ tweaks
 $MM = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile'
 $Tweaks = @(
@@ -243,6 +279,12 @@ $Tweaks = @(
        name = 'Telemetrie-Dienst aus'
        desc = 'Der Dienst "Benutzererfahrung und Telemetrie" sendet keine Nutzungsdaten mehr an Microsoft und läuft nicht mehr im Hintergrund. Updates und Sicherheit bleiben unberührt.'
        svc = @(, @('DiagTrack', 'Disabled')) },
+    @{ id = 'nic-eee'; cat = 'Netzwerk'; admin = $true; reboot = $false; impact = 'mittel'; nic = $true
+       name = 'Netzwerkkarte ohne Energiesparen'
+       desc = 'Green Ethernet und Energy Efficient Ethernet aus: Die Karte schläft nicht mehr in kurzen Pausen ein, das spart Ping-Spitzen. Die Verbindung ist beim Umschalten 2 bis 3 Sekunden weg.' },
+    @{ id = 'nic-irq'; cat = 'Netzwerk'; admin = $true; reboot = $false; impact = 'niedrig'; optional = $true; nic = $true
+       name = 'Interrupt Moderation aus'
+       desc = 'Die Netzwerkkarte meldet jedes Paket sofort, statt mehrere zu sammeln. Etwas weniger Latenz, etwas mehr CPU-Last. Die Verbindung ist beim Umschalten kurz weg.' },
     @{ id = 'windowed'; cat = 'Grafik'; admin = $false; reboot = $false; impact = 'mittel'
        name = 'Optimierungen für Fenster-Spiele'
        desc = 'Spiele im Fenster oder randlosen Vollbild laufen mit derselben niedrigen Latenz wie im echten Vollbild, dazu variable Bildwiederholrate (G-Sync/FreeSync) auch im Fenster. Ab Windows 10 21H2.'
@@ -355,6 +397,7 @@ function Get-Norm($x) {
 function Test-Applied($t) {
     if ($t.id -eq 'power') { return ((Get-ActiveScheme).name -match 'Lunar Gaming') }
     if ($t.id -eq 'hibernate') { return ((Get-RegValue 'HKLM:\SYSTEM\CurrentControlSet\Control\Power' 'HibernateEnabled') -eq 0) }
+    if ($t.nic) { $ps = Get-NicProps $t.id; return ($ps.Count -gt 0 -and -not ($ps | Where-Object { $_.value -ne $_.target })) }
     if ($t.svc) {
         foreach ($sv in $t.svc) { $x = Get-Service -Name $sv[0] -ErrorAction SilentlyContinue; if ($x -and "$($x.StartType)" -ne $sv[1]) { return $false } }
         return $true
@@ -370,6 +413,7 @@ function Test-Applied($t) {
 
 function Apply-Tweak($Backup, $t) {
     if ($t.id -eq 'power') { Apply-Power $Backup; return }
+    if ($t.nic) { Apply-Nic $Backup $t.id; return }
     if ($t.id -eq 'hibernate') {
         if (-not ($Backup.PSObject.Properties.Name -contains 'hibernate')) {
             # The exact old value: 1, 0 or none (PCs without hibernation have no value at all).
@@ -387,6 +431,7 @@ function Apply-Tweak($Backup, $t) {
 
 function Revert-Tweak($Backup, $t) {
     if ($t.id -eq 'power') { Revert-Power $Backup; return }
+    if ($t.nic) { Revert-Nic $Backup $t.id; return }
     if ($t.id -eq 'hibernate') {
         if ($Backup.PSObject.Properties.Name -contains 'hibernate') {
             Restore-Hibernate $Backup.hibernate
@@ -604,9 +649,9 @@ try {
                 $ap = Test-Applied $t
                 # For a registry tweak that isn't on: what the registry holds (and its type), for diagnosis.
                 $actual = $null
-                if (-not $ap -and -not $t.svc -and -not $t.custom) { $actual = (@(Get-Regs $t) | ForEach-Object { $v = Get-RegValue $_[0] $_[1]; "$($_[1])=$v [$(if ($null -ne $v) { $v.GetType().Name })]" }) -join '; ' }
+                if (-not $ap -and -not $t.svc -and -not $t.custom -and -not $t.nic) { $actual = (@(Get-Regs $t) | ForEach-Object { $v = Get-RegValue $_[0] $_[1]; "$($_[1])=$v [$(if ($null -ne $v) { $v.GetType().Name })]" }) -join '; ' }
                 [pscustomobject]@{ id = $t.id; name = $t.name; desc = $t.desc; cat = $t.cat; admin = $t.admin; reboot = $t.reboot; impact = $t.impact
-                                   optional = [bool]$t.optional; applied = $ap; actual = $actual }
+                                   optional = [bool]$t.optional; applied = $ap; actual = $actual; unsupported = ($t.nic -and (Get-NicProps $t.id).Count -eq 0) }
             }
             Write-Result ([pscustomobject]@{ ok = $true; admin = $IsAdmin; tweaks = @($list); backup = (Test-Path $BackupFile); powerPlan = (Get-ActiveScheme).name })
         }
@@ -633,6 +678,7 @@ try {
             $n = 0
             foreach ($p in @($b.registry.PSObject.Properties)) { try { Restore-Entry $p.Value; $n++ } catch {} }
             if ($b.PSObject.Properties.Name -contains 'hibernate') { Restore-Hibernate $b.hibernate; $n++ }
+            if ($b.PSObject.Properties.Name -contains 'nic') { foreach ($id in @('nic-eee', 'nic-irq')) { try { Revert-Nic $b $id; $n++ } catch {} } }
             if ($b.PSObject.Properties.Name -contains 'dns') { try { Set-Dns $b @() $true; $n++ } catch {} }
             if ($b.PSObject.Properties.Name -contains 'services') { foreach ($p in @($b.services.PSObject.Properties)) { try { Restore-Service $p.Name $p.Value; $n++ } catch {} } }
             if ((Get-LunarScheme) -or $b.powerScheme) { Revert-Power $b }
@@ -646,7 +692,7 @@ try {
         'overview' {
             $list = foreach ($t in $Tweaks) {
                 [pscustomobject]@{ id = $t.id; name = $t.name; desc = $t.desc; cat = $t.cat; admin = $t.admin; reboot = $t.reboot; impact = $t.impact
-                                   optional = [bool]$t.optional; applied = (Test-Applied $t) }
+                                   optional = [bool]$t.optional; applied = (Test-Applied $t); unsupported = ($t.nic -and (Get-NicProps $t.id).Count -eq 0) }
             }
             $dnsChanged = $false; $bk = Get-Backup; if ($bk.PSObject.Properties.Name -contains 'dns') { $dnsChanged = @($bk.dns.PSObject.Properties).Count -gt 0 }
             Write-Result ([pscustomobject]@{ ok = $true; admin = $IsAdmin; tweaks = @($list); backup = (Test-Path $BackupFile); powerPlan = (Get-ActiveScheme).name

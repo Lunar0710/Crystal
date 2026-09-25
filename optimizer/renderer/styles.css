@@ -275,3 +275,6 @@ a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: un
 .chip .x { margin-left: 4px; color: var(--dim); font-weight: 600; }
 #p-settings .li small { white-space: normal; }
 #sCustom { width: 340px; }
+
+.grade { width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; flex: none; font-family: var(--display); font-stretch: 112%; font-size: 20px; font-weight: 800; }
+.grade.good { background: rgba(61,190,122,.16); color: #6be3a2; } .grade.warn { background: rgba(240,161,58,.16); color: #ffc27a; } .grade.bad { background: rgba(229,72,77,.16); color: #ff8a8e; }
