@@ -27,7 +27,7 @@ import { CrashDoctor } from './minecraft/CrashDoctor'
 import { ScreenshotService } from './screenshots/ScreenshotService'
 import { ServerListService, isValidServerAddress } from './servers/ServerListService'
 import { StatsService } from './stats/StatsService'
-import { RunningGames } from './minecraft/RunningGames'
+import { RunningGames, gameMarkers } from './minecraft/RunningGames'
 import { PerfDoctor, type PerfFix } from './minecraft/PerfDoctor'
 import { crystalPath, crystalRoot, defaultCrystalRoot, setCrystalRoot, canUseAsRoot } from './paths'
 
@@ -353,6 +353,11 @@ export function registerIpcHandlers(store: Store) {
   })
   /** Instances between the Play click and a running game; a second click must not start them again. */
   const starting = new Set<string>()
+  // Games that outlived an earlier launcher (they start detached) come back into the list.
+  running.adoptRunning(id => {
+    const instance = instances.get(id)
+    return instance ? { name: instance.name, version: instance.version } : null
+  }).catch(() => {})
   ipcMain.handle('games:list', () => running.list())
   ipcMain.handle('games:close', (_e, instanceId: string) => running.close(String(instanceId)))
 
@@ -425,6 +430,10 @@ export function registerIpcHandlers(store: Store) {
       return false
     }
     if (launchId) starting.add(launchId)
+    // Marks that let a later launcher recognise this game (RunningGames.adoptRunning).
+    if (launchId && profile) {
+      opts.extraJvmArgs = [...(opts.extraJvmArgs ?? []), ...gameMarkers(launchId, profile.uuid, profile.username, Number(opts.maxRam) || 0)]
+    }
 
     // A launch never waits on this — an update becomes a dismissible banner
     // (see UpdateBanner.tsx), never a blocker standing between the user and Play.

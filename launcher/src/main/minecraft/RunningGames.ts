@@ -13,6 +13,19 @@ export interface RunningGame {
   startedAt: number
   /** The heap the game was started with (-Xmx), in MB. */
   maxRamMb: number
+  /**
+   * Found running when the launcher started (a game outlives the launcher).
+   * There is no exit event for it, so it leaves the list when its process is gone.
+   */
+  adopted?: boolean
+}
+
+/**
+ * Marks the launcher puts on the game's command line, so a launcher started
+ * later can tell its games apart from any other Java program.
+ */
+export function gameMarkers(instanceId: string, accountUuid: string, username: string, maxRamMb: number): string[] {
+  return [`-Dnexora.instance=${instanceId}`, `-Dnexora.account=${accountUuid}`, `-Dnexora.user=${username}`, `-Dnexora.ram=${maxRamMb}`]
 }
 
 /** What a game is using right now. */
@@ -124,6 +137,79 @@ export class RunningGames {
 
   private sampling = false
 
+  /**
+   * Takes over games that were started by an earlier launcher and are still
+   * running, found by the marks gameMarkers put on their command line.
+   * {@code lookup} gives an instance's name and version, or null for an
+   * instance that no longer exists (that game is left alone).
+   */
+  async adoptRunning(lookup: (instanceId: string) => { name: string; version: string } | null): Promise<number> {
+    let found: { pid: number; cmd: string; started: number }[] = []
+    try {
+      found = process.platform === 'win32' ? await this.javaProcessesWindows() : await this.javaProcessesPs()
+    } catch (err) {
+      logger.debug('launcher', 'Laufende Spiele nicht auffindbar', String(err))
+      return 0
+    }
+    let adopted = 0
+    for (const { pid, cmd, started } of found) {
+      const mark = (key: string) => cmd.match(new RegExp(`-Dnexora\\.${key}=(\\S+)`))?.[1]
+      const instanceId = mark('instance')
+      if (!instanceId || this.games.has(instanceId)) continue
+      const instance = lookup(instanceId)
+      if (!instance) continue
+      this.games.set(instanceId, {
+        instanceId,
+        instanceName: instance.name,
+        version: instance.version,
+        username: mark('user') ?? '?',
+        accountUuid: mark('account') ?? '',
+        pid,
+        startedAt: started || Date.now(),
+        maxRamMb: Number(mark('ram')) || 0,
+        adopted: true,
+      })
+      adopted++
+    }
+    if (adopted > 0) {
+      logger.info('launcher', `${adopted} laufende(s) Spiel(e) vom letzten Launcher übernommen`)
+      this.start()
+      this.onChange(this.list())
+    }
+    return adopted
+  }
+
+  private javaProcessesWindows(): Promise<{ pid: number; cmd: string; started: number }[]> {
+    const script =
+      "Get-CimInstance Win32_Process -Filter \"name='java.exe' or name='javaw.exe'\" | " +
+      "Where-Object { $_.CommandLine -match '-Dnexora.instance=' } | " +
+      'ForEach-Object { [pscustomobject]@{ pid = $_.ProcessId; cmd = $_.CommandLine; started = ([DateTimeOffset]$_.CreationDate).ToUnixTimeMilliseconds() } } | ' +
+      'ConvertTo-Json -Compress'
+    return new Promise((resolve, reject) => {
+      execFile('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', script], { windowsHide: true, maxBuffer: 8 * 1024 * 1024 }, (err, stdout) => {
+        if (err) return reject(err)
+        const text = stdout.trim()
+        if (!text) return resolve([])
+        const parsed = JSON.parse(text)
+        resolve((Array.isArray(parsed) ? parsed : [parsed]).map((p: any) => ({ pid: Number(p.pid), cmd: String(p.cmd ?? ''), started: Number(p.started) || 0 })))
+      })
+    })
+  }
+
+  private javaProcessesPs(): Promise<{ pid: number; cmd: string; started: number }[]> {
+    return new Promise((resolve, reject) => {
+      execFile('ps', ['-eo', 'pid=,etimes=,args='], { maxBuffer: 8 * 1024 * 1024 }, (err, stdout) => {
+        if (err && !stdout) return reject(err)
+        const now = Date.now()
+        resolve(stdout.split('\n').flatMap(line => {
+          const m = line.trim().match(/^(\d+)\s+(\d+)\s+(.*)$/)
+          if (!m || !m[3].includes('-Dnexora.instance=')) return []
+          return [{ pid: Number(m[1]), cmd: m[3], started: now - Number(m[2]) * 1000 }]
+        }))
+      })
+    })
+  }
+
   private async sample() {
     if (this.sampling || this.games.size === 0) return
     this.sampling = true
@@ -151,6 +237,10 @@ export class RunningGames {
           const t = this.totals.get(pid) ?? { cpu: 0, ram: 0, peak: 0, n: 0 }
           this.totals.set(pid, { cpu: t.cpu + usage.cpuPercent, ram: t.ram + usage.ramMb, peak: Math.max(t.peak, usage.ramMb), n: t.n + 1 })
         }
+      }
+      // Adopted games send no exit event: they leave once their process is gone.
+      for (const game of [...this.games.values()]) {
+        if (game.adopted && !raw.has(game.pid)) this.remove(game.instanceId)
       }
       this.onChange(this.list())
     } catch (err) {

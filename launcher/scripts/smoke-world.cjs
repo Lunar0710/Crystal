@@ -238,6 +238,8 @@ function stripedCapePng() {
   log('launching')
   const ok = await manager.launch({
     version: VERSION, instanceId: 'smoke-world', gameDir, username: profile.username, profile, maxRam: Number(process.env.CRYSTAL_SMOKE_RAM || 3072),
+    // CRYSTAL_SMOKE_ZGC=1 plays with the launcher's "fewer stutters" collector.
+    lowStutterGc: process.env.CRYSTAL_SMOKE_ZGC === '1',
     loader: 'fabric', injectCrystal: true,
     // CRYSTAL_SMOKE_JVM adds flags for special runs, e.g. -Dcrystal.smoke.bench=1.
     extraJvmArgs: [`-Dcrystal.smoke.screenshot=${shotName}`, ...peers.jvmArgs, ...(process.env.CRYSTAL_SMOKE_JVM || '').split(' ').filter(Boolean)],
