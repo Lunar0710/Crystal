@@ -25,10 +25,7 @@ public class MixinBossBarHud {
     private void onRender(GuiGraphics context, CallbackInfo ci) {
         if (CrystalClient.getInstance() == null || events.isEmpty()) return;
 
-        BossBar module = CrystalClient.getInstance().getModuleManager().getModuleByName("BossBar")
-                .filter(m -> m.isEnabled())
-                .map(m -> (BossBar) m)
-                .orElse(null);
+        BossBar module = CrystalClient.getInstance().getModuleManager().getEnabled(BossBar.class);
         if (module == null) return;
 
         ci.cancel();

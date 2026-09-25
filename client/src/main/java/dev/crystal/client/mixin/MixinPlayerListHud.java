@@ -25,10 +25,7 @@ public class MixinPlayerListHud {
     private void onRender(GuiGraphics context, int screenWidth, Scoreboard scoreboard, Objective objective, CallbackInfo ci) {
         if (CrystalClient.getInstance() == null) return;
 
-        TabEditor module = CrystalClient.getInstance().getModuleManager().getModuleByName("TabEditor")
-                .filter(m -> m.isEnabled())
-                .map(m -> (TabEditor) m)
-                .orElse(null);
+        TabEditor module = CrystalClient.getInstance().getModuleManager().getEnabled(TabEditor.class);
         if (module == null) return;
 
         ci.cancel();
