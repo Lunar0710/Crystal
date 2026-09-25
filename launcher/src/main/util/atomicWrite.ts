@@ -11,8 +11,10 @@ export function writeFileAtomic(file: string, data: string | Buffer): void {
   fs.writeFileSync(temp, data)
   try {
     fs.renameSync(temp, file)
-  } catch (err) {
+  } catch {
+    // Windows refuses the rename now and then (a virus scanner holding the
+    // file); writing in place as before is still better than not at all.
     fs.rmSync(temp, { force: true })
-    throw err
+    fs.writeFileSync(file, data)
   }
 }
