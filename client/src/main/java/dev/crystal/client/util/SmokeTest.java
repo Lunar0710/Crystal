@@ -986,6 +986,9 @@ public final class SmokeTest {
      */
     /** Tick of the first hit on the pig; 0 until the pig has turned up. */
     private static int pvpFirstHit = 0;
+    /** Tick the first hit was confirmed (0 = not yet), and of the second hit. */
+    private static int pvpConfirmed = 0, pvpSecondHit = 0;
+    private static boolean pvpReported = false, killReported = false;
 
     private static void pvpTest(Minecraft mc) {
         var server = mc.getSingleplayerServer();
@@ -1002,31 +1005,41 @@ public final class SmokeTest {
                 server.getCommands().performPrefixedCommand(source,
                         "summon pig " + pos.getX() + " " + pos.getY() + " " + (pos.getZ() + 2) + " {NoAI:1b}");
             });
-        } else if (worldTicks >= 56 && worldTicks <= 76 && pvpFirstHit == 0 || pvpFirstHit > 0 && worldTicks == pvpFirstHit + 16) {
-            // Two hits, the second past the pig's hurt cooldown so it kills it.
-            // The pig can take a few ticks to reach the client, so the first
-            // hit waits for it (up to 20 ticks).
+        } else if (worldTicks >= 56 && worldTicks <= 76 && pvpFirstHit == 0 || pvpConfirmed > 0 && pvpSecondHit == 0 && worldTicks == pvpConfirmed + 14) {
+            // Two hits. The first waits for the pig to reach the client (up to
+            // 20 ticks); the second comes once the first is confirmed plus the
+            // pig's hurt cooldown, so it kills it even when the test server
+            // falls behind (it did, by two seconds, under a loaded machine).
             var pig = mc.level.getEntities(mc.player, mc.player.getBoundingBox().inflate(12),
                     e -> e.getType() == net.minecraft.world.entity.EntityType.PIG).stream().findFirst().orElse(null);
             if (pig == null) {
-                if (worldTicks == 76) CrystalClient.LOGGER.info("[Nexora] PvP HUD FAILED: no pig");
+                if (worldTicks == 76 && pvpFirstHit == 0) CrystalClient.LOGGER.info("[Nexora] PvP HUD FAILED: no pig");
                 return;
             }
-            if (pvpFirstHit == 0) pvpFirstHit = worldTicks;
+            if (pvpFirstHit == 0) pvpFirstHit = worldTicks; else pvpSecondHit = worldTicks;
             mc.gameMode.attack(mc.player, pig);
             mc.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
-        } else if (pvpFirstHit > 0 && worldTicks == pvpFirstHit + 10) {
+        } else if (pvpFirstHit > 0 && !pvpReported && worldTicks >= pvpFirstHit + 10) {
+            // Waits up to three seconds for the server to confirm the hit.
             var round = CombatTracker.current();
             String pots = CrystalClient.getInstance().getModuleManager().getModuleByName("PotCounter")
                     .map(m -> ((dev.crystal.client.module.hud.PotCounter) m).getText()).orElse("?");
             boolean ok = round != null && round.hits() >= 1 && "Pots: 3".equals(pots);
-            CrystalClient.LOGGER.info("[Nexora] PvP HUD {}: hits={} swings={} pots=\"{}\"",
-                    ok ? "PASS" : "FAILED", round == null ? -1 : round.hits(), round == null ? -1 : round.swings(), pots);
-        } else if (pvpFirstHit > 0 && worldTicks == pvpFirstHit + 40) {
+            if (ok || worldTicks >= pvpFirstHit + 60) {
+                pvpReported = true;
+                if (ok) pvpConfirmed = worldTicks;
+                CrystalClient.LOGGER.info("[Nexora] PvP HUD {}: hits={} swings={} pots=\"{}\"",
+                        ok ? "PASS" : "FAILED", round == null ? -1 : round.hits(), round == null ? -1 : round.swings(), pots);
+                if (!ok) { killReported = true; CrystalClient.LOGGER.info("[Nexora] Kill round FAILED: no first hit"); }
+            }
+        } else if (pvpSecondHit > 0 && !killReported && worldTicks >= pvpSecondHit + 10) {
             // The pig died from the second hit: a won round (and KillEffect ran on the way).
             var last = CombatTracker.lastRound();
+            boolean ok = last != null && last.won() && last.hits() >= 2;
+            if (!ok && worldTicks < pvpSecondHit + 70) return; // the round ends a little after the kill
+            killReported = true;
             CrystalClient.LOGGER.info("[Nexora] Kill round {}: won={} hits={}",
-                    last != null && last.won() && last.hits() >= 2 ? "PASS" : "FAILED", last != null && last.won(), last == null ? -1 : last.hits());
+                    ok ? "PASS" : "FAILED", last != null && last.won(), last == null ? -1 : last.hits());
             // TotemPops through the real path: entity event packets handed to the
             // connection, the way the server sends them. Two pops, then a death.
             var me = mc.player;
