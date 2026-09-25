@@ -146,8 +146,11 @@ public class ConfigManager {
 
     private void apply(JsonObject modules, java.util.function.Predicate<Module> include) {
         for (Module module : CrystalClient.getInstance().getModuleManager().getModules()) {
-            if (!include.test(module) || !modules.has(module.getName())) continue;
-            JsonObject mObj = modules.getAsJsonObject(module.getName());
+            if (!include.test(module)) continue;
+            // A renamed module picks up what was saved under its old name.
+            String key = modules.has(module.getName()) ? module.getName() : LEGACY_NAMES.get(module.getName());
+            if (key == null || !modules.has(key)) continue;
+            JsonObject mObj = modules.getAsJsonObject(key);
 
             // Settings before enabling: a module's onEnable() may read them immediately.
             if (mObj.has("settings") && mObj.get("settings").isJsonObject()) {
@@ -168,6 +171,9 @@ public class ConfigManager {
             if (mObj.has("enabled")) module.setEnabled(mObj.get("enabled").getAsBoolean());
         }
     }
+
+    /** Current module name -> the name it was saved under before a rename. */
+    private static final java.util.Map<String, String> LEGACY_NAMES = java.util.Map.of("AttackIndicator", "Cooldowns");
 
     public void reset() {
         try {

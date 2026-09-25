@@ -40,6 +40,8 @@ public class PerformanceMode extends Module {
     private boolean disableClouds = true;
     private boolean disableEntityShadows = true;
     private boolean disableBiomeBlend = true;
+    private boolean disableSmoothLighting = true;
+    private float entityDistance = 75f;
 
     private boolean applied = false;
     private final Consumer<TickEvent> tickListener = this::onTick;
@@ -78,6 +80,8 @@ public class PerformanceMode extends Module {
             saved.addProperty("clouds", o.cloudStatus().get().name());
             saved.addProperty("entityShadows", o.entityShadows().get());
             saved.addProperty("biomeBlend", o.biomeBlendRadius().get());
+            saved.addProperty("smoothLighting", o.ambientOcclusion().get());
+            saved.addProperty("entityDistance", o.entityDistanceScaling().get());
             try {
                 Files.createDirectories(backup.getParent());
                 Files.writeString(backup, GSON.toJson(saved));
@@ -95,6 +99,10 @@ public class PerformanceMode extends Module {
         if (disableClouds) o.cloudStatus().set(CloudStatus.OFF);
         if (disableEntityShadows) o.entityShadows().set(false);
         if (disableBiomeBlend) o.biomeBlendRadius().set(0);
+        // Smooth lighting makes every chunk rebuild noticeably slower.
+        if (disableSmoothLighting) o.ambientOcclusion().set(false);
+        // Mobs and items far off are drawn less far; 100% leaves it alone.
+        o.entityDistanceScaling().set(Math.min(o.entityDistanceScaling().get(), entityDistance / 100.0));
         o.save();
         applied = true;
     }
@@ -114,6 +122,9 @@ public class PerformanceMode extends Module {
             o.cloudStatus().set(CloudStatus.valueOf(saved.get("clouds").getAsString()));
             o.entityShadows().set(saved.get("entityShadows").getAsBoolean());
             o.biomeBlendRadius().set(saved.get("biomeBlend").getAsInt());
+            // Backups written before these two were added don't have them.
+            if (saved.has("smoothLighting")) o.ambientOcclusion().set(saved.get("smoothLighting").getAsBoolean());
+            if (saved.has("entityDistance")) o.entityDistanceScaling().set(saved.get("entityDistance").getAsDouble());
             o.save();
             Files.delete(backup);
         } catch (Exception e) {
@@ -140,7 +151,9 @@ public class PerformanceMode extends Module {
                 new BooleanSetting("Fewer Particles", () -> reduceParticles, v -> { reduceParticles = v; reapply(); }, true),
                 new BooleanSetting("No Clouds", () -> disableClouds, v -> { disableClouds = v; reapply(); }, true),
                 new BooleanSetting("No Entity Shadows", () -> disableEntityShadows, v -> { disableEntityShadows = v; reapply(); }, true),
-                new BooleanSetting("No Biome Blend", () -> disableBiomeBlend, v -> { disableBiomeBlend = v; reapply(); }, true)
+                new BooleanSetting("No Biome Blend", () -> disableBiomeBlend, v -> { disableBiomeBlend = v; reapply(); }, true),
+                new BooleanSetting("Keine weiche Beleuchtung", () -> disableSmoothLighting, v -> { disableSmoothLighting = v; reapply(); }, true),
+                new SliderSetting("Entity-Sichtweite (%)", () -> entityDistance, v -> { entityDistance = v; reapply(); }, 50f, 100f, 5f, 0)
         );
     }
 }

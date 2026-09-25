@@ -31,6 +31,8 @@ public class CrystalHUD {
         }
         dev.crystal.client.module.render.HitMarker marker = moduleManager.getEnabled(dev.crystal.client.module.render.HitMarker.class);
         if (marker != null) marker.draw(context, context.guiWidth(), context.guiHeight());
+        dev.crystal.client.module.player.AttackIndicator attack = moduleManager.getEnabled(dev.crystal.client.module.player.AttackIndicator.class);
+        if (attack != null) attack.draw(context, context.guiWidth(), context.guiHeight(), tickDelta);
     }
 
     /**
