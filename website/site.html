@@ -58,7 +58,7 @@
 
   /* ---------- Double bezel ---------- */
   .shell { padding: 6px; border-radius: var(--r); background: rgba(255, 255, 255, .025); box-shadow: 0 0 0 1px var(--hair), 0 40px 80px -40px rgba(0, 0, 0, .8); }
-  .core { border-radius: calc(var(--r) - 6px); background: linear-gradient(180deg, var(--core-2), var(--core)); box-shadow: inset 0 1px 1px rgba(255, 255, 255, .07); overflow: hidden; position: relative; }
+  .core { border-radius: calc(var(--r) - 6px); background: linear-gradient(180deg, var(--core-2), var(--core)); box-shadow: inset 0 1px 1px rgba(255, 255, 255, .07); overflow: hidden; overflow: clip; position: relative; }
 
   /* ---------- Eyebrow ---------- */
   .eyebrow { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 8px; border-radius: 999px; font-size: 11px; letter-spacing: .16em; text-transform: uppercase; font-weight: 500; color: var(--ash); background: rgba(255, 255, 255, .03); box-shadow: 0 0 0 1px var(--hair); }
@@ -351,6 +351,17 @@
   @media (max-width: 1080px) { .news { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @media (max-width: 767px) { .news { grid-template-columns: 1fr; } .faq summary { padding: 18px; } .faq .a p { padding: 0 18px 18px; } .live-meta { display: inline-block; margin: 8px 0 0; } }
 
+  /* ---------- Direct downloads ---------- */
+  .dl-size { margin-top: 16px !important; font-size: 13px; color: var(--dim); }
+  .oses a.here { color: var(--ink); box-shadow: inset 0 0 0 1px var(--hair-2); background: rgba(255, 255, 255, .05); }
+  .toast { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 22px); z-index: 60; translate: -50% 140%; opacity: 0;
+    display: grid; gap: 2px; max-width: min(460px, calc(100vw - 32px)); padding: 14px 18px 14px 50px; border-radius: 18px; font-size: 13.5px; color: var(--ash);
+    background: rgba(18, 18, 20, .86) no-repeat 18px 50% / 20px; backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Ccircle cx='10' cy='10' r='9' fill='%233dbe7a'/%3E%3Cpath d='M6 10.2l2.6 2.6L14 7.4' fill='none' stroke='%23050505' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    box-shadow: 0 0 0 1px var(--hair-2), 0 30px 60px -20px rgba(0, 0, 0, .9); transition: translate .7s var(--spring), opacity .5s var(--out); pointer-events: none; }
+  .toast.on { translate: -50% 0; opacity: 1; }
+  .toast b { color: var(--ink); font-weight: 600; }
+
   /* ---------- Motion ---------- */
   @property --ang { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
   .progress { position: fixed; top: 0; left: 0; right: 0; height: 2px; z-index: 50; pointer-events: none; transform-origin: left; transform: scaleX(0);
@@ -381,7 +392,7 @@
   @keyframes ping { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); } 70%, 100% { box-shadow: 0 0 0 9px transparent; } }
 
   /* Buttons: a light sweep, and they lean toward the pointer. */
-  .btn { position: relative; overflow: hidden; isolation: isolate; transition: transform .6s var(--spring), translate .5s var(--spring), background .6s var(--spring), box-shadow .6s var(--spring); }
+  .btn { position: relative; overflow: hidden; overflow: clip; isolation: isolate; transition: transform .6s var(--spring), translate .5s var(--spring), background .6s var(--spring), box-shadow .6s var(--spring); }
   .btn::after { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; translate: -130% 0; transition: translate .9s var(--out);
     background: linear-gradient(100deg, transparent 35%, rgba(255, 255, 255, .22) 50%, transparent 65%); }
   .btn-solid::after { background: linear-gradient(100deg, transparent 35%, color-mix(in srgb, var(--accent-ink) 8%, transparent) 50%, transparent 65%); }
@@ -539,7 +550,7 @@
     <h1 class="rv">Jeder Kampf.<span class="soft">Aufgezeichnet.</span></h1>
     <p class="lede rv">Nexora ist ein kostenloser Minecraft-Client mit eigenem Launcher. <strong>Sieh dir jeden Kampf von oben noch einmal an</strong>, mit Laufwegen, Treffern und Leben. Dazu ein HUD, das mitkämpft, und ein FPS-Doktor, der dein Spiel schneller macht.</p>
     <div class="cta rv">
-      <a class="btn btn-solid" href="#download" id="heroDl">Nexora herunterladen<span class="ic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v9m0 0L4.5 8M8 11.5 11.5 8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+      <a class="btn btn-solid" data-dl href="https://github.com/Lunar0710/Crystal/releases/download/v1.5.1/Nexora-Launcher-Setup-1.5.1.exe" id="heroDl">Nexora herunterladen<span class="ic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v9m0 0L4.5 8M8 11.5 11.5 8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
       <a class="btn btn-ghost" href="#features">Alle Features<span class="ic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 11.5l7-7m0 0H6m5.5 0V10" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
     </div>
     <p class="meta rv">Windows, macOS, Linux. Minecraft 1.21.4 bis 26.2 mit Fabric.<span id="liveMeta"></span></p>
@@ -778,11 +789,13 @@
         <span class="eyebrow">Kostenlos</span>
         <h2>Bereit für den nächsten Kampf?</h2>
         <p class="lede">Der Launcher richtet Java, Fabric und Nexora selbst ein und hält sich danach automatisch aktuell. Anmelden mit deinem Microsoft-Konto.</p>
-        <div class="cta"><a class="btn btn-solid" id="mainDl" href="https://github.com/Lunar0710/Crystal/releases/latest"><span id="mainDlText">Für Windows herunterladen</span><span class="ic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v9m0 0L4.5 8M8 11.5 11.5 8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a></div>
+        <div class="cta"><a class="btn btn-solid" id="mainDl" data-dl href="https://github.com/Lunar0710/Crystal/releases/download/v1.5.1/Nexora-Launcher-Setup-1.5.1.exe"><span id="mainDlText">Für Windows herunterladen</span><span class="ic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v9m0 0L4.5 8M8 11.5 11.5 8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a></div>
+        <p class="dl-size" id="dlSize">Version 1.5.1 · Windows 10 und 11</p>
         <div class="oses">
-          <a href="https://github.com/Lunar0710/Crystal/releases/latest">Windows .exe</a>
-          <a href="https://github.com/Lunar0710/Crystal/releases/latest">macOS .dmg</a>
-          <a href="https://github.com/Lunar0710/Crystal/releases/latest">Linux .AppImage</a>
+          <a data-dl data-os="win" href="https://github.com/Lunar0710/Crystal/releases/download/v1.5.1/Nexora-Launcher-Setup-1.5.1.exe">Windows .exe</a>
+          <a data-dl data-os="mac-arm64" href="https://github.com/Lunar0710/Crystal/releases/download/v1.5.1/Nexora-Launcher-1.5.1-mac-arm64.dmg">macOS Apple Silicon</a>
+          <a data-dl data-os="mac-x64" href="https://github.com/Lunar0710/Crystal/releases/download/v1.5.1/Nexora-Launcher-1.5.1-mac-x64.dmg">macOS Intel</a>
+          <a data-dl data-os="linux" href="https://github.com/Lunar0710/Crystal/releases/download/v1.5.1/Nexora-Launcher-1.5.1-linux-x86_64.AppImage">Linux .AppImage</a>
           <a href="#jar">Nur die Mod .jar</a>
         </div>
       </div>
@@ -797,12 +810,16 @@
   </div>
   <div class="wordmark" aria-hidden="true">Nexora</div>
 </footer>
+<div class="toast" id="toast" role="status" aria-live="polite"><b id="toastTitle">Download startet</b><span id="toastText">Öffne die Datei, wenn sie fertig ist.</span></div>
 
 <script>
 (() => {
   const $ = id => document.getElementById(id);
   const root = document.documentElement;
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Published releases, newest first; [] when GitHub can't be reached (the links then stay as written).
+  const releases = fetch('https://api.github.com/repos/Lunar0710/Crystal/releases?per_page=100', { headers: { Accept: 'application/vnd.github+json' } })
+    .then(r => r.ok ? r.json() : []).then(rs => Array.isArray(rs) ? rs.filter(x => !x.draft && !x.prerelease) : []).catch(() => []);
 
   // ---- Accent colours: the nine from the in-game NexoraMenu ----
   const accents = [['Weiß', '#ffffff'], ['Blau', '#4c8dff'], ['Türkis', '#3cc3c8'], ['Grün', '#3dbe7a'], ['Gold', '#d4af5a'], ['Orange', '#f08c3a'], ['Rot', '#e5484d'], ['Pink', '#e86aa6'], ['Lila', '#8e6bef']];
@@ -958,10 +975,47 @@
   paint();
   if (!still) setInterval(() => { off++; paint(); }, 120);
 
-  // ---- Download: name the viewer's platform ----
+  // ---- Download: the file itself for the viewer's platform, no detour via GitHub ----
   const ua = navigator.userAgent;
   const os = /Mac/i.test(ua) ? 'macOS' : /Linux|X11/i.test(ua) && !/Android/i.test(ua) ? 'Linux' : 'Windows';
+  // Browsers don't tell Apple Silicon from Intel reliably; almost every Mac sold since 2021 is Apple Silicon.
+  const myKey = os === 'macOS' ? 'mac-arm64' : os === 'Linux' ? 'linux' : 'win';
   $('mainDlText').textContent = `Für ${os} herunterladen`;
+  const osLinks = [...document.querySelectorAll('.oses a[data-os]')];
+  const mine = () => osLinks.find(a => a.dataset.os === myKey);
+  const syncMain = () => {
+    const a = mine(); if (!a) return;
+    $('mainDl').href = a.href; $('heroDl').href = a.href;
+    osLinks.forEach(l => l.classList.toggle('here', l === a));
+  };
+  syncMain();
+  const assetFor = (assets, key) => assets.find(a => ({
+    'win': /Setup.*\.exe$/, 'mac-arm64': /arm64\.dmg$/, 'mac-x64': /x64\.dmg$/, 'linux': /\.AppImage$/,
+  })[key].test(a.name));
+  releases.then(rs => {
+    const r = rs.find(x => x.assets.some(a => /\.exe$/.test(a.name)));
+    if (!r) return;
+    osLinks.forEach(l => { const a = assetFor(r.assets, l.dataset.os); if (a) { l.href = a.browser_download_url; l.dataset.size = (a.size / 1048576).toFixed(0); } });
+    syncMain();
+    const a = mine(), v = r.tag_name.replace(/^v/, '');
+    const where = os === 'Windows' ? 'Windows 10 und 11' : os === 'macOS' ? 'Apple Silicon, für Intel-Macs unten wählen' : 'x86_64';
+    $('dlSize').textContent = `Version ${v}` + (a && a.dataset.size ? ` · ${a.dataset.size} MB` : '') + ` · ${where}`;
+  });
+
+  // A short note once the download starts, with what to do next.
+  const toast = $('toast'); let toastTimer = 0;
+  const steps = {
+    win: 'Öffne die .exe. Meldet Windows „Der Computer wurde geschützt“, klick auf „Weitere Informationen“ und dann „Trotzdem ausführen“.',
+    'mac-arm64': 'Öffne die .dmg und zieh Nexora in „Programme“. Beim ersten Start mit Rechtsklick auf die App „Öffnen“ wählen.',
+    'mac-x64': 'Öffne die .dmg und zieh Nexora in „Programme“. Beim ersten Start mit Rechtsklick auf die App „Öffnen“ wählen.',
+    linux: 'Mach die .AppImage ausführbar (Rechtsklick, Eigenschaften, „Als Programm ausführen“) und starte sie per Doppelklick.',
+  };
+  document.querySelectorAll('[data-dl]').forEach(a => a.addEventListener('click', () => {
+    const key = a.dataset.os || myKey;
+    $('toastText').textContent = steps[key] || '';
+    toast.classList.add('on'); clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('on'), 9000);
+  }));
 
 
   // ---- Motion ----
@@ -1109,8 +1163,6 @@
     $('jarsNote').innerHTML = `Nexora ${release.tag_name.replace(/^v/, '')}. Wähl deine Minecraft-Version. Dazu gehört die <a href="https://modrinth.com/mod/fabric-api/versions">Fabric API</a> in denselben mods-Ordner.`;
     return true;
   };
-  const releases = fetch('https://api.github.com/repos/Lunar0710/Crystal/releases?per_page=100', { headers: { Accept: 'application/vnd.github+json' } })
-    .then(r => r.ok ? r.json() : []).then(rs => Array.isArray(rs) ? rs.filter(x => !x.draft && !x.prerelease) : []).catch(() => []);
   releases
     .then(rs => { const r = rs.find(x => x.assets.some(a => /\+[\d.]+\.jar$/.test(a.name))); if (r) showJars(r); })
     .finally(() => seen(jars, () => jars.classList.add('go')));
