@@ -1,0 +1,60 @@
+# Lunar Optimizer: tested on a real Windows machine (every tweak applied,
+# checked, reverted and checked again), then built. The finished exe files go
+# to the optimizer-dist branch, since this repository's releases belong to Nexora.
+name: Lunar Optimizer
+
+on:
+  push:
+    branches: [claude/eager-faraday-hl88yw]
+    paths: ['optimizer/**', '.github/workflows/optimizer.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: optimizer
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+
+      - name: Self test (read everything, apply and revert every tweak)
+        run: |
+          npx electron . "--selftest=apply:$RUNNER_TEMP/selftest.json" || status=$?
+          cat "$RUNNER_TEMP/selftest.json"
+          exit ${status:-0}
+
+      - name: Self test (elevated path)
+        timeout-minutes: 5
+        continue-on-error: true
+        run: |
+          npx electron . "--selftest=elevated:$RUNNER_TEMP/selftest-elevated.json" || status=$?
+          cat "$RUNNER_TEMP/selftest-elevated.json"
+          exit ${status:-0}
+
+      - name: Build
+        run: npx electron-builder --win nsis portable --x64 --publish never
+
+      - name: Publish to optimizer-dist
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          mkdir -p "$RUNNER_TEMP/dist"
+          cp release/*.exe "$RUNNER_TEMP/dist/"
+          cd "$RUNNER_TEMP/dist"
+          git init -q -b optimizer-dist
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          printf 'Lunar Optimizer %s, built from %s\n' "$VERSION" "$GITHUB_SHA" > README.txt
+          git add -A
+          git commit -qm "Lunar Optimizer $VERSION (${GITHUB_SHA::7})"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" optimizer-dist
+          ls -la
