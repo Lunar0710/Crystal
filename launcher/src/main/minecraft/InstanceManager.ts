@@ -53,13 +53,18 @@ export class InstanceManager {
     if (!source) return null
     const { id: _id, createdAt: _c, gameDir: from, imported: _i, ...rest } = source
     const copy = this.create({ ...rest, name: `${source.name} (Kopie)`, gameDir: '' } as Omit<Instance, 'id' | 'createdAt'>)
-    const skip = new Set(['logs', 'crash-reports', 'backups', 'screenshots', ...(withWorlds ? [] : ['saves'])])
+    // Game files the launcher shares between instances: an instance imported
+    // from .minecraft has them in its folder, several GB that the copy doesn't need.
+    const skip = new Set(['logs', 'crash-reports', 'backups', 'screenshots', 'versions', 'libraries', 'assets', 'runtime',
+      'webcache2', ...(withWorlds ? [] : ['saves'])])
+    // Recorded fights belong to the original; copied, every fight would count twice on the Fights page.
+    const fights = path.join(from, '.crystal', 'fights')
     try {
       for (const entry of fs.readdirSync(from)) {
         if (skip.has(entry) || entry === 'session.lock' || /^hs_err_pid\d+\.log$/.test(entry)) continue
         await fs.promises.cp(path.join(from, entry), path.join(copy.gameDir, entry), {
           recursive: true,
-          filter: src => path.basename(src) !== 'session.lock',
+          filter: src => path.basename(src) !== 'session.lock' && src !== fights && !src.startsWith(fights + path.sep),
         })
       }
     } catch (err) {
