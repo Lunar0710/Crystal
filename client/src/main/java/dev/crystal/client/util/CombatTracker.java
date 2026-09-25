@@ -69,7 +69,9 @@ public final class CombatTracker {
     private CombatTracker() {}
 
     public static void register() {
-        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(CombatTracker::tick);
+        // A bug in fight tracking must not take the game down in the middle of a fight.
+        var tick = SafeRender.safeTick("CombatTracker", CombatTracker::tick);
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(tick::accept);
     }
 
     /**

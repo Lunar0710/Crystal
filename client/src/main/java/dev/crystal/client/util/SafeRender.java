@@ -36,6 +36,20 @@ public final class SafeRender {
         if (REPORTED.add(where)) CrystalClient.LOGGER.error("[Nexora] {} failed while drawing, skipping it", where, error);
     }
 
+    /**
+     * A tick handler that logs its first error instead of crashing the game;
+     * it keeps running afterwards (the next tick may well be fine).
+     */
+    public static java.util.function.Consumer<Minecraft> safeTick(String where, java.util.function.Consumer<Minecraft> tick) {
+        return mc -> {
+            try {
+                tick.accept(mc);
+            } catch (RuntimeException e) {
+                if (REPORTED.add("tick:" + where)) CrystalClient.LOGGER.error("[Nexora] {} failed during a tick", where, e);
+            }
+        };
+    }
+
     /** Whether {@link #failed} was called for this place: it is not drawn again this session. */
     public static boolean hasFailed(String where) {
         return REPORTED.contains(where);

@@ -32,7 +32,8 @@ public final class PerfRecorder {
     private PerfRecorder() {}
 
     public static void register() {
-        ClientTickEvents.END_CLIENT_TICK.register(PerfRecorder::tick);
+        var tick = SafeRender.safeTick("PerfRecorder", PerfRecorder::tick);
+        ClientTickEvents.END_CLIENT_TICK.register(tick::accept);
         ClientLifecycleEvents.CLIENT_STOPPING.register(mc -> write(Arrays.copyOf(samples, count)));
     }
 
