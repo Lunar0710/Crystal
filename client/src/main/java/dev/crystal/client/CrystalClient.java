@@ -26,7 +26,7 @@ public class CrystalClient implements ClientModInitializer {
 
     public static final String MOD_ID = "crystal";
     public static final String NAME = "Nexora Client";
-    public static final String VERSION = "1.5.0";
+    public static final String VERSION = "1.5.1";
     /** What players see: "1.2", with hotfixes named in the release, not the number. */
     public static final String DISPLAY_VERSION = VERSION.replaceFirst("^(\\d+\\.\\d+)\\..*$", "$1");
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
