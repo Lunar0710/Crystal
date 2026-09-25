@@ -82,6 +82,11 @@ function pet(variant: string | undefined, c: string, a: string, b: B): ShapeBox[
     case 'slime': return [
       b(0, 0, 0, 4, 4, 4), b(-1.4, 1.4, 0, 0.8, 0.8, 4.1, a), ...eyes(0.5, 2.05, 0.9), b(0.4, -0.7, 2.05, 0.6, 0.4, 0.1, EYE),
     ]
+    case 'pumpkin': return [
+      b(0, 0, 0, 3.6, 3, 3.6), b(-0.9, 0, 0, 0.4, 3.1, 3.7, a), b(0.9, 0, 0, 0.4, 3.1, 3.7, a),
+      b(-0.8, 0.4, 1.85, 0.6, 0.6, 0.1, '#fbbf24', { glow: true }), b(0.8, 0.4, 1.85, 0.6, 0.6, 0.1, '#fbbf24', { glow: true }),
+      b(0, -0.6, 1.85, 1.8, 0.4, 0.1, '#fbbf24', { glow: true }), b(0, 1.9, 0, 0.5, 0.9, 0.5, '#4d7c0f'),
+    ]
     case 'ghost': return [
       b(0, 0.4, 0, 3.4, 3.6, 3, c, { glow: true }),
       b(-1.15, -1.8, 0, 1.1, 0.8, 3, c, { glow: true }), b(0.9, -1.7, 0, 1.3, 0.6, 3, c, { glow: true }),
@@ -168,6 +173,13 @@ function hat(variant: string | undefined, c: string, a: string, b: B): ShapeBox[
       boxes.push(b(0, T + 1, FACE + 0.5, 1.4, 1.4, 0.6, a, { glow: true }))
       return boxes
     }
+    // Carved pumpkin over the whole head: ribbed shell, candlelit face, stem.
+    case 'pumpkin': return [
+      b(0, 0, 0, 9.4, 9, 9.4), b(-2.4, 0, 0, 0.6, 9.2, 9.6, a), b(2.4, 0, 0, 0.6, 9.2, 9.6, a),
+      b(-2, 1.2, FACE + 0.75, 1.8, 1.6, 0.2, '#fbbf24', { glow: true }), b(2, 1.2, FACE + 0.75, 1.8, 1.6, 0.2, '#fbbf24', { glow: true }),
+      b(0, -1.8, FACE + 0.75, 5, 1.2, 0.2, '#fbbf24', { glow: true }), b(0, -1.2, FACE + 0.8, 1, 0.6, 0.2, c),
+      b(0.3, T + 1.4, 0, 1.2, 2, 1.2, '#4d7c0f', { rz: 0.2 }), b(1.6, T + 0.8, 0.4, 2, 0.4, 1, '#65a30d', { rz: -0.3 }),
+    ]
     // Santa hat: fur band, cone bending to one side, bobble at the tip.
     case 'santa': return [
       b(0, T + 0.8, 0, 9, 1.6, 9, a), b(0, T + 2.8, 0, 7.4, 2.6, 7.4), b(0.8, T + 4.8, -0.6, 5.2, 2, 5.2),

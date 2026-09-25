@@ -30,6 +30,7 @@ export const themes: CrystalTheme[] = [
   { id: 'sakura',    name: 'Sakura',    preview: ['#f472b6', '#7e22ce'], requiredRank: 'crystal_plus' },
   { id: 'terminal',  name: 'Terminal',  preview: ['#22c55e', '#052e16'], requiredRank: 'crystal_plus' },
   { id: 'sandstorm', name: 'Sandstorm', preview: ['#d97706', '#78350f'], requiredRank: 'crystal_plus' },
+  { id: 'halloween', name: 'Halloween', preview: ['#f97316', '#581c87'], requiredRank: 'crystal_plus' },
 
   // Team only
   { id: 'prism',     name: 'Prism',     preview: ['#22d3ee', '#a855f7'], requiredRank: 'developer' },

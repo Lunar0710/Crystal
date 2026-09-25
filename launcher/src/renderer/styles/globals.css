@@ -331,6 +331,25 @@ html, body, #root {
   --theme-pattern-size: 340px 300px;
 }
 
+[data-theme='halloween'] {
+  --c-bg: 14 9 16;
+  --c-panel: 22 14 25;
+  --c-card: 31 19 34;
+  --c-border: 58 34 58;
+  --c-accent: 249 115 22;
+  --c-accent-2: 126 34 206;
+  --c-text: 252 238 226;
+  --c-muted: 156 124 140;
+  --c-success: 132 204 22;
+  --c-danger: 248 113 113;
+  --c-warning: 251 191 36;
+  /* A low orange glow from the bottom, like candlelight, and a faint purple haze above. */
+  --theme-pattern:
+    radial-gradient(120% 60% at 50% 110%, rgba(249,115,22,0.10), transparent 60%),
+    radial-gradient(90% 50% at 20% -10%, rgba(126,34,206,0.10), transparent 60%);
+  --theme-pattern-size: 100% 100%;
+}
+
 [data-theme='terminal'] {
   --c-bg: 2 8 5;
   --c-panel: 4 14 9;
