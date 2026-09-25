@@ -563,6 +563,7 @@ export function registerIpcHandlers(store: Store) {
   ipcMain.handle('instances:update', (_e, id: string, patch) => instances.update(id, patch))
   ipcMain.handle('instances:import', (_e, version: string) => instances.importFromDisk(version))
   ipcMain.handle('instances:delete', (_e, id: string) => instances.delete(id))
+  ipcMain.handle('instances:duplicate', (_e, id: string, withWorlds: boolean) => instances.duplicate(String(id), withWorlds === true))
   // A desktop icon that starts the instance straight away (Windows).
   ipcMain.handle('instances:createShortcut', (_e, id: string) => {
     const instance = instances.get(String(id))

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import {
-  Plus, Trash2, ChevronLeft, Search, Download, FolderInput, Boxes,
+  Plus, Trash2, Copy, ChevronLeft, Search, Download, FolderInput, Boxes,
   Upload, FolderOpen, Check, X, ChevronDown,
 } from 'lucide-react'
 import { notify } from '../../store/notificationStore'
@@ -98,6 +98,15 @@ export function Instances() {
   async function setMode(inst: Instance, useCrystalClient: boolean) {
     await api?.updateInstance(inst.id, { useCrystalClient })
     refresh()
+  }
+
+  async function duplicateInstance(inst: Instance) {
+    const withWorlds = window.confirm(`„${inst.name}“ kopieren. Welten auch mitkopieren? (OK = mit Welten, Abbrechen = ohne)`)
+    const copy = await api?.duplicateInstance(inst.id, withWorlds)
+    refresh()
+    notify(copy
+      ? { type: 'success', title: 'Instanz kopiert', message: `„${copy.name}“ ist fertig.` }
+      : { type: 'error', title: 'Instanz kopieren', message: 'Das Kopieren ist fehlgeschlagen.' })
   }
 
   async function removeInstance(inst: Instance) {
@@ -201,6 +210,15 @@ export function Instances() {
                 </button>
 
                 <ModeToggle value={inst.useCrystalClient} onChange={v => setMode(inst, v)} />
+
+                <button
+                  onClick={() => duplicateInstance(inst)}
+                  aria-label={`${inst.name} kopieren`}
+                  title="Kopie anlegen, zum Beispiel zum Ausprobieren neuer Mods"
+                  className="p-1.5 rounded-md text-crystal-muted opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-crystal-text hover:bg-crystal-border/50 transition"
+                >
+                  <Copy size={14} strokeWidth={1.75} />
+                </button>
 
                 <button
                   onClick={() => setConfirmDelete(inst.id)}

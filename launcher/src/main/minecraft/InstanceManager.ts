@@ -42,6 +42,27 @@ export class InstanceManager {
     }))
   }
 
+  /**
+   * A copy of an instance under a new name: mods, settings, packs and the
+   * Nexora config. Logs, crash reports, world backups and screenshots stay
+   * behind; worlds only when asked for (they can be large).
+   */
+  async duplicate(id: string, withWorlds: boolean): Promise<Instance | null> {
+    const source = this.get(id)
+    if (!source) return null
+    const { id: _id, createdAt: _c, gameDir: from, imported: _i, ...rest } = source
+    const copy = this.create({ ...rest, name: `${source.name} (Kopie)`, gameDir: '' } as Omit<Instance, 'id' | 'createdAt'>)
+    const skip = new Set(['logs', 'crash-reports', 'backups', 'screenshots', ...(withWorlds ? [] : ['saves'])])
+    for (const entry of fs.readdirSync(from)) {
+      if (skip.has(entry) || entry === 'session.lock' || /^hs_err_pid\d+\.log$/.test(entry)) continue
+      await fs.promises.cp(path.join(from, entry), path.join(copy.gameDir, entry), {
+        recursive: true,
+        filter: src => path.basename(src) !== 'session.lock',
+      })
+    }
+    return copy
+  }
+
   get(id: string): Instance | null {
     return this.list().find(i => i.id === id) ?? null
   }
