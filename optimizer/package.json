@@ -1,7 +1,7 @@
 {
   "name": "lunar-optimizer",
   "productName": "Lunar Optimizer",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Windows fürs Gaming: Hardware-Check, Live-Monitor, Latenz und Optimierungen",
   "main": "main.js",
   "author": "Lunar",

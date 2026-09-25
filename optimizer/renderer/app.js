@@ -234,13 +234,15 @@
   }
   $('twSearch').oninput = e => { twQuery = e.target.value; renderTweaks() }
   document.addEventListener('click', e => { const b = e.target.closest('[data-twcat]'); if (b) { twCat = b.dataset.twcat; renderTweaks() } })
+  // Only by hand: they trade safety (HVCI) or depend on the RAM size.
+  const MANUAL = new Set(['vbs', 'memcomp'])
   document.addEventListener('click', async e => {
     const b = e.target.closest('[data-preset]'); if (!b || !S.tweaks) return
     const mode = b.dataset.preset
     if (mode === 'none') { $('undoAll').click(); return }
-    const todo = S.tweaks.filter(t => !t.applied && !t.unsupported && (mode === 'max' || !t.optional))
+    const todo = S.tweaks.filter(t => !t.applied && !t.unsupported && (mode === 'max' ? !MANUAL.has(t.id) : !t.optional))
     if (!todo.length) { toast('Schon alles aktiv.'); return }
-    if (mode === 'max' && !await confirmBox('Alles aktivieren?', `${todo.length} Einstellungen, auch Dienste wie Windows-Suche, Druckdienst und SysMain sowie der Ruhezustand. Alles lässt sich einzeln oder mit „Original“ zurücknehmen.`, 'Alles aktivieren')) return
+    if (mode === 'max' && !await confirmBox('Alles aktivieren?', `${todo.length} Einstellungen, auch Dienste wie Windows-Suche, Druckdienst und SysMain sowie der Ruhezustand. Speicher-Integrität und Speicherkomprimierung bleiben unberührt, die schaltest du bei Bedarf einzeln. Alles lässt sich einzeln oder mit „Original“ zurücknehmen.`, 'Alles aktivieren')) return
     await busy(b, async () => {
       const r = await api.engine('apply', { ids: todo.map(t => t.id), elevate: todo.some(t => t.admin) })
       if (!r || !r.ok) { toast('Nicht geändert: ' + (r && r.error), true); return }
@@ -527,12 +529,21 @@
     })
   }
 
+  // ------------------------------------------------------------ ram
+  $('ramClean').onclick = async e => {
+    await busy(e.currentTarget, async () => {
+      const r = await api.ramClean(false)
+      if (!r || !r.ok) { toast('Nicht geklappt: ' + (r && r.error), true); return }
+      toast(r.freedBytes > 20e6 ? `${fmtBytes(r.freedBytes)} Arbeitsspeicher freigegeben.` : 'Arbeitsspeicher ist schon aufgeräumt.')
+    })
+  }
+
   // ------------------------------------------------------------ settings
   let ST = null
   function renderSettings() {
     if (!ST) return
     const sw = (id, on) => { $(id).classList.toggle('on', !!on); $(id).setAttribute('aria-checked', String(!!on)) }
-    sw('sGameMode', ST.gameMode); sw('sPriority', ST.gamePriority); sw('sTray', ST.tray); sw('sAutostart', ST.autostart)
+    sw('sGameMode', ST.gameMode); sw('sPriority', ST.gamePriority); sw('sTimer', ST.timerRes); sw('sRam', ST.ramClean); sw('sTray', ST.tray); sw('sAutostart', ST.autostart)
     if (ST.portable) { $('sAutostart').classList.add('busy'); $('sAutostartNote').textContent = 'Nur in der installierten Version (Setup) möglich.' }
     $('gmActive').textContent = ST.active && ST.active.length ? `Gerade aktiv: ${ST.active.join(', ')}` : ''
     const close = new Set((ST.closeApps || []).map(x => x.toLowerCase()))
@@ -550,6 +561,8 @@
     })
     $('sGameMode').onclick = () => { saveSettings({ gameMode: !ST.gameMode, ...(!ST.gameMode ? { tray: true } : {}) }); if (!ST.gameMode) toast('Auto-Spielmodus an. Lunar bleibt dafür im Infobereich.') }
     $('sPriority').onclick = () => saveSettings({ gamePriority: !ST.gamePriority })
+    $('sTimer').onclick = () => saveSettings({ timerRes: !ST.timerRes })
+    $('sRam').onclick = () => saveSettings({ ramClean: !ST.ramClean })
     $('sTray').onclick = () => saveSettings({ tray: !ST.tray, ...(ST.tray ? { gameMode: false } : {}) })
     $('sAutostart').onclick = () => { if (!ST.portable) saveSettings({ autostart: !ST.autostart }) }
     document.addEventListener('click', e => {

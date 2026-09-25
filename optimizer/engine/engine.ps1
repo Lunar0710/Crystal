@@ -365,7 +365,41 @@ $Tweaks = @(
     @{ id = 'backgroundapps'; cat = 'System'; admin = $false; reboot = $false; impact = 'niedrig'; optional = $true
        name = 'Store-Apps im Hintergrund aus'
        desc = 'Apps aus dem Microsoft Store laufen nicht mehr heimlich weiter. Mail und Co. melden sich dann nur, wenn sie offen sind.'
-       reg = @(, @('HKCU:\Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications', 'GlobalUserDisabled', 1, 'DWord')) }
+       reg = @(, @('HKCU:\Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications', 'GlobalUserDisabled', 1, 'DWord')) },
+    @{ id = 'timerres'; cat = 'Leistung'; admin = $true; reboot = $true; impact = 'mittel'
+       name = 'Feiner Timer für alle Programme'
+       desc = 'Seit Windows 11 gilt eine feine Timer-Auflösung (0,5 ms) nur noch für das Programm, das sie anfordert, und nur solange es sichtbar ist. So gilt sie wieder systemweit: gleichmäßigere Frametimes und Eingaben. Der Auto-Spielmodus fordert sie beim Spielstart an.'
+       reg = @(, @('HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel', 'GlobalTimerResolutionRequests', 1, 'DWord')) },
+    @{ id = 'memcomp'; cat = 'Leistung'; admin = $true; reboot = $true; impact = 'niedrig'; optional = $true
+       name = 'Speicherkomprimierung aus'
+       desc = 'Windows packt wenig genutzten Arbeitsspeicher nicht mehr zusammen, das spart CPU-Zeit. Nur mit 16 GB RAM oder mehr sinnvoll, mit wenig RAM lieber anlassen.'
+       custom = $true },
+    @{ id = 'mpo'; cat = 'Grafik'; admin = $true; reboot = $true; impact = 'mittel'; optional = $true
+       name = 'Multiplane Overlay (MPO) aus'
+       desc = 'Behebt Flackern, schwarze Bildschirme und Ruckler mit zwei Monitoren oder beim Alt-Tab, die viele NVIDIA- und AMD-Karten mit MPO haben. Läuft bei dir alles sauber, bringt es nichts.'
+       reg = @(, @('HKLM:\SOFTWARE\Microsoft\Windows\Dwm', 'OverlayTestMode', 5, 'DWord')) },
+    @{ id = 'vbs'; cat = 'Leistung'; admin = $true; reboot = $true; impact = 'hoch'; optional = $true
+       name = 'Speicher-Integrität (HVCI) aus'
+       desc = 'Die "Kernisolierung" prüft jeden Treiber in einer virtuellen Maschine und kostet in Spielen bis zu 5 bis 10 % FPS. Aus heißt: etwas weniger Schutz vor bösartigen Treibern. Manche Anti-Cheats (z. B. Valorant, FACEIT) verlangen sie auf Windows 11, dann anlassen.'
+       reg = @(, @('HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity', 'Enabled', 0, 'DWord')) },
+    @{ id = 'faststartup'; cat = 'System'; admin = $true; reboot = $false; impact = 'niedrig'; optional = $true
+       name = 'Schnellstart aus'
+       desc = 'Herunterfahren fährt wirklich herunter, statt den Kernel einzufrieren. Treiber und Speicher starten jedes Mal frisch, das verhindert schleichende Ruckler nach Tagen ohne Neustart. Der Start dauert ein paar Sekunden länger.'
+       reg = @(, @('HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power', 'HiberbootEnabled', 0, 'DWord')) },
+    @{ id = 'edgebg'; cat = 'System'; admin = $true; reboot = $false; impact = 'mittel'
+       name = 'Edge nicht im Hintergrund'
+       desc = 'Microsoft Edge startet nicht mehr heimlich mit Windows vor ("Startboost") und läuft nach dem Schließen nicht weiter. Spart 200 bis 500 MB RAM.'
+       reg = @(
+           @('HKLM:\SOFTWARE\Policies\Microsoft\Edge', 'StartupBoostEnabled', 0, 'DWord'),
+           @('HKLM:\SOFTWARE\Policies\Microsoft\Edge', 'BackgroundModeEnabled', 0, 'DWord')) },
+    @{ id = 'widgets'; cat = 'System'; admin = $true; reboot = $false; impact = 'niedrig'; optional = $true
+       name = 'Widgets aus'
+       desc = 'Das Nachrichten- und Wetter-Panel lädt nicht mehr im Hintergrund nach. Spart RAM und Datenverkehr.'
+       reg = @(, @('HKLM:\SOFTWARE\Policies\Microsoft\Dsh', 'AllowNewsAndInterests', 0, 'DWord')) },
+    @{ id = 'copilot'; cat = 'System'; admin = $false; reboot = $true; impact = 'niedrig'; optional = $true
+       name = 'Copilot aus'
+       desc = 'Der Windows-Copilot verschwindet aus der Taskleiste und startet nicht mehr mit.'
+       reg = @(, @('HKCU:\Software\Policies\Microsoft\Windows\WindowsCopilot', 'TurnOffWindowsCopilot', 1, 'DWord')) }
 )
 function Restore-Hibernate($h) {
     $path = 'HKLM:\SYSTEM\CurrentControlSet\Control\Power'
@@ -399,6 +433,12 @@ function Get-Norm($x) {
 function Test-Applied($t) {
     if ($t.id -eq 'power') { return ((Get-ActiveScheme).name -match 'Lunar Gaming') }
     if ($t.id -eq 'hibernate') { return ((Get-RegValue 'HKLM:\SYSTEM\CurrentControlSet\Control\Power' 'HibernateEnabled') -eq 0) }
+    if ($t.id -eq 'memcomp') {
+        # Get-MMAgent needs admin rights; without them, whether Lunar switched it off.
+        $m = $null; try { $m = Get-MMAgent -ErrorAction Stop } catch {}
+        if ($m) { return (-not $m.MemoryCompression) }
+        return ((Get-Backup).PSObject.Properties.Name -contains 'memcomp')
+    }
     if ($t.nic) { $ps = Get-NicProps $t.id; return ($ps.Count -gt 0 -and -not ($ps | Where-Object { $_.value -ne $_.target })) }
     if ($t.svc) {
         foreach ($sv in $t.svc) { $x = Get-Service -Name $sv[0] -ErrorAction SilentlyContinue; if ($x -and "$($x.StartType)" -ne $sv[1]) { return $false } }
@@ -416,6 +456,14 @@ function Test-Applied($t) {
 function Apply-Tweak($Backup, $t) {
     if ($t.id -eq 'power') { Apply-Power $Backup; return }
     if ($t.nic) { Apply-Nic $Backup $t.id; return }
+    if ($t.id -eq 'memcomp') {
+        if (-not ($Backup.PSObject.Properties.Name -contains 'memcomp')) {
+            $Backup | Add-Member -NotePropertyName memcomp -NotePropertyValue ([bool](Get-MMAgent -ErrorAction Stop).MemoryCompression)
+            Save-Backup $Backup
+        }
+        Disable-MMAgent -MemoryCompression -ErrorAction Stop
+        return
+    }
     if ($t.id -eq 'hibernate') {
         if (-not ($Backup.PSObject.Properties.Name -contains 'hibernate')) {
             # The exact old value: 1, 0 or none (PCs without hibernation have no value at all).
@@ -434,6 +482,13 @@ function Apply-Tweak($Backup, $t) {
 function Revert-Tweak($Backup, $t) {
     if ($t.id -eq 'power') { Revert-Power $Backup; return }
     if ($t.nic) { Revert-Nic $Backup $t.id; return }
+    if ($t.id -eq 'memcomp') {
+        if ($Backup.PSObject.Properties.Name -contains 'memcomp') {
+            if ($Backup.memcomp) { Enable-MMAgent -MemoryCompression -ErrorAction Stop }
+            $Backup.PSObject.Properties.Remove('memcomp'); Save-Backup $Backup
+        }
+        return
+    }
     if ($t.id -eq 'hibernate') {
         if ($Backup.PSObject.Properties.Name -contains 'hibernate') {
             Restore-Hibernate $Backup.hibernate
@@ -641,6 +696,53 @@ function Get-Hardware {
     return $out
 }
 
+# ------------------------------------------------------------------ memory
+# Trims every process's working set (what ISLC or RAMMap do): unused pages
+# move to the standby list and count as free again. As admin also empties
+# the standby list, so a game starting next gets clean memory right away.
+function Initialize-Mem {
+    if ('LunarMem' -as [type]) { return }
+    Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public static class LunarMem {
+    [StructLayout(LayoutKind.Sequential)] public struct MEMSTAT { public uint len; public uint load; public ulong total; public ulong avail; public ulong tp; public ulong ap; public ulong tv; public ulong av; public ulong ext; }
+    [DllImport("kernel32.dll")] static extern bool GlobalMemoryStatusEx(ref MEMSTAT m);
+    [DllImport("kernel32.dll")] static extern IntPtr OpenProcess(uint access, bool inherit, int pid);
+    [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr h);
+    [DllImport("psapi.dll")] static extern bool EmptyWorkingSet(IntPtr h);
+    [DllImport("ntdll.dll")] static extern int NtSetSystemInformation(int cls, ref int info, int len);
+    [DllImport("ntdll.dll")] static extern int RtlAdjustPrivilege(int priv, bool enable, bool thread, out bool was);
+    public static ulong Avail() { MEMSTAT m = new MEMSTAT(); m.len = (uint)Marshal.SizeOf(m); GlobalMemoryStatusEx(ref m); return m.avail; }
+    public static ulong Total() { MEMSTAT m = new MEMSTAT(); m.len = (uint)Marshal.SizeOf(m); GlobalMemoryStatusEx(ref m); return m.total; }
+    public static int Trim(int[] skip) {
+        int n = 0;
+        foreach (System.Diagnostics.Process p in System.Diagnostics.Process.GetProcesses()) {
+            if (p.Id <= 4 || Array.IndexOf(skip, p.Id) >= 0) continue;
+            IntPtr h = OpenProcess(0x1000 | 0x0100, false, p.Id);
+            if (h != IntPtr.Zero) { if (EmptyWorkingSet(h)) n++; CloseHandle(h); }
+        }
+        return n;
+    }
+    public static bool PurgeStandby() {
+        bool was; RtlAdjustPrivilege(13, true, false, out was);
+        int cmd = 4;
+        return NtSetSystemInformation(80, ref cmd, 4) == 0;
+    }
+}
+"@
+}
+function Invoke-RamClean([int[]]$Skip) {
+    Initialize-Mem
+    $before = [LunarMem]::Avail()
+    $n = [LunarMem]::Trim($Skip)
+    $purged = $false
+    if ($IsAdmin) { try { $purged = [LunarMem]::PurgeStandby() } catch {} }
+    Start-Sleep -Milliseconds 300
+    $after = [LunarMem]::Avail()
+    return [pscustomobject]@{ ok = $true; trimmed = $n; purged = $purged; freedBytes = [int64]([math]::Max(0, [double]$after - [double]$before)); availBytes = [int64]$after; totalBytes = [int64][LunarMem]::Total() }
+}
+
 # ------------------------------------------------------------------ actions
 try {
     $idList = @($Ids -split ',' | Where-Object { $_ })
@@ -680,6 +782,7 @@ try {
             $n = 0
             foreach ($p in @($b.registry.PSObject.Properties)) { try { Restore-Entry $p.Value; $n++ } catch {} }
             if ($b.PSObject.Properties.Name -contains 'hibernate') { Restore-Hibernate $b.hibernate; $n++ }
+            if ($b.PSObject.Properties.Name -contains 'memcomp') { if ($b.memcomp) { try { Enable-MMAgent -MemoryCompression; $n++ } catch {} } }
             if ($b.PSObject.Properties.Name -contains 'nic') { foreach ($id in @('nic-eee', 'nic-irq')) { try { Revert-Nic $b $id; $n++ } catch {} } }
             if ($b.PSObject.Properties.Name -contains 'dns') { try { Set-Dns $b @() $true; $n++ } catch {} }
             if ($b.PSObject.Properties.Name -contains 'services') { foreach ($p in @($b.services.PSObject.Properties)) { try { Restore-Service $p.Name $p.Value; $n++ } catch {} } }
@@ -722,6 +825,11 @@ try {
             foreach ($id in $idList) { $c = $CleanTargets | Where-Object { $_.id -eq $id } | Select-Object -First 1; if ($c) { Invoke-Clean $c } }
             $after = (Get-PSDrive C).Free
             Write-Result ([pscustomobject]@{ ok = $true; freedBytes = [int64]([math]::Max(0, $after - $before)); freeBytes = [int64]$after })
+        }
+        'ram-clean' {
+            $skip = @($PID)
+            if ($Arg) { $a = $Arg | ConvertFrom-Json; if ($a.skip) { $skip += @($a.skip | ForEach-Object { [int]$_ }) } }
+            Write-Result (Invoke-RamClean $skip)
         }
         default { Write-Result ([pscustomobject]@{ ok = $false; error = "Unbekannte Aktion $Action" }) }
     }

@@ -85,7 +85,7 @@
       <div class="charts">
         <div class="chart shell"><div class="core"><div class="ch-head"><small>CPU</small><b id="cCpu">–</b></div><canvas id="gCpu"></canvas><div class="cores" id="cores"></div></div></div>
         <div class="chart shell"><div class="core"><div class="ch-head"><small>Grafikkarte</small><b id="cGpu">–</b></div><canvas id="gGpu"></canvas><p class="ch-foot" id="cGpuFoot"></p></div></div>
-        <div class="chart shell"><div class="core"><div class="ch-head"><small>Arbeitsspeicher</small><b id="cRam">–</b></div><canvas id="gRam"></canvas><p class="ch-foot" id="cRamFoot"></p></div></div>
+        <div class="chart shell"><div class="core"><div class="ch-head"><small>Arbeitsspeicher</small><b id="cRam">–</b></div><canvas id="gRam"></canvas><div class="ch-row"><p class="ch-foot" id="cRamFoot"></p><button class="btn ghost sm" id="ramClean" title="Leert ungenutzten Arbeitsspeicher aller Programme"><span>RAM freigeben</span></button></div></div></div>
         <div class="chart shell"><div class="core"><div class="ch-head"><small>Netzwerk</small><b id="cNet">–</b></div><canvas id="gNet"></canvas><p class="ch-foot" id="cNetFoot"></p></div></div>
       </div>
       <h2 class="h2">Programme <span class="count" id="procCount"></span></h2>
@@ -154,12 +154,14 @@
     <section class="page" id="p-settings">
       <div class="page-head"><div><span class="eyebrow">Einstellungen</span><h1>Lunar arbeitet für dich, auch im Hintergrund.</h1></div></div>
       <div class="gm shell"><div class="core">
-        <div class="gm-head"><div><b>Auto-Spielmodus</b><small>Startest du ein Spiel, bekommt es automatisch hohe Priorität und die gewählten Apps werden geschlossen. Prüft alle 5 Sekunden, kostet praktisch nichts.</small></div><div class="switch" id="sGameMode" role="switch" tabindex="0"></div></div>
+        <div class="gm-head"><div><b>Auto-Spielmodus</b><small>Startest du ein Spiel, bekommt es automatisch hohe Priorität, einen feineren Timer und freien Arbeitsspeicher, und die gewählten Apps werden geschlossen. Prüft alle 5 Sekunden, kostet praktisch nichts.</small></div><div class="switch" id="sGameMode" role="switch" tabindex="0"></div></div>
         <p class="gm-active" id="gmActive"></p>
       </div></div>
       <div class="set-grid">
         <div class="list shell"><div class="core">
           <div class="li"><div><b>Spiele auf hohe Priorität</b><small>Windows gibt dem Spiel Vorrang vor allem anderen. Nie „Echtzeit“, das kann das System einfrieren.</small></div><div class="switch" id="sPriority" role="switch" tabindex="0"></div></div>
+          <div class="li"><div><b>Timer auf 0,5 ms</b><small>Solange ein Spiel läuft, arbeitet der Windows-Taktgeber feiner: gleichmäßigere Frametimes, direktere Eingaben. Danach wieder normal.</small></div><div class="switch" id="sTimer" role="switch" tabindex="0"></div></div>
+          <div class="li"><div><b>RAM beim Spielstart freigeben</b><small>Räumt ungenutzten Arbeitsspeicher der anderen Programme auf, damit das Spiel Platz hat. Das Spiel selbst bleibt unberührt.</small></div><div class="switch" id="sRam" role="switch" tabindex="0"></div></div>
           <div class="li"><div><b>Im Infobereich weiterlaufen</b><small>Schließen versteckt das Fenster nur, der Mond bleibt neben der Uhr. Nötig für den Auto-Spielmodus.</small></div><div class="switch" id="sTray" role="switch" tabindex="0"></div></div>
           <div class="li"><div><b>Mit Windows starten</b><small id="sAutostartNote">Startet unsichtbar im Infobereich.</small></div><div class="switch" id="sAutostart" role="switch" tabindex="0"></div></div>
         </div></div>

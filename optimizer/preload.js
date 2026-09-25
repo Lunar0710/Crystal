@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('lunar', {
   checkUpdate: () => ipcRenderer.invoke('app:update'),
   onUpdate: fn => ipcRenderer.on('update:state', (_e, st) => fn(st)),
   installUpdate: () => ipcRenderer.invoke('update:install'),
+  ramClean: deep => ipcRenderer.invoke('ram:clean', deep),
   boostList: () => ipcRenderer.invoke('boost:list'),
   boostClose: exes => ipcRenderer.invoke('boost:close', exes),
   engine: (action, opts = {}) => ipcRenderer.invoke('engine', { action, ...opts }),

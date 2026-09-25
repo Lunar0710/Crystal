@@ -423,7 +423,7 @@ async function network() {
 
 // ---------------------------------------------------------------- settings
 const settingsFile = () => path.join(app.getPath('userData'), 'settings.json')
-const DEFAULT_SETTINGS = { tray: true, autostart: false, gameMode: false, gamePriority: true, closeApps: ['chrome.exe', 'msedge.exe', 'OneDrive.exe', 'ms-teams.exe', 'Teams.exe'], customGames: [] }
+const DEFAULT_SETTINGS = { tray: true, autostart: false, gameMode: false, gamePriority: true, timerRes: true, ramClean: true, closeApps: ['chrome.exe', 'msedge.exe', 'OneDrive.exe', 'ms-teams.exe', 'Teams.exe'], customGames: [] }
 let settings = { ...DEFAULT_SETTINGS }
 function loadSettings() {
   try { settings = { ...DEFAULT_SETTINGS, ...JSON.parse(fs.readFileSync(settingsFile(), 'utf8')) } } catch { settings = { ...DEFAULT_SETTINGS } }
@@ -484,6 +484,27 @@ function gameName(exe) {
   const key = Object.keys(GAMES).find(k => k.toLowerCase() === exe.toLowerCase())
   return key ? GAMES[key] : null
 }
+// 0.5 ms timer resolution while a game runs (like ISLC or TimerResolution):
+// held by the long-running PowerShell, released when the last game closes.
+// The process opts out of Windows 11 ignoring its request while it has no window.
+const TIMER_CS = "if (-not ('LunarTimer' -as [type])) { Add-Type -TypeDefinition '" + [
+  'using System; using System.Runtime.InteropServices;',
+  'public static class LunarTimer {',
+  '  [DllImport("ntdll.dll")] static extern int NtSetTimerResolution(uint want, bool set, out uint cur);',
+  '  [DllImport("kernel32.dll")] static extern bool SetProcessInformation(IntPtr p, int cls, ref PT info, int size);',
+  '  [DllImport("kernel32.dll")] static extern IntPtr GetCurrentProcess();',
+  '  [StructLayout(LayoutKind.Sequential)] struct PT { public uint Version; public uint ControlMask; public uint StateMask; }',
+  '  public static uint Set(bool on) {',
+  '    PT t = new PT(); t.Version = 1; t.ControlMask = 4; t.StateMask = 0;',
+  '    try { SetProcessInformation(GetCurrentProcess(), 4, ref t, 12); } catch {}',
+  '    uint cur; NtSetTimerResolution(5000, on, out cur); return cur;',
+  '  }',
+  '}'].join(' ') + "' }"
+let timerHeld = false
+async function holdTimer(on) {
+  if (!isWin || timerHeld === on) return
+  try { await psHost.run(`${TIMER_CS}; [void][LunarTimer]::Set($${on})`, 20000); timerHeld = on } catch {}
+}
 let watchTimer = null, activeGames = new Map()
 async function watchTick() {
   const procs = await tasklist()
@@ -496,6 +517,8 @@ async function watchTick() {
     if (settings.gamePriority) {
       try { await psHost.run(`Get-Process -Id ${g.pids.join(',')} -ErrorAction SilentlyContinue | ForEach-Object { try { $_.PriorityClass = 'High' } catch {} }`, 15000); done.push('Priorität hoch') } catch {}
     }
+    if (settings.timerRes) { await holdTimer(true); if (timerHeld) done.push('Timer 0,5 ms') }
+    if (settings.ramClean) { const r = await engine('ram-clean', { arg: { skip: g.pids } }).catch(() => null); if (r && r.ok && r.freedBytes > 50e6) done.push(`${Math.round(r.freedBytes / 1e6)} MB RAM frei`) }
     const running = new Set(procs.map(p => p.name.toLowerCase()))
     const toClose = (settings.closeApps || []).filter(e => running.has(e.toLowerCase()))
     if (toClose.length) { const r = await boostClose(toClose); if (r.closed.length) done.push(`${r.closed.length} Apps geschlossen`) }
@@ -503,9 +526,11 @@ async function watchTick() {
     win && win.webContents.send('game', { state: 'start', game: g.name })
   }
   for (const key of [...activeGames.keys()]) if (!now.has(key)) { const g = activeGames.get(key); activeGames.delete(key); win && win.webContents.send('game', { state: 'end', game: g.name }) }
+  if (!activeGames.size && timerHeld) holdTimer(false)
 }
 function restartWatcher() {
   clearInterval(watchTimer); watchTimer = null
+  if (!settings.gameMode || !settings.timerRes) { activeGames.clear(); holdTimer(false) }
   if (settings.gameMode && isWin) { watchTimer = setInterval(watchTick, 5000); watchTick() }
 }
 
@@ -524,6 +549,7 @@ ipcMain.handle('net:dns', (_e, current) => dnsBench(current))
 ipcMain.handle('net:info', () => network())
 ipcMain.handle('net:bloat', e => bufferbloat(p => e.sender.send('bloat:progress', p)))
 ipcMain.handle('app:update', () => checkUpdate())
+ipcMain.handle('ram:clean', (_e, deep) => engine('ram-clean', { elevate: !!deep }))
 ipcMain.handle('boost:list', () => boostList())
 ipcMain.handle('boost:close', (_e, exes) => boostClose(exes))
 ipcMain.handle('engine', (_e, { action, ids, arg, elevate }) => engine(action, { ids, arg, elevate }))
@@ -535,7 +561,7 @@ ipcMain.handle('win:maximize', () => win && (win.isMaximized() ? win.unmaximize(
 ipcMain.handle('win:close', () => win && win.close())
 ipcMain.handle('settings:get', () => ({ ...settings, games: Object.values(GAMES).filter((v, i, a) => a.indexOf(v) === i), boostApps: BOOST_APPS.map(a => ({ exe: a.exe, name: a.name })), portable: isPortable, active: [...activeGames.values()].map(g => g.name) }))
 ipcMain.handle('settings:set', (_e, patch) => {
-  const allowed = ['tray', 'autostart', 'gameMode', 'gamePriority', 'closeApps', 'customGames']
+  const allowed = ['tray', 'autostart', 'gameMode', 'gamePriority', 'timerRes', 'ramClean', 'closeApps', 'customGames']
   for (const k of allowed) if (k in patch) settings[k] = patch[k]
   saveSettings(); applyLoginItem(); restartWatcher()
   if (settings.tray) createTray(); else if (tray) { tray.destroy(); tray = null }
@@ -627,6 +653,8 @@ async function selftest(file) {
     })
     await step('boost-list', () => boostList())
     await step('bufferbloat', async () => { const r = await bufferbloat(); if (r.idle == null) throw new Error('no ping'); if (!(r.mbps > 1)) throw new Error('download ' + r.mbps + ' Mbit/s, status ' + r.status); return r })
+    await step('ram-clean', async () => { const r = await engine('ram-clean', { arg: { skip: [process.pid] } }); if (!r.ok || !(r.trimmed > 0) || !(r.availBytes > 0)) throw new Error(JSON.stringify(r)); return r })
+    await step('timer', async () => { await holdTimer(true); if (!timerHeld) throw new Error('timer not held'); await holdTimer(false); return 'ok' })
     await step('game-scan', async () => { const p = await tasklist(); if (!p.length) throw new Error('tasklist empty'); return { processes: p.length, sample: p.slice(0, 3) } })
     await step('settings', async () => { loadSettings(); settings.customGames = ['test.exe']; saveSettings(); loadSettings(); if (settings.customGames[0] !== 'test.exe') throw new Error('not saved'); settings.customGames = []; saveSettings(); return settings })
     await step('network', () => network())
