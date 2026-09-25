@@ -339,9 +339,16 @@ function Find-Tweak($id) { $Tweaks | Where-Object { $_.id -eq $id } | Select-Obj
 # which would hand back the path's letters instead of the entry.
 function Get-Regs($t) {
     if ($t.dyn -eq 'nagle') { $r = Get-NagleEntries } else { $r = $t.reg }
-    if ($null -eq $r) { return , @() }
-    if ($r.Count -gt 0 -and $r[0] -is [string]) { return , @(, $r) }
-    return , $r
+    # However PowerShell nested it: every array whose first item is a string is one entry.
+    $out = New-Object System.Collections.ArrayList
+    $walk = {
+        param($x)
+        if ($null -eq $x) { return }
+        if ($x -is [array] -and $x.Count -gt 0 -and $x[0] -is [string]) { [void]$out.Add($x); return }
+        if ($x -is [array]) { foreach ($y in $x) { & $walk $y } }
+    }
+    & $walk $r
+    return , $out.ToArray()
 }
 
 # DWORDs come back signed (0xFFFFFFFF reads as -1): compare them as 32-bit patterns.
