@@ -246,7 +246,7 @@ $Tweaks = @(
     @{ id = 'netthrottle'; cat = 'Netzwerk'; admin = $true; reboot = $true; impact = 'niedrig'; optional = $true
        name = 'Netzwerk-Drosselung aus'
        desc = 'Windows bremst Netzwerkverkehr nicht mehr, während Audio oder Video läuft (z. B. Discord-Call beim Spielen).'
-       reg = @(, @($MM, 'NetworkThrottlingIndex', -1, 'DWord')) },
+       reg = @(, @('HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile', 'NetworkThrottlingIndex', -1, 'DWord')) },
     @{ id = 'windowed'; cat = 'Grafik'; admin = $false; reboot = $false; impact = 'mittel'
        name = 'Optimierungen für Fenster-Spiele'
        desc = 'Spiele im Fenster oder randlosen Vollbild laufen mit derselben niedrigen Latenz wie im echten Vollbild, dazu variable Bildwiederholrate (G-Sync/FreeSync) auch im Fenster. Ab Windows 10 21H2.'
