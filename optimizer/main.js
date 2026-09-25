@@ -29,7 +29,7 @@ function createWindow(show = true) {
     backgroundColor: '#050505',
     title: 'Lunar Optimizer',
     icon: path.join(__dirname, 'build', 'icon.png'),
-    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
+    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: false, backgroundThrottling: true },
   })
   win.removeMenu()
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'))
@@ -108,31 +108,67 @@ async function driverInfo() {
   } catch { return [] }
 }
 
-async function hardware() {
-  const [cpu, mem, layout, graphics, osInfo, disks, fsSize, system, board, battery, drivers] = await Promise.all([
-    si.cpu(), si.mem(), si.memLayout(), si.graphics(), si.osInfo(), si.diskLayout(), si.fsSize(), si.system(), si.baseboard(), si.battery(), driverInfo(),
-  ].map(p => p.catch(() => null)))
-  return { cpu, mem, layout, graphics, osInfo, disks, fsSize, system, board, battery, drivers, platform: process.platform }
+// Some of these ask WMI or nvidia-smi, which can hang for a long time on
+// some PCs. Every part gets its own time limit; what is missing stays empty
+// instead of holding up the whole page.
+const withTimeout = (promise, ms) => Promise.race([promise.catch(() => null), new Promise(r => setTimeout(() => r(null), ms))])
+const HW_PARTS = {
+  cpu: () => si.cpu(), mem: () => si.mem(), layout: () => si.memLayout(), graphics: () => si.graphics(), osInfo: () => si.osInfo(),
+  disks: () => si.diskLayout(), fsSize: () => si.fsSize(), system: () => si.system(), board: () => si.baseboard(), battery: () => si.battery(), drivers: () => driverInfo(),
+}
+let hwCache = null
+async function hardware(part) {
+  if (part) return withTimeout(HW_PARTS[part](), 12000)
+  if (hwCache) return hwCache
+  // Windows: one PowerShell for everything; much lighter than a query per part.
+  if (isWin) {
+    const r = await withTimeout(engine('hardware'), 30000)
+    if (r && r.ok && r.hardware) { hwCache = r.hardware; return hwCache }
+  }
+  const keys = Object.keys(HW_PARTS)
+  const values = await Promise.all(keys.map(k => withTimeout(HW_PARTS[k](), 12000)))
+  const out = { platform: process.platform }
+  keys.forEach((k, i) => { out[k] = values[i] })
+  hwCache = out
+  return out
 }
 
-// GPU numbers need nvidia-smi on Windows: asked every 2 s, not every second.
-let gpuCache = { at: 0, data: null }
-async function live() {
-  const now = Date.now()
-  const gpuPromise = now - gpuCache.at > 1900
-    ? si.graphics().then(g => { gpuCache = { at: now, data: g.controllers }; return g.controllers }).catch(() => gpuCache.data)
-    : Promise.resolve(gpuCache.data)
-  const [load, mem, temp, netStats, gpus] = await Promise.all([
-    si.currentLoad().catch(() => null), si.mem().catch(() => null), si.cpuTemperature().catch(() => null),
-    si.networkStats().catch(() => null), gpuPromise,
+// Live usage, kept light: CPU and RAM come straight from the OS (no
+// process started), the expensive readings (nvidia-smi, WMI temperatures,
+// network counters) only when the page showing them asks, and not often.
+let lastCpu = os.cpus()
+function cpuLoad() {
+  const now = os.cpus()
+  const cores = now.map((c, i) => {
+    const a = lastCpu[i] ? lastCpu[i].times : { user: 0, nice: 0, sys: 0, idle: 0, irq: 0 }, b = c.times
+    const busy = (b.user - a.user) + (b.nice - a.nice) + (b.sys - a.sys) + (b.irq - a.irq)
+    const total = busy + (b.idle - a.idle)
+    return total > 0 ? busy / total * 100 : 0
+  })
+  lastCpu = now
+  return { total: cores.reduce((x, y) => x + y, 0) / Math.max(1, cores.length), cores }
+}
+const slow = { gpu: { at: 0, data: null, every: 5000 }, temp: { at: 0, data: null, every: 10000 }, net: { at: 0, data: null, every: 3000 } }
+async function cached(key, fn) {
+  const c = slow[key], now = Date.now()
+  if (now - c.at >= c.every) { c.at = now; c.data = await fn().catch(() => c.data) }
+  return c.data
+}
+async function live(want = {}) {
+  const load = cpuLoad()
+  const total = os.totalmem(), free = os.freemem()
+  const [gpus, temp, netStats] = await Promise.all([
+    want.gpu ? cached('gpu', () => si.graphics().then(g => g.controllers)) : Promise.resolve(slow.gpu.data),
+    want.temp ? cached('temp', () => si.cpuTemperature()) : Promise.resolve(slow.temp.data),
+    want.net ? cached('net', () => si.networkStats()) : Promise.resolve(null),
   ])
   const gpu = (gpus || []).find(g => g.utilizationGpu != null) || (gpus || [])[0] || null
   return {
-    t: now,
-    cpu: load ? load.currentLoad : null,
-    cores: load ? load.cpus.map(c => c.load) : [],
-    memUsed: mem ? mem.active : null,
-    memTotal: mem ? mem.total : null,
+    t: Date.now(),
+    cpu: load.total,
+    cores: load.cores,
+    memUsed: total - free,
+    memTotal: total,
     cpuTemp: temp && temp.main ? temp.main : null,
     gpu: gpu && gpu.utilizationGpu != null ? gpu.utilizationGpu : null,
     gpuTemp: gpu && gpu.temperatureGpu != null ? gpu.temperatureGpu : null,
@@ -203,6 +239,28 @@ async function dnsBench(current) {
   return out
 }
 
+// ---------------------------------------------------------------- auto update
+// The installed app (Setup) updates itself: electron-updater reads latest.yml
+// next to the website's download, fetches the new setup in the background and
+// installs it when the user clicks. The portable exe can't replace itself; it
+// only gets the notice below.
+const isPortable = !!process.env.PORTABLE_EXECUTABLE_DIR
+function startAutoUpdate() {
+  if (!app.isPackaged || !isWin || isPortable || selftestArg) return
+  let autoUpdater
+  try { ({ autoUpdater } = require('electron-updater')) } catch { return }
+  autoUpdater.autoDownload = true
+  autoUpdater.autoInstallOnAppQuit = true
+  autoUpdater.on('update-available', info => win && win.webContents.send('update:state', { state: 'downloading', version: info.version }))
+  autoUpdater.on('download-progress', p => win && win.webContents.send('update:state', { state: 'downloading', percent: Math.round(p.percent) }))
+  autoUpdater.on('update-downloaded', info => win && win.webContents.send('update:state', { state: 'ready', version: info.version }))
+  autoUpdater.on('error', () => {})
+  ipcMain.handle('update:install', () => autoUpdater.quitAndInstall(true, true))
+  const check = () => autoUpdater.checkForUpdates().catch(() => {})
+  setTimeout(check, 8000)
+  setInterval(check, 6 * 60 * 60 * 1000)
+}
+
 // ---------------------------------------------------------------- update check
 const VERSION_URL = 'https://lunar0710.github.io/Crystal/optimizer/version.json'
 async function checkUpdate() {
@@ -212,7 +270,7 @@ async function checkUpdate() {
     if (!res.ok) return null
     const v = await res.json()
     const newer = (a, b) => { const x = a.split('.').map(Number), y = b.split('.').map(Number); for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); return false }
-    return newer(String(v.version), app.getVersion()) ? v : null
+    return newer(String(v.version), app.getVersion()) ? { ...v, auto: app.isPackaged && isWin && !isPortable } : null
   } catch { return null }
 }
 
@@ -273,8 +331,9 @@ async function network() {
 }
 
 // ---------------------------------------------------------------- IPC
-ipcMain.handle('hw:static', () => hardware())
-ipcMain.handle('hw:live', () => live())
+ipcMain.handle('hw:static', (_e, part) => part ? hardware(part) : (hwCache = null, hardware()))
+ipcMain.handle('hw:parts', () => isWin ? null : Object.keys(HW_PARTS))
+ipcMain.handle('hw:live', (_e, want) => live(want))
 ipcMain.handle('proc:list', () => processes())
 ipcMain.handle('proc:kill', (_e, pids) => {
   let killed = 0
@@ -313,13 +372,14 @@ async function selftest(file) {
     win.webContents.once('did-finish-load', () => setTimeout(resolve, 4000))
     win.webContents.once('did-fail-load', (_e, code, desc) => reject(new Error(desc)))
   }).then(() => ({ errors: pageErrors, title: win.getTitle() })))
-  await step('hardware', async () => { const h = await hardware(); return { cpu: h.cpu && h.cpu.brand, gpus: h.graphics && h.graphics.controllers.map(c => c.model), ram: h.mem && h.mem.total, drivers: h.drivers } })
-  await step('live', () => live())
+  await step('hardware', async () => { const h = await hardware(); if (isWin && !(h.cpu && h.cpu.brand)) throw new Error('no CPU from engine hardware: ' + JSON.stringify(h).slice(0, 300)); return { cpu: h.cpu && h.cpu.brand, gpus: h.graphics && h.graphics.controllers.map(c => c.model), ram: h.mem && h.mem.total, drivers: h.drivers } })
+  await step('live', () => live({ gpu: true, temp: true, net: true }))
   await step('processes', async () => (await processes()).slice(0, 5))
   await step('ping', async () => ({ cloudflare: await tcpPing('1.1.1.1', 443) }))
   await step('admin', () => isAdmin())
   let before = null
   await step('state', async () => { before = await engine('state'); if (!before.ok) throw new Error(before.error); return before })
+  await step('overview', async () => { const r = await engine('overview'); if (!r.ok || !r.tweaks || !r.dns) throw new Error(JSON.stringify(r).slice(0, 300)); return { tweaks: r.tweaks.length, startup: (r.startup || []).length, dns: r.dns.adapters.length } })
   await step('startup-list', async () => { const r = await engine('startup-list'); if (!r.ok) throw new Error(r.error); return r })
   await step('clean-scan', async () => { const r = await engine('clean-scan'); if (!r.ok) throw new Error(r.error); return r })
   // Only the elevated path (Start-Process -Verb RunAs, its quoting and the answer file).
@@ -392,5 +452,6 @@ app.whenReady().then(() => {
     return selftest(file.replace(/^(apply|elevated):/, ''))
   }
   createWindow()
+  startAutoUpdate()
 })
 app.on('window-all-closed', () => { if (!selftestArg) app.quit() })

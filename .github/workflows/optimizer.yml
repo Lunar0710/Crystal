@@ -49,8 +49,9 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           mkdir -p "$RUNNER_TEMP/dist"
           # Fixed names, so the website's download links never change.
-          cp release/Lunar-Optimizer-Setup-*.exe "$RUNNER_TEMP/dist/Lunar-Optimizer-Setup.exe"
-          cp release/Lunar-Optimizer-*-Portable.exe "$RUNNER_TEMP/dist/Lunar-Optimizer-Portable.exe"
+          cp release/Lunar-Optimizer-Setup.exe release/Lunar-Optimizer-Portable.exe "$RUNNER_TEMP/dist/"
+          # For the installed app's auto-updater (electron-updater, generic provider).
+          cp release/latest.yml release/Lunar-Optimizer-Setup.exe.blockmap "$RUNNER_TEMP/dist/"
           # Browsers block a fresh, unsigned .exe far more often than a .zip.
           (cd "$RUNNER_TEMP/dist" && 7z a -tzip -mx=9 Lunar-Optimizer.zip Lunar-Optimizer-Portable.exe > /dev/null && 7z a -tzip -mx=9 Lunar-Optimizer-Setup.zip Lunar-Optimizer-Setup.exe > /dev/null)
           cd "$RUNNER_TEMP/dist"

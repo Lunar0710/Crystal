@@ -239,10 +239,81 @@ $Tweaks = @(
        name = 'Nagle-Algorithmus aus'
        desc = 'Kleine Netzwerkpakete werden sofort geschickt statt kurz gesammelt. Weniger Verzögerung in Spielen mit TCP (z. B. Minecraft), minimal mehr Datenverkehr.'
        dyn = 'nagle' },
-    @{ id = 'telemetry'; cat = 'System'; admin = $true; reboot = $false; impact = 'niedrig'; optional = $true
+    @{ id = 'telemetry'; cat = 'Datenschutz'; admin = $true; reboot = $false; impact = 'niedrig'; optional = $true
        name = 'Telemetrie-Dienst aus'
        desc = 'Der Dienst "Benutzererfahrung und Telemetrie" sendet keine Nutzungsdaten mehr an Microsoft und läuft nicht mehr im Hintergrund. Updates und Sicherheit bleiben unberührt.'
        svc = @(, @('DiagTrack', 'Disabled')) },
+    @{ id = 'netthrottle'; cat = 'Netzwerk'; admin = $true; reboot = $true; impact = 'niedrig'; optional = $true
+       name = 'Netzwerk-Drosselung aus'
+       desc = 'Windows bremst Netzwerkverkehr nicht mehr, während Audio oder Video läuft (z. B. Discord-Call beim Spielen).'
+       reg = @(, @($MM, 'NetworkThrottlingIndex', -1, 'DWord')) },
+    @{ id = 'windowed'; cat = 'Grafik'; admin = $false; reboot = $false; impact = 'mittel'
+       name = 'Optimierungen für Fenster-Spiele'
+       desc = 'Spiele im Fenster oder randlosen Vollbild laufen mit derselben niedrigen Latenz wie im echten Vollbild, dazu variable Bildwiederholrate (G-Sync/FreeSync) auch im Fenster. Ab Windows 10 21H2.'
+       reg = @(, @('HKCU:\Software\Microsoft\DirectX\UserGpuPreferences', 'DirectXUserGlobalSettings', 'SwapEffectUpgradeEnable=1;VRROptimizeEnable=1;', 'String')) },
+    @{ id = 'visualfx'; cat = 'Optik'; admin = $false; reboot = $false; impact = 'niedrig'; optional = $true
+       name = 'Visuelle Effekte auf Leistung'
+       desc = 'Windows schaltet Schatten, Überblendungen und geglättete Animationen ab. Spürbar auf alten PCs, sieht schlichter aus.'
+       reg = @(, @('HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects', 'VisualFXSetting', 2, 'DWord')) },
+    @{ id = 'menudelay'; cat = 'Optik'; admin = $false; reboot = $false; impact = 'niedrig'
+       name = 'Menüs ohne Verzögerung'
+       desc = 'Untermenüs öffnen sofort statt nach 0,4 Sekunden.'
+       reg = @(, @('HKCU:\Control Panel\Desktop', 'MenuShowDelay', '0', 'String')) },
+    @{ id = 'keyboard'; cat = 'Eingabe'; admin = $false; reboot = $false; impact = 'niedrig'; optional = $true
+       name = 'Schnellste Tastenwiederholung'
+       desc = 'Gehaltene Tasten wiederholen früher und schneller (kürzeste Verzögerung, höchste Rate).'
+       reg = @(
+           @('HKCU:\Control Panel\Keyboard', 'KeyboardDelay', '0', 'String'),
+           @('HKCU:\Control Panel\Keyboard', 'KeyboardSpeed', '31', 'String')) },
+    @{ id = 'gamebarkey'; cat = 'Eingabe'; admin = $false; reboot = $false; impact = 'niedrig'; optional = $true
+       name = 'Xbox-Taste öffnet keine Game Bar'
+       desc = 'Die Xbox-Taste am Controller öffnet nicht mehr mitten im Spiel die Game Bar.'
+       reg = @(, @('HKCU:\Software\Microsoft\GameBar', 'UseNexusForGameBarEnabled', 0, 'DWord')) },
+    @{ id = 'tips'; cat = 'System'; admin = $false; reboot = $false; impact = 'niedrig'
+       name = 'Tipps und Werbung aus'
+       desc = 'Keine Vorschläge im Startmenü, keine Tipps-Popups, keine still installierten Werbe-Apps. Spart Hintergrundarbeit.'
+       reg = @(
+           @('HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager', 'SubscribedContent-338388Enabled', 0, 'DWord'),
+           @('HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager', 'SubscribedContent-338389Enabled', 0, 'DWord'),
+           @('HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager', 'SubscribedContent-353694Enabled', 0, 'DWord'),
+           @('HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager', 'SubscribedContent-353696Enabled', 0, 'DWord'),
+           @('HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager', 'SilentInstalledAppsEnabled', 0, 'DWord'),
+           @('HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager', 'SystemPaneSuggestionsEnabled', 0, 'DWord'),
+           @('HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager', 'SoftLandingEnabled', 0, 'DWord')) },
+    @{ id = 'websearch'; cat = 'System'; admin = $false; reboot = $true; impact = 'niedrig'; optional = $true
+       name = 'Websuche im Startmenü aus'
+       desc = 'Die Startmenü-Suche fragt nicht mehr bei Bing nach. Sucht schneller, findet dafür nur, was auf dem PC ist.'
+       reg = @(, @('HKCU:\Software\Policies\Microsoft\Windows\Explorer', 'DisableSearchBoxSuggestions', 1, 'DWord')) },
+    @{ id = 'toasts'; cat = 'System'; admin = $false; reboot = $false; impact = 'niedrig'; optional = $true
+       name = 'Benachrichtigungen aus'
+       desc = 'Keine Popups unten rechts mehr, auch nicht mitten im Spiel. Das Info-Center bleibt, zeigt aber nichts Neues an.'
+       reg = @(, @('HKCU:\Software\Microsoft\Windows\CurrentVersion\PushNotifications', 'ToastEnabled', 0, 'DWord')) },
+    @{ id = 'hibernate'; cat = 'System'; admin = $true; reboot = $false; impact = 'niedrig'; optional = $true
+       name = 'Ruhezustand aus'
+       desc = 'Löscht die Ruhezustand-Datei (oft 4 bis 16 GB) und schaltet den Schnellstart ab, der manchmal Treiberprobleme mitnimmt. Energiesparen bleibt.'
+       custom = $true },
+    @{ id = 'sysmain'; cat = 'Dienste'; admin = $true; reboot = $false; impact = 'niedrig'; optional = $true
+       name = 'SysMain (Superfetch) aus'
+       desc = 'Lädt Programme nicht mehr vorab in den Arbeitsspeicher. Nur mit SSD sinnvoll: weniger Festplattenlast und Ruckler beim Start.'
+       svc = @(, @('SysMain', 'Disabled')) },
+    @{ id = 'wsearch'; cat = 'Dienste'; admin = $true; reboot = $false; impact = 'niedrig'; optional = $true
+       name = 'Windows-Suchindex aus'
+       desc = 'Kein ständiges Durchsuchen der Festplatte im Hintergrund. Die Suche im Explorer wird dafür langsamer.'
+       svc = @(, @('WSearch', 'Disabled')) },
+    @{ id = 'spooler'; cat = 'Dienste'; admin = $true; reboot = $false; impact = 'niedrig'; optional = $true
+       name = 'Druckdienst aus'
+       desc = 'Nur, wenn du keinen Drucker nutzt. Ein Dienst weniger, der im Hintergrund läuft.'
+       svc = @(, @('Spooler', 'Disabled')) },
+    @{ id = 'adid'; cat = 'Datenschutz'; admin = $false; reboot = $false; impact = 'niedrig'; optional = $true
+       name = 'Werbe-ID aus'
+       desc = 'Apps bekommen keine Werbe-ID mehr, über die sie dich wiedererkennen.'
+       reg = @(, @('HKCU:\Software\Microsoft\Windows\CurrentVersion\AdvertisingInfo', 'Enabled', 0, 'DWord')) },
+    @{ id = 'activity'; cat = 'Datenschutz'; admin = $true; reboot = $false; impact = 'niedrig'; optional = $true
+       name = 'Aktivitätsverlauf aus'
+       desc = 'Windows speichert nicht mehr, welche Programme und Dateien du wann benutzt hast.'
+       reg = @(
+           @('HKLM:\SOFTWARE\Policies\Microsoft\Windows\System', 'PublishUserActivities', 0, 'DWord'),
+           @('HKLM:\SOFTWARE\Policies\Microsoft\Windows\System', 'UploadUserActivities', 0, 'DWord')) },
     @{ id = 'transparency'; cat = 'Optik'; admin = $false; reboot = $false; impact = 'niedrig'; optional = $true
        name = 'Transparenz-Effekte aus'
        desc = 'Taskleiste und Startmenü ohne Durchsichtigkeit. Etwas weniger GPU-Last auf schwachen Grafikkarten.'
@@ -270,8 +341,9 @@ function Get-Regs($t) {
 
 function Test-Applied($t) {
     if ($t.id -eq 'power') { return ((Get-ActiveScheme).name -match 'Lunar Gaming') }
+    if ($t.id -eq 'hibernate') { return ((Get-RegValue 'HKLM:\SYSTEM\CurrentControlSet\Control\Power' 'HibernateEnabled') -eq 0) }
     if ($t.svc) {
-        foreach ($sv in $t.svc) { $x = Get-CimInstance Win32_Service -Filter "Name='$($sv[0])'" -ErrorAction SilentlyContinue; if ($x -and $x.StartMode -ne $sv[1]) { return $false } }
+        foreach ($sv in $t.svc) { $x = Get-Service -Name $sv[0] -ErrorAction SilentlyContinue; if ($x -and "$($x.StartType)" -ne $sv[1]) { return $false } }
         return $true
     }
     $regs = Get-Regs $t
@@ -285,6 +357,14 @@ function Test-Applied($t) {
 
 function Apply-Tweak($Backup, $t) {
     if ($t.id -eq 'power') { Apply-Power $Backup; return }
+    if ($t.id -eq 'hibernate') {
+        if (-not ($Backup.PSObject.Properties.Name -contains 'hibernate')) {
+            $Backup | Add-Member -NotePropertyName hibernate -NotePropertyValue ((Get-RegValue 'HKLM:\SYSTEM\CurrentControlSet\Control\Power' 'HibernateEnabled') -ne 0)
+            Save-Backup $Backup
+        }
+        powercfg /hibernate off | Out-Null
+        return
+    }
     if ($t.svc) { foreach ($sv in $t.svc) { Set-ServiceStart $Backup $t.id $sv[0] $sv[1] }; return }
     $regs = Get-Regs $t
     foreach ($r in $regs) { Set-Reg $Backup $t.id $r[0] $r[1] $r[2] $r[3] }
@@ -293,6 +373,13 @@ function Apply-Tweak($Backup, $t) {
 
 function Revert-Tweak($Backup, $t) {
     if ($t.id -eq 'power') { Revert-Power $Backup; return }
+    if ($t.id -eq 'hibernate') {
+        if ($Backup.PSObject.Properties.Name -contains 'hibernate') {
+            if ($Backup.hibernate) { powercfg /hibernate on | Out-Null }
+            $Backup.PSObject.Properties.Remove('hibernate'); Save-Backup $Backup
+        }
+        return
+    }
     if ($t.svc -and ($Backup.PSObject.Properties.Name -contains 'services')) {
         foreach ($p in @($Backup.services.PSObject.Properties | Where-Object { $_.Value.tweak -eq $t.id })) {
             Restore-Service $p.Name $p.Value
@@ -445,6 +532,54 @@ function Set-Dns($Backup, $servers, [bool]$reset) {
     Clear-DnsClientCache -ErrorAction SilentlyContinue
 }
 
+# ------------------------------------------------------------------ hardware
+# Everything the hardware page shows, in one process (one CIM session)
+# instead of a PowerShell start per question.
+function Get-Hardware {
+    $cim = New-CimSession -ErrorAction SilentlyContinue
+    $q = { param($c) if ($cim) { Get-CimInstance -CimSession $cim -ClassName $c -ErrorAction SilentlyContinue } else { Get-CimInstance -ClassName $c -ErrorAction SilentlyContinue } }
+    $cpu = & $q Win32_Processor | Select-Object -First 1
+    $cs = & $q Win32_ComputerSystem
+    $os = & $q Win32_OperatingSystem
+    $mods = @(& $q Win32_PhysicalMemory)
+    $vcs = @(& $q Win32_VideoController)
+    $board = & $q Win32_BaseBoard
+    $bat = & $q Win32_Battery | Select-Object -First 1
+    $memType = @{ 20 = 'DDR'; 21 = 'DDR2'; 24 = 'DDR3'; 26 = 'DDR4'; 34 = 'DDR5'; 35 = 'LPDDR5' }
+    # Real VRAM sizes: AdapterRAM stops at 4 GB, the driver's registry entry doesn't.
+    $vram = @{}
+    Get-ItemProperty 'HKLM:\SYSTEM\ControlSet001\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}\0*' -ErrorAction SilentlyContinue | ForEach-Object {
+        $size = $_.'HardwareInformation.qwMemorySize'
+        if ($_.DriverDesc -and $size) { $vram[$_.DriverDesc] = [int64]$size }
+    }
+    $monitors = @()
+    try { $monitors = @(Get-CimInstance -Namespace root\wmi -ClassName WmiMonitorID -ErrorAction Stop | ForEach-Object { (($_.UserFriendlyName | Where-Object { $_ -ne 0 } | ForEach-Object { [char]$_ }) -join '').Trim() }) } catch {}
+    $pd = @(); try { $pd = @(Get-PhysicalDisk -ErrorAction Stop) } catch {}
+    $gpus = @($vcs | Where-Object { $_.Name })
+    $out = [pscustomobject]@{
+        platform = 'win32'
+        cpu = [pscustomobject]@{ manufacturer = ''; brand = "$($cpu.Name)".Trim(); physicalCores = $cpu.NumberOfCores; cores = $cpu.NumberOfLogicalProcessors
+                                 speed = [math]::Round($cpu.CurrentClockSpeed / 1000, 2); speedMax = [math]::Round($cpu.MaxClockSpeed / 1000, 2); socket = $cpu.SocketDesignation }
+        mem = [pscustomobject]@{ total = [int64]$cs.TotalPhysicalMemory }
+        layout = @($mods | ForEach-Object { [pscustomobject]@{ size = [int64]$_.Capacity; clockSpeed = $(if ($_.ConfiguredClockSpeed) { $_.ConfiguredClockSpeed } else { $_.Speed }); type = $memType[[int]$_.SMBIOSMemoryType] } })
+        graphics = [pscustomobject]@{
+            controllers = @($gpus | ForEach-Object { [pscustomobject]@{ model = $_.Name; vram = $(if ($vram[$_.Name]) { [math]::Round($vram[$_.Name] / 1MB) } elseif ($_.AdapterRAM) { [math]::Round($_.AdapterRAM / 1MB) } else { $null }) } })
+            displays = @($gpus | Where-Object { $_.CurrentHorizontalResolution } | ForEach-Object -Begin { $i = 0 } -Process {
+                [pscustomobject]@{ model = $(if ($monitors.Count -gt $i) { $monitors[$i] } else { 'Bildschirm' }); main = ($i -eq 0); currentResX = $_.CurrentHorizontalResolution; currentResY = $_.CurrentVerticalResolution; currentRefreshRate = $_.CurrentRefreshRate }
+                $i++ })
+        }
+        drivers = @($gpus | ForEach-Object { [pscustomobject]@{ name = $_.Name; version = $_.DriverVersion; date = $(try { $_.DriverDate.ToString('yyyy-MM-dd') } catch { $null }); refresh = $_.CurrentRefreshRate; maxRefresh = $_.MaxRefreshRate } })
+        osInfo = [pscustomobject]@{ distro = $os.Caption; release = $os.Version; build = $os.BuildNumber }
+        disks = @($pd | ForEach-Object { [pscustomobject]@{ type = $(switch ("$($_.MediaType)") { 'SSD' { 'SSD' } 'HDD' { 'HD' } default { if ("$($_.BusType)" -eq 'NVMe') { 'SSD' } else { '' } } }); name = $_.FriendlyName; size = [int64]$_.Size; interfaceType = "$($_.BusType)" } })
+        fsSize = @(Get-PSDrive -PSProvider FileSystem -ErrorAction SilentlyContinue | Where-Object { $null -ne $_.Used -and ($_.Used + $_.Free) -gt 0 } | ForEach-Object { [pscustomobject]@{ mount = "$($_.Name):"; fs = ''; size = [int64]($_.Used + $_.Free); used = [int64]$_.Used } })
+        system = [pscustomobject]@{ manufacturer = $cs.Manufacturer; model = $cs.Model }
+        board = [pscustomobject]@{ manufacturer = $board.Manufacturer; model = $board.Product }
+        battery = [pscustomobject]@{ hasBattery = [bool]$bat; percent = $bat.EstimatedChargeRemaining; isCharging = ($bat.BatteryStatus -eq 2) }
+    }
+    if ($cim) { Remove-CimSession $cim }
+    return $out
+}
+
 # ------------------------------------------------------------------ actions
 try {
     $idList = @($Ids -split ',' | Where-Object { $_ })
@@ -479,6 +614,7 @@ try {
             $b = Get-Backup
             $n = 0
             foreach ($p in @($b.registry.PSObject.Properties)) { try { Restore-Entry $p.Value; $n++ } catch {} }
+            if ($b.PSObject.Properties.Name -contains 'hibernate' -and $b.hibernate) { powercfg /hibernate on | Out-Null; $n++ }
             if ($b.PSObject.Properties.Name -contains 'dns') { try { Set-Dns $b @() $true; $n++ } catch {} }
             if ($b.PSObject.Properties.Name -contains 'services') { foreach ($p in @($b.services.PSObject.Properties)) { try { Restore-Service $p.Name $p.Value; $n++ } catch {} } }
             if ((Get-LunarScheme) -or $b.powerScheme) { Revert-Power $b }
@@ -486,6 +622,17 @@ try {
             if ($m) { Update-Mouse @([int]$m.MouseThreshold1, [int]$m.MouseThreshold2, [int]$m.MouseSpeed) }
             Remove-Item $BackupFile -Force -ErrorAction SilentlyContinue
             Write-Result ([pscustomobject]@{ ok = $true; restored = $n })
+        }
+        'hardware' { Write-Result ([pscustomobject]@{ ok = $true; hardware = (Get-Hardware) }) }
+        # What the start screen needs, in one process: tweaks, startup items, DNS.
+        'overview' {
+            $list = foreach ($t in $Tweaks) {
+                [pscustomobject]@{ id = $t.id; name = $t.name; desc = $t.desc; cat = $t.cat; admin = $t.admin; reboot = $t.reboot; impact = $t.impact
+                                   optional = [bool]$t.optional; applied = (Test-Applied $t) }
+            }
+            $dnsChanged = $false; $bk = Get-Backup; if ($bk.PSObject.Properties.Name -contains 'dns') { $dnsChanged = @($bk.dns.PSObject.Properties).Count -gt 0 }
+            Write-Result ([pscustomobject]@{ ok = $true; admin = $IsAdmin; tweaks = @($list); backup = (Test-Path $BackupFile); powerPlan = (Get-ActiveScheme).name
+                                             startup = (Get-StartupItems); dns = [pscustomobject]@{ ok = $true; adapters = (Get-DnsState); changed = $dnsChanged } })
         }
         'dns-get' { Write-Result ([pscustomobject]@{ ok = $true; adapters = (Get-DnsState); changed = ((Get-Backup).PSObject.Properties.Name -contains 'dns' -and @((Get-Backup).dns.PSObject.Properties).Count -gt 0) }) }
         'dns-set' {

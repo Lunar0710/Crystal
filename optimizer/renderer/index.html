@@ -62,7 +62,7 @@
         <div class="tile shell"><div class="core"><small>CPU</small><b id="tCpu">–</b><span id="tCpuName"></span><canvas class="spark" id="sCpu"></canvas></div></div>
         <div class="tile shell"><div class="core"><small>Grafikkarte</small><b id="tGpu">–</b><span id="tGpuName"></span><canvas class="spark" id="sGpu"></canvas></div></div>
         <div class="tile shell"><div class="core"><small>Arbeitsspeicher</small><b id="tRam">–</b><span id="tRamName"></span><canvas class="spark" id="sRam"></canvas></div></div>
-        <div class="tile shell"><div class="core"><small>Ping (Cloudflare)</small><b id="tPing">–</b><span id="tPingName">TCP, alle 2 s</span><canvas class="spark" id="sPing"></canvas></div></div>
+        <div class="tile shell"><div class="core"><small>Ping (Cloudflare)</small><b id="tPing">–</b><span id="tPingName">TCP, alle 3 s</span><canvas class="spark" id="sPing"></canvas></div></div>
       </div>
       <h2 class="h2">Gefunden <span id="issueCount" class="count"></span></h2>
       <div class="issues" id="issues"><div class="empty">Wird geprüft …</div></div>
@@ -119,6 +119,16 @@
         <div class="row-btns"><button class="btn ghost sm" id="undoAll"><span>Alles rückgängig</span></button><button class="btn solid sm" id="applyAll"><span>Alle empfohlenen</span></button></div></div>
       <div class="banner" id="rebootBanner" hidden><span>Einige Änderungen wirken erst nach einem Neustart.</span><button class="btn solid sm" id="rebootNow"><span>Jetzt neu starten</span></button></div>
       <p class="note">Nur Einstellungen, die Windows selbst anbietet. Defender, Updates und Firewall bleiben an. Jeder alte Wert wird gesichert und lässt sich zurückholen.</p>
+      <div class="tw-bar">
+        <input id="twSearch" placeholder="Suchen, z. B. Maus, Netzwerk, Dienst …" spellcheck="false">
+        <div class="tw-cats" id="twCats"></div>
+        <span class="count" id="twCount"></span>
+      </div>
+      <div class="presets">
+        <button class="preset" data-preset="safe"><b>Empfohlen</b><small>Die wichtigsten, ohne Nebenwirkungen</small></button>
+        <button class="preset" data-preset="max"><b>Maximal</b><small>Alles, auch optionale (Dienste, Ruhezustand)</small></button>
+        <button class="preset" data-preset="none"><b>Original</b><small>Alles zurück wie vorher</small></button>
+      </div>
       <div id="tweaks"><div class="empty">Wird geladen …</div></div>
     </section>
 

@@ -39,7 +39,8 @@
     document.querySelectorAll('.page').forEach(s => s.classList.toggle('on', s.id === 'p-' + p))
     $('main').scrollTop = 0
     if (p === 'monitor') { refreshProcs(); refreshBoost() }
-    if (p === 'latency' && !S.dnsState) loadDns()
+    if (p === 'latency') { if (!S.dnsState) loadDns(); latTick() }
+    liveTick()
     if (p === 'startup' && !startupLoaded) loadStartup()
     if (p === 'clean' && !cleanLoaded) scanClean()
     requestAnimationFrame(() => charts.forEach(c => { c.resize(); c.draw() }))
@@ -59,9 +60,17 @@
   const gLat = mk('gLat', { max: 'auto', unit: ' ms', color: '#f0c36b' }); gLat.markGaps = true; gLat.length = 90
 
   // ------------------------------------------------------------ live usage
+  // Nothing is polled while the window is minimised or hidden.
+  const awake = () => !document.hidden
+  document.addEventListener('visibilitychange', () => { if (awake()) { liveTick(); pingTick(); latTick() } })
+  let liveTimer = 0, pingTimer = 0, latTimer = 0
   async function liveTick() {
+    clearTimeout(liveTimer)
+    if (!awake()) return
     let d = null
-    try { d = await api.live() } catch {}
+    // Expensive readings only where they are on screen.
+    const want = { gpu: page === 'home' || page === 'monitor', temp: page === 'monitor', net: page === 'monitor' }
+    try { d = await api.live(want) } catch {}
     if (d) {
       const ramPct = d.memUsed && d.memTotal ? d.memUsed / d.memTotal * 100 : null
       $('tCpu').textContent = pct(d.cpu); sparkCpu.push(d.cpu)
@@ -83,16 +92,18 @@
       if (d.gpuTemp) S.maxGpuTemp = Math.max(S.maxGpuTemp, d.gpuTemp)
       if (S.cpuSamples.length < 20) { S.cpuSamples.push(d.cpu); if (S.cpuSamples.length === 20) render() }
     }
-    setTimeout(liveTick, 1000)
+    liveTimer = setTimeout(liveTick, page === 'monitor' ? 1000 : 2000)
   }
 
   async function pingTick() {
+    clearTimeout(pingTimer)
+    if (!awake()) return
     const ms = await api.ping('1.1.1.1', 443).catch(() => null)
     S.ping.push(ms); if (S.ping.length > 30) S.ping.shift()
     $('tPing').textContent = ms == null ? 'Timeout' : Math.round(ms) + ' ms'; sparkPing.push(ms)
     const mini = $('miniPing'); mini.querySelector('b').textContent = ms == null ? '–' : Math.round(ms) + ' ms'
     mini.querySelector('i').className = ms == null ? 'bad' : ms > 80 ? 'warn' : 'good'
-    setTimeout(pingTick, 2000)
+    pingTimer = setTimeout(pingTick, 3000)
   }
 
   // ------------------------------------------------------------ hardware
@@ -101,10 +112,20 @@
     : /intel/i.test(name) ? 'https://www.intel.de/content/www/de/de/support/detect.html' : null
   const daysSince = iso => iso ? Math.floor((Date.now() - new Date(iso).getTime()) / 864e5) : null
 
+  // Part by part: each shows up as soon as it's read, a slow one (WMI,
+  // nvidia-smi) never holds up the rest.
   async function loadHardware() {
     $('hw').innerHTML = '<div class="empty wide">Wird eingelesen …</div>'
-    try { S.hw = await api.hardware() } catch (e) { S.hw = null; $('hw').innerHTML = `<div class="empty wide">Fehler: ${esc(e.message)}</div>` ; return }
-    renderHardware(); render()
+    S.hw = { platform: 'win32' }
+    const parts = api.hardwareParts ? await api.hardwareParts() : null
+    if (!parts) { S.hw = await api.hardware().catch(() => ({})); renderHardware(); render(); return }
+    let pending = parts.length
+    await Promise.all(parts.map(async p => {
+      S.hw[p] = await api.hardware(p).catch(() => null)
+      pending--
+      renderHardware(pending)
+      render()
+    }))
   }
 
   function gpus() {
@@ -120,12 +141,14 @@
     return fsC || null
   }
 
-  function renderHardware() {
+  function renderHardware(pending = 0) {
     const h = S.hw; if (!h) return
+    const wait = '<div class="empty">Wird eingelesen …</div>'
     const cpu = h.cpu || {}, mem = h.mem || {}, layout = (h.layout || []).filter(m => m.size), os = h.osInfo || {}
     const cards = []
     const check = (sev, text) => `<div class="check"><i class="sev ${sev}"></i><span>${text}</span></div>`
-    cards.push(`<div class="shell"><div class="core"><h3>Prozessor</h3><div class="name">${esc((cpu.manufacturer || '') + ' ' + (cpu.brand || ''))}</div>
+    if (!h.cpu) cards.push(`<div class="shell"><div class="core"><h3>Prozessor</h3>${wait}</div></div>`)
+    else cards.push(`<div class="shell"><div class="core"><h3>Prozessor</h3><div class="name">${esc((cpu.manufacturer || '') + ' ' + (cpu.brand || ''))}</div>
       <dl class="kv"><dt>Kerne / Threads</dt><dd>${cpu.physicalCores || '–'} / ${cpu.cores || '–'}</dd><dt>Takt</dt><dd>${cpu.speed || '–'} GHz${cpu.speedMax ? `, bis ${cpu.speedMax} GHz` : ''}</dd><dt>Sockel</dt><dd>${esc(cpu.socket || '–')}</dd></dl>
       ${cpu.physicalCores && cpu.physicalCores < 4 ? check('warn', 'Weniger als 4 Kerne: Browser und Discord beim Spielen schließen hilft spürbar.') : ''}</div></div>`)
     const gl = gpus()
@@ -134,7 +157,7 @@
       const url = driverUrl(g.model)
       return `<div class="name">${esc(g.model)}</div><dl class="kv"><dt>Grafikspeicher</dt><dd>${g.vram ? (g.vram / 1024).toFixed(g.vram >= 1024 ? 0 : 1) + ' GB' : '–'}</dd><dt>Treiber</dt><dd>${esc(g.driver || '–')}${g.date ? ` vom ${new Date(g.date).toLocaleDateString('de-DE')}` : ''}</dd></dl>
         ${age != null && age > 180 && url ? check('warn', `Treiber ist ${Math.round(age / 30)} Monate alt. <a href="#" data-url="${url}">Neuen Treiber holen</a>, oft mehr FPS als jede Einstellung.`) : age != null ? check('good', 'Treiber ist aktuell genug.') : ''}`
-    }).join('') || '<div class="empty">Keine Grafikkarte erkannt</div>'}</div></div>`)
+    }).join('') || (h.graphics ? '<div class="empty">Keine Grafikkarte erkannt</div>' : wait)}</div></div>`)
     const dual = layout.length >= 2
     cards.push(`<div class="shell"><div class="core"><h3>Arbeitsspeicher</h3><div class="name">${fmtBytes(mem.total)}</div>
       <dl class="kv"><dt>Module</dt><dd>${layout.length ? layout.map(m => fmtBytes(m.size)).join(' + ') : '–'}</dd><dt>Takt</dt><dd>${layout[0] && layout[0].clockSpeed ? layout[0].clockSpeed + ' MHz' : '–'}</dd><dt>Typ</dt><dd>${esc(layout[0] && layout[0].type || '–')}</dd></dl>
@@ -142,14 +165,14 @@
       ${layout.length === 1 ? check('warn', 'Nur ein Modul (Single-Channel): Ein zweites gleiches Modul verdoppelt die Speicher-Bandbreite und bringt vor allem mit Onboard-Grafik viele FPS.') : dual ? check('good', 'Zwei oder mehr Module: Dual-Channel möglich.') : ''}</div></div>`)
     const displays = (h.graphics && h.graphics.displays) || []
     const drv = (h.drivers || [])[0] || {}
-    cards.push(`<div class="shell"><div class="core"><h3>Bildschirm</h3>${displays.map(d => `<div class="name">${esc(d.model || 'Bildschirm')}${d.main ? ' <span class="tag">Haupt</span>' : ''}</div>
-      <dl class="kv"><dt>Auflösung</dt><dd>${d.currentResX || d.resolutionX || '–'} × ${d.currentResY || d.resolutionY || '–'}</dd><dt>Bildrate</dt><dd>${d.currentRefreshRate || drv.refresh || '–'} Hz</dd></dl>`).join('') || '<div class="empty">–</div>'}
+    cards.push(`<div class="shell"><div class="core"><h3>Bildschirm</h3>${!h.graphics ? wait : ''}${displays.map(d => `<div class="name">${esc(d.model || 'Bildschirm')}${d.main ? ' <span class="tag">Haupt</span>' : ''}</div>
+      <dl class="kv"><dt>Auflösung</dt><dd>${d.currentResX || d.resolutionX || '–'} × ${d.currentResY || d.resolutionY || '–'}</dd><dt>Bildrate</dt><dd>${d.currentRefreshRate || drv.refresh || '–'} Hz</dd></dl>`).join('') || (h.graphics ? '<div class="empty">–</div>' : '')}
       ${refreshIssue() ? check('bad', `Dein Bildschirm läuft mit ${refreshIssue().now} Hz, kann aber ${refreshIssue().max} Hz. <a href="#" data-url="ms-settings:display-advanced">Bildwiederholrate einstellen</a>`) : ''}</div></div>`)
     const disks = (h.fsSize || []).filter(f => f.size > 4 * GB)
     const phys = h.disks || []
     const sys = sysDisk()
     const sysPhys = phys.find(p => p.type) || {}
-    cards.push(`<div class="shell wide"><div class="core"><h3>Laufwerke</h3>${disks.map(f => {
+    cards.push(`<div class="shell wide"><div class="core"><h3>Laufwerke</h3>${!h.fsSize ? wait : ''}${disks.map(f => {
       const used = f.used / f.size * 100, free = f.size - f.used
       return `<div class="disk"><div class="dl"><b>${esc(f.mount)} ${esc(f.fs || '')}</b><span>${fmtBytes(free)} frei von ${fmtBytes(f.size)}</span></div><div class="bar"><i class="${free < 15 * GB ? 'bad' : free < 30 * GB ? 'warn' : ''}" style="width:${used.toFixed(1)}%"></i></div></div>`
     }).join('')}
@@ -158,7 +181,7 @@
       ${sys && sys.size - sys.used < 15 * GB ? check('bad', 'Weniger als 15 GB frei auf dem Systemlaufwerk. <a href="#" data-go="clean">Aufräumen</a>') : ''}</div></div>`)
     const b = h.board || {}, sysI = h.system || {}
     cards.push(`<div class="shell wide"><div class="core"><h3>System</h3><dl class="kv"><dt>Windows</dt><dd>${esc(os.distro || '–')} ${esc(os.release || '')} (Build ${esc(os.build || '–')})</dd><dt>Mainboard</dt><dd>${esc((b.manufacturer || '') + ' ' + (b.model || ''))}</dd><dt>PC</dt><dd>${esc((sysI.manufacturer || '') + ' ' + (sysI.model || ''))}</dd>${h.battery && h.battery.hasBattery ? `<dt>Akku</dt><dd>${h.battery.percent} %${h.battery.isCharging ? ', lädt' : ''}</dd>` : ''}</dl></div></div>`)
-    $('hw').innerHTML = cards.join('')
+    $('hw').innerHTML = cards.join('') + (pending ? `<p class="note wide">Noch ${pending} ${pending === 1 ? 'Abfrage' : 'Abfragen'} unterwegs …</p>` : '')
   }
   document.addEventListener('click', e => {
     const a = e.target.closest('[data-url]'); if (!a) return
@@ -173,6 +196,20 @@
     return null
   }
 
+  // ------------------------------------------------------------ start
+  // Tweaks, startup items and DNS in one engine call (one PowerShell start).
+  // The cleanup scan walks whole folders, so it only runs on its own page.
+  async function loadOverview() {
+    const r = await api.engine('overview').catch(() => null)
+    if (!r || !r.ok) { await loadTweaks(); return }
+    S.tweaks = r.tweaks; S.admin = r.admin; renderTweaks()
+    S.startup = r.startup || []; startupLoaded = true; renderStartup()
+    S.dnsState = r.dns
+    const a = r.dns && r.dns.adapters[0]
+    $('dnsCurrent').textContent = a ? `Aktueller DNS: ${dnsLabel(a.servers)} · ${a.name}${a.wireless ? ' (WLAN)' : ''}` : 'Keine aktive Verbindung gefunden'
+    render()
+  }
+
   // ------------------------------------------------------------ tweaks
   async function loadTweaks() {
     const r = await api.engine('state')
@@ -180,13 +217,39 @@
     S.tweaks = r.tweaks; S.admin = r.admin
     renderTweaks(); render()
   }
+  const CAT_ORDER = ['Leistung', 'Grafik', 'Eingabe', 'Netzwerk', 'System', 'Dienste', 'Datenschutz', 'Optik']
+  let twCat = 'Alle', twQuery = ''
   function renderTweaks() {
-    const cats = [...new Set(S.tweaks.map(t => t.cat))]
-    $('tweaks').innerHTML = cats.map(c => `<div class="cat">${esc(c)}</div><div class="tw">${S.tweaks.filter(t => t.cat === c).map(t => `
+    const all = S.tweaks
+    const cats = [...new Set(all.map(t => t.cat))].sort((a, b) => CAT_ORDER.indexOf(a) - CAT_ORDER.indexOf(b))
+    $('twCats').innerHTML = ['Alle', ...cats].map(c => `<button class="${c === twCat ? 'on' : ''}" data-twcat="${esc(c)}">${esc(c)}</button>`).join('')
+    $('twCount').textContent = `${all.filter(t => t.applied).length} von ${all.length} aktiv`
+    const q = twQuery.toLowerCase()
+    const shown = all.filter(t => (twCat === 'Alle' || t.cat === twCat) && (!q || (t.name + ' ' + t.desc + ' ' + t.cat).toLowerCase().includes(q)))
+    if (!shown.length) { $('tweaks').innerHTML = '<div class="empty">Nichts gefunden.</div>'; return }
+    $('tweaks').innerHTML = cats.filter(c => shown.some(t => t.cat === c)).map(c => `<div class="cat">${esc(c)}</div><div class="tw">${shown.filter(t => t.cat === c).map(t => `
       <div class="twc shell"><div class="core"><div class="body"><b>${esc(t.name)}</b><p>${esc(t.desc)}</p><div class="tags">
         ${t.applied ? '<span class="tag done">aktiv</span>' : ''}<span class="tag ${t.impact === 'hoch' ? 'hoch' : ''}">Wirkung ${esc(t.impact)}</span>${t.admin ? '<span class="tag">Admin</span>' : ''}${t.reboot ? '<span class="tag">Neustart</span>' : ''}${t.optional ? '<span class="tag">optional</span>' : ''}
       </div></div><div class="switch ${t.applied ? 'on' : ''}" data-tweak="${t.id}" role="switch" aria-checked="${t.applied}" tabindex="0"></div></div></div>`).join('')}</div>`).join('')
   }
+  $('twSearch').oninput = e => { twQuery = e.target.value; renderTweaks() }
+  document.addEventListener('click', e => { const b = e.target.closest('[data-twcat]'); if (b) { twCat = b.dataset.twcat; renderTweaks() } })
+  document.addEventListener('click', async e => {
+    const b = e.target.closest('[data-preset]'); if (!b || !S.tweaks) return
+    const mode = b.dataset.preset
+    if (mode === 'none') { $('undoAll').click(); return }
+    const todo = S.tweaks.filter(t => !t.applied && (mode === 'max' || !t.optional))
+    if (!todo.length) { toast('Schon alles aktiv.'); return }
+    if (mode === 'max' && !await confirmBox('Alles aktivieren?', `${todo.length} Einstellungen, auch Dienste wie Windows-Suche, Druckdienst und SysMain sowie der Ruhezustand. Alles lässt sich einzeln oder mit „Original“ zurücknehmen.`, 'Alles aktivieren')) return
+    await busy(b, async () => {
+      const r = await api.engine('apply', { ids: todo.map(t => t.id), elevate: todo.some(t => t.admin) })
+      if (!r || !r.ok) { toast('Nicht geändert: ' + (r && r.error), true); return }
+      const bad = (r.results || []).filter(x => !x.ok)
+      toast(bad.length ? `${todo.length - bad.length} von ${todo.length} aktiv. Fehler: ${bad.map(x => x.id).join(', ')}` : `${todo.length} Optimierungen aktiv.`, bad.length > 0)
+      if (todo.some(t => t.reboot)) needsReboot = true
+      await loadTweaks(); $('rebootBanner').hidden = !needsReboot
+    })
+  })
   let needsReboot = false
   document.addEventListener('click', async e => {
     const sw = e.target.closest('[data-tweak]'); if (!sw) return
@@ -294,7 +357,7 @@
       <td class="r"><span class="heat" style="color:${p.cpu > 25 ? 'var(--bad)' : p.cpu > 8 ? 'var(--warn)' : 'inherit'}">${p.cpu.toFixed(1)} %</span></td>
       <td class="r">${fmtBytes(p.mem)}${total ? `<small>${(p.mem / total * 100).toFixed(0)} %</small>` : ''}</td>
       <td class="r"><button class="kill" data-kill="${p.pids.join(',')}" data-name="${esc(p.name)}" ${p.protected ? 'disabled title="Gehört zu Windows"' : ''}>Beenden</button></td></tr>`).join('')
-    procTimer = setTimeout(refreshProcs, 3000)
+    procTimer = setTimeout(refreshProcs, awake() ? 4000 : 15000)
   }
   document.addEventListener('click', async e => {
     const k = e.target.closest('[data-kill]'); if (!k) return
@@ -344,12 +407,14 @@
     $('lVerdict').innerHTML = `Verbindung <b>${word[0]}</b>. ${word[1]}`
   }
   async function latTick() {
+    clearTimeout(latTimer)
+    if (!awake() || page !== 'latency') { latTimer = setTimeout(latTick, 4000); return }
     const i = target, t = targets[i]
     const ms = await api.ping(t.host, t.port).catch(() => null)
     const h = hist.get(i) || []; h.push(ms); if (h.length > 90) h.shift(); hist.set(i, h)
     if (i === target) { gLat.push(ms); renderLat() }
     if (page === 'latency') renderTargets()
-    setTimeout(latTick, page === 'latency' ? 1000 : 5000)
+    latTimer = setTimeout(latTick, 1000)
   }
   renderTargets()
 
@@ -499,16 +564,25 @@
     $('adminNote').textContent = i.platform !== 'win32' ? 'Optimierungen nur unter Windows.' : i.admin ? 'Läuft als Administrator.' : 'Änderungen fragen einmal nach Admin-Rechten.'
     api.isWindows = i.platform === 'win32'
   })
+  // Installed app: the update downloads by itself, one click installs it.
+  api.onUpdate && api.onUpdate(st => {
+    const b = $('update'); b.hidden = false
+    if (st.state === 'ready') {
+      b.innerHTML = `<b>Update ${esc(st.version)} bereit</b>Klicken zum Installieren (dauert ein paar Sekunden)`
+      b.onclick = () => api.installUpdate()
+    } else {
+      b.innerHTML = `<b>Update wird geladen${st.percent != null ? ` · ${st.percent} %` : ''}</b>Läuft im Hintergrund`
+      b.onclick = null
+    }
+  })
   api.checkUpdate && api.checkUpdate().then(u => {
-    if (!u) return
+    if (!u || u.auto) return
     const b = $('update'); b.hidden = false
     b.innerHTML = `<b>Update: Version ${esc(u.version)}</b>Klicken zum Herunterladen`
     b.onclick = () => api.open(u.url || 'https://lunar0710.github.io/Crystal/#lunar')
   }).catch(() => {})
   api.netInfo && api.netInfo().then(n => { S.net = n; render() }).catch(() => {})
-  setTimeout(loadDns, 3500)
   liveTick(); pingTick(); latTick()
-  loadHardware(); loadTweaks()
-  setTimeout(() => { if (!startupLoaded) loadStartup(); if (!cleanLoaded) scanClean() }, 2500)
+  loadHardware(); loadOverview()
   window.__lunarReady = true
 })()
