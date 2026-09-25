@@ -109,6 +109,9 @@ function writeTestSettings(gameDir) {
       LowFire: { enabled: true },
       KillEffect: { enabled: true },
       InventoryHUD: { enabled: true, settings: { X: 300, Y: 4 } },
+      // Shows the real song if Spotify plays on the test machine, nothing otherwise.
+      Spotify: { enabled: true, settings: { X: 240, Y: 180 } },
+      Lyrics: { enabled: true, settings: { X: 150, Y: 150 } },
       ItemPhysics: { enabled: true },
       ParticleChanger: { enabled: true },
       BetterSounds: { enabled: true },

@@ -73,6 +73,10 @@ public class CrystalHUD {
                 drawInventory(context, inventory);
             } else if (module instanceof dev.crystal.client.module.hud.KillCam cam) {
                 drawKillCam(context, cam);
+            } else if (module instanceof dev.crystal.client.module.hud.SpotifyHUD spotify) {
+                drawSpotify(context, spotify);
+            } else if (module instanceof dev.crystal.client.module.hud.SpotifyLyrics lyrics) {
+                drawLyrics(context, lyrics);
             } else if (module instanceof HudModule hud) {
                 drawStyledText(context, hud);
             } else if (module instanceof HudRenderable renderable) {
@@ -102,6 +106,12 @@ public class CrystalHUD {
         float s = module.getScale();
         if (module instanceof dev.crystal.client.module.hud.InventoryHUD) {
             return new int[]{x - Math.round(2 * s), y - Math.round(2 * s), x + Math.round((INV_W + 2) * s), y + Math.round((INV_H + 2) * s)};
+        }
+        if (module instanceof dev.crystal.client.module.hud.SpotifyHUD) {
+            return new int[]{x, y, x + Math.round(SPOT_W * s), y + Math.round(SPOT_H * s)};
+        }
+        if (module instanceof dev.crystal.client.module.hud.SpotifyLyrics) {
+            return new int[]{x, y, x + Math.round(LYR_W * s), y + Math.round(LYR_H * s)};
         }
         if (module instanceof dev.crystal.client.module.hud.KillCam) {
             return new int[]{x - Math.round(3 * s), y - Math.round(2 * s), x + Math.round((CAM_W + 3) * s), y + Math.round((CAM_H + 2) * s)};
@@ -228,6 +238,123 @@ public class CrystalHUD {
             }
         }
         context.pose().popMatrix();
+    }
+
+    private static final int SPOT_W = 176, SPOT_H = 46, LYR_W = 260, LYR_H = 30;
+    private static final int SPOTIFY_GREEN = 0xFF1DB954;
+
+    private static boolean inEditor() {
+        return Minecraft.getInstance().screen instanceof HudEditorScreen;
+    }
+
+    private static String clock(long ms) {
+        long s = Math.max(0, ms / 1000);
+        return (s / 60) + ":" + String.format("%02d", s % 60);
+    }
+
+    /**
+     * The Spotify card: a cover square with a small equaliser that moves while
+     * the song plays, title and artist beside it, and a progress line under
+     * them with the elapsed and total time.
+     */
+    private void drawSpotify(GuiGraphics context, dev.crystal.client.module.hud.SpotifyHUD module) {
+        dev.crystal.client.util.NowPlaying.Track track = module.track();
+        boolean sample = track == null && inEditor();
+        if (track == null && !sample) return;
+        String title = sample ? "Nichts läuft gerade" : track.title();
+        String artist = sample ? "Spotify" : track.artist();
+        boolean playing = !sample && track.playing();
+        float s = module.getScale();
+        context.pose().pushMatrix();
+        context.pose().translate(module.getX(), module.getY());
+        context.pose().scale(s, s);
+
+        GuiRender.shadow(context, 0, 0, SPOT_W, SPOT_H, 12, 8, 3, 0.8f);
+        GuiRender.roundedRect(context, 0, 0, SPOT_W, SPOT_H, 12, 0xE00B0B0C);
+        GuiRender.roundedOutline(context, 0, 0, SPOT_W, SPOT_H, 12, 0x1CFFFFFF);
+        context.fill(12, 0, SPOT_W - 12, 1, 0x26FFFFFF);
+
+        // Cover: a green square with an equaliser in it.
+        int cx = 6, cy = 6, cs = SPOT_H - 12;
+        GuiRender.roundedGradient(context, cx, cy, cx + cs, cy + cs, 8, 0xFF1ED760, 0xFF0E5F2C);
+        long now = System.currentTimeMillis();
+        for (int i = 0; i < 4; i++) {
+            float wave = playing ? (float) (0.35 + 0.65 * Math.abs(Math.sin(now / (170.0 + i * 37) + i * 1.3))) : 0.25f;
+            int h = Math.max(2, Math.round((cs - 14) * wave));
+            int bx = cx + 8 + i * 5;
+            GuiRender.roundedRect(context, bx, cy + cs - 7 - h, bx + 3, cy + cs - 7, 1, 0xF0FFFFFF);
+        }
+
+        int tx = cx + cs + 8, tw = SPOT_W - tx - 10;
+        context.drawString(font(), GuiRender.uiBold(GuiRender.trimToWidth(title, tw)), tx, 8, 0xFFF4F4F5, false);
+        GuiRender.text(context, GuiRender.trimToWidth(artist, tw - 14), tx, 19, 0xFFA1A1AA);
+        // Paused: two small bars after the artist.
+        if (!sample && !playing) {
+            int px = SPOT_W - 14;
+            context.fill(px, 20, px + 2, 26, 0xFFA1A1AA);
+            context.fill(px + 4, 20, px + 6, 26, 0xFFA1A1AA);
+        }
+
+        if (module.showProgress() && !sample && track.durationMs() > 0) {
+            long pos = track.position();
+            int by = SPOT_H - 11;
+            int bw = tw;
+            GuiRender.pill(context, tx, by, tx + bw, by + 3, 0x26FFFFFF);
+            int filled = Math.round(bw * Math.min(1f, pos / (float) track.durationMs()));
+            if (filled > 2) GuiRender.pill(context, tx, by, tx + filled, by + 3, SPOTIFY_GREEN);
+            String times = clock(pos) + " / " + clock(track.durationMs());
+            GuiRender.scaledText(context, times, tx + bw - GuiRender.scaledWidth(times, 0.7f), by - 7, 0.7f, 0xFF71717A);
+        }
+        context.pose().popMatrix();
+    }
+
+    /**
+     * The lyrics: the line being sung, centred and bright, and the next one
+     * fainter below it. A new line slides up and fades in.
+     */
+    private void drawLyrics(GuiGraphics context, dev.crystal.client.module.hud.SpotifyLyrics module) {
+        dev.crystal.client.util.NowPlaying.Track track = dev.crystal.client.util.NowPlaying.current();
+        List<dev.crystal.client.util.NowPlaying.Line> lines = track == null ? List.of() : dev.crystal.client.util.NowPlaying.lyrics();
+        String current, next = "";
+        long since = 10_000;
+        if (track != null && !lines.isEmpty()) {
+            // Picked a little ahead of the music (the "Vorlauf"), so each line is up before it is sung.
+            long pos = module.lookAt(track.position());
+            int i = dev.crystal.client.module.hud.SpotifyLyrics.lineAt(lines, pos);
+            current = i < 0 ? "♪" : lines.get(i).text();
+            if (current.isEmpty()) current = "♪";
+            if (i + 1 < lines.size()) next = lines.get(i + 1).text();
+            since = i < 0 ? 10_000 : pos - lines.get(i).timeMs();
+        } else if (inEditor()) {
+            current = track == null ? "Songtext erscheint hier" : dev.crystal.client.util.NowPlaying.lyricsLoading() ? "Songtext wird geladen…" : "Kein Songtext für diesen Song";
+            next = "Lyrics";
+        } else {
+            return;
+        }
+        float s = module.getScale();
+        context.pose().pushMatrix();
+        context.pose().translate(module.getX(), module.getY());
+        context.pose().scale(s, s);
+        float t = Math.min(1f, since / 260f);
+        float ease = GuiRender.spring(t);
+        int alpha = Math.round(255 * (0.25f + 0.75f * ease));
+        int lift = Math.round((1f - ease) * 5);
+
+        String shown = GuiRender.trimToWidth(current, LYR_W - 8);
+        int w = Math.round(GuiRender.boldWidth(shown) * 1.15f);
+        // A soft dark band behind the line so it reads over any sky.
+        GuiRender.roundedRect(context, (LYR_W - w) / 2 - 8, 1 + lift, (LYR_W + w) / 2 + 8, 15 + lift, 7, GuiRender.withAlpha(0x000000, Math.round(0x70 * (alpha / 255f))));
+        GuiRender.heading(context, shown, (LYR_W - w) / 2f, 3.5f + lift, 1.15f, GuiRender.withAlpha(0xFFFFFF, alpha));
+        if (module.showNext() && !next.isEmpty()) {
+            String n = GuiRender.trimToWidth(next, Math.round((LYR_W - 8) / 0.85f));
+            int nw = GuiRender.scaledWidth(n, 0.85f);
+            GuiRender.scaledText(context, n, (LYR_W - nw) / 2, 19, 0.85f, 0xB0FFFFFF);
+        }
+        context.pose().popMatrix();
+    }
+
+    private static net.minecraft.client.gui.Font font() {
+        return Minecraft.getInstance().font;
     }
 
     private static final int CAM_W = 128, CAM_H = 118, CAM_MAP = 96;

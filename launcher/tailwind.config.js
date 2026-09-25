@@ -21,11 +21,13 @@ export default {
       fontFamily: {
         sans: ['Geist Variable', 'Segoe UI', 'system-ui', 'sans-serif'],
         mono: ['Geist Mono Variable', 'Consolas', 'monospace'],
+        // Headings, as on the website: Archivo set wide and heavy.
+        display: ['Archivo Variable', 'Geist Variable', 'Segoe UI', 'sans-serif'],
       },
       borderRadius: {
-        lg: '7px',
-        xl: '10px',
-        '2xl': '14px',
+        lg: '8px',
+        xl: '12px',
+        '2xl': '18px',
       },
       // Kept as names so existing markup still resolves, but deliberately flat:
       // gradient fills and glow shadows were the loudest "template" tells.
@@ -41,12 +43,12 @@ export default {
       },
       animation: {
         'fade-in':    'fadeIn 0.2s ease-out',
-        'slide-in':   'slideIn 0.18s cubic-bezier(0.16, 1, 0.3, 1)',
+        'slide-in':   'slideIn 0.5s cubic-bezier(0.32, 0.72, 0, 1)',
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
       },
       keyframes: {
         fadeIn:  { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
-        slideIn: { '0%': { transform: 'translateY(6px)', opacity: '0' }, '100%': { transform: 'translateY(0)', opacity: '1' } },
+        slideIn: { '0%': { transform: 'translateY(10px)', opacity: '0', filter: 'blur(4px)' }, '100%': { transform: 'translateY(0)', opacity: '1', filter: 'blur(0)' } },
       },
     },
   },

@@ -505,6 +505,37 @@ h1, h2, h3 {
   outline-offset: 2px;
 }
 
+/* ---- Nexora look (1.6): the same language as the website ---- */
+
+/* Behind everything: a faint glow of the accent from the top left, a cool
+   one from the right, and a fine grain, so the dark reads as depth. */
+.nexora-atmosphere {
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.035'/%3E%3C/svg%3E"),
+    radial-gradient(60% 55% at 12% -8%, rgb(var(--c-accent) / 0.09), transparent 70%),
+    radial-gradient(45% 50% at 100% 30%, rgb(76 141 255 / 0.06), transparent 70%),
+    rgb(var(--c-bg));
+}
+
+.nexora-display {
+  font-family: 'Archivo Variable', 'Geist Variable', 'Segoe UI', sans-serif;
+  font-stretch: 118%;
+  font-weight: 780;
+  letter-spacing: -0.025em;
+}
+
+/* Everything that moves settles like a spring instead of sliding linearly. */
+.nexora-ease {
+  transition: color 0.5s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.5s cubic-bezier(0.32, 0.72, 0, 1),
+    box-shadow 0.5s cubic-bezier(0.32, 0.72, 0, 1), transform 0.5s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.5s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* The page the sidebar points at: a pill with a hairline and a lit top edge. */
+.nexora-nav-active {
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.07), rgb(255 255 255 / 0.03));
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08), inset 0 1px 0 rgb(255 255 255 / 0.10), 0 8px 24px -12px rgb(var(--c-accent) / 0.5);
+}
+
 @layer components {
   /* Surfaces: a hairline and a tone step, no drop shadow. Elevation is saved
      for things that actually float (menus, toasts). */
@@ -528,19 +559,31 @@ h1, h2, h3 {
     background-size: auto 190%;
     opacity: 0.05;
   }
+  /* A double bezel: the card is the core (lit top edge, hairline), and a
+     thin shell around it is drawn with two outer rings, so every card reads
+     like a plate set into a frame. */
   .crystal-card {
-    @apply bg-crystal-card border border-crystal-border;
-    border-radius: 14px;
-    box-shadow: 0 1px 2px rgb(0 0 0 / 0.35);
+    @apply bg-crystal-card border border-white/[0.07];
+    border-radius: 18px;
+    background-image: linear-gradient(180deg, rgb(255 255 255 / 0.028), transparent 60%), var(--theme-pattern);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.07),
+      0 0 0 4px rgb(255 255 255 / 0.018),
+      0 0 0 5px rgb(255 255 255 / 0.045),
+      0 24px 48px -28px rgb(0 0 0 / 0.85);
   }
 
   .crystal-btn {
     @apply inline-flex items-center justify-center gap-1.5 px-4 py-2 font-medium cursor-pointer select-none;
-    border-radius: 10px;
-    transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease, filter 120ms ease, transform 80ms ease;
+    border-radius: 999px;
+    transition: background-color 0.5s cubic-bezier(0.32, 0.72, 0, 1), color 0.5s cubic-bezier(0.32, 0.72, 0, 1),
+      box-shadow 0.5s cubic-bezier(0.32, 0.72, 0, 1), filter 0.3s ease, transform 0.5s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  .crystal-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
   }
   .crystal-btn:active:not(:disabled) {
-    transform: translateY(1px);
+    transform: scale(0.98);
   }
   .crystal-btn:disabled {
     cursor: not-allowed;
@@ -552,10 +595,11 @@ h1, h2, h3 {
     @apply crystal-btn;
     background: rgb(var(--c-accent));
     color: rgb(var(--c-bg));
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.18);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.25), inset 0 0 0 1px rgb(255 255 255 / 0.12), 0 10px 32px -12px rgb(var(--c-accent) / 0.65);
   }
   .crystal-btn-primary:hover:not(:disabled) {
-    filter: brightness(1.08);
+    filter: brightness(1.06);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.3), inset 0 0 0 1px rgb(255 255 255 / 0.15), 0 14px 40px -12px rgb(var(--c-accent) / 0.8);
   }
 
   .crystal-btn-ghost {
@@ -563,14 +607,16 @@ h1, h2, h3 {
   }
   .crystal-btn-ghost:hover:not(:disabled) {
     @apply text-crystal-text;
-    background: rgb(var(--c-border) / 0.55);
+    background: rgb(255 255 255 / 0.06);
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08);
   }
 
   .crystal-input {
     @apply border border-crystal-border px-3 py-2 text-crystal-text placeholder-crystal-muted;
-    background: rgb(var(--c-bg) / 0.6);
-    border-radius: 7px;
-    transition: border-color 120ms ease, box-shadow 120ms ease;
+    background: rgb(0 0 0 / 0.25);
+    border-color: rgb(255 255 255 / 0.08);
+    border-radius: 12px;
+    transition: border-color 0.4s cubic-bezier(0.32, 0.72, 0, 1), box-shadow 0.4s cubic-bezier(0.32, 0.72, 0, 1);
   }
   .crystal-input:focus {
     outline: none;

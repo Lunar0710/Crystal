@@ -20,7 +20,7 @@ export function TitleBar() {
 
   return (
     <div
-      className={`flex items-stretch justify-between h-9 bg-crystal-panel border-b border-crystal-border select-none ${isMac ? 'pl-[78px]' : 'pl-3.5'}`}
+      className={`flex items-stretch justify-between h-9 bg-crystal-bg/40 border-b border-white/[0.06] select-none ${isMac ? 'pl-[78px]' : 'pl-3.5'}`}
       style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       // macOS convention: double-clicking the title bar zooms the window.
       onDoubleClick={isMac ? () => api?.maximize() : undefined}
