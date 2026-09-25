@@ -407,6 +407,44 @@ function Invoke-Clean($c) {
     if ($c.id -eq 'updates') { Start-Service bits, wuauserv -ErrorAction SilentlyContinue }
 }
 
+# ------------------------------------------------------------------ DNS
+# The adapters that actually carry traffic (up, with a default route).
+function Get-ActiveAdapters {
+    $routes = Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty ifIndex -Unique
+    Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq 'Up' -and $routes -contains $_.ifIndex }
+}
+function Get-DnsState {
+    $list = foreach ($a in Get-ActiveAdapters) {
+        $servers = @((Get-DnsClientServerAddress -InterfaceIndex $a.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue).ServerAddresses)
+        [pscustomobject]@{ ifIndex = $a.ifIndex; name = $a.Name; description = $a.InterfaceDescription; wireless = ($a.NdisPhysicalMedium -eq 9 -or $a.InterfaceDescription -match 'Wi-?Fi|Wireless|WLAN|802\.11'); speed = "$($a.LinkSpeed)"; servers = $servers }
+    }
+    return , @($list)
+}
+function Set-Dns($Backup, $servers, [bool]$reset) {
+    if (-not ($Backup.PSObject.Properties.Name -contains 'dns')) { $Backup | Add-Member -NotePropertyName dns -NotePropertyValue ([pscustomobject]@{}) }
+    foreach ($a in Get-ActiveAdapters) {
+        $key = "$($a.ifIndex)"
+        if ($reset) {
+            if ($Backup.dns.PSObject.Properties.Name -contains $key) {
+                $e = $Backup.dns.$key
+                if ($e.static -and $e.static.Count -gt 0) { Set-DnsClientServerAddress -InterfaceIndex $a.ifIndex -ServerAddresses $e.static -ErrorAction Stop }
+                else { Set-DnsClientServerAddress -InterfaceIndex $a.ifIndex -ResetServerAddresses -ErrorAction Stop }
+                $Backup.dns.PSObject.Properties.Remove($key)
+            }
+            continue
+        }
+        if (-not ($Backup.dns.PSObject.Properties.Name -contains $key)) {
+            # Empty NameServer in the registry means the addresses came from the router (DHCP).
+            $reg = Get-RegValue "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces\$($a.InterfaceGuid)" 'NameServer'
+            $static = @("$reg" -split '[, ]' | Where-Object { $_ })
+            $Backup.dns | Add-Member -NotePropertyName $key -NotePropertyValue ([pscustomobject]@{ static = $static })
+        }
+        Set-DnsClientServerAddress -InterfaceIndex $a.ifIndex -ServerAddresses $servers -ErrorAction Stop
+    }
+    Save-Backup $Backup
+    Clear-DnsClientCache -ErrorAction SilentlyContinue
+}
+
 # ------------------------------------------------------------------ actions
 try {
     $idList = @($Ids -split ',' | Where-Object { $_ })
@@ -441,12 +479,20 @@ try {
             $b = Get-Backup
             $n = 0
             foreach ($p in @($b.registry.PSObject.Properties)) { try { Restore-Entry $p.Value; $n++ } catch {} }
+            if ($b.PSObject.Properties.Name -contains 'dns') { try { Set-Dns $b @() $true; $n++ } catch {} }
             if ($b.PSObject.Properties.Name -contains 'services') { foreach ($p in @($b.services.PSObject.Properties)) { try { Restore-Service $p.Name $p.Value; $n++ } catch {} } }
             if ((Get-LunarScheme) -or $b.powerScheme) { Revert-Power $b }
             $m = Get-ItemProperty 'HKCU:\Control Panel\Mouse' -ErrorAction SilentlyContinue
             if ($m) { Update-Mouse @([int]$m.MouseThreshold1, [int]$m.MouseThreshold2, [int]$m.MouseSpeed) }
             Remove-Item $BackupFile -Force -ErrorAction SilentlyContinue
             Write-Result ([pscustomobject]@{ ok = $true; restored = $n })
+        }
+        'dns-get' { Write-Result ([pscustomobject]@{ ok = $true; adapters = (Get-DnsState); changed = ((Get-Backup).PSObject.Properties.Name -contains 'dns' -and @((Get-Backup).dns.PSObject.Properties).Count -gt 0) }) }
+        'dns-set' {
+            $a = $Arg | ConvertFrom-Json
+            $b = Get-Backup
+            Set-Dns $b @($a.servers) ([bool]$a.reset)
+            Write-Result ([pscustomobject]@{ ok = $true; adapters = (Get-DnsState) })
         }
         'startup-list' { Write-Result ([pscustomobject]@{ ok = $true; items = (Get-StartupItems) }) }
         'startup-set' {

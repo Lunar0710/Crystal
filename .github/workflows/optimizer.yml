@@ -58,6 +58,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           printf 'Lunar Optimizer %s, built from %s\n' "$VERSION" "$GITHUB_SHA" > README.txt
+          # Read by the app to offer an update.
+          printf '{"version":"%s","url":"https://lunar0710.github.io/Crystal/#lunar"}\n' "$VERSION" > version.json
           git add -A
           git commit -qm "Lunar Optimizer $VERSION (${GITHUB_SHA::7})"
           git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" optimizer-dist

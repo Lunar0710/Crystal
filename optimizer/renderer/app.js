@@ -38,7 +38,8 @@
     document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('on', a.dataset.page === p))
     document.querySelectorAll('.page').forEach(s => s.classList.toggle('on', s.id === 'p-' + p))
     $('main').scrollTop = 0
-    if (p === 'monitor') refreshProcs()
+    if (p === 'monitor') { refreshProcs(); refreshBoost() }
+    if (p === 'latency' && !S.dnsState) loadDns()
     if (p === 'startup' && !startupLoaded) loadStartup()
     if (p === 'clean' && !cleanLoaded) scanClean()
     requestAnimationFrame(() => charts.forEach(c => { c.resize(); c.draw() }))
@@ -47,7 +48,7 @@
   document.addEventListener('click', e => { const g = e.target.closest('[data-go]'); if (g) go(g.dataset.go) })
 
   // ------------------------------------------------------------ state
-  const S = { hw: null, tweaks: null, startup: null, clean: null, cpuSamples: [], ping: [], admin: false }
+  const S = { hw: null, tweaks: null, startup: null, clean: null, cpuSamples: [], ping: [], admin: false, net: null, dnsState: null, maxCpuTemp: 0, maxGpuTemp: 0 }
   const charts = []
   const mk = (id, o) => { const c = new LineChart($(id), o); charts.push(c); return c }
   const sparkCpu = mk('sCpu', { grid: false }), sparkGpu = mk('sGpu', { grid: false, color: '#b9a4ff' })
@@ -78,6 +79,8 @@
       d.cores.forEach((v, i) => { cores.children[i].style.height = Math.max(4, v) + '%' })
       const mini = $('miniCpu'); mini.querySelector('b').textContent = pct(d.cpu)
       mini.querySelector('i').className = d.cpu > 85 ? 'bad' : d.cpu > 60 ? 'warn' : 'good'
+      if (d.cpuTemp) S.maxCpuTemp = Math.max(S.maxCpuTemp, d.cpuTemp)
+      if (d.gpuTemp) S.maxGpuTemp = Math.max(S.maxGpuTemp, d.gpuTemp)
       if (S.cpuSamples.length < 20) { S.cpuSamples.push(d.cpu); if (S.cpuSamples.length === 20) render() }
     }
     setTimeout(liveTick, 1000)
@@ -366,6 +369,76 @@
     }
   }
 
+  // ------------------------------------------------------------ DNS
+  const dnsLabel = servers => {
+    const known = { '1.1.1.1': 'Cloudflare', '8.8.8.8': 'Google', '9.9.9.9': 'Quad9', '94.140.14.14': 'AdGuard' }
+    return (servers || []).map(x => known[x] ? `${x} (${known[x]})` : x).join(', ') || 'vom Router'
+  }
+  async function loadDns() {
+    const r = await api.engine('dns-get')
+    if (!r || !r.ok) { $('dnsCurrent').textContent = r && r.error || 'Nicht verfügbar'; return }
+    S.dnsState = r
+    const a = r.adapters[0]
+    $('dnsCurrent').textContent = a ? `Aktueller DNS: ${dnsLabel(a.servers)} · ${a.name}${a.wireless ? ' (WLAN)' : ''}` : 'Keine aktive Verbindung gefunden'
+    render()
+  }
+  async function runDns(btn) {
+    await busy(btn, async () => {
+      if (!S.dnsState) await loadDns()
+      const current = S.dnsState && S.dnsState.adapters[0] ? S.dnsState.adapters[0].servers : []
+      const res = await api.dnsBench(current)
+      const ok = res.filter(x => x.ms != null)
+      const best = ok.length ? ok.reduce((a, b) => a.ms < b.ms ? a : b) : null
+      const max = Math.max(1, ...ok.map(x => x.ms))
+      const cur = res.find(x => x.current)
+      $('dns').innerHTML = res.map(x => `<div class="li ${x === best ? 'best' : ''}"><div><b>${esc(x.name)}${x === best ? '<span class="tag done">am schnellsten</span>' : ''}${x.current ? '<span class="tag">jetzt aktiv</span>' : ''}</b><small>${esc(x.servers.join(', '))}${x.failed ? ` · ${x.failed} Anfragen ohne Antwort` : ''}</small></div>
+        <span class="dns-bar"><i style="width:${x.ms == null ? 0 : (x.ms / max * 100).toFixed(0)}%"></i></span><span class="ms">${x.ms == null ? 'keine Antwort' : x.ms.toFixed(1) + ' ms'}</span>
+        ${x.current ? '' : `<button class="btn ghost sm" data-dns="${esc(x.servers.join(','))}"><span>Verwenden</span></button>`}</div>`).join('') +
+        `<div class="li"><div><small>${best && cur && best !== cur && cur.ms ? `${esc(best.name)} ist ${(cur.ms - best.ms).toFixed(0)} ms schneller als dein aktueller DNS.` : 'Dein aktueller DNS ist schon unter den schnellsten.'}</small></div>
+        ${S.dnsState && S.dnsState.changed ? '<button class="btn ghost sm" id="dnsReset"><span>Original wiederherstellen</span></button>' : ''}<button class="btn ghost sm" id="dnsRun"><span>Nochmal testen</span></button></div>`
+      $('dnsRun').onclick = e => runDns(e.currentTarget)
+      if ($('dnsReset')) $('dnsReset').onclick = e => setDns(e.currentTarget, null)
+    })
+  }
+  async function setDns(btn, servers) {
+    await busy(btn, async () => {
+      const r = await api.engine('dns-set', { arg: servers ? { servers } : { reset: true }, elevate: true })
+      if (!r || !r.ok) { toast('Nicht geändert: ' + (r && r.error), true); return }
+      toast(servers ? `DNS ist jetzt ${dnsLabel(servers)}.` : 'Ursprünglicher DNS wiederhergestellt.')
+      S.dnsState = null; await loadDns(); await runDns($('dnsRun'))
+    })
+  }
+  $('dnsRun').onclick = e => runDns(e.currentTarget)
+  document.addEventListener('click', e => { const b = e.target.closest('[data-dns]'); if (b) setDns(b, b.dataset.dns.split(',')) })
+
+  // ------------------------------------------------------------ boost
+  const boostPick = new Set()
+  let boostApps = []
+  async function refreshBoost() {
+    boostApps = await api.boostList().catch(() => [])
+    for (const a of boostApps) if (!a.keep && !boostPick.has('-' + a.exe)) boostPick.add(a.exe)
+    $('boost').innerHTML = boostApps.length ? boostApps.map(a => `<div class="chip ${boostPick.has(a.exe) ? 'on' : ''}" data-boost="${esc(a.exe)}"><span class="box ${boostPick.has(a.exe) ? 'on' : ''}"></span><b>${esc(a.name)}</b><small>${fmtBytes(a.mem)}</small></div>`).join('')
+      : '<div class="empty">Nichts Überflüssiges im Hintergrund. Bereit zum Spielen.</div>'
+    const picked = boostApps.filter(a => boostPick.has(a.exe))
+    $('boostRun').disabled = !picked.length
+    $('boostRun').querySelector('span').textContent = picked.length ? `${picked.length} schließen · ${fmtBytes(picked.reduce((m, a) => m + a.mem, 0))} frei` : 'Ausgewählte schließen'
+  }
+  document.addEventListener('click', e => {
+    const c = e.target.closest('[data-boost]'); if (!c) return
+    const exe = c.dataset.boost
+    if (boostPick.has(exe)) { boostPick.delete(exe); boostPick.add('-' + exe) } else { boostPick.add(exe); boostPick.delete('-' + exe) }
+    refreshBoost()
+  })
+  $('boostRun').onclick = async e => {
+    const picked = boostApps.filter(a => boostPick.has(a.exe))
+    if (!await confirmBox(`${picked.length} Apps schließen?`, `${picked.map(a => a.name).join(', ')}. Nicht gespeicherte Arbeit in diesen Apps geht verloren (Browser öffnen ihre Tabs meist wieder).`, 'Schließen')) return
+    await busy(e.currentTarget, async () => {
+      const r = await api.boostClose(picked.map(a => a.exe))
+      toast(`${r.closed.length} Apps geschlossen. Viel Spaß beim Spielen!`)
+      setTimeout(refreshBoost, 1200)
+    })
+  }
+
   // ------------------------------------------------------------ score
   function issues() {
     const list = []
@@ -387,6 +460,10 @@
     if (S.startup) { const on = S.startup.filter(i => i.enabled).length; if (on > 8) list.push({ sev: 'warn', pts: 5, title: `${on} Programme starten mit Windows`, detail: 'Jedes davon kostet beim Hochfahren Zeit und läuft danach im Hintergrund.', act: ['Autostart', 'startup'] }) }
     if (S.clean) { const junk = S.clean.targets.filter(t => t.id !== 'recycle').reduce((a, t) => a + t.bytes, 0); if (junk > 2 * GB) list.push({ sev: 'info', pts: 3, title: `${fmtBytes(junk)} Datenmüll`, detail: 'Temporäre Dateien und alte Update-Downloads.', act: ['Aufräumen', 'clean'] }) }
     if (S.cpuSamples.length >= 20) { const avg = S.cpuSamples.reduce((a, b) => a + b, 0) / S.cpuSamples.length; if (avg > 35) list.push({ sev: 'warn', pts: 6, title: `CPU im Leerlauf zu ${Math.round(avg)} % ausgelastet`, detail: 'Irgendetwas läuft im Hintergrund mit. Der Live-Monitor zeigt was.', act: ['Ansehen', 'monitor'] }) }
+    const wlan = (S.dnsState && S.dnsState.adapters.some(a => a.wireless)) || (S.net && S.net.type === 'wireless')
+    if (wlan) list.push({ sev: 'info', pts: 4, title: 'Du bist über WLAN verbunden', detail: 'WLAN hat mehr Ping-Schwankungen und Paketverlust als ein LAN-Kabel. Für Online-Spiele ist Kabel fast immer besser.', act: ['Latenz messen', 'latency'] })
+    if (S.maxCpuTemp > 90) list.push({ sev: 'bad', pts: 8, title: `CPU wird ${Math.round(S.maxCpuTemp)} °C heiß`, detail: 'Ab etwa 90 °C taktet sie herunter. Lüfter und Staub prüfen, Wärmeleitpaste ist nach Jahren oft trocken.', act: ['Live-Monitor', 'monitor'] })
+    if (S.maxGpuTemp > 85) list.push({ sev: 'warn', pts: 6, title: `Grafikkarte wird ${Math.round(S.maxGpuTemp)} °C heiß`, detail: 'Gute Belüftung im Gehäuse und saubere Lüfter halten den Takt oben.', act: ['Live-Monitor', 'monitor'] })
     const pings = S.ping.filter(v => v != null)
     if (S.ping.length >= 10 && (S.ping.length - pings.length) / S.ping.length > .1) list.push({ sev: 'bad', pts: 8, title: 'Verbindung verliert Pakete', detail: 'Mehr als 10 % der Ping-Anfragen kommen nicht an. WLAN? Ein LAN-Kabel hilft meist sofort.', act: ['Latenz', 'latency'] })
     return list.sort((a, b) => b.pts - a.pts)
@@ -422,6 +499,14 @@
     $('adminNote').textContent = i.platform !== 'win32' ? 'Optimierungen nur unter Windows.' : i.admin ? 'Läuft als Administrator.' : 'Änderungen fragen einmal nach Admin-Rechten.'
     api.isWindows = i.platform === 'win32'
   })
+  api.checkUpdate && api.checkUpdate().then(u => {
+    if (!u) return
+    const b = $('update'); b.hidden = false
+    b.innerHTML = `<b>Update: Version ${esc(u.version)}</b>Klicken zum Herunterladen`
+    b.onclick = () => api.open(u.url || 'https://lunar0710.github.io/Crystal/#lunar')
+  }).catch(() => {})
+  api.netInfo && api.netInfo().then(n => { S.net = n; render() }).catch(() => {})
+  setTimeout(loadDns, 3500)
   liveTick(); pingTick(); latTick()
   loadHardware(); loadTweaks()
   setTimeout(() => { if (!startupLoaded) loadStartup(); if (!cleanLoaded) scanClean() }, 2500)

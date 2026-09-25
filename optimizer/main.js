@@ -7,6 +7,7 @@ const fs = require('fs')
 const os = require('os')
 const net = require('net')
 const { execFile } = require('child_process')
+const dns = require('dns')
 const si = require('systeminformation')
 
 const isWin = process.platform === 'win32'
@@ -172,6 +173,105 @@ function tcpPing(host, port, timeout = 2000) {
   })
 }
 
+// ---------------------------------------------------------------- DNS
+// Every name lookup (server address, skins, Discord) waits on the DNS server.
+// Measured with a few everyday names; the slowest third is dropped as noise.
+const DNS_NAMES = ['minecraft.net', 'hypixel.net', 'discord.com', 'youtube.com', 'twitch.tv', 'steampowered.com', 'github.com', 'epicgames.com']
+async function dnsTime(server) {
+  const r = new dns.promises.Resolver({ timeout: 1500, tries: 1 })
+  r.setServers([server])
+  const times = []
+  let failed = 0
+  for (const name of DNS_NAMES) {
+    const t0 = process.hrtime.bigint()
+    try { await r.resolve4(name); times.push(Number(process.hrtime.bigint() - t0) / 1e6) } catch { failed++ }
+  }
+  times.sort((a, b) => a - b)
+  const keep = times.slice(0, Math.max(1, Math.ceil(times.length * 2 / 3)))
+  return { server, ms: keep.length ? keep.reduce((a, b) => a + b, 0) / keep.length : null, failed }
+}
+async function dnsBench(current) {
+  const list = [
+    { name: 'Cloudflare', servers: ['1.1.1.1', '1.0.0.1'] },
+    { name: 'Google', servers: ['8.8.8.8', '8.8.4.4'] },
+    { name: 'Quad9', servers: ['9.9.9.9', '149.112.112.112'] },
+    { name: 'AdGuard', servers: ['94.140.14.14', '94.140.15.15'] },
+  ]
+  if (current && current.length) list.unshift({ name: 'Aktuell', servers: current, current: true })
+  const out = []
+  for (const d of list) out.push({ ...d, ...(await dnsTime(d.servers[0])) })
+  return out
+}
+
+// ---------------------------------------------------------------- update check
+const VERSION_URL = 'https://lunar0710.github.io/Crystal/optimizer/version.json'
+async function checkUpdate() {
+  try {
+    const { net } = require('electron')
+    const res = await net.fetch(VERSION_URL, { cache: 'no-store' })
+    if (!res.ok) return null
+    const v = await res.json()
+    const newer = (a, b) => { const x = a.split('.').map(Number), y = b.split('.').map(Number); for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); return false }
+    return newer(String(v.version), app.getVersion()) ? v : null
+  } catch { return null }
+}
+
+// ---------------------------------------------------------------- boost
+// Apps that run in the background for many people and are safe to close
+// before a game. Nothing from Windows itself, no anti-cheat, no game launcher
+// a running game might need.
+const BOOST_APPS = [
+  { exe: 'chrome.exe', name: 'Google Chrome', group: 'Browser' },
+  { exe: 'msedge.exe', name: 'Microsoft Edge', group: 'Browser' },
+  { exe: 'firefox.exe', name: 'Firefox', group: 'Browser' },
+  { exe: 'opera.exe', name: 'Opera / Opera GX', group: 'Browser' },
+  { exe: 'brave.exe', name: 'Brave', group: 'Browser' },
+  { exe: 'OneDrive.exe', name: 'OneDrive', group: 'Cloud' },
+  { exe: 'Dropbox.exe', name: 'Dropbox', group: 'Cloud' },
+  { exe: 'GoogleDriveFS.exe', name: 'Google Drive', group: 'Cloud' },
+  { exe: 'ms-teams.exe', name: 'Microsoft Teams', group: 'Chat' },
+  { exe: 'Teams.exe', name: 'Microsoft Teams (alt)', group: 'Chat' },
+  { exe: 'Slack.exe', name: 'Slack', group: 'Chat' },
+  { exe: 'Discord.exe', name: 'Discord', group: 'Chat', keep: true },
+  { exe: 'Spotify.exe', name: 'Spotify', group: 'Musik', keep: true },
+  { exe: 'EpicGamesLauncher.exe', name: 'Epic Games Launcher', group: 'Launcher', keep: true },
+  { exe: 'Battle.net.exe', name: 'Battle.net', group: 'Launcher', keep: true },
+  { exe: 'EADesktop.exe', name: 'EA App', group: 'Launcher', keep: true },
+  { exe: 'upc.exe', name: 'Ubisoft Connect', group: 'Launcher', keep: true },
+  { exe: 'Creative Cloud.exe', name: 'Adobe Creative Cloud', group: 'Sonstiges' },
+  { exe: 'AdobeCollabSync.exe', name: 'Adobe Sync', group: 'Sonstiges' },
+  { exe: 'CCXProcess.exe', name: 'Adobe CCX', group: 'Sonstiges' },
+  { exe: 'Widgets.exe', name: 'Windows Widgets', group: 'Sonstiges' },
+  { exe: 'PhoneExperienceHost.exe', name: 'Smartphone-Link', group: 'Sonstiges' },
+  { exe: 'YourPhone.exe', name: 'Ihr Smartphone', group: 'Sonstiges' },
+]
+async function boostList() {
+  const p = await si.processes()
+  return BOOST_APPS.map(a => {
+    const procs = p.list.filter(x => x.name && x.name.toLowerCase() === a.exe.toLowerCase())
+    return { ...a, running: procs.length > 0, pids: procs.map(x => x.pid), mem: procs.reduce((m, x) => m + (x.memRss || 0) * 1024, 0), cpu: procs.reduce((c, x) => c + (x.cpu || 0), 0) }
+  }).filter(a => a.running)
+}
+async function boostClose(exes) {
+  if (!isWin) return { closed: [] }
+  const allowed = new Set(BOOST_APPS.map(a => a.exe.toLowerCase()))
+  const closed = []
+  for (const exe of exes) {
+    if (!allowed.has(exe.toLowerCase())) continue
+    try { await new Promise(r => execFile('taskkill.exe', ['/IM', exe, '/F', '/T'], { windowsHide: true }, () => r())); closed.push(exe) } catch {}
+  }
+  return { closed }
+}
+
+// ---------------------------------------------------------------- network
+async function network() {
+  try {
+    const nics = await si.networkInterfaces('default')
+    const n = Array.isArray(nics) ? nics[0] : nics
+    return n ? { name: n.ifaceName || n.iface, type: n.type, speed: n.speed } : null
+  } catch { return null }
+}
+
 // ---------------------------------------------------------------- IPC
 ipcMain.handle('hw:static', () => hardware())
 ipcMain.handle('hw:live', () => live())
@@ -182,9 +282,14 @@ ipcMain.handle('proc:kill', (_e, pids) => {
   return { killed }
 })
 ipcMain.handle('net:ping', (_e, { host, port }) => tcpPing(host, port))
+ipcMain.handle('net:dns', (_e, current) => dnsBench(current))
+ipcMain.handle('net:info', () => network())
+ipcMain.handle('app:update', () => checkUpdate())
+ipcMain.handle('boost:list', () => boostList())
+ipcMain.handle('boost:close', (_e, exes) => boostClose(exes))
 ipcMain.handle('engine', (_e, { action, ids, arg, elevate }) => engine(action, { ids, arg, elevate }))
 ipcMain.handle('app:info', async () => ({ version: app.getVersion(), admin: await isAdmin(), platform: process.platform }))
-ipcMain.handle('shell:open', (_e, url) => { if (/^https:\/\//.test(url)) shell.openExternal(url) })
+ipcMain.handle('shell:open', (_e, url) => { if (/^(https:\/\/|ms-settings:)/.test(url)) shell.openExternal(url) })
 ipcMain.handle('shell:taskmgr', () => { if (isWin) execFile('taskmgr.exe') })
 ipcMain.handle('win:minimize', () => win && win.minimize())
 ipcMain.handle('win:maximize', () => win && (win.isMaximized() ? win.unmaximize() : win.maximize()))
@@ -257,6 +362,22 @@ async function selftest(file) {
       if (flipped.enabled === item.enabled || back.enabled !== item.enabled) throw new Error('toggle did not stick: ' + JSON.stringify({ item, set1, flipped, set2, back }))
       return { item: item.name, was: item.enabled }
     })
+    await step('dns', async () => {
+      const g = await engine('dns-get')
+      if (!g.ok) throw new Error(g.error)
+      const before = JSON.stringify(g.adapters.map(a => a.servers))
+      const bench = await dnsBench(g.adapters[0] && g.adapters[0].servers)
+      const set = await engine('dns-set', { arg: { servers: ['1.1.1.1', '1.0.0.1'] }, elevate: true })
+      if (!set.ok) throw new Error('set: ' + set.error)
+      if (!set.adapters.every(a => a.servers[0] === '1.1.1.1')) throw new Error('not set: ' + JSON.stringify(set.adapters))
+      const reset = await engine('dns-set', { arg: { reset: true }, elevate: true })
+      if (!reset.ok) throw new Error('reset: ' + reset.error)
+      const after = JSON.stringify(reset.adapters.map(a => a.servers))
+      if (after !== before) throw new Error(`reset differs: ${before} -> ${after}`)
+      return { adapters: g.adapters, bench }
+    })
+    await step('boost-list', () => boostList())
+    await step('network', () => network())
     await step('clean-run', async () => { const r = await engine('clean-run', { ids: ['usertemp', 'thumbs'], elevate: true }); if (!r.ok) throw new Error(r.error); return r })
   }
   report.ok = report.steps.every(s => s.ok) && pageErrors.length === 0

@@ -34,6 +34,7 @@
     <div class="side-foot">
       <div class="mini" id="miniPing"><i></i><span>Ping</span><b>–</b></div>
       <div class="mini" id="miniCpu"><i></i><span>CPU</span><b>–</b></div>
+      <button class="update" id="update" hidden></button>
       <p id="adminNote"></p>
       <p class="ver" id="ver"></p>
     </div>
@@ -76,6 +77,10 @@
     <!-- Monitor -->
     <section class="page" id="p-monitor">
       <div class="page-head"><div><span class="eyebrow">Live-Monitor</span><h1>Was gerade Leistung frisst.</h1></div><button class="btn ghost sm" id="openTaskmgr"><span>Task-Manager</span></button></div>
+      <div class="boost shell"><div class="core">
+        <div class="boost-head"><div><b>Spiel-Boost</b><small>Schließt Apps, die im Hintergrund Leistung und Arbeitsspeicher belegen. Nichts von Windows, kein Anti-Cheat.</small></div><button class="btn solid sm" id="boostRun" disabled><span>Ausgewählte schließen</span></button></div>
+        <div class="boost-list" id="boost"><div class="empty">Wird geprüft …</div></div>
+      </div></div>
       <div class="charts">
         <div class="chart shell"><div class="core"><div class="ch-head"><small>CPU</small><b id="cCpu">–</b></div><canvas id="gCpu"></canvas><div class="cores" id="cores"></div></div></div>
         <div class="chart shell"><div class="core"><div class="ch-head"><small>Grafikkarte</small><b id="cGpu">–</b></div><canvas id="gGpu"></canvas><p class="ch-foot" id="cGpuFoot"></p></div></div>
@@ -100,6 +105,10 @@
           <p class="verdict" id="lVerdict"></p>
         </div>
       </div>
+      <h2 class="h2">DNS-Test</h2>
+      <p class="note">Bei jeder Adresse (Server, Skins, Discord) fragt dein PC zuerst einen DNS-Server. Ein schneller spart bei jedem Verbinden Zeit. Umstellen lässt sich mit einem Klick zurücknehmen.</p>
+      <p class="note dns-now" id="dnsCurrent">Aktueller DNS: wird gelesen …</p>
+      <div class="list shell"><div class="core" id="dns"><div class="li"><div><b>Noch nicht gemessen</b><small>Dauert etwa 5 Sekunden.</small></div><button class="btn solid sm" id="dnsRun"><span>DNS testen</span></button></div></div></div>
       <h2 class="h2">Reaktionstest</h2>
       <div class="react shell"><div class="core" id="react"><b>Klick hier zum Starten</b><span>Sobald die Fläche grün wird, so schnell wie möglich klicken. Gemessen wird Maus, PC, Bildschirm und du.</span></div></div>
     </section>
