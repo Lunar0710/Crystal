@@ -18,6 +18,7 @@ import { News } from './components/pages/News'
 import { Settings } from './components/pages/Settings'
 import { NotificationContainer } from './components/ui/Notifications'
 import { UpdateBanner } from './components/ui/UpdateBanner'
+import { WhatsNew } from './components/ui/WhatsNew'
 
 export default function App() {
   const navigate = useNavigate()
@@ -66,6 +67,7 @@ export default function App() {
       </div>
       <NotificationContainer />
       <UpdateBanner />
+      <WhatsNew />
     </div>
   )
 }
