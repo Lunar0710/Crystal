@@ -6,6 +6,7 @@ import {
 import { notify } from '../../store/notificationStore'
 import { ClientInstallPanel } from '../ui/ClientInstallPanel'
 import { ModProfileBar } from '../ui/ModProfileBar'
+import { WorldBackupsPanel } from '../ui/WorldBackupsPanel'
 import { Page, PageHeader, EmptyState, Switch } from '../ui/Page'
 
 type ContentType = 'mod' | 'resourcepack' | 'shader'
@@ -650,6 +651,8 @@ function InstanceDetail({ instance, onBack }: { instance: Instance; onBack: () =
       <ClientInstallPanel instanceId={instance.id} />
 
       <PerformancePanel instanceId={instance.id} onInstalled={refreshFiles} />
+
+      <WorldBackupsPanel instanceId={instance.id} />
 
       <div className="flex items-end justify-between gap-4 border-b border-crystal-border mb-4 mt-2">
         <div className="flex gap-5" role="tablist">

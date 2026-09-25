@@ -30,6 +30,7 @@ import { StatsService } from './stats/StatsService'
 import { RunningGames, gameMarkers } from './minecraft/RunningGames'
 import { PerfDoctor, type PerfFix } from './minecraft/PerfDoctor'
 import { FightService } from './stats/FightService'
+import { WorldBackups } from './minecraft/WorldBackups'
 import { crystalPath, crystalRoot, defaultCrystalRoot, setCrystalRoot, canUseAsRoot } from './paths'
 
 export function registerIpcHandlers(store: Store) {
@@ -362,6 +363,16 @@ export function registerIpcHandlers(store: Store) {
   ipcMain.handle('games:list', () => running.list())
   ipcMain.handle('games:close', (_e, instanceId: string) => running.close(String(instanceId)))
 
+  // World backups per instance. Not while the instance runs: a copy taken
+  // while the game writes its region files can be half old, half new.
+  const worlds = new WorldBackups(id => instances.get(id)?.gameDir ?? null)
+  const busy = { ok: false, message: 'Schließ die Instanz erst, sie läuft gerade.' }
+  ipcMain.handle('worlds:list', (_e, id: string) => worlds.list(String(id)))
+  ipcMain.handle('worlds:backup', (_e, id: string, world: string) =>
+    running.isInstanceRunning(String(id)) ? busy : worlds.backup(String(id), String(world)))
+  ipcMain.handle('worlds:restore', (_e, id: string, world: string, stamp: string) =>
+    running.isInstanceRunning(String(id)) ? busy : worlds.restore(String(id), String(world), String(stamp)))
+
   // Fight replay: the rounds the client recorded, and one with all its frames.
   const fights = new FightService(() => instances.list())
   ipcMain.handle('fights:list', () => fights.list())
@@ -437,6 +448,16 @@ export function registerIpcHandlers(store: Store) {
       return false
     }
     if (launchId) starting.add(launchId)
+    // The player's switch: worlds played since their last backup are copied before the start.
+    if (launchId && store.get('autoWorldBackup') === true) {
+      win?.webContents.send('launch:progress', { step: 'Welten werden gesichert...', percent: 1 })
+      try {
+        const saved = await worlds.autoBackup(launchId)
+        if (saved > 0) logger.info('launcher', `Vor dem Start ${saved} Welt(en) gesichert`)
+      } catch (err) {
+        logger.warn('launcher', 'Automatisches Welt-Backup fehlgeschlagen', String(err))
+      }
+    }
     // Marks that let a later launcher recognise this game (RunningGames.adoptRunning).
     if (launchId && profile) {
       opts.extraJvmArgs = [...(opts.extraJvmArgs ?? []), ...gameMarkers(launchId, profile.uuid, profile.username, Number(opts.maxRam) || 0)]
