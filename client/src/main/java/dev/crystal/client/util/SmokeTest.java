@@ -975,12 +975,13 @@ public final class SmokeTest {
             var last = CombatTracker.lastRound();
             CrystalClient.LOGGER.info("[Nexora] Kill round {}: won={} hits={}",
                     last != null && last.won() && last.hits() >= 2 ? "PASS" : "FAILED", last != null && last.won(), last == null ? -1 : last.hits());
-            // TotemPops from the entity events alone: two pops, then a death clears them.
+            // TotemPops through the real path: entity event packets handed to the
+            // connection, the way the server sends them. Two pops, then a death.
             var me = mc.player;
-            dev.crystal.client.module.player.TotemPops.onEntityEvent(me, (byte) 35);
-            dev.crystal.client.module.player.TotemPops.onEntityEvent(me, (byte) 35);
+            mc.getConnection().handleEntityEvent(new net.minecraft.network.protocol.game.ClientboundEntityEventPacket(me, (byte) 35));
+            mc.getConnection().handleEntityEvent(new net.minecraft.network.protocol.game.ClientboundEntityEventPacket(me, (byte) 35));
             String popped = dev.crystal.client.module.player.TotemPops.decorate(net.minecraft.network.chat.Component.literal("X"), me).getString();
-            dev.crystal.client.module.player.TotemPops.onEntityEvent(me, (byte) 3);
+            mc.getConnection().handleEntityEvent(new net.minecraft.network.protocol.game.ClientboundEntityEventPacket(me, (byte) 3));
             String after = dev.crystal.client.module.player.TotemPops.decorate(net.minecraft.network.chat.Component.literal("X"), me).getString();
             CrystalClient.LOGGER.info("[Nexora] TotemPops {}: popped=\"{}\" after=\"{}\"",
                     "X -2".equals(popped) && "X".equals(after) ? "PASS" : "FAILED", popped, after);

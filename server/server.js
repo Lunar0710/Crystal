@@ -51,7 +51,9 @@ const rooms = new Map()
 function hasJoined(name, serverId) {
   if (FAKE_AUTH) {
     const id = crypto.createHash('md5').update('fake:' + name).digest('hex')
-    return Promise.resolve({ id, name })
+    // Tests: names starting with "Slow" take a moment, like Mojang can.
+    const delay = name.startsWith('Slow') ? 300 : 0
+    return new Promise(resolve => setTimeout(() => resolve({ id, name }), delay))
   }
   const url = 'https://sessionserver.mojang.com/session/minecraft/hasJoined'
     + `?username=${encodeURIComponent(name)}&serverId=${encodeURIComponent(serverId)}`
@@ -123,6 +125,9 @@ async function handle(client, message) {
     if (client.checking) return
     client.checking = true
     const profile = await hasJoined(message.name, client.serverId)
+    // The check can take seconds; a connection that closed meanwhile must not
+    // be counted as online, or the player would stay online for good.
+    if (client.closed) return
     if (!profile) return client.ws.close(4003, 'not verified')
     client.uuid = dashed(profile.id)
     client.name = profile.name
@@ -212,6 +217,7 @@ function start(port = PORT) {
       handle(client, message).catch(err => console.error('message failed:', err))
     })
     ws.on('close', () => {
+      client.closed = true
       clearTimeout(client.authTimer)
       leaveRoom(client)
       if (client.uuid) {
