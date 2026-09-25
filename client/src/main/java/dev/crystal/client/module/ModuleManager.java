@@ -77,6 +77,7 @@ public class ModuleManager {
         register(new dev.crystal.client.module.hud.InventoryHUD());
         register(new dev.crystal.client.module.hud.TPSDisplay());
         register(new dev.crystal.client.module.hud.SessionStats());
+        register(new dev.crystal.client.module.hud.SleepTimer());
         register(new dev.crystal.client.module.hud.OpponentArmor());
         register(new dev.crystal.client.module.hud.KillCam());
         register(new PerformanceMode());
