@@ -7,6 +7,7 @@ import { notify } from '../../store/notificationStore'
 import { ClientInstallPanel } from '../ui/ClientInstallPanel'
 import { ModProfileBar } from '../ui/ModProfileBar'
 import { WorldBackupsPanel } from '../ui/WorldBackupsPanel'
+import { ModUpdatesPanel } from '../ui/ModUpdatesPanel'
 import { Page, PageHeader, EmptyState, Switch } from '../ui/Page'
 
 type ContentType = 'mod' | 'resourcepack' | 'shader'
@@ -651,6 +652,8 @@ function InstanceDetail({ instance, onBack }: { instance: Instance; onBack: () =
       <ClientInstallPanel instanceId={instance.id} />
 
       <PerformancePanel instanceId={instance.id} onInstalled={refreshFiles} />
+
+      <ModUpdatesPanel instanceId={instance.id} onUpdated={refreshFiles} />
 
       <WorldBackupsPanel instanceId={instance.id} />
 

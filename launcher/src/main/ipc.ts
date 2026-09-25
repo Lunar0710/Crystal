@@ -653,6 +653,23 @@ export function registerIpcHandlers(store: Store) {
     modrinth.identifyFile(instanceId, type, fileName))
   ipcMain.handle('perfpack:status', (_e, instanceId: string) => modrinth.performancePackStatus(instanceId))
   ipcMain.handle('perfpack:install', (_e, instanceId: string) => modrinth.installPerformancePack(instanceId, instances.get(instanceId)?.version ?? '1.21.11'))
+  ipcMain.handle('modrinth:checkModUpdates', (_e, instanceId: string) => {
+    const instance = instances.get(String(instanceId))
+    if (!instance || instance.loader === 'vanilla') return []
+    return modrinth.checkModUpdates(instance.id, instance.version, instance.loader || 'fabric')
+  })
+  ipcMain.handle('modrinth:updateMods', async (_e, instanceId: string, updates: { fileName: string; versionId: string }[]) => {
+    const id = String(instanceId)
+    if (running.isInstanceRunning(id)) return { updated: 0, failed: [], error: 'Schließ die Instanz erst, sie läuft gerade.' }
+    let updated = 0
+    const failed: string[] = []
+    for (const u of Array.isArray(updates) ? updates.slice(0, 500) : []) {
+      const result = await modrinth.switchVersion(id, 'mod', String(u.fileName), String(u.versionId))
+      if (result.success) updated++
+      else failed.push(String(u.fileName))
+    }
+    return { updated, failed }
+  })
   ipcMain.handle('modrinth:identifyFolder', (_e, instanceId: string, type: ContentType) =>
     modrinth.identifyFolder(instanceId, type))
   ipcMain.handle('modrinth:switchVersion', (_e, instanceId: string, type: ContentType, fileName: string, versionId: string) =>

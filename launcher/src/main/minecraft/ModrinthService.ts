@@ -321,6 +321,43 @@ export class ModrinthService {
   }
 
   /**
+   * Mods with a newer version for this Minecraft version and loader, found
+   * with one request (Modrinth's bulk version_files/update endpoint). Files
+   * Modrinth doesn't know (hand-made or from elsewhere) are left out.
+   */
+  async checkModUpdates(instanceId: string, gameVersion: string, loader: string): Promise<{ fileName: string; versionId: string; versionNumber: string; beta: boolean }[]> {
+    const dir = path.join(this.gameDir(instanceId), TARGET_FOLDER.mod)
+    if (!fs.existsSync(dir)) return []
+    const byHash = new Map<string, string>()
+    for (const fileName of fs.readdirSync(dir)) {
+      if (!fileName.endsWith('.jar')) continue
+      const hash = this.sha1Of(path.join(dir, fileName))
+      if (hash) byHash.set(hash, fileName)
+    }
+    if (byHash.size === 0) return []
+    try {
+      const res = await (globalThis as any).fetch(`${API_BASE}/version_files/update`, {
+        method: 'POST',
+        headers: { ...HEADERS, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hashes: [...byHash.keys()], algorithm: 'sha1', loaders: [loader], game_versions: [gameVersion] }),
+      })
+      if (!res.ok) return []
+      const data = await res.json() as Record<string, { id: string; version_number: string; version_type?: string; files: { hashes: { sha1: string } }[] }>
+      const updates: { fileName: string; versionId: string; versionNumber: string; beta: boolean }[] = []
+      for (const [hash, latest] of Object.entries(data)) {
+        const fileName = byHash.get(hash)
+        // The newest version is the installed one when one of its files has the same hash.
+        if (!fileName || latest.files.some(f => f.hashes?.sha1 === hash)) continue
+        updates.push({ fileName, versionId: latest.id, versionNumber: latest.version_number, beta: !!latest.version_type && latest.version_type !== 'release' })
+      }
+      return updates
+    } catch (err) {
+      logger.warn('client', 'Mod-Update-Prüfung fehlgeschlagen', String(err))
+      return []
+    }
+  }
+
+  /**
    * Replaces an installed file with a different version of the same project.
    * The old file is only deleted once the new one is on disk, so a failed
    * download can't leave the instance with no mod at all.

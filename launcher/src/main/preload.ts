@@ -65,6 +65,8 @@ contextBridge.exposeInMainWorld('crystal', {
   analyzePerformance: (instanceId: string) => ipcRenderer.invoke('perfDoctor:analyze', instanceId),
   listFights:       () => ipcRenderer.invoke('fights:list'),
   listWorlds:       (instanceId: string) => ipcRenderer.invoke('worlds:list', instanceId),
+  checkModUpdates:  (instanceId: string) => ipcRenderer.invoke('modrinth:checkModUpdates', instanceId),
+  updateMods:       (instanceId: string, updates: object[]) => ipcRenderer.invoke('modrinth:updateMods', instanceId, updates),
   backupWorld:      (instanceId: string, world: string) => ipcRenderer.invoke('worlds:backup', instanceId, world),
   restoreWorld:     (instanceId: string, world: string, stamp: string) => ipcRenderer.invoke('worlds:restore', instanceId, world, stamp),
   readFight:        (instanceId: string, file: string) => ipcRenderer.invoke('fights:read', instanceId, file),
