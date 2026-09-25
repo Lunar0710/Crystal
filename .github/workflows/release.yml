@@ -12,12 +12,18 @@ on:
   # comes from launcher/package.json and the tag is created at this commit
   # when the release is published.
   workflow_dispatch:
+    inputs:
+      mod_jars_only:
+        description: Only build the mod and attach its jars to the existing release of this version
+        type: boolean
+        default: false
 
 permissions:
   contents: write
 
 jobs:
   build:
+    if: ${{ !inputs.mod_jars_only }}
     strategy:
       fail-fast: true
       matrix:
@@ -73,6 +79,7 @@ jobs:
           if-no-files-found: error
 
   publish:
+    if: ${{ !inputs.mod_jars_only }}
     needs: build
     runs-on: ubuntu-latest
     steps:
@@ -112,3 +119,32 @@ jobs:
             done
           done
           gh release edit "$TAG" --draft=false --latest
+
+  # The mod on its own, one jar per Minecraft version, for other launchers
+  # (Prism, MultiMC, the vanilla launcher with Fabric and Fabric API), added
+  # to a release that already exists. The installers are left alone.
+  mod-jars:
+    if: ${{ inputs.mod_jars_only }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Build client mod
+        working-directory: client
+        run: |
+          chmod +x gradlew
+          ./gradlew build --no-daemon
+
+      - name: Attach to the release of this version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="v$(node -p "require('./launcher/package.json').version")"
+          ls client/build/libs
+          shopt -s extglob
+          gh release upload "$TAG" client/build/libs/crystal-client-*+!(*-sources).jar --clobber
