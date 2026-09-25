@@ -64,7 +64,8 @@ export class InstanceManager {
         if (skip.has(entry) || entry === 'session.lock' || /^hs_err_pid\d+\.log$/.test(entry)) continue
         await fs.promises.cp(path.join(from, entry), path.join(copy.gameDir, entry), {
           recursive: true,
-          filter: src => path.basename(src) !== 'session.lock' && src !== fights && !src.startsWith(fights + path.sep),
+          // The boot cache (.jsa) is rebuilt on the copy's first exit; no need to copy it.
+          filter: src => path.basename(src) !== 'session.lock' && !src.endsWith('.jsa') && src !== fights && !src.startsWith(fights + path.sep),
         })
       }
     } catch (err) {

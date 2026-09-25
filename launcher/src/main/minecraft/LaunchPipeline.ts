@@ -30,6 +30,45 @@ function gcArgs(lowStutter: boolean, javaMajor: number): string[] {
   ]
 }
 
+/**
+ * Class-data-sharing cache: on the first exit the JVM writes the classes it
+ * loaded into an archive in the instance folder, and every later start maps
+ * that file instead of parsing and verifying those classes again. Vanilla
+ * gains the most (its whole jar is on the class path); with Fabric it is the
+ * JDK and the libraries. Java 19+ only. A stale archive (other Java, other
+ * class path) is just ignored and rewritten, so the worst case is a normal
+ * start. One file per collector, since the archive only fits the one it was
+ * written with. -Xlog keeps the JVM's "skipping class" notes out of the log.
+ */
+export function bootCachePath(gameDir: string, lowStutter: boolean): string {
+  return path.join(gameDir, '.crystal', lowStutter ? 'boot-zgc.jsa' : 'boot.jsa')
+}
+
+function bootCacheArgs(gameDir: string, lowStutter: boolean, javaMajor: number): string[] {
+  if (javaMajor < 21) return []
+  const file = bootCachePath(gameDir, lowStutter)
+  try {
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    // The JVM writes the archive read-only; on Windows that would stop it from
+    // replacing a stale one.
+    if (fs.existsSync(file)) fs.chmodSync(file, 0o644)
+  } catch {
+    return []
+  }
+  return ['-XX:+AutoCreateSharedArchive', `-XX:SharedArchiveFile=${file}`, '-Xlog:cds=off', '-Xlog:cds+dynamic=off']
+}
+
+/** Drops the boot cache after a crash, so a damaged archive can never be the cause twice. */
+function dropBootCache(gameDir: string, lowStutter: boolean): void {
+  const file = bootCachePath(gameDir, lowStutter)
+  try {
+    if (fs.existsSync(file)) {
+      fs.chmodSync(file, 0o644)
+      fs.rmSync(file, { force: true })
+    }
+  } catch { /* only a cache */ }
+}
+
 // Electron/Node 18+ ships a global fetch; not covered by this tsconfig's
 // ES2020-only lib, so declared locally instead of pulling in a DOM lib.
 declare function fetch(url: string, init?: { headers?: Record<string, string> }): Promise<{
@@ -252,6 +291,7 @@ export class LaunchPipeline {
       emit('launch:notice', heap.notice)
     }
 
+    const lowStutter = opts.lowStutterGc === true
     const classpath = [clientJarPath, ...libPaths, ...extraClasspathJars].join(path.delimiter)
     const jvmArgs = [
       // Start with half the heap (1-4 GB). High render distances load chunks
@@ -262,8 +302,9 @@ export class LaunchPipeline {
       // Tuned for smooth frames rather than raw throughput: the old 200 ms
       // pause target let the collector freeze the game for visible stutters.
       // A short target with a larger young generation spreads that work out.
-      ...gcArgs(opts.lowStutterGc === true, downloadJavaMajor(opts.version)),
+      ...gcArgs(lowStutter, downloadJavaMajor(opts.version)),
       '-XX:+DisableExplicitGC', '-XX:+PerfDisableSharedMem',
+      ...bootCacheArgs(opts.gameDir, lowStutter, downloadJavaMajor(opts.version)),
       ...loggingArgs,
       // Tells the in-game client where the launcher keeps cosmetics/theme files,
       // so a moved data folder doesn't silently break cape and theme sync.
@@ -351,6 +392,7 @@ export class LaunchPipeline {
         : outcome.kind === 'fatal' ? `Minecraft konnte nicht starten:\n${outcome.reason}`
         : `Minecraft hat sich beim Start beendet (Exit-Code ${exitCodeText(outcome.code)}).`
 
+      dropBootCache(opts.gameDir, lowStutter)
       const native = nativeCrashReport(opts.gameDir, launchedAt)
       const detail = native ? `${findFatalReason(native) ?? 'JVM-Absturz'}\n\n${native}` : tail.slice(-1200)
       logger.error('client', reason, (native || tail).slice(-4000))
@@ -370,6 +412,7 @@ export class LaunchPipeline {
         logger.info('client', `Minecraft beendet (Exit-Code ${code})`)
         return
       }
+      dropBootCache(opts.gameDir, lowStutter)
       const native = nativeCrashReport(opts.gameDir, launchedAt)
       const fatal = findFatalReason(native) ?? findFatalReason(tail) ?? `Exit-Code ${exitCodeText(code)}`
       logger.error('client', `Minecraft ist nach dem Start abgestürzt: ${fatal}`, (native || tail).slice(-4000))
