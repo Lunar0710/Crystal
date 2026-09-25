@@ -68,6 +68,7 @@ public class ModuleManager {
         register(new FogCustomizer());
         register(new dev.crystal.client.module.render.SkyColor());
         register(new dev.crystal.client.module.hud.SleepTimer());
+        register(new dev.crystal.client.module.hud.MiningLevel());
         register(new PerformanceMode());
         register(new BackgroundFps());
         register(new CapeFlutter());
