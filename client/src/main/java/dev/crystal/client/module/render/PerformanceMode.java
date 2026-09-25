@@ -45,12 +45,15 @@ public class PerformanceMode extends Module {
     private boolean noFabulous = true;
     private boolean fastGraphics = false;
 
-    // 26.x replaced the Fast/Fancy/Fabulous switch with graphics presets.
-    //? if <26 {
+    // 1.21.11 replaced the Fast/Fancy/Fabulous switch with graphics presets
+    // and a separate "Improved Transparency" toggle (what Fabulous was).
+    // There, "FABULOUS" stands for that toggle on and "FANCY" for off; Fast is gone.
     private static final boolean GRAPHICS_OPTION = true;
-    //?} else {
-    /*private static final boolean GRAPHICS_OPTION = false;
-    *///?}
+    //? if <1.21.11 {
+    /*private static final boolean FAST_OPTION = true;
+    *///?} else {
+    private static final boolean FAST_OPTION = false;
+    //?}
 
     private boolean applied = false;
     private final Consumer<TickEvent> tickListener = this::onTick;
@@ -119,7 +122,7 @@ public class PerformanceMode extends Module {
         // its own buffer and merges them with a shader: the most expensive
         // single option. Fast also drops transparent leaves.
         if (GRAPHICS_OPTION) {
-            if (fastGraphics) setGraphics(o, "FAST");
+            if (fastGraphics && FAST_OPTION) setGraphics(o, "FAST");
             else if (noFabulous && "FABULOUS".equals(graphicsName(o))) setGraphics(o, "FANCY");
         }
         o.save();
@@ -145,16 +148,18 @@ public class PerformanceMode extends Module {
     }
 
     private static String graphicsName(Options o) {
-        //? if <26 {
-        return o.graphicsMode().get().name();
-        //?} else {
-        /*return "";
-        *///?}
+        //? if <1.21.11 {
+        /*return o.graphicsMode().get().name();
+        *///?} else {
+        return o.improvedTransparency().get() ? "FABULOUS" : "FANCY";
+        //?}
     }
 
     private static void setGraphics(Options o, String name) {
-        //? if <26 {
-        o.graphicsMode().set(net.minecraft.client.GraphicsStatus.valueOf(name));
+        //? if <1.21.11 {
+        /*o.graphicsMode().set(net.minecraft.client.GraphicsStatus.valueOf(name));
+        *///?} else {
+        o.improvedTransparency().set("FABULOUS".equals(name));
         //?}
     }
 
@@ -208,7 +213,7 @@ public class PerformanceMode extends Module {
                 new SliderSetting("Entity-Sichtweite (%)", () -> entityDistance, v -> { entityDistance = v; reapply(); }, 50f, 100f, 5f, 0)));
         if (GRAPHICS_OPTION) {
             list.add(new BooleanSetting("Kein Fabulous-Grafik", () -> noFabulous, v -> { noFabulous = v; reapply(); }, true));
-            list.add(new BooleanSetting("Schnelle Grafik (Fast)", () -> fastGraphics, v -> { fastGraphics = v; reapply(); }, false));
+            if (FAST_OPTION) list.add(new BooleanSetting("Schnelle Grafik (Fast)", () -> fastGraphics, v -> { fastGraphics = v; reapply(); }, false));
         }
         return list;
     }
