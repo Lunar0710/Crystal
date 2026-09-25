@@ -716,6 +716,25 @@ export function registerIpcHandlers(store: Store) {
     return modrinth.installModpackFromFile(instanceId, result.filePaths[0])
   })
 
+  ipcMain.handle('modrinth:exportModpack', async (e, instanceId: string) => {
+    const inst = instances.get(String(instanceId))
+    const win = BrowserWindow.fromWebContents(e.sender)
+    if (!inst || !win) return { ok: false, message: 'Instanz nicht gefunden.' }
+    const safe = inst.name.replace(/[<>:"/\\|?*\x00-\x1f]/g, '').slice(0, 60) || 'Instanz'
+    const { canceled, filePath } = await dialog.showSaveDialog(win, {
+      title: 'Instanz als .mrpack speichern',
+      defaultPath: path.join(app.getPath('downloads'), `${safe}.mrpack`),
+      filters: [{ name: 'Modrinth Modpack', extensions: ['mrpack'] }],
+    })
+    if (canceled || !filePath) return { ok: false, message: '' }
+    try {
+      return await modrinth.exportModpack(inst.id, filePath)
+    } catch (err) {
+      logger.error('client', 'Instanz-Export fehlgeschlagen', err)
+      return { ok: false, message: err instanceof Error ? err.message : 'Der Export ist fehlgeschlagen.' }
+    }
+  })
+
   // External clients (Lunar/Badlion/custom jars or launchers)
   ipcMain.handle('externalClients:list', () => externalClients.list())
   ipcMain.handle('externalClients:add', () => externalClients.addViaFilePicker())

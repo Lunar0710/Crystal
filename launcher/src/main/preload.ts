@@ -93,6 +93,7 @@ contextBridge.exposeInMainWorld('crystal', {
   updateInstance:   (id: string, patch: object) => ipcRenderer.invoke('instances:update', id, patch),
   createInstanceShortcut: (id: string) => ipcRenderer.invoke('instances:createShortcut', id),
   duplicateInstance: (id: string, withWorlds: boolean) => ipcRenderer.invoke('instances:duplicate', id, withWorlds),
+  exportModpack: (id: string) => ipcRenderer.invoke('modrinth:exportModpack', id),
   importInstance:   (version: string) => ipcRenderer.invoke('instances:import', version),
   deleteInstance:   (id: string) => ipcRenderer.invoke('instances:delete', id),
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import {
   Plus, Trash2, Copy, ChevronLeft, Search, Download, FolderInput, Boxes,
-  Upload, FolderOpen, Check, X, ChevronDown,
+  Upload, FolderOpen, Check, X, ChevronDown, Share2,
 } from 'lucide-react'
 import { notify } from '../../store/notificationStore'
 import { ClientInstallPanel } from '../ui/ClientInstallPanel'
@@ -108,6 +108,13 @@ export function Instances() {
     notify(copy
       ? { type: 'success', title: 'Instanz kopiert', message: `„${copy.name}“ ist fertig.` }
       : { type: 'error', title: 'Instanz kopieren', message: 'Das Kopieren ging nicht. Läuft die Instanz gerade, oder ist die Festplatte voll?' })
+  }
+
+  // Packs the instance as a .mrpack to send to a friend.
+  async function exportInstance(inst: Instance) {
+    let r: { ok: boolean; message: string } | undefined
+    try { r = await api?.exportModpack(inst.id) } catch { r = { ok: false, message: 'Der Export ist fehlgeschlagen.' } }
+    if (r?.message) notify({ type: r.ok ? 'success' : 'error', title: 'Instanz teilen', message: r.message })
   }
 
   async function removeInstance(inst: Instance) {
@@ -219,6 +226,15 @@ export function Instances() {
                   className="p-1.5 rounded-md text-crystal-muted opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-crystal-text hover:bg-crystal-border/50 transition"
                 >
                   <Copy size={14} strokeWidth={1.75} />
+                </button>
+
+                <button
+                  onClick={() => exportInstance(inst)}
+                  aria-label={`${inst.name} als .mrpack teilen`}
+                  title="Als .mrpack speichern, damit ein Freund genau dieses Setup importieren kann"
+                  className="p-1.5 rounded-md text-crystal-muted opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-crystal-text hover:bg-crystal-border/50 transition"
+                >
+                  <Share2 size={14} strokeWidth={1.75} />
                 </button>
 
                 <button
