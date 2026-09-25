@@ -19,6 +19,8 @@ public class MixinClientPlayerInteractionManager {
     private void crystal$onAttack(Player player, Entity target, CallbackInfo ci) {
         CrystalClient client = CrystalClient.getInstance();
         if (client == null) return;
+        dev.crystal.client.module.hud.ReachDisplay reach = client.getModuleManager().getEnabled(dev.crystal.client.module.hud.ReachDisplay.class);
+        if (reach != null) reach.onAttack(player, target);
         ParticleChanger particles = client.getModuleManager().getEnabled(ParticleChanger.class);
         if (particles != null) particles.onAttack(target);
         BetterSounds sounds = client.getModuleManager().getEnabled(BetterSounds.class);
