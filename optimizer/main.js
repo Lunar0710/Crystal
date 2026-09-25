@@ -151,14 +151,21 @@ const HW_PARTS = {
   cpu: () => si.cpu(), mem: () => si.mem(), layout: () => si.memLayout(), graphics: () => si.graphics(), osInfo: () => si.osInfo(),
   disks: () => si.diskLayout(), fsSize: () => si.fsSize(), system: () => si.system(), board: () => si.baseboard(), battery: () => si.battery(), drivers: () => driverInfo(),
 }
-let hwCache = null
-async function hardware(part) {
+let hwCache = null, hwPending = null
+function hardware(part) {
   if (part) return withTimeout(HW_PARTS[part](), 12000)
-  if (hwCache) return hwCache
+  if (hwCache) return Promise.resolve(hwCache)
+  // One read at a time, however many ask.
+  if (!hwPending) hwPending = readHardware().finally(() => { hwPending = null })
+  return hwPending
+}
+let hwEngineError = null
+async function readHardware() {
   // Windows: one PowerShell for everything; much lighter than a query per part.
   if (isWin) {
-    const r = await withTimeout(engine('hardware'), 30000)
+    const r = await withTimeout(engine('hardware'), 60000)
     if (r && r.ok && r.hardware) { hwCache = r.hardware; return hwCache }
+    hwEngineError = r ? r.error : 'Zeitüberschreitung'
   }
   const keys = Object.keys(HW_PARTS)
   const values = await Promise.all(keys.map(k => withTimeout(HW_PARTS[k](), 12000)))
@@ -407,7 +414,7 @@ async function selftest(file) {
     win.webContents.once('did-finish-load', () => setTimeout(resolve, 4000))
     win.webContents.once('did-fail-load', (_e, code, desc) => reject(new Error(desc)))
   }).then(() => ({ errors: pageErrors, title: win.getTitle() })))
-  await step('hardware', async () => { const h = await hardware(); if (isWin && !(h.cpu && h.cpu.brand)) throw new Error('no CPU from engine hardware: ' + JSON.stringify(h).slice(0, 300)); return { cpu: h.cpu && h.cpu.brand, gpus: h.graphics && h.graphics.controllers.map(c => c.model), ram: h.mem && h.mem.total, drivers: h.drivers } })
+  await step('hardware', async () => { const h = await hardware(); if (isWin && !(h.cpu && h.cpu.brand)) throw new Error('no CPU from engine hardware: ' + hwEngineError); return { cpu: h.cpu && h.cpu.brand, gpus: h.graphics && h.graphics.controllers.map(c => c.model), ram: h.mem && h.mem.total, drivers: h.drivers } })
   await step('live', () => live({ gpu: true, temp: true, net: true }))
   await step('processes', async () => (await processes()).slice(0, 5))
   await step('ping', async () => ({ cloudflare: await tcpPing('1.1.1.1', 443) }))

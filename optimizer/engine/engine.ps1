@@ -344,6 +344,11 @@ function Get-Regs($t) {
     return , $r
 }
 
+# DWORDs come back signed (0xFFFFFFFF reads as -1): compare them as 32-bit patterns.
+function Get-Norm($x) {
+    if ($x -is [int] -or $x -is [long] -or $x -is [uint32]) { return "$(([int64]$x) -band 0xFFFFFFFF)" }
+    return "$x"
+}
 function Test-Applied($t) {
     if ($t.id -eq 'power') { return ((Get-ActiveScheme).name -match 'Lunar Gaming') }
     if ($t.id -eq 'hibernate') { return ((Get-RegValue 'HKLM:\SYSTEM\CurrentControlSet\Control\Power' 'HibernateEnabled') -eq 0) }
@@ -355,7 +360,7 @@ function Test-Applied($t) {
     if ($regs.Count -eq 0) { return $false }
     foreach ($r in $regs) {
         $v = Get-RegValue $r[0] $r[1]
-        if ($null -eq $v -or "$v" -ne "$($r[2])") { return $false }
+        if ($null -eq $v -or (Get-Norm $v) -ne (Get-Norm $r[2])) { return $false }
     }
     return $true
 }
