@@ -1,0 +1,8 @@
+version: 1.4.0
+files:
+  - url: Lunar-Optimizer-Setup.exe
+    sha512: 9GNbWvgV4+U19nq1pksi/fI2AVnWFYD2zoHWFJfuA0bCbv25i5H1xCsiOlMd6V8I5vmPnWIjxwydk1oYfXT0lg==
+    size: 79275357
+path: Lunar-Optimizer-Setup.exe
+sha512: 9GNbWvgV4+U19nq1pksi/fI2AVnWFYD2zoHWFJfuA0bCbv25i5H1xCsiOlMd6V8I5vmPnWIjxwydk1oYfXT0lg==
+releaseDate: '2026-09-25T20:29:04.146Z'
