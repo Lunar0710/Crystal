@@ -1,0 +1,39 @@
+# Publishes the website in website/ to GitHub Pages
+# (https://lunar0710.github.io/Crystal/) whenever it changes.
+name: Website
+
+on:
+  push:
+    branches: [main, update-1.6]
+    paths: ['website/**', '.github/workflows/pages.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      # site.html is the page without its <head> wrapper (the Artifact preview
+      # uses it); index.html is the full page, so only that and the icon go out.
+      - name: Collect the site
+        run: |
+          mkdir -p _site
+          cp website/index.html website/icon.png _site/
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4

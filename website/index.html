@@ -1,0 +1,771 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="icon" href="icon.png">
+<title>Nexora Client</title>
+<meta name="description" content="Nexora ist ein kostenloser Minecraft-Client mit eigenem Launcher: Kampf-Replays, Kill-Cam, PvP-HUD und mehr FPS. Für Minecraft 1.21.4 bis 26.2.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,400..900&family=Geist:wght@300..700&family=Geist+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    color-scheme: dark;
+    --void: #050505;
+    --core: #0b0b0c;
+    --core-2: #111113;
+    --hair: rgba(255, 255, 255, .07);
+    --hair-2: rgba(255, 255, 255, .12);
+    --ink: #f4f4f5;
+    --ash: #9b9ba1;
+    --dim: #5f5f66;
+    --accent: #ffffff;
+    --accent-ink: #050505;
+    --foe: #e5484d;
+    --glow: #4c8dff;
+    --display: "Archivo", "Arial Black", system-ui, sans-serif;
+    --body: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "Geist Mono", ui-monospace, Consolas, monospace;
+    --spring: cubic-bezier(.32, .72, 0, 1);
+    --out: cubic-bezier(.16, 1, .3, 1);
+    --r: 2rem;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--void); color: var(--ink);
+    font: 400 16px/1.6 var(--body); letter-spacing: -.005em;
+    -webkit-font-smoothing: antialiased; padding-inline: 20px; overflow-x: clip;
+  }
+  a { color: inherit; text-decoration: none; }
+  button { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 8px; }
+  h1, h2, h3 { margin: 0; font-family: var(--display); font-stretch: 125%; text-wrap: balance; letter-spacing: -.025em; }
+  p { margin: 0; }
+  .wrap { max-width: 1240px; margin-inline: auto; position: relative; }
+
+  /* ---------- Atmosphere: fixed, never scrolling ---------- */
+  .orbs { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+  .orbs i { position: absolute; border-radius: 50%; filter: blur(90px); opacity: .5; transition: background 1.2s var(--spring); }
+  .orbs i:nth-child(1) { width: 60vw; height: 60vw; left: -18vw; top: -24vw; background: radial-gradient(circle, color-mix(in srgb, var(--accent) 22%, transparent), transparent 65%); }
+  .orbs i:nth-child(2) { width: 50vw; height: 50vw; right: -16vw; top: 18vh; background: radial-gradient(circle, color-mix(in srgb, var(--glow) 18%, transparent), transparent 65%); }
+  .grain { position: fixed; inset: 0; pointer-events: none; z-index: 30; opacity: .05; mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+  main, footer { position: relative; z-index: 1; }
+
+  /* ---------- Double bezel ---------- */
+  .shell { padding: 6px; border-radius: var(--r); background: rgba(255, 255, 255, .025); box-shadow: 0 0 0 1px var(--hair), 0 40px 80px -40px rgba(0, 0, 0, .8); }
+  .core { border-radius: calc(var(--r) - 6px); background: linear-gradient(180deg, var(--core-2), var(--core)); box-shadow: inset 0 1px 1px rgba(255, 255, 255, .07); overflow: hidden; position: relative; }
+
+  /* ---------- Eyebrow ---------- */
+  .eyebrow { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 8px; border-radius: 999px; font-size: 11px; letter-spacing: .16em; text-transform: uppercase; font-weight: 500; color: var(--ash); background: rgba(255, 255, 255, .03); box-shadow: 0 0 0 1px var(--hair); }
+  .eyebrow b { padding: 2px 8px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font-weight: 600; letter-spacing: .08em; }
+
+  /* ---------- Island nav ---------- */
+  .nav { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 18px); left: 50%; transform: translateX(-50%); z-index: 40;
+    display: flex; align-items: center; gap: 6px; padding: 6px; border-radius: 999px;
+    background: rgba(12, 12, 13, .6); backdrop-filter: blur(20px) saturate(1.4); -webkit-backdrop-filter: blur(20px) saturate(1.4);
+    box-shadow: 0 0 0 1px var(--hair-2), 0 20px 40px -20px rgba(0, 0, 0, .8); }
+  .brand { display: flex; align-items: center; gap: 9px; padding: 0 12px 0 8px; font-family: var(--display); font-stretch: 125%; font-weight: 800; font-size: 15px; letter-spacing: -.01em; }
+  .brand svg { width: 26px; height: 26px; }
+  .nav-links { display: flex; }
+  .nav-links a { padding: 8px 14px; border-radius: 999px; font-size: 14px; color: var(--ash); transition: color .4s var(--spring), background .4s var(--spring); }
+  .nav-links a:hover { color: var(--ink); background: rgba(255, 255, 255, .05); }
+  .burger { display: none; width: 40px; height: 40px; border: 0; border-radius: 50%; background: rgba(255, 255, 255, .06); position: relative; cursor: pointer; }
+  .burger i { position: absolute; left: 13px; width: 14px; height: 1.5px; background: var(--ink); transition: transform .5s var(--spring), top .5s var(--spring); }
+  .burger i:nth-child(1) { top: 16px; } .burger i:nth-child(2) { top: 22px; }
+  .menu-open .burger i:nth-child(1) { top: 19px; transform: rotate(45deg); }
+  .menu-open .burger i:nth-child(2) { top: 19px; transform: rotate(-45deg); }
+  .overlay { position: fixed; inset: 0; z-index: 35; background: rgba(5, 5, 5, .82); backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px);
+    display: flex; flex-direction: column; justify-content: center; gap: 8px; padding: 0 28px; opacity: 0; pointer-events: none; transition: opacity .6s var(--spring); }
+  .overlay a { font-family: var(--display); font-stretch: 125%; font-weight: 800; font-size: 40px; letter-spacing: -.03em; transform: translateY(48px); opacity: 0; transition: transform .8s var(--spring), opacity .8s var(--spring); }
+  .menu-open .overlay { opacity: 1; pointer-events: auto; }
+  .menu-open .overlay a { transform: none; opacity: 1; }
+  .overlay a:nth-child(2) { transition-delay: .05s; } .overlay a:nth-child(3) { transition-delay: .1s; } .overlay a:nth-child(4) { transition-delay: .15s; } .overlay a:nth-child(5) { transition-delay: .2s; }
+
+  /* ---------- Buttons: island with nested icon ---------- */
+  .btn { display: inline-flex; align-items: center; gap: 14px; padding: 7px 7px 7px 22px; border-radius: 999px; font-weight: 500; font-size: 15px; cursor: pointer; border: 0;
+    transition: transform .6s var(--spring), background .6s var(--spring), box-shadow .6s var(--spring); }
+  .btn:active { transform: scale(.98); }
+  .btn .ic { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; transition: transform .6s var(--spring); }
+  .btn:hover .ic { transform: translate(3px, -1px) scale(1.06); }
+  .btn svg { width: 15px; height: 15px; }
+  .btn-solid { background: var(--accent); color: var(--accent-ink); box-shadow: 0 0 0 1px rgba(255, 255, 255, .2) inset, 0 10px 40px -10px color-mix(in srgb, var(--accent) 60%, transparent); }
+  .btn-solid .ic { background: color-mix(in srgb, var(--accent-ink) 10%, transparent); }
+  .btn-ghost { background: rgba(255, 255, 255, .04); box-shadow: 0 0 0 1px var(--hair-2); color: var(--ink); }
+  .btn-ghost .ic { background: rgba(255, 255, 255, .07); }
+  .btn-ghost:hover { background: rgba(255, 255, 255, .07); }
+  .btn-sm { padding: 5px 5px 5px 16px; font-size: 14px; gap: 10px; }
+  .btn-sm .ic { width: 30px; height: 30px; }
+
+  /* ---------- Reveal (starts visible; only below-the-fold items are primed) ---------- */
+  .rv { transition: transform 1.1s var(--out), opacity 1.1s var(--out), filter 1.1s var(--out); }
+  .rv.pre { transform: translateY(56px); opacity: 0; filter: blur(10px); }
+  @media (prefers-reduced-motion: reduce) { .rv, .rv.pre { transform: none; opacity: 1; filter: none; transition: none; } html { scroll-behavior: auto; } }
+
+  /* ---------- Hero ---------- */
+  .hero { padding-top: clamp(140px, 18vh, 190px); text-align: center; }
+  .hero h1 { margin-top: 28px; font-size: clamp(46px, 8.2vw, 124px); line-height: .9; font-weight: 850; }
+  .hero h1 .soft { display: block; background: linear-gradient(180deg, #8d8d94, #3b3b40); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .hero .lede { margin: 30px auto 0; max-width: 36em; font-size: clamp(16px, 1.4vw, 19px); color: var(--ash); font-weight: 300; }
+  .hero .lede strong { color: var(--ink); font-weight: 500; }
+  .hero .cta { margin-top: 38px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .hero .meta { margin-top: 22px; font-size: 13px; color: var(--dim); }
+
+  /* Product shot */
+  .stage { margin-top: 80px; position: relative; perspective: 2200px; padding-bottom: 20px; }
+  .tilt { transform: rotateX(14deg) scale(.96); transform-origin: 50% 0; transition: transform 1.4s var(--out); will-change: transform; }
+  .stage.flat .tilt { transform: rotateX(0) scale(1); }
+  .window { --r: 1.6rem; }
+  .win { display: grid; grid-template-columns: 64px 1fr 300px; min-height: 560px; text-align: left; }
+  .side { border-right: 1px solid var(--hair); padding: 16px 0; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .side .logo { width: 30px; height: 30px; margin-bottom: 14px; }
+  .side i { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; color: var(--dim); }
+  .side i.on { background: rgba(255, 255, 255, .06); color: var(--ink); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06); }
+  .side svg { width: 18px; height: 18px; }
+  .pane { padding: 26px 28px; display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+  .pane-head { display: flex; justify-content: space-between; align-items: end; gap: 12px; }
+  .pane-head h4 { margin: 0; font-family: var(--display); font-stretch: 115%; font-size: 22px; font-weight: 750; letter-spacing: -.02em; }
+  .pane-head span { font-size: 12px; color: var(--ash); }
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .kpi { padding: 12px 14px; border-radius: 14px; background: rgba(255, 255, 255, .025); box-shadow: inset 0 0 0 1px var(--hair); }
+  .kpi small { display: block; font-size: 11px; color: var(--dim); }
+  .kpi b { font-family: var(--display); font-stretch: 110%; font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .map { position: relative; flex: 1; min-height: 260px; border-radius: 16px; background: rgba(0, 0, 0, .35); box-shadow: inset 0 0 0 1px var(--hair); overflow: hidden; }
+  .map canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .map .t { position: absolute; top: 12px; right: 14px; font-family: var(--mono); font-size: 11px; color: var(--ash); font-variant-numeric: tabular-nums; }
+  .map .who { position: absolute; top: 12px; left: 14px; display: flex; gap: 14px; font-size: 11px; color: var(--ash); }
+  .who i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+  .hp { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; font-size: 11px; color: var(--ash); }
+  .hp div > span { display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; }
+  .hp .bar { margin-top: 6px; height: 4px; border-radius: 4px; background: rgba(255, 255, 255, .06); overflow: hidden; }
+  .hp .bar i { display: block; height: 100%; border-radius: 4px; transform-origin: left; transition: transform .2s var(--out); }
+  .controls { display: flex; align-items: center; gap: 8px; }
+  .controls .play { width: 34px; height: 34px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; }
+  .controls .play svg { width: 12px; height: 12px; }
+  .controls .spd { padding: 5px 10px; border-radius: 999px; font-size: 11px; color: var(--ash); box-shadow: inset 0 0 0 1px var(--hair); }
+  .controls .spd.on { color: var(--ink); background: rgba(255, 255, 255, .06); }
+  .scrub { flex: 1; height: 3px; border-radius: 3px; background: rgba(255, 255, 255, .08); position: relative; overflow: hidden; }
+  .scrub i { position: absolute; inset: 0; background: var(--accent); transform-origin: left; transform: scaleX(0); }
+  .list { border-left: 1px solid var(--hair); padding: 26px 18px; display: flex; flex-direction: column; gap: 6px; }
+  .list h5 { margin: 0 0 8px 8px; font-size: 12px; font-weight: 500; color: var(--dim); }
+  .row { display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: 12px; font-size: 13px; }
+  .row.on { background: rgba(255, 255, 255, .05); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05); }
+  .row .res { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; font-size: 11px; font-weight: 600; flex: none; }
+  .res.w { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+  .res.l { background: rgba(229, 72, 77, .12); color: #ff7b7f; }
+  .row b { display: block; font-weight: 500; }
+  .row small { color: var(--dim); font-size: 11px; }
+
+  .chip { position: absolute; z-index: 3; display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 16px; font-size: 12.5px;
+    background: rgba(18, 18, 20, .72); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); box-shadow: 0 0 0 1px var(--hair-2), 0 24px 48px -16px rgba(0, 0, 0, .9);
+    transition: transform 1.2s var(--out); white-space: nowrap; }
+  .chip .k { font-family: var(--mono); font-size: 11.5px; color: var(--accent); }
+  .chip small { color: var(--ash); }
+  .chip.c1 { left: -3%; top: 22%; } .chip.c2 { right: -2%; top: 8%; } .chip.c3 { right: 4%; bottom: 14%; } .chip.c4 { left: 3%; bottom: 8%; }
+  .xmark { width: 18px; height: 18px; position: relative; transform: rotate(45deg); }
+  .xmark::before, .xmark::after { content: ""; position: absolute; background: var(--accent); border-radius: 1px; }
+  .xmark::before { left: 8px; top: 0; width: 2px; height: 6px; box-shadow: 0 12px 0 var(--accent); }
+  .xmark::after { top: 8px; left: 0; height: 2px; width: 6px; box-shadow: 12px 0 0 var(--accent); }
+  .pop { width: 18px; height: 18px; border-radius: 6px; background: linear-gradient(160deg, #f3d27a, #b8862c); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5); }
+
+  /* ---------- Marquee ---------- */
+  .marquee { margin-top: 110px; display: grid; gap: 14px; overflow: hidden; max-width: 100%; mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); }
+  .track { display: flex; gap: 14px; width: max-content; animation: slide 70s linear infinite; }
+  .track.rev { animation-direction: reverse; animation-duration: 85s; }
+  .track span { padding: 10px 18px; border-radius: 999px; font-size: 14px; color: var(--ash); background: rgba(255, 255, 255, .025); box-shadow: inset 0 0 0 1px var(--hair); }
+  .track span.hl { color: var(--ink); }
+  @keyframes slide { to { transform: translateX(-50%); } }
+  @media (prefers-reduced-motion: reduce) { .track { animation: none; } }
+
+  /* ---------- Sections ---------- */
+  section { padding-top: clamp(110px, 14vw, 180px); }
+  .head { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 40px; align-items: end; margin-bottom: 56px; }
+  .head h2 { margin-top: 20px; font-size: clamp(34px, 4.6vw, 68px); overflow-wrap: anywhere; line-height: .92; font-weight: 830; }
+  .head p { color: var(--ash); font-weight: 300; font-size: 17px; max-width: 30em; }
+
+  /* ---------- Bento ---------- */
+  .bento { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; }
+  .cell { grid-column: span 4; display: flex; }
+  .cell > .core { flex: 1; padding: 30px; display: flex; flex-direction: column; gap: 22px; }
+  .cell.w7 { grid-column: span 7; grid-row: span 2; } .cell.w5 { grid-column: span 5; } .cell.w8 { grid-column: span 8; } .cell.w12 { grid-column: span 12; }
+  .cell h3 { font-size: 22px; font-weight: 760; font-stretch: 118%; line-height: 1.1; }
+  .cell p { color: var(--ash); font-size: 15px; font-weight: 300; margin-top: 8px; max-width: 34em; }
+  .cell .push { margin-top: auto; }
+  .tag { display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 999px; font: 600 10px/1.6 var(--body); letter-spacing: .12em; text-transform: uppercase; vertical-align: 4px; background: var(--accent); color: var(--accent-ink); }
+
+  .death { position: relative; flex: 1; min-height: 340px; border-radius: 20px; overflow: hidden;
+    background: radial-gradient(90% 70% at 50% 0%, rgba(160, 20, 24, .55), rgba(60, 6, 8, .85) 55%, #1a0203); box-shadow: inset 0 0 0 1px rgba(255, 90, 90, .15); display: grid; place-items: center; padding: 24px; }
+  .death h4 { position: absolute; top: 26px; left: 0; right: 0; text-align: center; margin: 0; font-family: var(--display); font-stretch: 110%; font-weight: 700; font-size: 24px; color: #fff; text-shadow: 0 2px 0 rgba(0, 0, 0, .4); }
+  .death .by { position: absolute; top: 62px; left: 0; right: 0; text-align: center; font-size: 13px; color: rgba(255, 255, 255, .7); }
+  .cam { margin-top: 64px; width: min(300px, 100%); padding: 12px; border-radius: 14px; background: rgba(8, 8, 9, .82); box-shadow: 0 0 0 1px rgba(255, 255, 255, .08), 0 30px 60px -20px rgba(0, 0, 0, .9); }
+  .cam-top { display: flex; justify-content: space-between; font-size: 11px; color: var(--ash); font-family: var(--mono); }
+  .cam-top b { color: var(--ink); font-family: var(--body); font-weight: 600; }
+  .cam canvas { display: block; width: 100%; aspect-ratio: 1; margin-top: 8px; border-radius: 8px; background: rgba(255, 255, 255, .04); }
+  .death .btns { position: absolute; bottom: 20px; left: 0; right: 0; display: flex; justify-content: center; gap: 8px; }
+  .death .btns span { padding: 7px 16px; font-size: 12px; border-radius: 6px; background: rgba(0, 0, 0, .35); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .15); color: rgba(255, 255, 255, .85); }
+
+  .doc { display: grid; gap: 8px; }
+  .doc div { display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 14px; border-radius: 14px; background: rgba(255, 255, 255, .025); box-shadow: inset 0 0 0 1px var(--hair); font-size: 13.5px; }
+  .doc div span { flex: 1; min-width: 0; }
+  .doc div small { display: block; color: var(--dim); font-size: 12px; }
+  .doc .sev { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .doc em { font-style: normal; font-size: 12px; padding: 6px 12px; border-radius: 999px; background: rgba(255, 255, 255, .06); flex: none; }
+
+  .graph { height: 120px; display: flex; align-items: flex-end; gap: 3px; padding: 12px; border-radius: 14px; background: rgba(0, 0, 0, .3); box-shadow: inset 0 0 0 1px var(--hair); }
+  .graph i { flex: 1; height: 100%; border-radius: 2px 2px 0 0; background: color-mix(in srgb, var(--accent) 55%, transparent); transform-origin: bottom; }
+  .graph i.stut { background: #f08c3a; } .graph i.hang { background: var(--foe); }
+  .gl { display: flex; gap: 18px; font-family: var(--mono); font-size: 12px; color: var(--ash); font-variant-numeric: tabular-nums; }
+  .gl b { color: var(--ink); font-weight: 500; }
+
+  .file { display: flex; align-items: center; gap: 14px; padding: 14px; border-radius: 16px; background: rgba(255, 255, 255, .03); box-shadow: inset 0 0 0 1px var(--hair); }
+  .file .fi { width: 42px; height: 50px; border-radius: 8px; background: linear-gradient(160deg, #1f2a1a, #11180e); box-shadow: inset 0 0 0 1px rgba(61, 190, 122, .3); display: grid; place-items: end center; padding-bottom: 6px; font: 600 8px var(--mono); color: #3dbe7a; flex: none; }
+  .file b { display: block; font-weight: 500; font-size: 14px; }
+  .file small { color: var(--dim); font-size: 12px; }
+
+  .runs { display: grid; gap: 8px; }
+  .run { padding: 12px 14px; border-radius: 14px; background: rgba(255, 255, 255, .025); box-shadow: inset 0 0 0 1px var(--hair); display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; font-size: 13px; }
+  .run small { color: var(--dim); font-size: 12px; }
+  .run .live { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #3dbe7a; margin-right: 8px; box-shadow: 0 0 0 4px rgba(61, 190, 122, .15); }
+  .run .num { font-family: var(--mono); font-size: 12px; color: var(--ash); text-align: right; font-variant-numeric: tabular-nums; }
+
+  .swatches { display: flex; flex-wrap: wrap; gap: 10px; }
+  .sw { width: 34px; height: 34px; border-radius: 50%; border: 0; cursor: pointer; padding: 0; position: relative; transition: transform .5s var(--spring);
+    box-shadow: inset 0 1px 1px rgba(255, 255, 255, .35), 0 0 0 1px rgba(255, 255, 255, .08); }
+  .sw:hover { transform: scale(1.12); }
+  .sw[aria-pressed="true"]::after { content: ""; position: absolute; inset: -5px; border-radius: 50%; box-shadow: 0 0 0 1.5px var(--ink); }
+  .sw-name { font-size: 13px; color: var(--ash); }
+  .sw-name b { color: var(--ink); font-weight: 500; }
+
+  .tl { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); position: relative; margin-top: 10px; }
+  .tl::before { content: ""; position: absolute; top: 5px; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, var(--hair-2), color-mix(in srgb, var(--accent) 70%, transparent)); }
+  .tl div { padding-top: 26px; position: relative; }
+  .tl div::before { content: ""; position: absolute; top: 0; left: 0; width: 11px; height: 11px; border-radius: 50%; background: var(--core); box-shadow: inset 0 0 0 1.5px var(--hair-2); }
+  .tl div.new::before { background: var(--accent); box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 20%, transparent), 0 0 24px var(--accent); }
+  .tl b { font-family: var(--display); font-stretch: 112%; font-weight: 700; font-size: clamp(15px, 1.6vw, 22px); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+  .tl small { display: block; font-size: 11px; color: var(--ash); }
+
+  /* ---------- Nexora+ ---------- */
+  .plus { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 64px; align-items: center; }
+  .plus h2 { margin-top: 20px; font-size: clamp(56px, 9vw, 140px); line-height: .85; font-weight: 880; }
+  .plus h2 sup { font-size: .5em; vertical-align: .55em; color: var(--accent); }
+  .plus .lede { margin-top: 26px; color: var(--ash); font-weight: 300; font-size: 17px; max-width: 30em; }
+  .perks { margin: 34px 0 0; padding: 0; list-style: none; display: grid; gap: 0; }
+  .perks li { display: flex; justify-content: space-between; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--hair); font-size: 15px; }
+  .perks li span { color: var(--ash); font-weight: 300; text-align: right; }
+  .card-stage { perspective: 1400px; display: grid; place-items: center; padding: 20px 0; }
+  .member { width: min(440px, 100%); aspect-ratio: 1.586; border-radius: 26px; position: relative; overflow: hidden; transform-style: preserve-3d;
+    transform: rotateY(var(--ry, -14deg)) rotateX(var(--rx, 8deg)); transition: transform .9s var(--out);
+    background: linear-gradient(135deg, #1a1a1d 0%, #0c0c0d 55%, #161618 100%);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, .1), inset 0 1px 1px rgba(255, 255, 255, .15), 0 60px 120px -40px rgba(0, 0, 0, .95), 0 0 120px -40px color-mix(in srgb, var(--accent) 50%, transparent); }
+  .member::before { content: ""; position: absolute; inset: 0; mix-blend-mode: color-dodge; opacity: .28;
+    background: conic-gradient(from calc(var(--mx, .5) * 360deg) at calc(var(--mx, .5) * 100%) calc(var(--my, .3) * 100%), #ff6ec7, #7afcff, #feff9c, #b28dff, #ff6ec7); filter: blur(24px); }
+  .member::after { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(115deg, rgba(255, 255, 255, .035) 0 2px, transparent 2px 7px); }
+  .member .in { position: absolute; inset: 0; padding: 26px 28px; display: flex; flex-direction: column; justify-content: space-between; z-index: 1; }
+  .member .top { display: flex; justify-content: space-between; align-items: start; }
+  .member .top svg { width: 40px; height: 40px; }
+  .member .top span { font-family: var(--display); font-stretch: 125%; font-weight: 800; font-size: 20px; letter-spacing: -.02em; }
+  .member .top span i { font-style: normal; color: var(--accent); }
+  .member .chipx { width: 46px; height: 36px; border-radius: 8px; background: linear-gradient(135deg, #e8cf8a, #9c7a34); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .2); opacity: .9; }
+  .member .bot { display: flex; justify-content: space-between; align-items: end; font-family: var(--mono); font-size: 13px; letter-spacing: .08em; }
+  .member .bot small { display: block; color: var(--dim); font-size: 10px; letter-spacing: .16em; margin-bottom: 4px; }
+
+  /* ---------- Other launchers ---------- */
+  .jar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 28px; align-items: center; }
+  .jar > .core { padding: 34px 36px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 40px; align-items: center; }
+  .jar h3 { font-size: clamp(24px, 2.6vw, 34px); font-weight: 780; line-height: 1.05; }
+  .jar p { margin-top: 12px; color: var(--ash); font-weight: 300; }
+  .term { border-radius: 16px; background: #070708; box-shadow: inset 0 0 0 1px var(--hair); font-family: var(--mono); font-size: 13px; overflow: hidden; }
+  .term-top { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--hair); color: var(--dim); font-size: 11px; }
+  .term-top button { border: 0; background: rgba(255, 255, 255, .06); border-radius: 999px; padding: 4px 12px; font-size: 11px; cursor: pointer; transition: background .4s var(--spring); }
+  .term-top button:hover { background: rgba(255, 255, 255, .12); }
+  .term pre { margin: 0; padding: 16px 16px 18px; line-height: 1.9; overflow-x: auto; color: var(--ash); }
+  .term pre b { color: var(--ink); font-weight: 500; }
+  .term pre i { font-style: normal; color: var(--accent); }
+
+  /* ---------- Download ---------- */
+  .dl { --r: 2.6rem; }
+  .dl > .core { padding: clamp(40px, 7vw, 96px) clamp(24px, 6vw, 80px); text-align: center; isolation: isolate; }
+  .dl > .core::before { content: ""; position: absolute; inset: auto -20% -60% -20%; height: 120%; z-index: -1;
+    background: radial-gradient(50% 50% at 50% 50%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 70%); }
+  .dl h2 { font-size: clamp(44px, 7.4vw, 112px); line-height: .88; font-weight: 880; margin-top: 22px; }
+  .dl .lede { margin: 26px auto 0; color: var(--ash); max-width: 32em; font-weight: 300; font-size: 17px; }
+  .dl .cta { margin-top: 38px; display: flex; justify-content: center; }
+  .oses { margin-top: 26px; display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; }
+  .oses a { padding: 8px 16px; border-radius: 999px; font-size: 13px; color: var(--ash); box-shadow: inset 0 0 0 1px var(--hair); transition: color .4s var(--spring), background .4s var(--spring); }
+  .oses a:hover { color: var(--ink); background: rgba(255, 255, 255, .05); }
+
+  footer { padding-top: 120px; overflow: hidden; }
+  .foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px 32px; font-size: 13px; color: var(--dim); padding-bottom: 28px; border-bottom: 1px solid var(--hair); }
+  .foot a { color: var(--ash); transition: color .4s var(--spring); } .foot a:hover { color: var(--ink); }
+  .wordmark { font-family: var(--display); font-stretch: 125%; font-weight: 900; font-size: clamp(80px, 21vw, 330px); line-height: .78; letter-spacing: -.05em; text-align: center; margin-top: 30px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, .14), rgba(255, 255, 255, 0) 85%); -webkit-background-clip: text; background-clip: text; color: transparent; user-select: none; }
+
+  /* ---------- Responsive ---------- */
+  @media (max-width: 1080px) {
+    .win { grid-template-columns: 56px 1fr; }
+    .list { display: none; }
+    .cell, .cell.w7, .cell.w5, .cell.w8 { grid-column: span 6; grid-row: auto; }
+    .cell.w7 { grid-column: span 12; }
+  }
+  @media (max-width: 767px) {
+    body { padding-inline: 16px; }
+    .nav { left: 16px; right: 16px; transform: none; justify-content: space-between; }
+    .nav-links, .nav .btn { display: none; }
+    .burger { display: block; }
+    .hero { text-align: left; }
+    .hero .cta { justify-content: flex-start; }
+    .stage { margin-top: 56px; perspective: none; }
+    .tilt, .stage.flat .tilt { transform: none; }
+    .win { grid-template-columns: 1fr; min-height: 0; }
+    .side { display: none; }
+    .pane { padding: 18px; }
+    .kpis { grid-template-columns: repeat(2, 1fr); }
+    .chip { display: none; }
+    .head, .plus, .jar > .core { grid-template-columns: 1fr; }
+    .head { gap: 20px; }
+    .bento { grid-template-columns: 1fr; }
+    .cell, .cell.w7, .cell.w5, .cell.w8, .cell.w12 { grid-column: 1 / -1; }
+    .cell > .core { padding: 22px; }
+    .tl { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 26px; }
+    .tl::before { display: none; }
+    .member { transform: none; }
+    .dl .cta .btn { width: 100%; justify-content: space-between; }
+  }
+</style>
+
+</head>
+<body>
+<div class="orbs" aria-hidden="true"><i></i><i></i></div>
+<div class="grain" aria-hidden="true"></div>
+
+<header class="nav" id="nav">
+  <a class="brand" href="#top" aria-label="Nexora, nach oben">
+    <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M45.5 13.2A22 22 0 1 0 53.6 26" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round"/><path d="M22 44V20h5.6l10 14.6V20H43v24h-5.4L27.4 29.4V44z" fill="currentColor"/><path d="M51 6l2.2 5.6L59 13.8l-5.8 2.2L51 21.6 48.8 16 43 13.8l5.8-2.2z" fill="var(--accent)"/></svg>
+    Nexora
+  </a>
+  <nav class="nav-links" aria-label="Seiten">
+    <a href="#features">Features</a>
+    <a href="#versionen">Versionen</a>
+    <a href="#plus">Nexora+</a>
+    <a href="#jar">Mod-Datei</a>
+  </nav>
+  <a class="btn btn-solid btn-sm" href="#download">Download<span class="ic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v9m0 0L4.5 8M8 11.5 11.5 8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+  <button class="burger" id="burger" type="button" aria-label="Menü öffnen" aria-expanded="false"><i></i><i></i></button>
+</header>
+<div class="overlay" id="overlay" aria-hidden="true">
+  <a href="#features">Features</a>
+  <a href="#versionen">Versionen</a>
+  <a href="#plus">Nexora+</a>
+  <a href="#jar">Mod-Datei</a>
+  <a href="#download">Download</a>
+</div>
+
+<main id="top">
+  <div class="wrap hero">
+    <span class="eyebrow rv"><b>1.6</b> Kampf-Replay und Kill-Cam</span>
+    <h1 class="rv">Jeder Kampf.<span class="soft">Aufgezeichnet.</span></h1>
+    <p class="lede rv">Nexora ist ein kostenloser Minecraft-Client mit eigenem Launcher. <strong>Sieh dir jeden Kampf von oben noch einmal an</strong>, mit Laufwegen, Treffern und Leben. Dazu ein HUD, das mitkämpft, und ein FPS-Doktor, der dein Spiel schneller macht.</p>
+    <div class="cta rv">
+      <a class="btn btn-solid" href="#download" id="heroDl">Nexora herunterladen<span class="ic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v9m0 0L4.5 8M8 11.5 11.5 8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+      <a class="btn btn-ghost" href="#features">Alle Features<span class="ic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 11.5l7-7m0 0H6m5.5 0V10" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+    </div>
+    <p class="meta rv">Windows, macOS, Linux. Minecraft 1.21.4 bis 26.2 mit Fabric.</p>
+
+    <div class="stage rv" id="stage">
+      <div class="tilt" id="tilt">
+        <div class="shell window">
+          <div class="core">
+            <div class="win">
+              <aside class="side" aria-hidden="true">
+                <svg class="logo" viewBox="0 0 64 64"><path d="M45.5 13.2A22 22 0 1 0 53.6 26" fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round"/><path d="M22 44V20h5.6l10 14.6V20H43v24h-5.4L27.4 29.4V44z" fill="#fff"/><path d="M51 6l2.2 5.6L59 13.8l-5.8 2.2L51 21.6 48.8 16 43 13.8l5.8-2.2z" fill="var(--accent)"/></svg>
+                <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M5 12l7-7 7 7M7 10v9h10v-9"/></svg></i>
+                <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg></i>
+                <i class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M5 19L15 9m0 0l-2-4 6-1-1 6-4-2zM5 15l4 4"/></svg></i>
+                <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M12 3l2.5 5.5L20 9l-4 4 1 6-5-3-5 3 1-6-4-4 5.5-.5z"/></svg></i>
+                <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="9" cy="9" r="3.5"/><path d="M3.5 19c.8-3 3-4.5 5.5-4.5s4.7 1.5 5.5 4.5M16 6.5a3 3 0 010 5.5M18 14.5c1.4.6 2.3 2 2.6 4"/></svg></i>
+              </aside>
+              <div class="pane">
+                <div class="pane-head"><h4>Kämpfe</h4><span>Heute, 21:14 · Hypixel Duels</span></div>
+                <div class="kpis">
+                  <div class="kpi"><small>Kämpfe</small><b>48</b></div>
+                  <div class="kpi"><small>Siege</small><b>31</b></div>
+                  <div class="kpi"><small>Trefferquote</small><b>68 %</b></div>
+                  <div class="kpi"><small>Beste Combo</small><b>7</b></div>
+                </div>
+                <div class="map">
+                  <canvas id="heroMap" role="img" aria-label="Replay: zwei Spieler umkreisen sich, Treffer blinken auf, der Gegner fällt."></canvas>
+                  <div class="who"><span><i style="background:var(--accent)"></i>Du</span><span><i style="background:var(--foe)"></i>Steve_PvP</span></div>
+                  <div class="t" id="heroTime">-5.0s</div>
+                </div>
+                <div class="hp">
+                  <div><span><span>Du</span><span id="hpMe">20.0</span></span><div class="bar"><i id="barMe" style="background:var(--accent)"></i></div></div>
+                  <div><span><span>Steve_PvP</span><span id="hpFoe">20.0</span></span><div class="bar"><i id="barFoe" style="background:var(--foe)"></i></div></div>
+                </div>
+                <div class="controls" aria-hidden="true">
+                  <span class="play"><svg viewBox="0 0 12 12"><path d="M3 1.5v9l7.5-4.5z" fill="currentColor"/></svg></span>
+                  <div class="scrub"><i id="scrub"></i></div>
+                  <span class="spd">0.25x</span><span class="spd">0.5x</span><span class="spd on">1x</span><span class="spd">2x</span>
+                </div>
+              </div>
+              <aside class="list">
+                <h5>Letzte Kämpfe</h5>
+                <div class="row on"><span class="res w">S</span><span><b>Steve_PvP</b><small>12 Treffer · 0:48</small></span></div>
+                <div class="row"><span class="res w">S</span><span><b>xNotch</b><small>9 Treffer · 0:31</small></span></div>
+                <div class="row"><span class="res l">N</span><span><b>Technoblade_Fan</b><small>6 Treffer · 1:12</small></span></div>
+                <div class="row"><span class="res w">S</span><span><b>kiwi_pvp</b><small>14 Treffer · 0:57</small></span></div>
+                <div class="row"><span class="res w">S</span><span><b>Dreamless</b><small>11 Treffer · 0:44</small></span></div>
+                <div class="row"><span class="res l">N</span><span><b>obsidian_ov</b><small>4 Treffer · 0:22</small></span></div>
+              </aside>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="chip c1" data-depth="26"><span class="xmark"></span><span>HitMarker <small>Treffer zählt</small></span></div>
+      <div class="chip c2" data-depth="40"><span class="k">FPS 412</span><small>1%-Low 238</small></div>
+      <div class="chip c3" data-depth="34"><span class="pop"></span><span>Steve_PvP <small>2 Totems gepoppt</small></span></div>
+      <div class="chip c4" data-depth="18"><span class="k">K/D 3.50</span><small>Kills 7 · Tode 2</small></div>
+    </div>
+  </div>
+
+  <div class="marquee" aria-label="Einige der 113 Module">
+    <div class="track" id="t1"></div>
+    <div class="track rev" id="t2"></div>
+  </div>
+
+  <section class="wrap" id="features">
+    <div class="head">
+      <div><span class="eyebrow rv">113 Module</span><h2 class="rv">Alles drin. Nichts zusammensuchen.</h2></div>
+      <p class="rv">Was du sonst aus zehn Mods baust, steckt in einem Client. Jedes Modul lässt sich einzeln schalten und im HUD-Editor frei platzieren.</p>
+    </div>
+
+    <div class="bento">
+      <div class="cell w7 shell rv">
+        <div class="core">
+          <div><h3>Kill-Cam</h3><p>Stirbst du im Kampf, zeigt der Todesbildschirm die letzten fünf Sekunden von oben. Du siehst, wie er dich erwischt hat.</p></div>
+          <div class="death">
+            <h4>Du bist gestorben!</h4>
+            <div class="by">Steve_PvP hat dich getötet</div>
+            <div class="cam">
+              <div class="cam-top"><b>Kill-Cam: Steve_PvP</b><span id="camTime">-5.0s</span></div>
+              <canvas id="camMap" role="img" aria-label="Kill-Cam: die letzten fünf Sekunden vor dem Tod von oben"></canvas>
+            </div>
+            <div class="btns" aria-hidden="true"><span>Wiederbeleben</span><span>Hauptmenü</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="cell w5 shell rv">
+        <div class="core">
+          <div><h3>FPS-Doktor</h3><p>Prüft Mods, Arbeitsspeicher und Einstellungen. Ein Klick behebt jeden Fund.</p></div>
+          <div class="doc push">
+            <div><i class="sev" style="background:var(--foe)"></i><span>Zwei Mods für dieselbe Aufgabe<small>Sodium und Embeddium</small></span><em>Beheben</em></div>
+            <div><i class="sev" style="background:#f08c3a"></i><span>Sichtweite 32 Chunks<small>12 reichen für PvP</small></span><em>Beheben</em></div>
+            <div><i class="sev" style="background:#d4af5a"></i><span>Nur 2 GB Arbeitsspeicher<small>Empfohlen: 4 GB</small></span><em>Beheben</em></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="cell w5 shell rv">
+        <div class="core">
+          <div><h3>FrameGraph</h3><p>Jeder Frame als Balken. Ruckler orange, Hänger rot.</p></div>
+          <div class="push">
+            <div class="graph" id="graph" aria-hidden="true"></div>
+            <div class="gl" style="margin-top:12px"><span>FPS <b id="gFps">412</b></span><span>1%-Low <b>238</b></span><span>Frame <b id="gMs">2.4 ms</b></span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="cell shell rv">
+        <div class="core">
+          <div><h3>Instanz teilen</h3><p>Dein Setup als .mrpack. Ein Freund importiert es und hat genau deine Mods und Einstellungen.</p></div>
+          <div class="file push"><span class="fi">MRPACK</span><span><b>PvP Setup.mrpack</b><small>55 Mods von Modrinth, 2 mitgepackt</small></span></div>
+        </div>
+      </div>
+
+      <div class="cell shell rv">
+        <div class="core">
+          <div><h3>Mehrere Spiele</h3><p>Jede Instanz mit eigenem Konto. CPU und RAM immer im Blick.</p></div>
+          <div class="runs push">
+            <div class="run"><span><span class="live"></span>PvP 1.21.11</span><span class="num">CPU 18 %</span><small>Main · seit 42 min</small><span class="num">3.1 GB</span></div>
+            <div class="run"><span><span class="live"></span>Farm 26.2</span><span class="num">CPU 9 %</span><small>Zweitkonto · seit 2 h</small><span class="num">2.4 GB</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="cell shell rv">
+        <div class="core">
+          <div><h3>Deine Farbe</h3><p>Neun Akzentfarben aus dem NexoraMenu. Probier sie aus, die ganze Seite folgt.</p></div>
+          <div class="push">
+            <div class="swatches" id="swatches" role="group" aria-label="Akzentfarbe"></div>
+            <p class="sw-name" style="margin-top:14px">Gewählt: <b id="swName">Weiß</b></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="cell w12 shell rv" id="versionen">
+        <div class="core">
+          <div style="display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;align-items:end">
+            <div><h3>Ein Client, neun Versionen</h3><p>Wähl die Version im Launcher, Nexora bringt die passende Mod mit. Vor jedem Release läuft auf jeder Version ein Test in einer echten Welt.</p></div>
+          </div>
+          <div class="tl">
+            <div><b>1.21.4</b></div><div><b>1.21.5</b></div><div><b>1.21.6</b></div><div><b>1.21.7</b></div><div><b>1.21.8</b></div>
+            <div><b>1.21.9</b></div><div><b>1.21.10</b></div><div><b>1.21.11</b></div><div class="new"><b>26.2</b><small>neueste</small></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap" id="plus">
+    <div class="plus">
+      <div>
+        <span class="eyebrow rv">Mitgliedschaft</span>
+        <h2 class="rv">Nexora<sup>+</sup></h2>
+        <p class="lede rv">Cosmetics, die jeder Nexora-Spieler sieht, mehr Launcher-Themes und ein Effekt, wenn dein Gegner fällt. Capes bleiben für alle kostenlos.</p>
+        <ul class="perks rv">
+          <li>Pets<span>Drache, Axolotl, Pinguin, Roboter und sieben mehr</span></li>
+          <li>Hüte und Flügel<span>Samurai-Helm, Motten-Flügel, Laterne, Sombrero</span></li>
+          <li>Halloween-Paket<span>Kürbiskopf, Fledermausflügel, Herbstlaub-Aura</span></li>
+          <li>KillEffect<span>Totem-, Funken-, Seelen- oder Herz-Explosion</span></li>
+          <li>Outfits<span>Kombinationen speichern und per Klick wechseln</span></li>
+        </ul>
+      </div>
+      <div class="card-stage rv" id="cardStage">
+        <div class="member" id="member" aria-label="Nexora+ Mitgliedskarte, Beispiel">
+          <div class="in">
+            <div class="top">
+              <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M45.5 13.2A22 22 0 1 0 53.6 26" fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round"/><path d="M22 44V20h5.6l10 14.6V20H43v24h-5.4L27.4 29.4V44z" fill="#fff"/><path d="M51 6l2.2 5.6L59 13.8l-5.8 2.2L51 21.6 48.8 16 43 13.8l5.8-2.2z" fill="var(--accent)"/></svg>
+              <span>Nexora<i>+</i></span>
+            </div>
+            <span class="chipx" aria-hidden="true"></span>
+            <div class="bot"><div><small>SPIELER</small>STEVE_PVP</div><div style="text-align:right"><small>RANG</small>NEXORA+</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap" id="jar">
+    <div class="shell jar rv" style="display:block">
+      <div class="core">
+        <div>
+          <span class="eyebrow">Mod-Datei</span>
+          <h3 style="margin-top:18px">Lieber dein eigener Launcher?</h3>
+          <p>Jedes Release hat Nexora auch als einzelne Jar, eine pro Minecraft-Version. Sie läuft in Prism, MultiMC und dem normalen Launcher. Nexora+ gibt es nur mit Anmeldung im Nexora-Launcher.</p>
+        </div>
+        <div class="term">
+          <div class="term-top"><span>.minecraft/mods</span><button type="button" id="copyJar">Name kopieren</button></div>
+<pre><i>+</i> <b id="jarName">nexora-1.6.0+1.21.11.jar</b>
+<i>+</i> <b>fabric-api.jar</b>
+  sodium.jar
+  iris.jar</pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap" id="download">
+    <div class="shell dl rv">
+      <div class="core">
+        <span class="eyebrow">Kostenlos</span>
+        <h2>Bereit für den nächsten Kampf?</h2>
+        <p class="lede">Der Launcher richtet Java, Fabric und Nexora selbst ein und hält sich danach automatisch aktuell. Anmelden mit deinem Microsoft-Konto.</p>
+        <div class="cta"><a class="btn btn-solid" id="mainDl" href="https://github.com/Lunar0710/Crystal/releases/latest"><span id="mainDlText">Für Windows herunterladen</span><span class="ic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v9m0 0L4.5 8M8 11.5 11.5 8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a></div>
+        <div class="oses">
+          <a href="https://github.com/Lunar0710/Crystal/releases/latest">Windows .exe</a>
+          <a href="https://github.com/Lunar0710/Crystal/releases/latest">macOS .dmg</a>
+          <a href="https://github.com/Lunar0710/Crystal/releases/latest">Linux .AppImage</a>
+          <a href="https://github.com/Lunar0710/Crystal/releases/latest">Nur die Mod .jar</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap">
+  <div class="foot">
+    <span>Nexora ist kein offizielles Minecraft-Produkt und nicht mit Mojang oder Microsoft verbunden.</span>
+    <span style="display:flex;gap:24px"><a href="https://github.com/Lunar0710/Crystal/releases">Alle Versionen</a><a href="#top">Nach oben</a></span>
+  </div>
+  <div class="wordmark" aria-hidden="true">Nexora</div>
+</footer>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const root = document.documentElement;
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // ---- Accent colours: the nine from the in-game NexoraMenu ----
+  const accents = [['Weiß', '#ffffff'], ['Blau', '#4c8dff'], ['Türkis', '#3cc3c8'], ['Grün', '#3dbe7a'], ['Gold', '#d4af5a'], ['Orange', '#f08c3a'], ['Rot', '#e5484d'], ['Pink', '#e86aa6'], ['Lila', '#8e6bef']];
+  const inkFor = hex => { const n = parseInt(hex.slice(1), 16); return (0.299 * (n >> 16) + 0.587 * (n >> 8 & 255) + 0.114 * (n & 255)) > 150 ? '#050505' : '#ffffff'; };
+  const box = $('swatches');
+  const colors = { me: '#ffffff', foe: '#e5484d' };
+  function setAccent(hex) {
+    colors.me = hex;
+    colors.foe = hex === '#e5484d' ? '#f4f4f5' : '#e5484d';
+    root.style.setProperty('--accent', hex);
+    root.style.setProperty('--accent-ink', inkFor(hex));
+    root.style.setProperty('--foe', colors.foe);
+    root.style.setProperty('--glow', hex === '#ffffff' ? '#4c8dff' : hex);
+    box.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.hex === hex)));
+    $('swName').textContent = (accents.find(a => a[1] === hex) || accents[0])[0];
+    try { localStorage.setItem('nexora-accent', hex); } catch {}
+  }
+  for (const [name, hex] of accents) {
+    const b = document.createElement('button');
+    b.className = 'sw'; b.type = 'button'; b.dataset.hex = hex; b.title = name; b.setAttribute('aria-label', name); b.style.background = hex;
+    b.addEventListener('click', () => setAccent(hex));
+    box.appendChild(b);
+  }
+  let saved = null; try { saved = localStorage.getItem('nexora-accent'); } catch {}
+  setAccent(accents.some(a => a[1] === saved) ? saved : '#ffffff');
+
+  // ---- Mobile menu ----
+  const burger = $('burger'), overlay = $('overlay');
+  const toggle = open => { document.body.classList.toggle('menu-open', open); burger.setAttribute('aria-expanded', String(open)); overlay.setAttribute('aria-hidden', String(!open)); };
+  burger.addEventListener('click', () => toggle(!document.body.classList.contains('menu-open')));
+  overlay.querySelectorAll('a').forEach(a => a.addEventListener('click', () => toggle(false)));
+
+  // ---- Module marquee ----
+  const mods = ['Kampf-Replay', 'Kill-Cam', 'HitMarker', 'TotemPops', 'PotCounter', 'FightSummary', 'Gegner-Rüstung', 'SessionStats', 'TPSDisplay', 'InventoryHUD', 'KillEffect', 'LowFire', 'Keystrokes', 'CPS', 'Zoom', 'Minimap', 'Waypoints', 'FreeLook', 'ToggleSprint', 'FrameGraph', 'RenderLimits', 'MotionBlur', 'ColorSaturation', 'SkyColor', 'FogCustomizer', 'NameTags', 'Profiles', 'Crosshair', 'HitSound', 'Emotes', 'Pets', 'Capes'];
+  const fill = (el, list) => { const html = list.map((m, i) => `<span${i % 5 === 0 ? ' class="hl"' : ''}>${m}</span>`).join(''); el.innerHTML = html + html; };
+  fill($('t1'), mods); fill($('t2'), mods.slice().reverse());
+
+  // ---- Reveal: only elements below the first screen are primed, and all show within 3s regardless ----
+  const rv = [...document.querySelectorAll('.rv')].filter(el => el.getBoundingClientRect().top > innerHeight * .92);
+  if (!still && 'IntersectionObserver' in window) {
+    rv.forEach(el => el.classList.add('pre'));
+    const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.remove('pre'); io.unobserve(e.target); } }), { rootMargin: '0px 0px -8% 0px' });
+    rv.forEach(el => io.observe(el));
+    setTimeout(() => rv.forEach(el => el.classList.remove('pre')), 3000);
+  }
+
+  // ---- Product shot: flattens as it scrolls in, chips drift with the pointer ----
+  const stage = $('stage');
+  new IntersectionObserver(es => es.forEach(e => stage.classList.toggle('flat', e.intersectionRatio > .55)), { threshold: [0, .55, 1] }).observe(stage);
+  const chips = [...stage.querySelectorAll('.chip')];
+  if (!still && matchMedia('(pointer: fine)').matches) {
+    addEventListener('pointermove', e => {
+      const x = e.clientX / innerWidth - .5, y = e.clientY / innerHeight - .5;
+      chips.forEach(c => { const d = +c.dataset.depth; c.style.transform = `translate3d(${x * d}px, ${y * d}px, 0)`; });
+    }, { passive: true });
+    const card = $('member'), cs = $('cardStage');
+    cs.addEventListener('pointermove', e => {
+      const r = cs.getBoundingClientRect(); const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+      card.style.setProperty('--ry', `${(x - .5) * 26}deg`); card.style.setProperty('--rx', `${(.5 - y) * 18}deg`);
+      card.style.setProperty('--mx', x.toFixed(3)); card.style.setProperty('--my', y.toFixed(3));
+    });
+    cs.addEventListener('pointerleave', () => { card.style.removeProperty('--ry'); card.style.removeProperty('--rx'); });
+  }
+
+  // ---- Fight recording: 20 frames per second, like Nexora's CombatTracker ----
+  // [meX, meZ, meYaw, meHp, foeX, foeZ, foeYaw, foeHp, flags(1 landed, 2 taken)]
+  function fight(seed, win) {
+    const f = []; let me = 20, foe = 20; const N = 100;
+    for (let i = 0; i < N; i++) {
+      const t = i / 20, a = t * 1.3 + seed, r = 2.5 - t * .16;
+      const mx = Math.cos(a) * r + Math.sin(t * 2.3 + seed) * .4, mz = Math.sin(a) * r * .8 + .5;
+      const fx = -Math.cos(a - .4) * (r - .3) + Math.sin(t * 1.7) * .45 + t * .12, fz = -Math.sin(a - .4) * (r - .3) * .8 + .3 - t * .1;
+      let fl = 0;
+      if (win) {
+        if (i % 9 === 4 && i < N - 4) { fl |= 1; foe = Math.max(.5, foe - (2.1 + (i % 3) * .35)); }
+        if (i % 17 === 11) { fl |= 2; me -= 2.4; }
+        if (i === N - 3) { fl |= 1; foe = 0; }
+      } else {
+        if (i % 13 === 6) { fl |= 1; foe -= 2.2; }
+        if (i % 8 === 3 && i < N - 4) { fl |= 2; me = Math.max(.5, me - (2.3 + (i % 3) * .3)); }
+        if (i === N - 3) { fl |= 2; me = 0; }
+      }
+      const yaw = (x1, z1, x2, z2) => Math.atan2(-(x2 - x1), z2 - z1);
+      f.push([mx, mz, yaw(mx, mz, fx, fz), me, fx, fz, yaw(fx, fz, mx, mz), foe, fl]);
+    }
+    let a = Infinity, b = -Infinity, c = Infinity, d = -Infinity;
+    for (const k of f) { a = Math.min(a, k[0], k[4]); b = Math.max(b, k[0], k[4]); c = Math.min(c, k[1], k[5]); d = Math.max(d, k[1], k[5]); }
+    return { f, N, span: Math.max(b - a, d - c) * 1.4, cx: (a + b) / 2, cz: (c + d) / 2 };
+  }
+
+  function replay(canvas, data, hooks) {
+    const ctx = canvas.getContext('2d'); let W = 0, H = 0;
+    const size = () => { const dpr = Math.min(2, devicePixelRatio || 1); const r = canvas.getBoundingClientRect(); W = r.width; H = r.height; canvas.width = W * dpr; canvas.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); };
+    function draw(index) {
+      const { f, span, cx, cz, N } = data; const s = Math.min(W, H) / span;
+      const px = x => W / 2 + (x - cx) * s, pz = z => H / 2 + (z - cz) * s;
+      ctx.clearRect(0, 0, W, H);
+      ctx.strokeStyle = 'rgba(255,255,255,.045)'; ctx.lineWidth = 1;
+      for (let x = ((W / 2 - cx * s) % s + s) % s; x < W; x += s) { ctx.beginPath(); ctx.moveTo(x + .5, 0); ctx.lineTo(x + .5, H); ctx.stroke(); }
+      for (let y = ((H / 2 - cz * s) % s + s) % s; y < H; y += s) { ctx.beginPath(); ctx.moveTo(0, y + .5); ctx.lineTo(W, y + .5); ctx.stroke(); }
+      for (const [ix, iz, col] of [[0, 1, colors.me], [4, 5, colors.foe]]) {
+        ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.lineCap = 'round';
+        for (let i = 1; i <= index; i++) { ctx.globalAlpha = .05 + .6 * (i / Math.max(1, index)) ** 2; ctx.beginPath(); ctx.moveTo(px(f[i - 1][ix]), pz(f[i - 1][iz])); ctx.lineTo(px(f[i][ix]), pz(f[i][iz])); ctx.stroke(); }
+      }
+      ctx.globalAlpha = 1;
+      let landed = 0, taken = 0;
+      for (let i = Math.max(0, index - 5); i <= index; i++) { if (f[i][8] & 1) landed = Math.max(landed, 1 - (index - i) / 6); if (f[i][8] & 2) taken = Math.max(taken, 1 - (index - i) / 6); }
+      const k = f[index];
+      dot(px(k[0]), pz(k[1]), k[2], colors.me, taken, k[3] > 0);
+      dot(px(k[4]), pz(k[5]), k[6], colors.foe, landed, k[7] > 0);
+      hooks && hooks(k, index, N);
+    }
+    function dot(x, y, yaw, col, hit, alive) {
+      ctx.strokeStyle = col; ctx.fillStyle = col;
+      if (hit > 0) { ctx.globalAlpha = hit; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y, 9 + (1 - hit) * 14, 0, 7); ctx.stroke(); ctx.globalAlpha = 1; }
+      if (!alive) { ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(x - 6, y - 6); ctx.lineTo(x + 6, y + 6); ctx.moveTo(x + 6, y - 6); ctx.lineTo(x - 6, y + 6); ctx.stroke(); return; }
+      ctx.shadowColor = col; ctx.shadowBlur = 14; ctx.beginPath(); ctx.arc(x, y, 5.5, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
+      ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - Math.sin(yaw) * 9, y + Math.cos(yaw) * 9); ctx.lineTo(x - Math.sin(yaw) * 17, y + Math.cos(yaw) * 17); ctx.stroke();
+    }
+    size(); addEventListener('resize', () => { size(); draw(last); });
+    let last = data.N - 1, visible = true;
+    new IntersectionObserver(es => { visible = es[0].isIntersecting; }).observe(canvas);
+    draw(last);
+    if (still) return;
+    const HOLD = 30, t0 = performance.now();
+    (function tick(now) {
+      if (visible) { const fr = Math.max(0, Math.floor((now - t0) / 50)) % (data.N + HOLD); const i = Math.min(fr, data.N - 1); if (i !== last) { last = i; draw(i); } }
+      requestAnimationFrame(tick);
+    })(t0);
+    box.addEventListener('click', () => draw(last));
+  }
+
+  const hero = fight(0, true);
+  replay($('heroMap'), hero, (k, i, N) => {
+    $('heroTime').textContent = '-' + ((N - 1 - i) / 20).toFixed(1) + 's';
+    $('hpMe').textContent = k[3].toFixed(1); $('hpFoe').textContent = k[7].toFixed(1);
+    $('barMe').style.transform = `scaleX(${k[3] / 20})`; $('barFoe').style.transform = `scaleX(${k[7] / 20})`;
+    $('scrub').style.transform = `scaleX(${i / (N - 1)})`;
+  });
+  const cam = fight(1.7, false);
+  replay($('camMap'), cam, (k, i, N) => { $('camTime').textContent = '-' + ((N - 1 - i) / 20).toFixed(1) + 's'; });
+
+  // ---- FrameGraph ----
+  const g = $('graph'), bars = [];
+  for (let i = 0; i < 48; i++) { const b = document.createElement('i'); g.appendChild(b); bars.push(b); }
+  const sample = i => { const r = Math.sin(i * 1.7) * .5 + Math.sin(i * .37) * .5; return i % 23 === 17 ? 3.1 : i % 41 === 29 ? 6.5 : 1 + r * .25 + (i % 7) * .03; };
+  let off = 0;
+  function paint() {
+    let sum = 0;
+    bars.forEach((b, i) => { const v = sample(i + off); sum += v; b.style.transform = `scaleY(${Math.min(1, v / 7) * .9 + .06})`; b.className = v > 5 ? 'hang' : v > 2.5 ? 'stut' : ''; });
+    const ms = 2.4 * sample(off + 47); $('gMs').textContent = ms.toFixed(1) + ' ms'; $('gFps').textContent = Math.round(1000 / (sum / bars.length * 2.4));
+  }
+  paint();
+  if (!still) setInterval(() => { off++; paint(); }, 120);
+
+  // ---- Download: name the viewer's platform ----
+  const ua = navigator.userAgent;
+  const os = /Mac/i.test(ua) ? 'macOS' : /Linux|X11/i.test(ua) && !/Android/i.test(ua) ? 'Linux' : 'Windows';
+  $('mainDlText').textContent = `Für ${os} herunterladen`;
+
+  // ---- Copy the jar name ----
+  $('copyJar').addEventListener('click', async e => {
+    const b = e.currentTarget;
+    try { await navigator.clipboard.writeText($('jarName').textContent); b.textContent = 'Kopiert'; }
+    catch { const r = document.createRange(); r.selectNodeContents($('jarName')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent = 'Markiert'; }
+    setTimeout(() => { b.textContent = 'Name kopieren'; }, 1600);
+  });
+})();
+</script>
+
+</body>
+</html>
