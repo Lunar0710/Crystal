@@ -258,14 +258,24 @@ $Tweaks = @(
 )
 function Find-Tweak($id) { $Tweaks | Where-Object { $_.id -eq $id } | Select-Object -First 1 }
 
+# The registry entries of a tweak, always as a list of entries. PowerShell
+# flattens a one-entry list written as @(, @(...)) inside the table above,
+# which would hand back the path's letters instead of the entry.
+function Get-Regs($t) {
+    if ($t.dyn -eq 'nagle') { $r = Get-NagleEntries } else { $r = $t.reg }
+    if ($null -eq $r) { return , @() }
+    if ($r.Count -gt 0 -and $r[0] -is [string]) { return , @(, $r) }
+    return , $r
+}
+
 function Test-Applied($t) {
     if ($t.id -eq 'power') { return ((Get-ActiveScheme).name -match 'Lunar Gaming') }
     if ($t.svc) {
         foreach ($sv in $t.svc) { $x = Get-CimInstance Win32_Service -Filter "Name='$($sv[0])'" -ErrorAction SilentlyContinue; if ($x -and $x.StartMode -ne $sv[1]) { return $false } }
         return $true
     }
-    $regs = if ($t.dyn -eq 'nagle') { Get-NagleEntries } else { $t.reg }
-    if (-not $regs -or $regs.Count -eq 0) { return $false }
+    $regs = Get-Regs $t
+    if ($regs.Count -eq 0) { return $false }
     foreach ($r in $regs) {
         $v = Get-RegValue $r[0] $r[1]
         if ($null -eq $v -or "$v" -ne "$($r[2])") { return $false }
@@ -276,7 +286,7 @@ function Test-Applied($t) {
 function Apply-Tweak($Backup, $t) {
     if ($t.id -eq 'power') { Apply-Power $Backup; return }
     if ($t.svc) { foreach ($sv in $t.svc) { Set-ServiceStart $Backup $t.id $sv[0] $sv[1] }; return }
-    $regs = if ($t.dyn -eq 'nagle') { Get-NagleEntries } else { $t.reg }
+    $regs = Get-Regs $t
     foreach ($r in $regs) { Set-Reg $Backup $t.id $r[0] $r[1] $r[2] $r[3] }
     if ($t.id -eq 'mouse') { Update-Mouse @(0, 0, 0) }
 }
@@ -341,8 +351,12 @@ function Set-StartupItem($source, $name, [bool]$enabled) {
     if (-not $s) { throw "Unbekannte Quelle $source" }
     if (-not (Test-Path $s.approved)) { New-Item -Path $s.approved -Force | Out-Null }
     $bytes = New-Object byte[] 12
-    $bytes[0] = if ($enabled) { 2 } else { 3 }
-    if (-not $enabled) { [BitConverter]::GetBytes([DateTime]::UtcNow.ToFileTimeUtc()).CopyTo($bytes, 4) }
+    if ($enabled) {
+        $bytes[0] = [byte]2
+    } else {
+        $bytes[0] = [byte]3
+        [BitConverter]::GetBytes([DateTime]::UtcNow.ToFileTimeUtc()).CopyTo($bytes, 4)
+    }
     New-ItemProperty -Path $s.approved -Name $name -Value $bytes -PropertyType Binary -Force -ErrorAction Stop | Out-Null
 }
 

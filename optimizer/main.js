@@ -64,7 +64,10 @@ const psQuote = s => `'${String(s).replace(/'/g, "''")}'`
 // elevated process can't be read, and the console code page mangles umlauts.
 async function engine(action, { ids = [], arg = null, elevate = false } = {}) {
   if (!isWin) return { ok: false, error: 'Nur unter Windows verfügbar.' }
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lunar-'))
+  // Not in %TEMP%: "Aufräumen" empties that folder, answer file included.
+  const runDir = path.join(app.getPath('userData'), 'run')
+  fs.mkdirSync(runDir, { recursive: true })
+  const tmp = fs.mkdtempSync(path.join(runDir, 'x-'))
   const out = path.join(tmp, 'out.json')
   const params = ['-File', enginePath, '-Action', action, '-Out', out]
   if (ids.length) params.push('-Ids', ids.join(','))
@@ -247,11 +250,11 @@ async function selftest(file) {
       const list = (await engine('startup-list')).items || []
       const item = list.find(i => !i.admin) || list[0]
       if (!item) return 'no startup items on this machine'
-      await engine('startup-set', { arg: { source: item.source, name: item.name, enabled: !item.enabled }, elevate: item.admin })
+      const set1 = await engine('startup-set', { arg: { source: item.source, name: item.name, enabled: !item.enabled }, elevate: item.admin })
       const flipped = ((await engine('startup-list')).items || []).find(i => i.source === item.source && i.name === item.name)
-      await engine('startup-set', { arg: { source: item.source, name: item.name, enabled: item.enabled }, elevate: item.admin })
+      const set2 = await engine('startup-set', { arg: { source: item.source, name: item.name, enabled: item.enabled }, elevate: item.admin })
       const back = ((await engine('startup-list')).items || []).find(i => i.source === item.source && i.name === item.name)
-      if (flipped.enabled === item.enabled || back.enabled !== item.enabled) throw new Error('toggle did not stick')
+      if (flipped.enabled === item.enabled || back.enabled !== item.enabled) throw new Error('toggle did not stick: ' + JSON.stringify({ item, set1, flipped, set2, back }))
       return { item: item.name, was: item.enabled }
     })
     await step('clean-run', async () => { const r = await engine('clean-run', { ids: ['usertemp', 'thumbs'], elevate: true }); if (!r.ok) throw new Error(r.error); return r })
