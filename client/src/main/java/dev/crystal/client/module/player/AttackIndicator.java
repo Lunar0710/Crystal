@@ -48,7 +48,8 @@ public class AttackIndicator extends Module {
     public void draw(GuiGraphics ctx, int screenW, int screenH, float partialTick) {
         Minecraft mc = Minecraft.getInstance();
         Player player = mc.player;
-        if (player == null || mc.options.hideGui || player.isSpectator()) return;
+        // No hideGui check: with the HUD hidden (F1) this is not called at all.
+        if (player == null || player.isSpectator()) return;
 
         int w = Math.round(width);
         int x = (screenW - w) / 2;
