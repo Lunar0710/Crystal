@@ -134,12 +134,20 @@ public final class WorldRenderHandler {
         BlockOutline module = module("BlockOutline", BlockOutline.class);
         if (module == null) return true;
 
-        if (!shape.isEmpty()) {
-            Vec3 camera = ctx.cameraPos();
-            outline(ctx, shape, pos.getX() - camera.x, pos.getY() - camera.y, pos.getZ() - camera.z,
-                    module.getOutlineColor(), module.getLineWidth());
+        PoseStack.Pose before = ctx.poseStack().last();
+        try {
+            if (!shape.isEmpty()) {
+                Vec3 camera = ctx.cameraPos();
+                outline(ctx, shape, pos.getX() - camera.x, pos.getY() - camera.y, pos.getZ() - camera.z,
+                        module.getOutlineColor(), module.getLineWidth());
+            }
+            return false;
+        } catch (RuntimeException e) {
+            // Off instead of a crash; vanilla draws its own outline again.
+            while (ctx.poseStack().last() != before) ctx.poseStack().popPose();
+            dev.crystal.client.util.SafeRender.moduleFailed(module, e);
+            return true;
         }
-        return false;
     }
 
     private static void afterEntities(Ctx ctx) {
