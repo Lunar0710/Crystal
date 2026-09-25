@@ -504,6 +504,47 @@
     })
   }
 
+  // ------------------------------------------------------------ settings
+  let ST = null
+  function renderSettings() {
+    if (!ST) return
+    const sw = (id, on) => { $(id).classList.toggle('on', !!on); $(id).setAttribute('aria-checked', String(!!on)) }
+    sw('sGameMode', ST.gameMode); sw('sPriority', ST.gamePriority); sw('sTray', ST.tray); sw('sAutostart', ST.autostart)
+    if (ST.portable) { $('sAutostart').classList.add('busy'); $('sAutostartNote').textContent = 'Nur in der installierten Version (Setup) möglich.' }
+    $('gmActive').textContent = ST.active && ST.active.length ? `Gerade aktiv: ${ST.active.join(', ')}` : ''
+    const close = new Set((ST.closeApps || []).map(x => x.toLowerCase()))
+    $('sClose').innerHTML = (ST.boostApps || []).map(a => `<div class="chip ${close.has(a.exe.toLowerCase()) ? 'on' : ''}" data-close="${esc(a.exe)}"><span class="box ${close.has(a.exe.toLowerCase()) ? 'on' : ''}"></span><b>${esc(a.name)}</b></div>`).join('')
+    $('sGames').textContent = `Erkennt automatisch: ${(ST.games || []).join(', ')}.`
+    $('sCustomList').innerHTML = (ST.customGames || []).map(g => `<div class="chip on"><b>${esc(g)}</b><span class="x" data-uncustom="${esc(g)}">✕</span></div>`).join('')
+  }
+  async function saveSettings(patch) { ST = { ...ST, ...(await api.setSettings(patch)) }; renderSettings() }
+  if (api.getSettings) {
+    api.getSettings().then(st => { ST = st; renderSettings() })
+    api.onSettings && api.onSettings(st => { ST = { ...ST, ...st }; renderSettings() })
+    api.onGame && api.onGame(g => {
+      toast(g.state === 'start' ? `Spielmodus aktiv: ${g.game}` : `${g.game} beendet.`)
+      api.getSettings().then(st => { ST = st; renderSettings() })
+    })
+    $('sGameMode').onclick = () => { saveSettings({ gameMode: !ST.gameMode, ...(!ST.gameMode ? { tray: true } : {}) }); if (!ST.gameMode) toast('Auto-Spielmodus an. Lunar bleibt dafür im Infobereich.') }
+    $('sPriority').onclick = () => saveSettings({ gamePriority: !ST.gamePriority })
+    $('sTray').onclick = () => saveSettings({ tray: !ST.tray, ...(ST.tray ? { gameMode: false } : {}) })
+    $('sAutostart').onclick = () => { if (!ST.portable) saveSettings({ autostart: !ST.autostart }) }
+    document.addEventListener('click', e => {
+      const c = e.target.closest('[data-close]')
+      if (c) { const set = new Set(ST.closeApps || []); const exe = c.dataset.close; [...set].some(x => x.toLowerCase() === exe.toLowerCase()) ? [...set].forEach(x => { if (x.toLowerCase() === exe.toLowerCase()) set.delete(x) }) : set.add(exe); saveSettings({ closeApps: [...set] }) }
+      const u = e.target.closest('[data-uncustom]')
+      if (u) saveSettings({ customGames: (ST.customGames || []).filter(g => g !== u.dataset.uncustom) })
+    })
+    $('sCustom').onkeydown = e => {
+      if (e.key !== 'Enter') return
+      let v = e.target.value.trim().split(/[\\/]/).pop()
+      if (!v) return
+      if (!/\.exe$/i.test(v)) v += '.exe'
+      e.target.value = ''
+      saveSettings({ customGames: [...new Set([...(ST.customGames || []), v])] })
+    }
+  }
+
   // ------------------------------------------------------------ score
   function issues() {
     const list = []

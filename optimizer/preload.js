@@ -20,6 +20,10 @@ contextBridge.exposeInMainWorld('lunar', {
   open: url => ipcRenderer.invoke('shell:open', url),
   taskManager: () => ipcRenderer.invoke('shell:taskmgr'),
   reboot: () => ipcRenderer.invoke('app:reboot'),
+  getSettings: () => ipcRenderer.invoke('settings:get'),
+  setSettings: patch => ipcRenderer.invoke('settings:set', patch),
+  onSettings: fn => ipcRenderer.on('settings', (_e, st) => fn(st)),
+  onGame: fn => ipcRenderer.on('game', (_e, g) => fn(g)),
   window: {
     minimize: () => ipcRenderer.invoke('win:minimize'),
     maximize: () => ipcRenderer.invoke('win:maximize'),

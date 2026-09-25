@@ -30,6 +30,7 @@
       <a data-page="tweaks"><svg viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>Optimieren</a>
       <a data-page="startup"><svg viewBox="0 0 24 24"><path d="M12 3v9"/><path d="M6.3 7.3a8 8 0 1 0 11.4 0"/></svg>Autostart</a>
       <a data-page="clean"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>Aufräumen</a>
+      <a data-page="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Einstellungen</a>
     </nav>
     <div class="side-foot">
       <div class="mini" id="miniPing"><i></i><span>Ping</span><b>–</b></div>
@@ -145,6 +146,29 @@
       <p class="note">Nur Dateien, die Windows und Programme von selbst neu anlegen. Deine Dokumente, Bilder und Downloads werden nie angefasst. Shader-Caches bleiben, damit Spiele danach nicht ruckeln.</p>
       <div class="list shell"><div class="core" id="clean"><div class="empty">Wird gescannt …</div></div></div>
       <div class="clean-foot"><span id="cleanTotal"></span><button class="btn solid" id="cleanRun" disabled><span>Aufräumen</span><i><svg viewBox="0 0 16 16"><path d="M3 8.5l3 3 7-7"/></svg></i></button></div>
+    </section>
+    <!-- Einstellungen -->
+    <section class="page" id="p-settings">
+      <div class="page-head"><div><span class="eyebrow">Einstellungen</span><h1>Lunar arbeitet für dich, auch im Hintergrund.</h1></div></div>
+      <div class="gm shell"><div class="core">
+        <div class="gm-head"><div><b>Auto-Spielmodus</b><small>Startest du ein Spiel, bekommt es automatisch hohe Priorität und die gewählten Apps werden geschlossen. Prüft alle 5 Sekunden, kostet praktisch nichts.</small></div><div class="switch" id="sGameMode" role="switch" tabindex="0"></div></div>
+        <p class="gm-active" id="gmActive"></p>
+      </div></div>
+      <div class="set-grid">
+        <div class="list shell"><div class="core">
+          <div class="li"><div><b>Spiele auf hohe Priorität</b><small>Windows gibt dem Spiel Vorrang vor allem anderen. Nie „Echtzeit“, das kann das System einfrieren.</small></div><div class="switch" id="sPriority" role="switch" tabindex="0"></div></div>
+          <div class="li"><div><b>Im Infobereich weiterlaufen</b><small>Schließen versteckt das Fenster nur, der Mond bleibt neben der Uhr. Nötig für den Auto-Spielmodus.</small></div><div class="switch" id="sTray" role="switch" tabindex="0"></div></div>
+          <div class="li"><div><b>Mit Windows starten</b><small id="sAutostartNote">Startet unsichtbar im Infobereich.</small></div><div class="switch" id="sAutostart" role="switch" tabindex="0"></div></div>
+        </div></div>
+        <div class="list shell"><div class="core">
+          <div class="li"><div><b>Beim Spielstart schließen</b><small>Diese Apps schließt der Spielmodus, wenn sie laufen.</small></div></div>
+          <div class="boost-list" id="sClose" style="padding:0 14px 14px"></div>
+        </div></div>
+      </div>
+      <h2 class="h2">Erkannte Spiele</h2>
+      <p class="note" id="sGames"></p>
+      <div class="targets"><input id="sCustom" placeholder="Eigenes Spiel hinzufügen, z. B. MeinSpiel.exe" spellcheck="false"></div>
+      <div class="boost-list" id="sCustomList"></div>
     </section>
   </main>
 </div>

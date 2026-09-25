@@ -1,7 +1,7 @@
 // Lunar Optimizer, main process: reads the hardware, streams live usage,
 // measures latency and runs the PowerShell engine (elevated only when a change
 // needs it, so the app itself starts without a UAC prompt).
-const { app, BrowserWindow, ipcMain, shell } = require('electron')
+const { app, BrowserWindow, ipcMain, shell, Tray, Menu, Notification, nativeImage } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const os = require('os')
@@ -35,6 +35,13 @@ function createWindow(show = true) {
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'))
   if (show) win.once('ready-to-show', () => win.show())
   win.webContents.setWindowOpenHandler(({ url }) => { shell.openExternal(url); return { action: 'deny' } })
+  win.on('close', e => {
+    if (settings.tray && tray && !quitting && !selftestArg) {
+      e.preventDefault(); win.hide()
+      if (!settings.trayHintShown) { settings.trayHintShown = true; saveSettings(); notify('Lunar Optimizer läuft weiter', 'Im Infobereich neben der Uhr. Rechtsklick auf den Mond zum Beenden.') }
+    }
+  })
+  win.on('closed', () => { win = null })
   win.on('maximize', () => win.webContents.send('win:state', { maximized: true }))
   win.on('unmaximize', () => win.webContents.send('win:state', { maximized: false }))
 }
@@ -372,6 +379,94 @@ async function network() {
   } catch { return null }
 }
 
+// ---------------------------------------------------------------- settings
+const settingsFile = () => path.join(app.getPath('userData'), 'settings.json')
+const DEFAULT_SETTINGS = { tray: true, autostart: false, gameMode: false, gamePriority: true, closeApps: ['chrome.exe', 'msedge.exe', 'OneDrive.exe', 'ms-teams.exe', 'Teams.exe'], customGames: [] }
+let settings = { ...DEFAULT_SETTINGS }
+function loadSettings() {
+  try { settings = { ...DEFAULT_SETTINGS, ...JSON.parse(fs.readFileSync(settingsFile(), 'utf8')) } } catch { settings = { ...DEFAULT_SETTINGS } }
+}
+function saveSettings() {
+  const f = settingsFile(), tmp = f + '.tmp'
+  fs.mkdirSync(path.dirname(f), { recursive: true })
+  fs.writeFileSync(tmp, JSON.stringify(settings, null, 2)); fs.renameSync(tmp, f)
+}
+function applyLoginItem() {
+  if (!isWin || !app.isPackaged || isPortable) return
+  app.setLoginItemSettings({ openAtLogin: !!settings.autostart, args: ['--hidden'] })
+}
+
+// ---------------------------------------------------------------- tray
+let tray = null, quitting = false
+function createTray() {
+  if (tray || !settings.tray) return
+  const img = nativeImage.createFromPath(path.join(__dirname, 'build', 'icon.png')).resize({ width: 16, height: 16 })
+  tray = new Tray(img)
+  tray.setToolTip('Lunar Optimizer')
+  const menu = () => Menu.buildFromTemplate([
+    { label: 'Öffnen', click: showWindow },
+    { label: 'Auto-Spielmodus', type: 'checkbox', checked: !!settings.gameMode, click: i => { settings.gameMode = i.checked; saveSettings(); restartWatcher(); pushSettings() } },
+    { type: 'separator' },
+    { label: 'Beenden', click: () => { quitting = true; app.quit() } },
+  ])
+  tray.setContextMenu(menu())
+  tray.on('click', showWindow)
+  tray.refresh = () => tray && tray.setContextMenu(menu())
+}
+function showWindow() { if (!win) createWindow(); else { win.show(); if (win.isMinimized()) win.restore(); win.focus() } }
+function notify(title, body) { try { if (Notification.isSupported()) new Notification({ title, body, icon: path.join(__dirname, 'build', 'icon.png') }).show() } catch {} }
+const pushSettings = () => { win && win.webContents.send('settings', settings); tray && tray.refresh && tray.refresh() }
+
+// ---------------------------------------------------------------- auto game mode
+// Every 5 s one tasklist (a few milliseconds, no PowerShell). When a known
+// game starts: its priority goes to High (never Realtime) and the chosen
+// background apps are closed. Nothing runs while the switch is off.
+const GAMES = {
+  'javaw.exe': 'Minecraft (Java)', 'Minecraft.Windows.exe': 'Minecraft (Bedrock)', 'FortniteClient-Win64-Shipping.exe': 'Fortnite',
+  'VALORANT-Win64-Shipping.exe': 'Valorant', 'cs2.exe': 'Counter-Strike 2', 'r5apex.exe': 'Apex Legends', 'r5apex_dx12.exe': 'Apex Legends',
+  'RocketLeague.exe': 'Rocket League', 'GTA5.exe': 'GTA V', 'GTA5_Enhanced.exe': 'GTA V', 'Overwatch.exe': 'Overwatch 2',
+  'League of Legends.exe': 'League of Legends', 'RainbowSix.exe': 'Rainbow Six Siege', 'RainbowSix_Vulkan.exe': 'Rainbow Six Siege',
+  'cod.exe': 'Call of Duty', 'FiveM.exe': 'FiveM', 'RobloxPlayerBeta.exe': 'Roblox', 'EscapeFromTarkov.exe': 'Escape from Tarkov',
+  'destiny2.exe': 'Destiny 2', 'dota2.exe': 'Dota 2', 'PUBG-Win64-Shipping.exe': 'PUBG', 'eldenring.exe': 'Elden Ring',
+  'Marvel-Win64-Shipping.exe': 'Marvel Rivals', 'TslGame.exe': 'PUBG', 'bf2042.exe': 'Battlefield 2042', 'Warframe.x64.exe': 'Warframe',
+}
+function tasklist() {
+  return new Promise(resolve => execFile('tasklist.exe', ['/FO', 'CSV', '/NH'], { windowsHide: true, maxBuffer: 8 * 1024 * 1024 }, (err, out) => {
+    if (err) return resolve([])
+    resolve(out.split(/\r?\n/).map(l => l.match(/^"([^"]+)","(\d+)"/)).filter(Boolean).map(m => ({ name: m[1], pid: Number(m[2]) })))
+  }))
+}
+function gameName(exe) {
+  const custom = (settings.customGames || []).find(g => g.toLowerCase() === exe.toLowerCase())
+  if (custom) return custom.replace(/\.exe$/i, '')
+  const key = Object.keys(GAMES).find(k => k.toLowerCase() === exe.toLowerCase())
+  return key ? GAMES[key] : null
+}
+let watchTimer = null, activeGames = new Map()
+async function watchTick() {
+  const procs = await tasklist()
+  const now = new Map()
+  for (const p of procs) { const g = gameName(p.name); if (g && !now.has(p.name.toLowerCase())) now.set(p.name.toLowerCase(), { exe: p.name, name: g, pids: procs.filter(x => x.name === p.name).map(x => x.pid) }) }
+  for (const [key, g] of now) {
+    if (activeGames.has(key)) continue
+    activeGames.set(key, g)
+    const done = []
+    if (settings.gamePriority) {
+      try { await psHost.run(`Get-Process -Id ${g.pids.join(',')} -ErrorAction SilentlyContinue | ForEach-Object { try { $_.PriorityClass = 'High' } catch {} }`, 15000); done.push('Priorität hoch') } catch {}
+    }
+    const running = new Set(procs.map(p => p.name.toLowerCase()))
+    const toClose = (settings.closeApps || []).filter(e => running.has(e.toLowerCase()))
+    if (toClose.length) { const r = await boostClose(toClose); if (r.closed.length) done.push(`${r.closed.length} Apps geschlossen`) }
+    notify(`Spielmodus: ${g.name}`, done.length ? done.join(', ') : 'Erkannt')
+    win && win.webContents.send('game', { state: 'start', game: g.name })
+  }
+  for (const key of [...activeGames.keys()]) if (!now.has(key)) { const g = activeGames.get(key); activeGames.delete(key); win && win.webContents.send('game', { state: 'end', game: g.name }) }
+}
+function restartWatcher() {
+  clearInterval(watchTimer); watchTimer = null
+  if (settings.gameMode && isWin) { watchTimer = setInterval(watchTick, 5000); watchTick() }
+}
+
 // ---------------------------------------------------------------- IPC
 ipcMain.handle('hw:static', (_e, part) => part ? hardware(part) : (hwCache = null, hardware()))
 ipcMain.handle('hw:parts', () => isWin ? null : Object.keys(HW_PARTS))
@@ -395,6 +490,15 @@ ipcMain.handle('shell:taskmgr', () => { if (isWin) execFile('taskmgr.exe') })
 ipcMain.handle('win:minimize', () => win && win.minimize())
 ipcMain.handle('win:maximize', () => win && (win.isMaximized() ? win.unmaximize() : win.maximize()))
 ipcMain.handle('win:close', () => win && win.close())
+ipcMain.handle('settings:get', () => ({ ...settings, games: Object.values(GAMES).filter((v, i, a) => a.indexOf(v) === i), boostApps: BOOST_APPS.map(a => ({ exe: a.exe, name: a.name })), portable: isPortable, active: [...activeGames.values()].map(g => g.name) }))
+ipcMain.handle('settings:set', (_e, patch) => {
+  const allowed = ['tray', 'autostart', 'gameMode', 'gamePriority', 'closeApps', 'customGames']
+  for (const k of allowed) if (k in patch) settings[k] = patch[k]
+  saveSettings(); applyLoginItem(); restartWatcher()
+  if (settings.tray) createTray(); else if (tray) { tray.destroy(); tray = null }
+  pushSettings()
+  return settings
+})
 ipcMain.handle('app:reboot', () => { if (isWin) execFile('shutdown.exe', ['/r', '/t', '5', '/c', 'Lunar Optimizer: Neustart, damit alle Optimierungen wirken.']) })
 
 // ---------------------------------------------------------------- self test
@@ -479,6 +583,8 @@ async function selftest(file) {
       return { adapters: g.adapters, bench }
     })
     await step('boost-list', () => boostList())
+    await step('game-scan', async () => { const p = await tasklist(); if (!p.length) throw new Error('tasklist empty'); return { processes: p.length, sample: p.slice(0, 3) } })
+    await step('settings', async () => { loadSettings(); settings.customGames = ['test.exe']; saveSettings(); loadSettings(); if (settings.customGames[0] !== 'test.exe') throw new Error('not saved'); settings.customGames = []; saveSettings(); return settings })
     await step('network', () => network())
     await step('clean-run', async () => { const r = await engine('clean-run', { ids: ['usertemp', 'thumbs'], elevate: true }); if (!r.ok) throw new Error(r.error); return r })
   }
@@ -493,8 +599,16 @@ app.whenReady().then(() => {
     if (selftestArg.includes('elevated')) process.env.LUNAR_FORCE_ELEVATE = '1'
     return selftest(file.replace(/^(apply|elevated):/, ''))
   }
-  createWindow()
+  loadSettings()
+  const hidden = process.argv.includes('--hidden')
+  if (!app.requestSingleInstanceLock()) { app.quit(); return }
+  app.on('second-instance', showWindow)
+  createWindow(!hidden)
+  createTray()
+  applyLoginItem()
+  restartWatcher()
   startAutoUpdate()
 })
-app.on('window-all-closed', () => { if (!selftestArg) app.quit() })
+app.on('window-all-closed', () => { if (!selftestArg && !(settings.tray && tray)) app.quit() })
+app.on('before-quit', () => { quitting = true })
 app.on('will-quit', () => { try { psHost.proc && psHost.proc.kill() } catch {} })
