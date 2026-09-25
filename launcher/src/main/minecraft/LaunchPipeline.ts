@@ -731,13 +731,30 @@ export class LaunchPipeline {
     })
   }
 
-  private getJson<T>(url: string, redirects = 0): Promise<T> {
+  /**
+   * JSON from Mojang/Fabric, tried up to three times: a single dropped
+   * connection (a timeout, a reset) used to fail the whole start. A 4xx answer
+   * won't change on retry and fails at once.
+   */
+  private async getJson<T>(url: string): Promise<T> {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await this.getJsonOnce<T>(url)
+      } catch (err) {
+        if (attempt >= 3 || /HTTP 4\d\d/.test(String(err))) throw err
+        logger.warn('launcher', `Anfrage fehlgeschlagen, neuer Versuch (${attempt}/3)`, { url, error: String(err) })
+        await new Promise(r => setTimeout(r, attempt * 1500))
+      }
+    }
+  }
+
+  private getJsonOnce<T>(url: string, redirects = 0): Promise<T> {
     return new Promise((resolve, reject) => {
       const req = https.get(url, { headers: { 'User-Agent': 'crystal-launcher' } }, res => {
         const location = res.headers.location
         if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && location && redirects < 5) {
           res.resume()
-          this.getJson<T>(new URL(location, url).toString(), redirects + 1).then(resolve, reject)
+          this.getJsonOnce<T>(new URL(location, url).toString(), redirects + 1).then(resolve, reject)
           return
         }
         if (res.statusCode !== 200) {
