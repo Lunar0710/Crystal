@@ -57,7 +57,8 @@ public class CrystalClientScreen extends Screen {
     private static final int TILE_H = 68;
     private static final int TILE_GAP = 8;
     private static final int ROW_H = 24;
-    private static final int OPEN_ANIM_MS = 420;
+    private static final int OPEN_ANIM_MS = 180;
+    private static final int COL_OFF = 0xFF3A3A3F;
 
     private final int colPanel, colSurface, colTile, colBorder, colText, colMuted;
     // Not final: picking an accent in this menu recolours it right away.
@@ -159,7 +160,7 @@ public class CrystalClientScreen extends Screen {
         ctx.fill(0, 0, width, height, GuiRender.withAlpha(0xFF050506, Math.round(0xC4 * open)));
 
         int px = panelX(), py = panelY(), pw = panelW(), ph = panelH();
-        float scale = (0.94f + 0.06f * open) * ui();
+        float scale = (0.98f + 0.02f * open) * ui();
         ctx.pose().pushMatrix();
         ctx.pose().translate(width / 2f, height / 2f);
         ctx.pose().scale(scale, scale);
@@ -183,15 +184,8 @@ public class CrystalClientScreen extends Screen {
      * theme's colours, with a lit top edge.
      */
     private void drawPanel(GuiGraphics ctx, int px, int py, int pw, int ph, float open) {
-        GuiRender.shadow(ctx, px - 4, py - 4, px + pw + 4, py + ph + 4, 18, 22, 10, open);
-        GuiRender.glow(ctx, px + pw / 3, py, Math.min(pw, ph) / 2, colAccent, 0.07f * open);
-        GuiRender.roundedRect(ctx, px - 4, py - 4, px + pw + 4, py + ph + 4, 18, 0x0CFFFFFF);
-        GuiRender.roundedOutline(ctx, px - 4, py - 4, px + pw + 4, py + ph + 4, 18, 0x16FFFFFF);
-        int top = GuiRender.blend(GuiRender.withAlpha(colSurface, 0xFF), 0xFFFFFFFF, 0.025f);
-        int bottom = GuiRender.withAlpha(colPanel, 0xFF);
-        GuiRender.roundedGradient(ctx, px, py, px + pw, py + ph, 14, top, bottom);
-        GuiRender.roundedOutline(ctx, px, py, px + pw, py + ph, 14, 0x12FFFFFF);
-        ctx.fill(px + 14, py, px + pw - 14, py + 1, 0x26FFFFFF);
+        GuiRender.roundedRect(ctx, px, py, px + pw, py + ph, 10, GuiRender.withAlpha(colPanel, 0xF6));
+        GuiRender.roundedOutline(ctx, px, py, px + pw, py + ph, 10, 0x14FFFFFF);
     }
 
     /** A round icon button with a hairline; lights up under the pointer. */
@@ -356,23 +350,14 @@ public class CrystalClientScreen extends Screen {
         float hover = animate(hoverAnim, module, hovered ? 1f : 0f, dt);
         float on = animate(toggleAnim, module, enabled ? 1f : 0f, dt);
 
-        // Lifts a little under the pointer.
-        ctx.pose().pushMatrix();
-        ctx.pose().translate(0, -1.5f * hover);
-        if (hover > 0.01f) GuiRender.shadow(ctx, box.x1, box.y1, box.x2, box.y2, 10, 6, 3, hover * 0.8f);
-        GuiRender.card(ctx, box.x1, box.y1, box.x2, box.y2, 10, hover, on > 0.01f ? GuiRender.withAlpha(colAccent, Math.round(0x0C * on)) : 0);
-        if (on > 0.01f) GuiRender.roundedOutline(ctx, box.x1, box.y1, box.x2, box.y2, 10, GuiRender.withAlpha(colAccent, Math.round(0x50 * on)));
+        GuiRender.roundedRect(ctx, box.x1, box.y1, box.x2, box.y2, 7, GuiRender.blend(0x0DFFFFFF, 0x17FFFFFF, hover));
+        if (hover > 0.01f) GuiRender.roundedOutline(ctx, box.x1, box.y1, box.x2, box.y2, 7, GuiRender.withAlpha(0xFFFFFF, Math.round(0x22 * hover)));
 
-        // Icon in a round well that lights up in the accent when the module is on.
-        int icx = x + w / 2, icy = y + 21;
-        if (on > 0.01f) GuiRender.glow(ctx, icx, icy, 18, colAccent, 0.16f * on);
-        GuiRender.circle(ctx, icx, icy, 11, GuiRender.blend(0x0DFFFFFF, GuiRender.withAlpha(colAccent, 0x2E), on));
-        GuiRender.roundedOutline(ctx, icx - 11, icy - 11, icx + 11, icy + 11, 11, GuiRender.blend(0x12FFFFFF, GuiRender.withAlpha(colAccent, 0x66), on));
-        int iconColor = GuiRender.blend(GuiRender.blend(colMuted, colText, hover * 0.6f), colAccent == 0xFFFFFFFF ? colText : colAccent, on);
-        drawIcon(ctx, iconFor(module), icx - 8, icy - 8, iconColor, 2);
+        int icx = x + w / 2, icy = y + 20;
+        drawIcon(ctx, iconFor(module), icx - 8, icy - 8, GuiRender.blend(colMuted, colText, Math.max(on, hover * 0.7f)), 2);
 
         String name = GuiRender.trimToWidth(pretty(module.getName()), w - 10);
-        GuiRender.text(ctx, name, x + (w - GuiRender.width(name)) / 2, y + 37, GuiRender.blend(colText, 0xFFFFFFFF, on));
+        GuiRender.text(ctx, name, x + (w - GuiRender.width(name)) / 2, y + 35, colText);
 
         boolean bound = module.getKeybind() != GLFW.GLFW_KEY_UNKNOWN;
         boolean capturing = capturingModuleKey && captureTileModule == module;
@@ -414,18 +399,14 @@ public class CrystalClientScreen extends Screen {
             drawIcon(ctx, ICON_GEAR, gear.x1 + 3, gear.y1 + 3, gearHover ? colText : colMuted, 1);
         }
 
-        // Bottom row: the state in words on the left, a switch on the right.
-        ctx.fill(bar.x1 + 2, bar.y1 - 3, bar.x2 - 2, bar.y1 - 2, 0x0CFFFFFF);
+        // Bottom: one wide button that says what the module is and switches it.
         boolean barHover = bar.contains(mx, my) && contentBox.contains(mx, my);
-        if (module.isLocked()) {
-            String locked = "Nur Nexora+";
-            GuiRender.scaledText(ctx, locked, bar.x1 + (bar.x2 - bar.x1 - GuiRender.scaledWidth(locked, 0.85f)) / 2, bar.y1 + 3, 0.85f, COL_PLUS);
-        } else {
-            GuiRender.scaledText(ctx, enabled ? "An" : "Aus", bar.x1 + 2, bar.y1 + 3, 0.85f,
-                    GuiRender.blend(barHover ? colText : colMuted, colText, on));
-            GuiRender.switchPill(ctx, bar.x2 - 20, bar.y1 + 1, bar.x2, bar.y1 + 11, on, colAccent);
-        }
-        ctx.pose().popMatrix();
+        int barColor = module.isLocked() ? GuiRender.withAlpha(COL_PLUS, 0x26) : GuiRender.blend(COL_OFF, COL_ON, on);
+        if (barHover) barColor = GuiRender.blend(barColor, 0xFFFFFFFF, 0.12f);
+        GuiRender.roundedRect(ctx, bar.x1, bar.y1, bar.x2, bar.y2, 4, barColor);
+        String status = module.isLocked() ? "Nur Nexora+" : enabled ? "An" : "Aus";
+        int statusColor = module.isLocked() ? COL_PLUS : on > 0.5f ? 0xFFFFFFFF : 0xFFB4B4BA;
+        GuiRender.text(ctx, status, bar.x1 + (bar.x2 - bar.x1 - GuiRender.width(status)) / 2, bar.y1 + 2, statusColor);
     }
 
     // ---------------------------------------------------------------- settings view

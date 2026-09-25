@@ -148,6 +148,60 @@ public final class CrystalNet {
         }
     }
 
+    // ------------------------------------------------------------ friends and chat
+
+    private static volatile String selfId = null;
+    /** Friends by uuid, and uuids by lower-case name, from the server's list. */
+    private static final java.util.Map<String, String> FRIEND_NAMES = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final java.util.Map<String, String> FRIEND_IDS = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final java.util.Map<String, String> FRIEND_STATUS = new java.util.concurrent.ConcurrentHashMap<>();
+    private static boolean replyHintShown = false;
+
+    private static void readFriends(JsonObject m) {
+        JsonElement list = m.get("friends");
+        if (list == null || !list.isJsonArray()) return;
+        FRIEND_NAMES.clear();
+        FRIEND_IDS.clear();
+        for (JsonElement e : list.getAsJsonArray()) {
+            if (!e.isJsonObject()) continue;
+            String id = str(e.getAsJsonObject(), "uuid"), name = str(e.getAsJsonObject(), "name");
+            if (id == null || name == null) continue;
+            FRIEND_NAMES.put(id, name);
+            FRIEND_IDS.put(name.toLowerCase(java.util.Locale.ROOT), id);
+            FRIEND_STATUS.put(id, String.valueOf(str(e.getAsJsonObject(), "status")));
+        }
+    }
+
+    /** Friend names for command suggestions. */
+    public static java.util.Collection<String> friendNames() {
+        return FRIEND_NAMES.values();
+    }
+
+    /**
+     * Sends a chat message to a friend by name. Returns what went wrong for
+     * the player to read, or null when it went out.
+     */
+    public static String sendChat(String name, String text) {
+        if (!ready) return "Nicht mit dem Nexora-Server verbunden.";
+        String id = FRIEND_IDS.get(name.toLowerCase(java.util.Locale.ROOT));
+        if (id == null) return name + " ist nicht in deiner Freundesliste.";
+        JsonObject out = new JsonObject();
+        out.addProperty("t", "chat-send");
+        out.addProperty("to", id);
+        out.addProperty("text", text);
+        send(out);
+        return null;
+    }
+
+    /** A line in the game's own chat, for this player only; never sent to the Minecraft server. */
+    private static void chatLine(net.minecraft.network.chat.Component line) {
+        Minecraft mc = Minecraft.getInstance();
+        var prefix = net.minecraft.network.chat.Component.literal("[Nexora] ").withStyle(net.minecraft.ChatFormatting.DARK_AQUA);
+        mc.execute(() -> {
+            if (mc.player != null) mc.player.displayClientMessage(prefix.copy().append(line), false);
+        });
+    }
+
     // ------------------------------------------------------------ protocol
 
     private static void receive(String text) {
@@ -164,7 +218,46 @@ public final class CrystalNet {
             case "welcome" -> {
                 ready = true;
                 failures = 0;
+                selfId = str(m, "uuid");
                 CrystalClient.LOGGER.info("[Nexora] Beim Nexora-Server angemeldet");
+                // The friends list, so /nmsg can reach friends by name.
+                JsonObject ask = new JsonObject();
+                ask.addProperty("t", "friends");
+                send(ask);
+            }
+            case "friends" -> readFriends(m);
+            case "presence" -> {
+                String id = str(m, "uuid"), status = str(m, "status");
+                String name = id == null ? null : FRIEND_NAMES.get(id);
+                String before = id == null ? null : FRIEND_STATUS.put(id, status);
+                if (name != null && "game".equals(status) && !"game".equals(before)) {
+                    chatLine(net.minecraft.network.chat.Component.literal(name + " spielt jetzt.").withStyle(net.minecraft.ChatFormatting.GRAY));
+                }
+            }
+            case "friend-request" -> {
+                JsonElement from = m.get("from");
+                String name = from != null && from.isJsonObject() ? str(from.getAsJsonObject(), "name") : null;
+                chatLine(net.minecraft.network.chat.Component.literal((name == null ? "Jemand" : name)
+                        + " möchte dein Freund sein. Nimm die Anfrage im Nexora-Launcher an.").withStyle(net.minecraft.ChatFormatting.GRAY));
+            }
+            case "chat" -> {
+                JsonElement raw = m.get("message");
+                if (raw == null || !raw.isJsonObject()) return;
+                JsonObject msg = raw.getAsJsonObject();
+                if (str(msg, "from") != null && str(msg, "from").equals(selfId)) return;
+                String name = str(msg, "name"), body = str(msg, "text");
+                if (name == null || body == null) return;
+                var line = net.minecraft.network.chat.Component.literal("\u2709 " + name + ": ").withStyle(net.minecraft.ChatFormatting.AQUA)
+                        .append(net.minecraft.network.chat.Component.literal(body).withStyle(net.minecraft.ChatFormatting.WHITE));
+                chatLine(line);
+                if (!replyHintShown) {
+                    replyHintShown = true;
+                    chatLine(net.minecraft.network.chat.Component.literal("Antworten mit /nmsg " + name + " <Text>").withStyle(net.minecraft.ChatFormatting.DARK_GRAY));
+                }
+            }
+            case "error" -> {
+                String message = str(m, "message");
+                if (message != null) chatLine(net.minecraft.network.chat.Component.literal(message).withStyle(net.minecraft.ChatFormatting.RED));
             }
             case "peers" -> {
                 PeerRegistry.clear();

@@ -120,9 +120,13 @@ public final class GuiRender {
      * outwards, so it fades out instead of ending in an edge.
      */
     public static void shadow(GuiGraphics ctx, int x1, int y1, int x2, int y2, int radius, int size, int offsetY, float strength) {
-        for (int i = size; i >= 1; i--) {
-            float f = 1f - i / (float) (size + 1);
-            int a = Math.round(40 * strength * f * f / Math.max(1, size / 6f));
+        // At most five rings, spread over the size: the eye can't tell them
+        // from one ring per pixel, and each ring is a dozen fills, not one.
+        int rings = Math.min(5, size);
+        for (int k = rings; k >= 1; k--) {
+            int i = Math.round(size * k / (float) rings);
+            float f = 1f - k / (float) (rings + 1);
+            int a = Math.round(26 * strength * f * f);
             if (a <= 0) continue;
             roundedRect(ctx, x1 - i, y1 - i + offsetY, x2 + i, y2 + i + offsetY, radius + i, a << 24);
         }
@@ -130,7 +134,8 @@ public final class GuiRender {
 
     /** A soft round glow of {@code color} centred on (cx, cy). */
     public static void glow(GuiGraphics ctx, int cx, int cy, int radius, int color, float strength) {
-        int steps = Math.max(6, Math.min(24, radius / 3));
+        // Four soft steps; more cost far more than they show.
+        int steps = 4;
         for (int i = 0; i < steps; i++) {
             int r = Math.round(radius * (1f - i / (float) steps));
             int a = Math.round(255 * strength / steps);
@@ -269,12 +274,19 @@ public final class GuiRender {
     public static void roundedRect(GuiGraphics ctx, int x1, int y1, int x2, int y2, int radius, int color) {
         int r = Math.min(radius, Math.min(x2 - x1, y2 - y1) / 2);
         if (r <= 2) { roundedRect(ctx, x1, y1, x2, y2, color); return; }
-        for (int i = 0; i < r; i++) {
+        // Rows with the same inset are drawn as one fill; the rows next to the
+        // straight middle part (inset 0) join the middle fill.
+        int i = 0;
+        while (i < r) {
             int in = cornerInset(r, i);
-            ctx.fill(x1 + in, y1 + i, x2 - in, y1 + i + 1, color);
-            ctx.fill(x1 + in, y2 - i - 1, x2 - in, y2 - i, color);
+            if (in == 0) break;
+            int j = i + 1;
+            while (j < r && cornerInset(r, j) == in) j++;
+            ctx.fill(x1 + in, y1 + i, x2 - in, y1 + j, color);
+            ctx.fill(x1 + in, y2 - j, x2 - in, y2 - i, color);
+            i = j;
         }
-        ctx.fill(x1, y1 + r, x2, y2 - r, color);
+        ctx.fill(x1, y1 + i, x2, y2 - i, color);
     }
 
     /** 1px outline for {@link #roundedRect(GuiGraphics, int, int, int, int, int, int)}. */

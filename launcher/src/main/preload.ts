@@ -109,6 +109,10 @@ contextBridge.exposeInMainWorld('crystal', {
   addFriend:    (username: string) => ipcRenderer.invoke('friends:add', username),
   removeFriend: (id: string) => ipcRenderer.invoke('friends:remove', id),
   friendsPresence: () => ipcRenderer.invoke('friends:presence'),
+  // Friends and chat (Nexora server)
+  socialSnapshot: () => ipcRenderer.invoke('social:snapshot'),
+  socialSend: (message: Record<string, unknown>) => ipcRenderer.invoke('social:send', message),
+  socialReconnect: () => ipcRenderer.invoke('social:reconnect'),
 
   // External clients
   listExternalClients:   () => ipcRenderer.invoke('externalClients:list'),
@@ -217,6 +221,7 @@ contextBridge.exposeInMainWorld('crystal', {
       'tryCrystal:status',
       'games:update',
       'app:quickLaunch',
+      'social:event',
     ]
     if (!valid.includes(channel)) return () => {}
     const listener = (_e: unknown, ...args: unknown[]) => cb(...args)

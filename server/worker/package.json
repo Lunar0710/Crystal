@@ -1,0 +1,15 @@
+{
+  "name": "nexora-server-worker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Nexora server on Cloudflare Workers: emotes, cosmetics, friends and chat",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "node test.cjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0",
+    "ws": "^8.18.0"
+  }
+}

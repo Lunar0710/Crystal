@@ -20,6 +20,7 @@ import { SkinService } from './cosmetics/SkinService'
 import { LogManager, setInstanceDirResolver, instanceDir } from './logs/LogManager'
 import { ClaudeService } from './claude/ClaudeService'
 import { FriendManager } from './friends/FriendManager'
+import { NexoraNet } from './friends/NexoraNet'
 import { logger, LogCategory } from './logs/Logger'
 import { TryCrystalService } from './minecraft/TryCrystalService'
 import { CustomClientInstaller } from './minecraft/CustomClientInstaller'
@@ -59,6 +60,9 @@ export function registerIpcHandlers(store: Store) {
   setInstanceDirResolver(id => instances.get(id)?.gameDir ?? null)
   const claude = new ClaudeService(store)
   const friends = new FriendManager(store)
+  // Friends and chat through the Nexora server; idle while no server is set.
+  const social = new NexoraNet(store, auth, friends)
+  social.start()
   const tryCrystal = new TryCrystalService(store, instances, minecraft, auth)
   const clientInstaller = new CustomClientInstaller(instances)
   const crashDoctor = new CrashDoctor(instances)
@@ -84,22 +88,30 @@ export function registerIpcHandlers(store: Store) {
     if (key === 'theme' && typeof value === 'string') {
       syncThemeToClient(value)
     }
+    if (key === 'crystalServer') social.restart()
   })
 
   // Auth
   ipcMain.handle('auth:loginMicrosoft', async () => {
     const win = BrowserWindow.getFocusedWindow()
     if (!win) return null
-    return auth.loginMicrosoft(win)
+    const profile = await auth.loginMicrosoft(win)
+    social.restart()
+    return profile
   })
-  ipcMain.handle('auth:loginOffline', (_e, username: string) => auth.loginOffline(username))
+  ipcMain.handle('auth:loginOffline', async (_e, username: string) => {
+    const profile = await auth.loginOffline(username)
+    social.restart()
+    return profile
+  })
   ipcMain.handle('auth:autoLogin', () => auth.tryAutoLogin())
   ipcMain.handle('auth:getProfile', () => auth.getStoredProfile())
-  ipcMain.handle('auth:logout', () => auth.logout())
+  ipcMain.handle('auth:logout', () => { auth.logout(); social.restart() })
   ipcMain.handle('auth:listAccounts', () => auth.listAccounts())
   ipcMain.handle('auth:switchAccount', async (_e, uuid: string) => {
     const result = await auth.switchAccount(uuid)
     syncProfile()
+    social.restart()
     return result
   })
   ipcMain.handle('auth:removeAccount', (_e, uuid: string) => {
@@ -624,6 +636,12 @@ export function registerIpcHandlers(store: Store) {
     clientInstaller.install(instanceId, filePath))
   ipcMain.handle('clientInstall:uninstall', (_e, instanceId: string, fileName: string) =>
     clientInstaller.uninstall(instanceId, fileName))
+
+  // Friends and chat on the Nexora server: the page reads the snapshot and
+  // sends requests; everything the server says arrives as "social:event".
+  ipcMain.handle('social:snapshot', () => social.snapshot())
+  ipcMain.handle('social:send', (_e, message: Record<string, unknown>) => social.send(message))
+  ipcMain.handle('social:reconnect', () => social.restart())
 
   // Friends — local list, verified against Mojang so typos don't stick
   ipcMain.handle('friends:list', () => friends.list())

@@ -1,0 +1,17 @@
+# Nexora server on Cloudflare Workers (free plan: SQLite-backed Durable Objects).
+# Deploy: npx wrangler login (once), then npx wrangler deploy
+name = "nexora-server"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+
+[[durable_objects.bindings]]
+name = "HUB"
+class_name = "Hub"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Hub"]
+
+[vars]
+# Minecraft names with the owner rank, comma separated.
+OWNERS = "Lunar0710"

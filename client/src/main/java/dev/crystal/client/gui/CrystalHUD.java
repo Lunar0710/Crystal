@@ -316,6 +316,18 @@ public class CrystalHUD {
             current = track == null ? "Songtext erscheint hier" : dev.crystal.client.util.NowPlaying.lyricsLoading() ? "Songtext wird geladen…" : "Kein Songtext für diesen Song";
             upcoming.add("Die nächsten Sekunden stehen darunter");
             upcoming.add("Lyrics");
+        } else if (track != null) {
+            // A song plays but has no synced lyrics (or they are still loading): say so quietly.
+            String note = dev.crystal.client.util.NowPlaying.lyricsLoading() ? "Songtext wird geladen\u2026" : "Kein Songtext für diesen Song";
+            float s = module.getScale();
+            int nw = GuiRender.scaledWidth(note, 0.85f);
+            context.pose().pushMatrix();
+            context.pose().translate(module.getX(), module.getY());
+            context.pose().scale(s, s);
+            GuiRender.roundedRect(context, (LYR_W - nw) / 2 - 8, 0, (LYR_W + nw) / 2 + 8, 13, 6, 0x60000000);
+            GuiRender.scaledText(context, note, (LYR_W - nw) / 2, 3, 0.85f, 0xA0FFFFFF);
+            context.pose().popMatrix();
+            return;
         } else {
             return;
         }

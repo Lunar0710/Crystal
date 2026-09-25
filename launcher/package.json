@@ -25,12 +25,14 @@
     "msmc": "^5.0.5",
     "node-fetch": "^3.3.2",
     "progress-stream": "^2.0.0",
-    "skinview3d": "^3.4.2"
+    "skinview3d": "^3.4.2",
+    "ws": "^8.21.3"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
+    "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "^4.3.0",
     "autoprefixer": "^10.4.20",
     "concurrently": "^8.2.0",

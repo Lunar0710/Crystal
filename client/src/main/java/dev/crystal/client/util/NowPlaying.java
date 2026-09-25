@@ -221,11 +221,35 @@ public final class NowPlaying {
             if (!lines.isEmpty()) return lines;
         }
         // No exact match (a different album cut, a remaster): take the first search hit with synced lyrics.
-        String search = get("https://lrclib.net/api/search?" + q);
-        if (search == null) return List.of();
-        JsonArray hits = JsonParser.parseString(search).getAsJsonArray();
+        List<Line> found = firstSynced(get("https://lrclib.net/api/search?" + q), -1);
+        if (!found.isEmpty()) return found;
+        // Titles often carry extras the database doesn't: "(feat. X)", "- Remastered 2011",
+        // "(Official Video)", "cover", "[Live]". Search again without them, by
+        // title and artist together, and only take a hit about as long as the song.
+        String clean = cleanTitle(t.title());
+        if (clean.isEmpty()) return List.of();
+        long seconds = t.durationMs() > 0 ? Math.round(t.durationMs() / 1000.0) : -1;
+        found = firstSynced(get("https://lrclib.net/api/search?track_name=" + enc(clean) + "&artist_name=" + enc(t.artist())), seconds);
+        if (!found.isEmpty()) return found;
+        return firstSynced(get("https://lrclib.net/api/search?q=" + enc(clean)), seconds);
+    }
+
+    private static final Pattern EXTRAS = Pattern.compile(
+            "(?i)\\s*([(\\[][^)\\]]*(feat|ft\\.|remaster|version|live|official|video|audio|lyrics|edit|mix|cover)[^)\\]]*[)\\]]|\\s-\\s.*(remaster|version|live|edit|mix).*$|\\bcover\\b|\\bfeat\\..*$|\\bft\\..*$)");
+
+    static String cleanTitle(String title) {
+        return EXTRAS.matcher(title).replaceAll(" ").replaceAll("\\s+", " ").trim();
+    }
+
+    /** Lyrics of the first search hit that has synced ones and, if {@code seconds} >= 0, is within 10 s of that length. */
+    private static List<Line> firstSynced(String json, long seconds) {
+        if (json == null) return List.of();
+        JsonArray hits = JsonParser.parseString(json).getAsJsonArray();
         for (JsonElement hit : hits) {
-            List<Line> lines = parseLrc(hit.getAsJsonObject());
+            JsonObject o = hit.getAsJsonObject();
+            if (seconds >= 0 && o.has("duration") && !o.get("duration").isJsonNull()
+                    && Math.abs(o.get("duration").getAsDouble() - seconds) > 10) continue;
+            List<Line> lines = parseLrc(o);
             if (!lines.isEmpty()) return lines;
         }
         return List.of();

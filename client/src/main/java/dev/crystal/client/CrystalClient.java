@@ -131,6 +131,23 @@ public class CrystalClient implements ClientModInitializer {
                                 return 1;
                             })));
 
+            // Chat with a Nexora friend without leaving the game: /nmsg <name> <text>.
+            // Goes to the Nexora server only, never into the Minecraft server's chat.
+            dispatcher.register(ClientCommandManager.literal("nmsg")
+                    .then(ClientCommandManager.argument("name", word())
+                            .suggests((ctx, builder) -> {
+                                for (String n : dev.crystal.client.net.CrystalNet.friendNames()) builder.suggest(n);
+                                return builder.buildFuture();
+                            })
+                            .then(ClientCommandManager.argument("text", com.mojang.brigadier.arguments.StringArgumentType.greedyString())
+                                    .executes(ctx -> {
+                                        String name = getString(ctx, "name");
+                                        String problem = dev.crystal.client.net.CrystalNet.sendChat(name, getString(ctx, "text"));
+                                        if (problem != null) ctx.getSource().sendError(Component.literal("[Nexora] " + problem));
+                                        else ctx.getSource().sendFeedback(Component.literal("\u2709 an " + name + ": " + getString(ctx, "text"))
+                                                .withStyle(net.minecraft.ChatFormatting.GRAY));
+                                        return 1;
+                                    }))));
             dispatcher.register(ClientCommandManager.literal("cplay")
                     .then(ClientCommandManager.argument("mode", word())
                             .executes(ctx -> {
