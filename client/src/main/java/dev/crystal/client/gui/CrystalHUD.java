@@ -53,6 +53,8 @@ public class CrystalHUD {
                 drawInventory(context, inventory);
             } else if (module instanceof dev.crystal.client.module.hud.KillCam cam) {
                 drawKillCam(context, cam);
+            } else if (module instanceof dev.crystal.client.module.player.Cooldowns cooldowns) {
+                drawCooldowns(context, cooldowns);
             } else if (module instanceof dev.crystal.client.module.hud.SpotifyHUD spotify) {
                 drawSpotify(context, spotify);
             } else if (module instanceof dev.crystal.client.module.hud.SpotifyLyrics lyrics) {
@@ -86,6 +88,10 @@ public class CrystalHUD {
         float s = module.getScale();
         if (module instanceof dev.crystal.client.module.hud.InventoryHUD) {
             return new int[]{x - Math.round(2 * s), y - Math.round(2 * s), x + Math.round((INV_W + 2) * s), y + Math.round((INV_H + 2) * s)};
+        }
+        if (module instanceof dev.crystal.client.module.player.Cooldowns cooldowns) {
+            int n = Math.max(1, lastCooldownCount);
+            return new int[]{x - Math.round(2 * s), y - Math.round(2 * s), x + Math.round((n * CD_SLOT + 2) * s), y + Math.round((CD_H + 2) * s)};
         }
         if (module instanceof dev.crystal.client.module.hud.SpotifyHUD) {
             return new int[]{x, y, x + Math.round(SPOT_W * s), y + Math.round(SPOT_H * s)};
@@ -216,6 +222,48 @@ public class CrystalHUD {
                 // Drawn on top of the item, bottom right like the vanilla slot number.
                 context.drawString(mc.font, count, sx + 17 - mc.font.width(count), sy + 9, 0xFFFFFFFF, true);
             }
+        }
+        context.pose().popMatrix();
+    }
+
+    private static final int CD_SLOT = 22, CD_H = 30;
+    private int lastCooldownCount = 1;
+
+    /**
+     * Cooldowns: each item on cooldown as its icon, a dark shade over it that
+     * drains away as the wait runs out, and the seconds left under it; the
+     * attack charge as a thin bar under all of them while it refills.
+     */
+    private void drawCooldowns(GuiGraphics context, dev.crystal.client.module.player.Cooldowns module) {
+        List<dev.crystal.client.module.player.Cooldowns.Entry> entries = module.entries();
+        boolean sample = entries.isEmpty() && inEditor();
+        if (sample) entries = List.of(new dev.crystal.client.module.player.Cooldowns.Entry(new ItemStack(net.minecraft.world.item.Items.ENDER_PEARL), 0.6f, 0.6f));
+        float charge = module.showAttack() ? module.attackCharge() : 1f;
+        if (entries.isEmpty() && charge >= 1f) return;
+        lastCooldownCount = Math.max(1, entries.size());
+        float s = module.getScale();
+        context.pose().pushMatrix();
+        context.pose().translate(module.getX(), module.getY());
+        context.pose().scale(s, s);
+        for (int i = 0; i < entries.size(); i++) {
+            var e = entries.get(i);
+            int x = i * CD_SLOT;
+            GuiRender.roundedRect(context, x, 0, x + 20, 20, 5, 0x80000000);
+            context.renderItem(e.stack(), x + 2, 2);
+            // The shade covers the part of the wait still to come, from the top down.
+            int shade = Math.round(20 * Math.max(0f, Math.min(1f, e.left())));
+            if (shade > 0) context.fill(x, 20 - shade, x + 20, 20, 0x99000000);
+            if (module.showSeconds()) {
+                String label = e.seconds() < 0 ? "…" : e.seconds() >= 10 ? String.valueOf(Math.round(e.seconds())) + "s" : String.format(java.util.Locale.ROOT, "%.1fs", e.seconds());
+                int lw = GuiRender.scaledWidth(label, 0.8f);
+                GuiRender.scaledText(context, label, x + (20 - lw) / 2, 22, 0.8f, 0xFFF4F4F5);
+            }
+        }
+        if (charge < 1f) {
+            int w = Math.max(20, entries.size() * CD_SLOT - 2);
+            int y = entries.isEmpty() ? 0 : CD_H - 1;
+            GuiRender.pill(context, 0, y, w, y + 3, 0x40000000);
+            GuiRender.pill(context, 0, y, Math.max(3, Math.round(w * charge)), y + 3, charge > 0.9f ? 0xFF3DBE7A : 0xFFF4F4F5);
         }
         context.pose().popMatrix();
     }
