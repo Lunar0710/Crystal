@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Swords, Play, Pause } from 'lucide-react'
+import { Swords, Play, Pause, ImageDown } from 'lucide-react'
+import { notify } from '../../store/notificationStore'
 import { Page, PageHeader, EmptyState } from '../ui/Page'
 
 const api = (window as any).crystal
@@ -121,6 +122,16 @@ function Replay({ fight }: { fight: Fight }) {
   const [playing, setPlaying] = useState(true)
   const [speed, setSpeed] = useState(1)
   const last = useRef(0)
+  const card = useRef<HTMLDivElement>(null)
+
+  // Saves the card as a picture, as it looks right now (pause at the moment you want).
+  async function saveImage() {
+    const box = card.current?.getBoundingClientRect()
+    if (!box) return
+    const day = new Date(fight.start).toLocaleDateString('de-DE').replace(/\./g, '-')
+    const r = await api?.saveFightImage({ x: box.left, y: box.top, width: box.width, height: box.height }, `Nexora Kampf gegen ${fight.opponent} ${day}`)
+    if (r?.message) notify({ type: r.ok ? 'success' : 'error', title: 'Kampf als Bild', message: r.message })
+  }
 
   useEffect(() => { setTick(0); setPlaying(true) }, [fight])
 
@@ -182,7 +193,7 @@ function Replay({ fight }: { fight: Fight }) {
   const H = 70
 
   return (
-    <div className="crystal-card p-4 space-y-3">
+    <div ref={card} className="crystal-card p-4 space-y-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-[15px] font-semibold text-crystal-text">
           {fight.won ? 'Sieg' : 'Kampf'} gegen {fight.opponent}
@@ -249,6 +260,10 @@ function Replay({ fight }: { fight: Fight }) {
           className="flex-1 accent-[rgb(var(--c-accent))]"
         />
         <span className="text-xs text-crystal-muted tabular w-14 text-right">{seconds((i / TICKS_PER_SECOND) * 1000)}</span>
+        <button onClick={saveImage} title="Speichert diese Karte als PNG, zum Teilen" aria-label="Als Bild speichern"
+          className="crystal-btn-ghost border border-crystal-border px-2.5 py-1.5 text-crystal-text">
+          <ImageDown size={14} />
+        </button>
         <select value={speed} onChange={e => setSpeed(Number(e.target.value))} aria-label="Tempo"
           className="crystal-input py-1 text-xs">
           <option value={0.25}>0,25×</option>

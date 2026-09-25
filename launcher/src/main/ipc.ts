@@ -377,6 +377,26 @@ export function registerIpcHandlers(store: Store) {
   const fights = new FightService(() => instances.list())
   ipcMain.handle('fights:list', () => fights.list())
   ipcMain.handle('fights:read', (_e, instanceId: string, file: string) => fights.read(String(instanceId), String(file)))
+  // A picture of the replay card, for sharing. The rect comes in page pixels;
+  // the page is zoomed (UI_ZOOM), so it is scaled to window pixels first.
+  ipcMain.handle('fights:saveImage', async (e, rect: { x: number; y: number; width: number; height: number }, name: string) => {
+    const win = BrowserWindow.fromWebContents(e.sender)
+    if (!win || !rect) return { ok: false, message: 'Kein Fenster.' }
+    const zoom = e.sender.getZoomFactor()
+    const r = {
+      x: Math.max(0, Math.round(Number(rect.x) * zoom)), y: Math.max(0, Math.round(Number(rect.y) * zoom)),
+      width: Math.max(1, Math.round(Number(rect.width) * zoom)), height: Math.max(1, Math.round(Number(rect.height) * zoom)),
+    }
+    const image = await e.sender.capturePage(r)
+    const safe = String(name || 'Kampf').replace(/[<>:"/\\|?*\x00-\x1f]/g, '').slice(0, 60) || 'Kampf'
+    const { canceled, filePath } = await dialog.showSaveDialog(win, {
+      defaultPath: path.join(app.getPath('pictures'), `${safe}.png`),
+      filters: [{ name: 'PNG', extensions: ['png'] }],
+    })
+    if (canceled || !filePath) return { ok: false, message: '' }
+    fs.writeFileSync(filePath, image.toPNG())
+    return { ok: true, message: `Gespeichert: ${path.basename(filePath)}` }
+  })
 
   // FPS-Doktor: what in an instance costs frames, and one-click fixes for it.
   const perfDoctor = new PerfDoctor(instances)
