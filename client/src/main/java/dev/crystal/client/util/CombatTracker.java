@@ -226,6 +226,9 @@ public final class CombatTracker {
     /** When the last confirmed hit landed (System.currentTimeMillis), 0 if none yet. */
     public static long lastHitAt() { return lastHitAt; }
 
+    /** The entity fought right now, or null outside a fight. */
+    public static LivingEntity opponent() { return inFight ? opponentEntity : null; }
+
     /** The round going on right now, or null outside a fight. */
     public static Round current() {
         return inFight ? new Round(opponent, hits, swings, longestCombo, hitsTaken, System.currentTimeMillis() - fightStart, false) : null;
