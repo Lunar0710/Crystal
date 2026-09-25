@@ -22,7 +22,21 @@ import net.minecraft.world.entity.LivingEntity;
  */
 public final class CombatTracker {
 
-    private static final int CONFIRM_WINDOW_TICKS = 5;
+    /**
+     * How long a swing waits for the server to confirm it (the target's hurt
+     * animation), in ticks: a second at least, plus the round trip of your
+     * ping, so hits on a laggy server or with high ping still count. It was a
+     * flat 250 ms, which dropped real hits as soon as the answer came later.
+     */
+    private static int confirmWindowTicks(Minecraft mc) {
+        int ping = 0;
+        var connection = mc.getConnection();
+        if (connection != null && mc.player != null) {
+            var info = connection.getPlayerInfo(mc.player.getUUID());
+            if (info != null) ping = info.getLatency();
+        }
+        return Math.min(60, 20 + Math.round(2 * ping / 50f));
+    }
     private static final int FIGHT_OVER_TICKS = 160; // 8 seconds
 
     /** One finished (or running) round. */
@@ -112,7 +126,7 @@ public final class CombatTracker {
                 longestCombo = Math.max(longestCombo, combo);
                 lastHitAt = System.currentTimeMillis();
                 pendingTarget = null;
-            } else if (tick - pendingSince > CONFIRM_WINDOW_TICKS) {
+            } else if (tick - pendingSince > confirmWindowTicks(mc)) {
                 combo = 0;
                 pendingTarget = null;
             }
