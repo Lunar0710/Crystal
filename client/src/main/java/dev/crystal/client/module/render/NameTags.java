@@ -35,13 +35,28 @@ public class NameTags extends Module {
     /** The name with " 20❤" appended in a colour from green to red. */
     public Component decorate(Component name, Player player) {
         if (!showHealth) return name;
-        float health = player.getHealth() + player.getAbsorptionAmount();
+        int health = Math.round(player.getHealth() + player.getAbsorptionAmount());
         float fraction = player.getMaxHealth() <= 0 ? 0 : player.getHealth() / player.getMaxHealth();
         ChatFormatting color = fraction > 0.6f ? ChatFormatting.GREEN : fraction > 0.3f ? ChatFormatting.YELLOW : ChatFormatting.RED;
+
+        // Called for every player in every frame; the label only changes when
+        // the name or health does, so the last one is reused until then.
+        Cached cached = cache.get(player.getUUID());
+        if (cached != null && cached.health == health && cached.color == color && cached.name.equals(name)) {
+            return cached.label;
+        }
+
         MutableComponent text = name.copy();
-        text.append(Component.literal(" " + Math.round(health) + "❤").withStyle(color));
+        text.append(Component.literal(" " + health + "❤").withStyle(color));
+        if (cache.size() > 512) cache.clear();
+        cache.put(player.getUUID(), new Cached(name, health, color, text));
         return text;
     }
+
+    private record Cached(Component name, int health, ChatFormatting color, Component label) {}
+
+    /** Last label per player; render thread only. */
+    private final java.util.Map<java.util.UUID, Cached> cache = new java.util.HashMap<>();
 
     @Override
     public List<Setting<?>> getSettings() {
