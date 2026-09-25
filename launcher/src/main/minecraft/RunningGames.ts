@@ -20,6 +20,14 @@ export interface RunningGame {
   adopted?: boolean
 }
 
+/** ps's etime ("[[dd-]hh:]mm:ss") in seconds; 0 when it can't be read. */
+export function elapsedSeconds(etime: string): number {
+  const m = etime.match(/^(?:(\d+)-)?(?:(\d+):)?(\d+):(\d+)$/)
+  if (!m) return 0
+  const [, d, h, min, sec] = m
+  return ((Number(d || 0) * 24 + Number(h || 0)) * 60 + Number(min)) * 60 + Number(sec)
+}
+
 /**
  * Marks the launcher puts on the game's command line, so a launcher started
  * later can tell its games apart from any other Java program.
@@ -198,13 +206,14 @@ export class RunningGames {
 
   private javaProcessesPs(): Promise<{ pid: number; cmd: string; started: number }[]> {
     return new Promise((resolve, reject) => {
-      execFile('ps', ['-eo', 'pid=,etimes=,args='], { maxBuffer: 8 * 1024 * 1024 }, (err, stdout) => {
+      // etime ("[[dd-]hh:]mm:ss") rather than etimes: macOS's BSD ps only knows etime.
+      execFile('ps', ['-eo', 'pid=,etime=,args='], { maxBuffer: 8 * 1024 * 1024 }, (err, stdout) => {
         if (err && !stdout) return reject(err)
         const now = Date.now()
         resolve(stdout.split('\n').flatMap(line => {
-          const m = line.trim().match(/^(\d+)\s+(\d+)\s+(.*)$/)
+          const m = line.trim().match(/^(\d+)\s+(\S+)\s+(.*)$/)
           if (!m || !m[3].includes('-Dnexora.instance=')) return []
-          return [{ pid: Number(m[1]), cmd: m[3], started: now - Number(m[2]) * 1000 }]
+          return [{ pid: Number(m[1]), cmd: m[3], started: now - elapsedSeconds(m[2]) * 1000 }]
         }))
       })
     })
@@ -293,7 +302,9 @@ export class RunningGames {
   private samplePs(pids: number[]): Promise<Map<number, Sample>> {
     return new Promise((resolve, reject) => {
       execFile('ps', ['-o', 'pid=,%cpu=,rss=', '-p', pids.join(',')], (err, stdout) => {
-        if (err && !stdout) return reject(err)
+        // Exit code 1 with no output: none of the processes exists any more,
+        // which is an answer (they ended), not a failure.
+        if (err && !stdout) return (err as { code?: unknown }).code === 1 ? resolve(new Map()) : reject(err)
         const cores = Math.max(1, os.cpus().length)
         const result = new Map<number, Sample>()
         for (const line of stdout.split('\n')) {

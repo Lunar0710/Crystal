@@ -95,15 +95,9 @@ public class CrystalTitleScreen extends Screen {
         float appear = Math.min(1f, (System.currentTimeMillis() - openedAt) / 350f);
         int alpha = Math.round(255 * appear);
 
-        // No card around the menu: the rows sit on the backdrop, with only a
-        // soft shadow behind the column so they stay readable.
-        if (!buttons.isEmpty()) {
-            MenuButton first = buttons.get(0), last = buttons.get(buttons.size() - 1);
-            int cx1 = first.x - 40, cx2 = first.x + BUTTON_W + 40;
-            int top = first.y - 70, bottom = last.y + 30;
-            context.fillGradient(cx1, top, cx2, (top + bottom) / 2, 0x00000000, GuiRender.withAlpha(0x55000000, Math.round(0x55 * appear)));
-            context.fillGradient(cx1, (top + bottom) / 2, cx2, bottom, GuiRender.withAlpha(0x55000000, Math.round(0x55 * appear)), 0x00000000);
-        }
+        // No card and no shadow around the menu: the rows sit straight on the
+        // backdrop. (A shadow column used to be drawn here; its straight edges
+        // showed as a box around the buttons.)
 
         drawLogo(context, accent, alpha);
 
@@ -185,7 +179,8 @@ public class CrystalTitleScreen extends Screen {
         float gap = 8f;
         float totalWidth = markSize + gap + logoWidth;
         float left = (width - totalWidth) / 2f;
-        float centreY = height / 2f - 6 - 34;
+        // High enough that "CLIENT" under the word clears the first row.
+        float centreY = height / 2f - 6 - 46;
 
         GuiRender.nexoraMark(context, left + markSize / 2f, centreY, markSize, GuiRender.withAlpha(0xFFFFFFFF, alpha));
 

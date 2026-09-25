@@ -25,10 +25,18 @@ public class MixinMinecraftClient {
         }
     }
 
-    /** A click that hit nothing counts as a miss for the fight's hit rate (CombatTracker). */
+    @org.spongepowered.asm.mixin.Shadow protected int missTime;
+
+    /**
+     * A click that hit nothing counts as a miss for the fight's hit rate
+     * (CombatTracker). Not while vanilla ignores the click anyway: during the
+     * pause after a swing into the air, or riding.
+     */
     @Inject(method = "startAttack", at = @At("HEAD"))
     private void crystal$missCheck(org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<Boolean> cir) {
         var hit = ((Minecraft) (Object) this).hitResult;
+        var player = ((Minecraft) (Object) this).player;
+        if (missTime > 0 || player == null || player.isPassenger()) return;
         if (hit != null && hit.getType() == net.minecraft.world.phys.HitResult.Type.MISS) {
             dev.crystal.client.util.CombatTracker.onMiss();
         }
