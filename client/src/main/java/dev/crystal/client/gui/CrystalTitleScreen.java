@@ -28,9 +28,9 @@ import net.minecraft.network.chat.Component;
  */
 public class CrystalTitleScreen extends Screen {
 
-    private static final int BUTTON_W = 176;
-    private static final int BUTTON_H = 20;
-    private static final int GAP = 3;
+    private static final int BUTTON_W = 188;
+    private static final int BUTTON_H = 22;
+    private static final int GAP = 5;
 
     /** The little drawing in front of a label. */
     private enum Icon { SINGLE, MULTI, OPTIONS, MARK, NONE }
@@ -45,7 +45,8 @@ public class CrystalTitleScreen extends Screen {
     }
 
     private final List<MenuButton> buttons = new ArrayList<>();
-    private long openedAt;
+    private final float[] hover = new float[8];
+    private long openedAt, lastFrame;
 
     public CrystalTitleScreen() {
         super(Component.translatable("narrator.screen.title"));
@@ -70,7 +71,7 @@ public class CrystalTitleScreen extends Screen {
         buttons.add(new MenuButton(x, y + step * 3 + 4, BUTTON_W, BUTTON_H, Component.literal("Nexora-Menü"),
                 () -> minecraft.setScreen(new CrystalClientScreen()), false, Icon.MARK, true));
         // Quit is plain red text under the panel, not a button.
-        buttons.add(new MenuButton(x, y + step * 4 + 18, BUTTON_W, 11, Component.translatable("menu.quit"),
+        buttons.add(new MenuButton(x, y + step * 4 + 16, BUTTON_W, 11, Component.translatable("menu.quit"),
                 minecraft::stop, true, Icon.NONE, false));
     }
 
@@ -91,59 +92,66 @@ public class CrystalTitleScreen extends Screen {
 
         ThemeManager theme = CrystalClient.getInstance().getThemeManager();
         int accent = theme.getAccent();
-        // Short fade-in so the menu settles in rather than popping onto the panorama.
-        float appear = Math.min(1f, (System.currentTimeMillis() - openedAt) / 350f);
+        long now = System.currentTimeMillis();
+        float dt = lastFrame == 0 ? 0.016f : Math.min(0.1f, (now - lastFrame) / 1000f);
+        lastFrame = now;
+        // Everything settles in with the spring curve, the rows one after another.
+        float appear = GuiRender.spring((now - openedAt) / 700f);
         int alpha = Math.round(255 * appear);
 
-        // No card and no shadow around the menu: the rows sit straight on the
-        // backdrop. (A shadow column used to be drawn here; its straight edges
-        // showed as a box around the buttons.)
+        // A deep vignette so the rows read over any part of the picture, and a
+        // faint glow of the accent behind the logo.
+        context.fillGradient(0, 0, width, height, 0x30000000, 0x90000000);
+        GuiRender.glow(context, width / 2, height / 2 - 60, 120, accent, 0.08f * appear);
 
         drawLogo(context, accent, alpha);
 
-        for (MenuButton b : buttons) {
-            boolean hover = b.contains(mouseX, mouseY);
+        for (int i = 0; i < buttons.size(); i++) {
+            MenuButton b = buttons.get(i);
+            boolean over = b.contains(mouseX, mouseY);
+            hover[i] = GuiRender.approach(hover[i], over ? 1f : 0f, dt, 18f);
+            float rowAppear = GuiRender.spring((now - openedAt - 60L * i) / 600f);
+            int rowAlpha = Math.round(255 * rowAppear);
+            int lift = Math.round((1f - rowAppear) * 10f);
 
-            // Quit is plain text under the panel.
+            // Quit is plain text under the rows.
             if (b.danger) {
-                int quitColor = hover ? 0xFFD9605A : 0xFFB94A4A;
-                int qw = font.width(b.label);
-                context.drawString(font, b.label, b.x + (b.w - qw) / 2, b.y + 2, GuiRender.withAlpha(quitColor, alpha), false);
+                int quitColor = GuiRender.blend(0xFFB94A4A, 0xFFFF6B66, hover[i]);
+                int qw = GuiRender.width(b.label);
+                GuiRender.text(context, b.label, b.x + (b.w - qw) / 2, b.y + 2 + lift, GuiRender.withAlpha(quitColor, rowAlpha));
                 continue;
             }
-
-            if (b.primary) {
-                int fill = hover ? GuiRender.blend(accent, 0xFFFFFFFF, 0.15f) : accent;
-                GuiRender.roundedRect(context, b.x, b.y, b.x + b.w, b.y + b.h, 4, GuiRender.withAlpha(fill, alpha));
-            } else {
-                int fill = hover ? 0x2EFFFFFF : 0x14FFFFFF;
-                GuiRender.roundedRect(context, b.x, b.y, b.x + b.w, b.y + b.h, 4,
-                        GuiRender.withAlpha(fill, Math.round(((fill >>> 24) & 0xFF) * appear)));
-            }
-
-            // Icon in its own column on the left, label next to it.
-            int iconX = b.x + 11, iconY = b.y + b.h / 2;
-            int iconColor = b.primary ? 0xFF0C0C0D : hover ? 0xFFFFFFFF : 0xFFBEBEC2;
-            drawIcon(context, b.icon, iconX, iconY, GuiRender.withAlpha(iconColor, alpha), accent);
-
-            int textColor = b.primary ? 0xFF0C0C0D : hover ? 0xFFFFFFFF : 0xFFD9D9DC;
-            context.drawString(font, b.label, b.x + 24, b.y + (b.h - 8) / 2, GuiRender.withAlpha(textColor, alpha), false);
+            final MenuButton row = b;
+            final int[] iconColor = new int[1];
+            GuiRender.menuRow(context, b.x, b.y + lift, b.w, b.h, b.label, b.primary, hover[i], rowAppear, accent,
+                    (cx, cy) -> drawIcon(context, row.icon, cx, cy, iconColor[0], accent), iconColor);
         }
 
         String account = minecraft.getUser() != null ? minecraft.getUser().getName() : "";
-        context.drawString(font, Component.literal(account), 6, height - 12, GuiRender.withAlpha(0xFFBABABE, alpha), true);
-        if (CrystalProfile.hasPerks()) {
-            // Small Nexora+ tag after the name, in the accent colour.
-            String tag = "Nexora+";
-            int tx = 6 + font.width(account) + 6;
-            int tw = font.width(tag);
-            GuiRender.roundedRect(context, tx - 3, height - 14, tx + tw + 3, height - 2, GuiRender.withAlpha(accent, Math.round(0x40 * appear)));
-            context.drawString(font, tag, tx, height - 12, GuiRender.withAlpha(accent, alpha), false);
+        // Account in a small pill in the corner, with the Nexora+ tag inside it.
+        int nameW = GuiRender.width(account);
+        boolean plus = CrystalProfile.hasPerks();
+        int tagW = plus ? GuiRender.scaledWidth("Nexora+", 0.8f) + 10 : 0;
+        int pillX2 = 8 + 10 + nameW + (plus ? tagW + 6 : 0) + 8;
+        GuiRender.pill(context, 8, height - 26, pillX2, height - 8, GuiRender.withAlpha(0xFFFFFF, Math.round(0x0E * appear)));
+        GuiRender.pillOutline(context, 8, height - 26, pillX2, height - 8, GuiRender.withAlpha(0xFFFFFF, Math.round(0x18 * appear)));
+        GuiRender.circle(context, 16, height - 17, 3, GuiRender.withAlpha(0xFF3DBE7A, alpha));
+        GuiRender.text(context, account, 24, height - 21, GuiRender.withAlpha(0xFFE4E4E7, alpha));
+        if (plus) {
+            int tx = 24 + nameW + 6;
+            GuiRender.pill(context, tx, height - 23, tx + tagW, height - 11, GuiRender.withAlpha(accent, alpha));
+            float luma = 0.299f * ((accent >> 16) & 0xFF) + 0.587f * ((accent >> 8) & 0xFF) + 0.114f * (accent & 0xFF);
+            GuiRender.scaledText(context, "Nexora+", tx + 5, height - 20, 0.8f, GuiRender.withAlpha(luma > 150 ? 0xFF0A0A0B : 0xFFFFFFFF, alpha));
         }
-        String version = "Nexora " + CrystalClient.DISPLAY_VERSION + "  Minecraft 1.21.11";
+        String version = "Nexora " + CrystalClient.DISPLAY_VERSION + "  ·  Minecraft " + net.minecraft.SharedConstants.getCurrentVersion()
+                //? if >=1.21.6 {
+                .name();
+                //?} else {
+                /*.getName();
+                *///?}
         // A row above the bottom: Minecraft's copyright line sits in that corner.
-        context.drawString(font, Component.literal(version), width - font.width(version) - 6, height - 22,
-                GuiRender.withAlpha(0xFF8A8A90, alpha), true);
+        GuiRender.scaledText(context, version, width - GuiRender.scaledWidth(version, 0.85f) - 8, height - 24, 0.85f,
+                GuiRender.withAlpha(0xFF6E6E75, alpha));
     }
 
     /** The small drawings in front of the labels, built from rectangles. */
@@ -172,29 +180,20 @@ public class CrystalTitleScreen extends Screen {
     }
 
     private void drawLogo(GuiGraphics context, int accent, int alpha) {
-        String logo = "NEXORA";
-        float scale = 2f;
-        int logoWidth = Math.round(font.width(logo) * scale);
-        float markSize = 22f;
-        float gap = 8f;
-        float totalWidth = markSize + gap + logoWidth;
-        float left = (width - totalWidth) / 2f;
-        // High enough that "CLIENT" under the word clears the first row.
-        float centreY = height / 2f - 6 - 46;
+        // The mark over the word, both large, and a quiet line under them.
+        String logo = "Nexora";
+        float scale = 3.2f;
+        int logoWidth = Math.round(GuiRender.boldWidth(logo) * scale);
+        float markSize = 30f;
+        float centreY = height / 2f - 26 - 74;
 
-        GuiRender.nexoraMark(context, left + markSize / 2f, centreY, markSize, GuiRender.withAlpha(0xFFFFFFFF, alpha));
+        GuiRender.nexoraMark(context, width / 2f, centreY, markSize, GuiRender.withAlpha(0xFFFFFFFF, alpha));
+        GuiRender.heading(context, logo, (width - logoWidth) / 2f, centreY + markSize / 2f + 6, scale, GuiRender.withAlpha(0xFFFFFFFF, alpha));
 
-        context.pose().pushMatrix();
-        context.pose().translate(left + markSize + gap, centreY - 8 * scale / 2f - 2);
-        context.pose().scale(scale, scale);
-        context.drawString(font, logo, 0, 0, GuiRender.withAlpha(0xFFFFFFFF, alpha), false);
-        context.pose().popMatrix();
-
-        // "CLIENT" underneath, spaced out and quiet, like the word under a logo.
-        String sub = "C L I E N T";
-        int subWidth = font.width(sub);
-        context.drawString(font, sub, Math.round(left + markSize + gap + (logoWidth - subWidth) / 2f), Math.round(centreY + 8),
-                GuiRender.withAlpha(0xFF8A8A90, alpha), false);
+        String sub = "Minecraft, schneller und schöner";
+        int subWidth = GuiRender.scaledWidth(sub, 0.9f);
+        GuiRender.scaledText(context, sub, (width - subWidth) / 2, Math.round(centreY + markSize / 2f + 6 + 9 * scale + 4), 0.9f,
+                GuiRender.withAlpha(0xFF8A8A92, alpha));
     }
 
     @Override
