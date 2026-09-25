@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import os from 'os'
 import https from 'https'
+import crypto from 'crypto'
 import { spawn } from 'child_process'
 import extract from 'extract-zip'
 import { AuthProfile } from '../auth/AuthManager'
@@ -61,7 +62,7 @@ export interface LaunchPipelineOptions {
 }
 
 type Rule = OsRule
-interface LibraryDownload { path: string; url: string; sha1?: string }
+interface LibraryDownload { path: string; url: string; sha1?: string; size?: number }
 interface LibraryArtifact {
   downloads?: { artifact?: LibraryDownload; classifiers?: Record<string, LibraryDownload> }
   /** Old versions (before 1.19): which classifier holds this OS's natives, e.g. { osx: "natives-osx" }. */
@@ -150,15 +151,22 @@ export class LaunchPipeline {
     fs.mkdirSync(ASSETS_DIR(), { recursive: true })
 
     emit('launch:progress', { step: 'Resolving version metadata...', percent: 5 })
-    const manifest = await this.getJson<{ versions: { id: string; url: string }[] }>(
-      'https://launchermeta.mojang.com/mc/game/version_manifest_v2.json'
-    )
-    const entry = manifest.versions.find(v => v.id === opts.version)
-    if (!entry) {
-      emit('launch:error', `Unknown Minecraft version: ${opts.version}`)
-      return false
+    // A release's version file never changes: once saved, a start needs no
+    // round trip to Mojang (faster, and it works offline).
+    const versionJsonPath = path.join(VERSIONS_DIR(), opts.version, `${opts.version}.json`)
+    let versionJson: any = readJsonFile(versionJsonPath)
+    if (!versionJson?.downloads?.client?.url) {
+      const manifest = await this.getJson<{ versions: { id: string; url: string }[] }>(
+        'https://launchermeta.mojang.com/mc/game/version_manifest_v2.json'
+      )
+      const entry = manifest.versions.find(v => v.id === opts.version)
+      if (!entry) {
+        emit('launch:error', `Unknown Minecraft version: ${opts.version}`)
+        return false
+      }
+      versionJson = await this.getJson<any>(entry.url)
+      writeJsonFile(versionJsonPath, versionJson)
     }
-    const versionJson = await this.getJson<any>(entry.url)
 
     let mainClass = versionJson.mainClass
     let extraLibraries: LibraryArtifact[] = []
@@ -169,17 +177,28 @@ export class LaunchPipeline {
       emit('launch:progress', { step: 'Resolving Fabric loader...', percent: 12 })
       // Official Fabric from 1.14, Legacy Fabric for 1.8.9 to 1.13.2.
       const meta = fabricMetaFor(opts.version)
-      const loaders = meta
-        ? await this.getJson<{ loader: { version: string } }[]>(`${meta}/v2/versions/loader/${opts.version}`).catch(() => [])
-        : []
-      if (!meta || loaders.length === 0) {
+      // The profile last used for this version: the start still works when
+      // Fabric's servers can't be reached.
+      const cachedProfilePath = path.join(VERSIONS_DIR(), opts.version, 'fabric-profile.json')
+      const cachedProfile = readJsonFile(cachedProfilePath)
+      let loaders: { loader: { version: string } }[] = []
+      let lookupFailed = false
+      if (meta) {
+        loaders = await this.getJson<{ loader: { version: string } }[]>(`${meta}/v2/versions/loader/${opts.version}`)
+          .catch(() => { lookupFailed = true; return [] })
+      }
+      if (loaders.length > 0) {
+        const loaderVersion = loaders[0].loader.version
+        loaderProfile = await this.getJson<any>(`${meta}/v2/versions/loader/${opts.version}/${loaderVersion}/profile/json`)
+          .catch(err => { if (cachedProfile) return cachedProfile; throw err })
+        if (loaderProfile !== cachedProfile) writeJsonFile(cachedProfilePath, loaderProfile)
+      } else if (lookupFailed && cachedProfile) {
+        logger.warn('launcher', `Fabric nicht erreichbar, nutze das zuletzt verwendete Profil für ${opts.version}`)
+        loaderProfile = cachedProfile
+      } else {
         emit('launch:error', `Für Minecraft ${opts.version} gibt es kein Fabric. Wähle Vanilla oder eine andere Version.`)
         return false
       }
-      const loaderVersion = loaders[0].loader.version
-      loaderProfile = await this.getJson<any>(
-        `${meta}/v2/versions/loader/${opts.version}/${loaderVersion}/profile/json`
-      )
       mainClass = loaderProfile.mainClass
       extraLibraries = loaderProfile.libraries || []
     }
@@ -188,7 +207,7 @@ export class LaunchPipeline {
     const versionDir = path.join(VERSIONS_DIR(), opts.version)
     fs.mkdirSync(versionDir, { recursive: true })
     const clientJarPath = path.join(versionDir, `${opts.version}.jar`)
-    await this.downloadIfMissing(versionJson.downloads.client.url, clientJarPath)
+    await this.downloadIfMissing(versionJson.downloads.client.url, clientJarPath, versionJson.downloads.client.sha1, versionJson.downloads.client.size)
 
     emit('launch:progress', { step: 'Downloading libraries...', percent: 30 })
     // A loader library replaces the game's copy of the same one: Legacy Fabric
@@ -481,7 +500,8 @@ export class LaunchPipeline {
     const applicable = libraries.filter(lib => this.rulesAllow(lib.rules))
     const classpath: string[] = []
     const natives: string[] = []
-    let done = 0
+    // The classpath is built in order right here; the downloads run afterwards, several at a time.
+    const downloads: (() => Promise<void>)[] = []
 
     for (const lib of applicable) {
       // Modern versions ship natives as their own library entries
@@ -497,7 +517,7 @@ export class LaunchPipeline {
       if (artifact?.url && artifact.path) {
         const dest = path.join(LIBRARIES_DIR(), artifact.path)
         fs.mkdirSync(path.dirname(dest), { recursive: true })
-        await this.downloadIfMissing(artifact.url, dest)
+        downloads.push(() => this.downloadIfMissing(artifact.url, dest, artifact.sha1, artifact.size))
         // LWJGL 3.3+ can load its natives straight from the jar, so native jars
         // go on the classpath as well as being unpacked (26.x relies on that).
         if (isNative) natives.push(dest)
@@ -510,7 +530,7 @@ export class LaunchPipeline {
           const dest = path.join(LIBRARIES_DIR(), relative)
           fs.mkdirSync(path.dirname(dest), { recursive: true })
           const base = lib.url.endsWith('/') ? lib.url : `${lib.url}/`
-          await this.downloadIfMissing(base + relative.replace(/\\/g, '/'), dest)
+          downloads.push(() => this.downloadIfMissing(base + relative.replace(/\\/g, '/'), dest))
           natives.push(dest)
         }
       } else if (lib.name && lib.url) {
@@ -522,7 +542,7 @@ export class LaunchPipeline {
           const dest = path.join(LIBRARIES_DIR(), relative)
           fs.mkdirSync(path.dirname(dest), { recursive: true })
           const base = lib.url.endsWith('/') ? lib.url : `${lib.url}/`
-          await this.downloadIfMissing(base + relative.replace(/\\/g, '/'), dest)
+          downloads.push(() => this.downloadIfMissing(base + relative.replace(/\\/g, '/'), dest))
           classpath.push(dest)
         }
       }
@@ -530,13 +550,15 @@ export class LaunchPipeline {
       if (classifier?.url && classifier.path) {
         const dest = path.join(LIBRARIES_DIR(), classifier.path)
         fs.mkdirSync(path.dirname(dest), { recursive: true })
-        await this.downloadIfMissing(classifier.url, dest)
+        downloads.push(() => this.downloadIfMissing(classifier.url, dest, classifier.sha1, classifier.size))
         natives.push(dest)
       }
-
-      done++
-      onProgress(done, applicable.length)
     }
+    let done = 0
+    await runPool(downloads, LIBRARY_PARALLEL, async job => {
+      await job()
+      onProgress(++done, downloads.length)
+    })
     return { classpath, natives }
   }
 
@@ -563,17 +585,20 @@ export class LaunchPipeline {
     const entries = Object.values(index.objects)
     const objectsDir = path.join(ASSETS_DIR(), 'objects')
 
-    let done = 0
-    for (const obj of entries) {
-      const sub = obj.hash.slice(0, 2)
-      const dest = path.join(objectsDir, sub, obj.hash)
-      if (!fs.existsSync(dest)) {
-        fs.mkdirSync(path.dirname(dest), { recursive: true })
-        await this.downloadIfMissing(`https://resources.download.minecraft.net/${sub}/${obj.hash}`, dest)
-      }
+    // Several names can share one object; each file is fetched once.
+    const sizes = new Map(entries.map(o => [o.hash, o.size]))
+    const missing = [...sizes.keys()].filter(hash => !hasSize(path.join(objectsDir, hash.slice(0, 2), hash), sizes.get(hash)))
+    let done = entries.length - missing.length
+    onProgress(done, entries.length)
+    // One at a time, a first start fetched thousands of small files back to back.
+    await runPool(missing, ASSET_PARALLEL, async hash => {
+      const sub = hash.slice(0, 2)
+      const dest = path.join(objectsDir, sub, hash)
+      fs.mkdirSync(path.dirname(dest), { recursive: true })
+      await this.downloadIfMissing(`https://resources.download.minecraft.net/${sub}/${hash}`, dest, hash, sizes.get(hash))
       done++
-      if (done % 25 === 0 || done === entries.length) onProgress(done, entries.length)
-    }
+      if (done % 25 === 0 || done === entries.length) onProgress(Math.min(done, entries.length), entries.length)
+    })
   }
 
   /**
@@ -581,53 +606,91 @@ export class LaunchPipeline {
    * connection is retried twice before the launch gives up: a single network
    * hiccup among thousands of asset files shouldn't cost the player the launch.
    */
-  private async downloadIfMissing(url: string, dest: string): Promise<void> {
+  /** Downloads in flight, by destination: a second request for the same file waits for the first. */
+  private inFlight = new Map<string, Promise<void>>()
+
+  /**
+   * {@code size}, where known, also checks a file that is already there: one
+   * cut short by an earlier launcher (before downloads went through .part
+   * files) is fetched again instead of crashing every start.
+   */
+  private downloadIfMissing(url: string, dest: string, sha1?: string, size?: number): Promise<void> {
+    if (hasSize(dest, size)) return Promise.resolve()
+    const running = this.inFlight.get(dest)
+    if (running) return running
+    const job = this.downloadWithRetries(url, dest, sha1).finally(() => this.inFlight.delete(dest))
+    this.inFlight.set(dest, job)
+    return job
+  }
+
+  private async downloadWithRetries(url: string, dest: string, sha1?: string): Promise<void> {
     for (let attempt = 1; ; attempt++) {
       try {
-        return await this.downloadOnce(url, dest)
+        return await this.downloadOnce(url, dest, sha1)
       } catch (err) {
         const message = String((err as Error)?.message ?? err)
-        if (attempt >= 3 || /HTTP 4dd/.test(message)) throw err
+        if (attempt >= 3 || /HTTP 4\d\d/.test(message)) throw err
         await new Promise(resolve => setTimeout(resolve, 1500 * attempt))
       }
     }
   }
 
-  private downloadOnce(url: string, dest: string, redirects = 0): Promise<void> {
-    if (fs.existsSync(dest) && fs.statSync(dest).size > 0) return Promise.resolve()
+  /**
+   * Written to "<dest>.part" and renamed once complete (and, where the
+   * checksum is known, correct). Written straight to dest, a download cut off
+   * by a dropped connection or a closed launcher left half a file that every
+   * later start took as present: a broken jar and a crash on every launch.
+   */
+  private downloadOnce(url: string, dest: string, sha1?: string, redirects = 0): Promise<void> {
+    const part = `${dest}.part`
 
     return new Promise((resolve, reject) => {
-      const file = fs.createWriteStream(dest)
-      https.get(url, { headers: { 'User-Agent': 'crystal-launcher' } }, res => {
+      let settled = false
+      const fail = (err: Error) => {
+        if (settled) return
+        settled = true
+        file.destroy()
+        fs.rm(part, { force: true }, () => reject(err))
+      }
+      const file = fs.createWriteStream(part)
+      file.on('error', fail)
+      const req = https.get(url, { headers: { 'User-Agent': 'crystal-launcher' } }, res => {
         // Some Maven mirrors (Legacy Fabric's) answer with a redirect to the real file.
         const location = res.headers.location
         if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && location && redirects < 5) {
           res.resume()
-          file.close(() => {
-            fs.rmSync(dest, { force: true })
-            this.downloadOnce(new URL(location, url).toString(), dest, redirects + 1).then(resolve, reject)
-          })
+          settled = true
+          file.destroy()
+          fs.rm(part, { force: true }, () =>
+            this.downloadOnce(new URL(location, url).toString(), dest, sha1, redirects + 1).then(resolve, reject))
           return
         }
         if (res.statusCode !== 200) {
-          file.close()
-          fs.unlinkSync(dest)
-          reject(new Error(`HTTP ${res.statusCode} for ${url}`))
+          res.resume()
+          fail(new Error(`HTTP ${res.statusCode} for ${url}`))
           return
         }
+        const hash = sha1 ? crypto.createHash('sha1') : null
+        if (hash) res.on('data', chunk => hash.update(chunk))
+        res.on('aborted', () => fail(new Error(`Download abgebrochen: ${url}`)))
+        res.on('error', err => fail(err))
         res.pipe(file)
-        file.on('finish', () => file.close(() => resolve()))
-      }).on('error', err => {
-        file.close()
-        if (fs.existsSync(dest)) fs.unlinkSync(dest)
-        reject(err)
+        file.on('finish', () => file.close(() => {
+          if (settled) return
+          if (hash && hash.digest('hex') !== sha1!.toLowerCase()) return fail(new Error(`Prüfsumme falsch für ${url}`))
+          settled = true
+          fs.rename(part, dest, err => err ? reject(err) : resolve())
+        }))
       })
+      req.on('error', err => fail(err))
+      // A connection that stops sending would otherwise hold the start forever.
+      req.setTimeout(DOWNLOAD_STALL_MS, () => req.destroy(new Error(`Keine Antwort beim Download von ${url}`)))
     })
   }
 
   private getJson<T>(url: string, redirects = 0): Promise<T> {
     return new Promise((resolve, reject) => {
-      https.get(url, { headers: { 'User-Agent': 'crystal-launcher' } }, res => {
+      const req = https.get(url, { headers: { 'User-Agent': 'crystal-launcher' } }, res => {
         const location = res.headers.location
         if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && location && redirects < 5) {
           res.resume()
@@ -643,7 +706,48 @@ export class LaunchPipeline {
         res.on('end', () => {
           try { resolve(JSON.parse(data)) } catch (e) { reject(e) }
         })
-      }).on('error', reject)
+        res.on('error', reject)
+      })
+      req.on('error', reject)
+      req.setTimeout(DOWNLOAD_STALL_MS, () => req.destroy(new Error(`Keine Antwort von ${url}`)))
     })
+  }
+}
+
+/** Parallel downloads: many small asset files, fewer but larger libraries. */
+const ASSET_PARALLEL = 16
+const LIBRARY_PARALLEL = 8
+/** A download that sends nothing for this long is dropped and retried. */
+const DOWNLOAD_STALL_MS = 20_000
+
+/** Runs {@code fn} over the items, at most {@code limit} at once. */
+async function runPool<T>(items: T[], limit: number, fn: (item: T) => Promise<void>): Promise<void> {
+  let next = 0
+  const worker = async () => {
+    while (next < items.length) await fn(items[next++])
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
+}
+
+/** True when the file exists with the expected size (any size above 0 when none is known). */
+function hasSize(file: string, size?: number): boolean {
+  try {
+    const actual = fs.statSync(file).size
+    return size ? actual === size : actual > 0
+  } catch {
+    return false
+  }
+}
+
+function readJsonFile(file: string): any {
+  try { return JSON.parse(fs.readFileSync(file, 'utf-8')) } catch { return null }
+}
+
+function writeJsonFile(file: string, data: unknown): void {
+  try {
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.writeFileSync(file, JSON.stringify(data))
+  } catch (err) {
+    logger.debug('launcher', `Konnte ${file} nicht speichern`, String(err))
   }
 }
