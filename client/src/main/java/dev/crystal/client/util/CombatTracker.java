@@ -43,6 +43,10 @@ public final class CombatTracker {
     private static float lastHealth = -1;
     private static int tick = 0;
 
+    /** Since the game started: rounds won (the opponent died) and own deaths. */
+    private static int sessionKills = 0, sessionDeaths = 0;
+    private static boolean wasDead = false;
+
     private static long lastHitAt = 0;
 
     /** Longest recording kept (5 minutes of ticks); a longer fight keeps its start. */
@@ -101,6 +105,10 @@ public final class CombatTracker {
 
         // Taking damage breaks the combo and keeps the fight going.
         float health = mc.player.getHealth();
+        boolean dead = mc.player.isDeadOrDying();
+        if (dead && !wasDead) sessionDeaths++;
+        wasDead = dead;
+
         if (inFight && lastHealth >= 0 && health < lastHealth) {
             hitsTaken++;
             hurtThisTick = true;
@@ -130,6 +138,7 @@ public final class CombatTracker {
     }
 
     private static void endFight(boolean won) {
+        if (won) sessionKills++;
         if (won && opponentEntity != null) {
             var client = dev.crystal.client.CrystalClient.getInstance();
             var effect = client == null ? null : client.getModuleManager().getEnabled(dev.crystal.client.module.render.KillEffect.class);
@@ -217,4 +226,6 @@ public final class CombatTracker {
     public static Round lastRound() { return lastRound; }
     public static long lastRoundAt() { return lastRoundAt; }
     public static int combo() { return inFight ? combo : 0; }
+    public static int sessionKills() { return sessionKills; }
+    public static int sessionDeaths() { return sessionDeaths; }
 }

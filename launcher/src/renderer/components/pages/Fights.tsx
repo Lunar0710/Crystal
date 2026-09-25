@@ -67,6 +67,18 @@ export function Fights() {
           <p className="text-xs text-crystal-muted">Sobald du mit Nexora 1.6 jemanden angreifst, landet die Runde hier.</p>
         </EmptyState>
       )}
+      {list && list.length > 0 && (() => {
+        // The record over every fight on this PC.
+        const won = list.filter(f => f.won).length
+        const hits = list.reduce((n, f) => n + f.hits, 0), swings = list.reduce((n, f) => n + f.swings, 0)
+        return (
+          <dl className="grid grid-cols-3 gap-3 mb-4">
+            <div className="crystal-card px-4 py-3"><dt className="text-xs text-crystal-muted">Kämpfe</dt><dd className="mt-1 text-xl font-semibold text-crystal-text tabular">{list.length}</dd></div>
+            <div className="crystal-card px-4 py-3"><dt className="text-xs text-crystal-muted">Siege</dt><dd className="mt-1 text-xl font-semibold text-crystal-text tabular">{won} <span className="text-sm font-normal text-crystal-muted">({Math.round((100 * won) / list.length)} %)</span></dd></div>
+            <div className="crystal-card px-4 py-3"><dt className="text-xs text-crystal-muted">Trefferquote</dt><dd className="mt-1 text-xl font-semibold text-crystal-text tabular">{swings ? Math.round((100 * hits) / swings) : 0} %</dd></div>
+          </dl>
+        )
+      })()}
       {list && list.length > 0 && (
         <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
           <ul className="crystal-card divide-y divide-crystal-border self-start max-h-[70vh] overflow-y-auto">
