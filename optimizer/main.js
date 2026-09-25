@@ -61,6 +61,38 @@ async function isAdmin() {
 
 const psQuote = s => `'${String(s).replace(/'/g, "''")}'`
 
+// One PowerShell that stays open for everything that needs no admin rights:
+// starting powershell.exe costs 0.5 to 1.5 s on older PCs, a command in the
+// running one a few milliseconds. Commands run one after another; if the
+// process dies or hangs, the next call starts a fresh one.
+const { spawn } = require('child_process')
+const psHost = {
+  proc: null, queue: Promise.resolve(), n: 0,
+  start() {
+    this.proc = spawn('powershell.exe', ['-NoProfile', '-NoLogo', '-NoExit', '-ExecutionPolicy', 'Bypass', '-Command', '-'], { windowsHide: true })
+    this.proc.stdout.setEncoding('utf8')
+    this.buf = ''
+    this.proc.stdout.on('data', d => { this.buf += d; if (this.onData) this.onData() })
+    this.proc.on('exit', () => { this.proc = null })
+    this.proc.stdin.on('error', () => {})
+  },
+  run(command, timeout = 120000) {
+    const job = this.queue.then(() => new Promise((resolve, reject) => {
+      if (!this.proc) this.start()
+      const marker = `<<LUNAR-${++this.n}>>`
+      const timer = setTimeout(() => { this.onData = null; try { this.proc.kill() } catch {} ; this.proc = null; reject(new Error('Zeitüberschreitung')) }, timeout)
+      this.onData = () => {
+        const i = this.buf.indexOf(marker)
+        if (i < 0) return
+        this.buf = this.buf.slice(i + marker.length); this.onData = null; clearTimeout(timer); resolve()
+      }
+      this.proc.stdin.write(`${command}; [Console]::Out.WriteLine('${marker}')\n`)
+    }))
+    this.queue = job.catch(() => {})
+    return job
+  },
+}
+
 // Runs one engine action. Answers come through a UTF-8 file: stdout of an
 // elevated process can't be read, and the console code page mangles umlauts.
 async function engine(action, { ids = [], arg = null, elevate = false } = {}) {
@@ -85,7 +117,10 @@ async function engine(action, { ids = [], arg = null, elevate = false } = {}) {
       await runPowerShell(['-Command',
         `Start-Process -FilePath powershell.exe -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList ${psQuote('-NoProfile -ExecutionPolicy Bypass ' + argList)}`])
     } else {
-      await runPowerShell(params)
+      // In the long-running PowerShell: same script, same answer file.
+      const args = params.slice(2).map(p => p.startsWith('-') ? p : psQuote(p)).join(' ')
+      try { await psHost.run(`& ${psQuote(enginePath)} ${args}`) }
+      catch { await runPowerShell(params) }
     }
     if (!fs.existsSync(out)) return { ok: false, error: 'Abgebrochen (keine Administrator-Rechte erteilt).' }
     return JSON.parse(fs.readFileSync(out, 'utf8').replace(/^﻿/, ''))
@@ -455,3 +490,4 @@ app.whenReady().then(() => {
   startAutoUpdate()
 })
 app.on('window-all-closed', () => { if (!selftestArg) app.quit() })
+app.on('will-quit', () => { try { psHost.proc && psHost.proc.kill() } catch {} })
