@@ -184,36 +184,14 @@
   /* ---------- Sections ---------- */
   section { padding-top: clamp(110px, 14vw, 180px); }
   .head { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 40px; align-items: end; margin-bottom: 56px; }
-  .head h2 { margin-top: 20px; font-size: clamp(30px, 4.2vw, 58px); hyphens: manual; line-height: .92; font-weight: 830; }
+  .head h2 { margin-top: 20px; font-size: clamp(34px, 4.6vw, 68px); overflow-wrap: anywhere; line-height: .92; font-weight: 830; }
   .head p { color: var(--ash); font-weight: 300; font-size: 17px; max-width: 30em; }
 
   /* ---------- Bento ---------- */
   .bento { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; }
   .cell { grid-column: span 4; display: flex; }
   .cell > .core { flex: 1; padding: 30px; display: flex; flex-direction: column; gap: 22px; }
-  .cell.w7 { grid-column: span 7; grid-row: span 2; } .cell.w5 { grid-column: span 5; } .cell.w6 { grid-column: span 6; } .cell.w8 { grid-column: span 8; } .cell.w12 { grid-column: span 12; }
-
-  /* Spotify card and lyrics, as they sit in the game */
-  .spot-stage { position: relative; min-height: 190px; border-radius: 18px; padding: 22px; display: flex; flex-direction: column; justify-content: space-between; gap: 18px; overflow: hidden;
-    background: linear-gradient(180deg, #5f86b8 0%, #8fb0d6 48%, #3b5a33 49%, #243a20 100%); box-shadow: inset 0 0 0 1px var(--hair); }
-  .spot-stage::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(5,5,5,.15), rgba(5,5,5,.5)); }
-  .lyr, .spot, .ex { position: relative; z-index: 1; }
-  .lyr { align-self: center; text-align: center; display: grid; gap: 4px; }
-  .lyr b { font-family: var(--display); font-stretch: 112%; font-weight: 700; font-size: 17px; padding: 4px 14px; border-radius: 10px; background: rgba(0,0,0,.45); transition: opacity .5s var(--out), transform .5s var(--out); }
-  .lyr span { font-size: 13px; color: rgba(255,255,255,.72); transition: opacity .5s var(--out); }
-  .lyr.swap b { opacity: 0; transform: translateY(6px); } .lyr.swap span { opacity: 0; }
-  .spot { align-self: flex-end; display: flex; align-items: center; gap: 12px; width: min(320px, 100%); padding: 9px; border-radius: 16px; background: rgba(11,11,12,.88); box-shadow: 0 0 0 1px rgba(255,255,255,.1), inset 0 1px 0 rgba(255,255,255,.12), 0 20px 40px -18px rgba(0,0,0,.9); }
-  .cover { width: 50px; height: 50px; flex: none; border-radius: 10px; background: linear-gradient(160deg, #1ed760, #0e5f2c); display: flex; align-items: flex-end; gap: 4px; padding: 0 10px 10px; }
-  .cover i { width: 4px; border-radius: 2px; background: #fff; height: 30%; animation: eq 1s ease-in-out infinite alternate; }
-  .cover i:nth-child(2) { animation-delay: -.3s; } .cover i:nth-child(3) { animation-delay: -.6s; } .cover i:nth-child(4) { animation-delay: -.15s; }
-  @keyframes eq { to { height: 85%; } }
-  .meta { flex: 1; min-width: 0; display: grid; gap: 2px; }
-  .meta b { font-weight: 600; font-size: 14px; } .meta small { color: #a1a1aa; font-size: 12px; }
-  .prog { margin-top: 6px; height: 3px; border-radius: 3px; background: rgba(255,255,255,.15); overflow: hidden; }
-  .prog i { display: block; height: 100%; width: 40%; background: #1db954; border-radius: 3px; }
-  .time { align-self: flex-start; font-family: var(--mono); font-size: 10.5px; color: #71717a; font-variant-numeric: tabular-nums; }
-  .ex { position: absolute; left: 14px; bottom: 10px; font-size: 11px; color: rgba(255,255,255,.55); }
-  @media (prefers-reduced-motion: reduce) { .cover i { animation: none; height: 60%; } }
+  .cell.w7 { grid-column: span 7; grid-row: span 2; } .cell.w5 { grid-column: span 5; } .cell.w8 { grid-column: span 8; } .cell.w12 { grid-column: span 12; }
   .cell h3 { font-size: 22px; font-weight: 760; font-stretch: 118%; line-height: 1.1; }
   .cell p { color: var(--ash); font-size: 15px; font-weight: 300; margin-top: 8px; max-width: 34em; }
   .cell .push { margin-top: auto; }
@@ -499,15 +477,86 @@
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; }
     .hero h1 .w > span { transform: none; }
-    .cursor-glow { display: none; }
+    .cursor-glow, .cursor-ring, .stars, .intro-screen { display: none; }
+    .js h2.split .w > span { transform: none; }
   }
+
+  /* ---------- Motion, part two ---------- */
+  /* Intro: the logo draws itself once per visit. */
+  .intro-screen { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: var(--void); pointer-events: none;
+    animation: introOut .7s var(--spring) 1.05s forwards; }
+  .intro-screen svg { width: 84px; height: 84px; overflow: visible; }
+  .intro-screen .ring { stroke-dasharray: 130; stroke-dashoffset: 130; animation: draw .8s var(--out) .05s forwards; }
+  .intro-screen .n { opacity: 0; transform-origin: 50% 50%; animation: pop .6s var(--spring) .45s forwards; }
+  .intro-screen .star { opacity: 0; transform-origin: 51px 13.8px; animation: spark .7s var(--spring) .6s forwards; }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+  @keyframes pop { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: none; } }
+  @keyframes spark { 0% { opacity: 0; transform: scale(0) rotate(-90deg); } 60% { opacity: 1; transform: scale(1.4) rotate(10deg); } 100% { opacity: 1; transform: none; } }
+  @keyframes introOut { to { opacity: 0; clip-path: inset(0 0 100% 0); } }
+
+  /* Constellation behind the hero; fades out as you scroll away. */
+  .stars { position: fixed; inset: 0; z-index: 0; pointer-events: none; width: 100%; height: 100%; transition: opacity .4s linear; }
+  .orbs i { transform: translateY(var(--py, 0px)); }
+
+  /* Pointer ring (mouse only). */
+  .cursor-ring { position: fixed; left: 0; top: 0; z-index: 70; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%; pointer-events: none;
+    box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--accent) 55%, transparent); opacity: 0;
+    transition: opacity .3s var(--out), width .45s var(--spring), height .45s var(--spring), margin .45s var(--spring), background .45s var(--spring); }
+  .cursor-ring.on { opacity: 1; }
+  .cursor-ring.big { width: 58px; height: 58px; margin: -29px 0 0 -29px; background: color-mix(in srgb, var(--accent) 7%, transparent); }
+  .cursor-ring.down { width: 24px; height: 24px; margin: -12px 0 0 -12px; }
+
+  /* Nav: a pill slides under the hovered or current section. */
+  .nav-links { position: relative; }
+  .nav-links .pill { position: absolute; top: 0; left: 0; height: 100%; border-radius: 999px; background: rgba(255, 255, 255, .07); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06);
+    opacity: 0; transition: transform .55s var(--spring), width .55s var(--spring), opacity .3s var(--out); pointer-events: none; }
+  .nav-links a { position: relative; z-index: 1; white-space: nowrap; }
+  @media (max-width: 1180px) { .nav-links a[href="#versionen"], .nav-links a[href="#faq"] { display: none; } }
+  .nav-links a.cur { color: var(--ink); }
+  .nav-links a:hover { background: none; }
+
+  /* The grey half of the headline catches a light now and then. */
+  .hero h1 .soft .w > span { background: linear-gradient(100deg, #4a4a50 0%, #8d8d94 38%, #f4f4f5 50%, #8d8d94 62%, #4a4a50 100%); background-size: 260% 100%; background-position: 100% 0;
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    animation: rise 1.2s var(--out) forwards, shimmer 7s ease-in-out 2.2s infinite; animation-delay: calc(var(--i) * 90ms + 120ms), 2.2s; }
+  @keyframes shimmer { 0%, 30% { background-position: 100% 0; } 70%, 100% { background-position: 0% 0; } }
+
+  /* Section headings: words rise when the heading is reached. */
+  .js h2.split .w { display: inline-block; overflow: hidden; vertical-align: top; padding: .02em .02em .18em; margin: -.02em 0 -.18em; }
+  .js h2.split .w > span { display: inline-block; transform: translateY(112%) rotate(5deg); transform-origin: 0 100%; transition: transform 1.1s var(--out); transition-delay: calc(var(--i) * 65ms); }
+  .js h2.split.in .w > span { transform: none; }
+
+  /* Bento: cards tip toward the pointer. */
+  .cell { perspective: 1100px; }
+  .cell > .core { transition: transform .8s var(--spring); transform-style: preserve-3d; }
+  .cell.tilting > .core { transition: transform .12s linear; }
+
+  /* Button ripple and download burst. */
+  .ripple { position: absolute; border-radius: 50%; pointer-events: none; z-index: -1; width: 12px; height: 12px; margin: -6px 0 0 -6px;
+    background: color-mix(in srgb, var(--accent-ink) 22%, transparent); animation: ripple .75s var(--out) forwards; }
+  .btn-ghost .ripple, .oses .ripple, .jars .ripple { background: rgba(255, 255, 255, .25); }
+  .oses a, .jars a { position: relative; overflow: hidden; overflow: clip; }
+  @keyframes ripple { to { transform: scale(40); opacity: 0; } }
+  .spark { position: fixed; z-index: 80; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; border-radius: 2px; pointer-events: none; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+
+  /* Chips also drift with the scroll. */
+  .chip { margin-top: calc(var(--sp, 0) * var(--dp, 0) * 1px); }
+
+  /* Marquee leans with scroll speed. */
+  .marquee { transform: skewX(var(--skew, 0deg)); transition: transform .25s var(--out); }
+
+  /* Footer letters swell toward the pointer. */
+  .wordmark span { scale: var(--mag, 1); transition: transform 1.2s var(--out), opacity 1.2s var(--out), scale .35s var(--spring); transform-origin: 50% 100%; }
+
+  /* Nexora+ card: a slow spin of its holo foil when idle. */
+  .member::before { animation: foil 9s linear infinite; }
+  @keyframes foil { to { filter: blur(24px) hue-rotate(360deg); } }
 
   /* ---------- Responsive ---------- */
   @media (max-width: 1080px) {
     .win { grid-template-columns: 56px 1fr; }
     .list { display: none; }
-    .cell, .cell.w7, .cell.w5, .cell.w6, .cell.w8 { grid-column: span 6; grid-row: auto; }
-    .cell.w8 { grid-column: span 12; }
+    .cell, .cell.w7, .cell.w5, .cell.w8 { grid-column: span 6; grid-row: auto; }
     .cell.w7 { grid-column: span 12; }
   }
   @media (max-width: 767px) {
@@ -527,8 +576,7 @@
     .head, .plus, .jar > .core { grid-template-columns: 1fr; }
     .head { gap: 20px; }
     .bento { grid-template-columns: 1fr; }
-    .cell, .cell.w7, .cell.w5, .cell.w6, .cell.w8, .cell.w12 { grid-column: 1 / -1; }
-    .spot { align-self: stretch; width: auto; }
+    .cell, .cell.w7, .cell.w5, .cell.w8, .cell.w12 { grid-column: 1 / -1; }
     .cell > .core { padding: 22px; }
     .tl { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 26px; }
     .tl::before { display: none; }
@@ -570,7 +618,7 @@
 
 <main id="top">
   <div class="wrap hero">
-    <span class="eyebrow rv"><b>1.6</b> Kampf-Replay, Kill-Cam und Spotify</span>
+    <span class="eyebrow rv"><b>1.6</b> Kampf-Replay und Kill-Cam</span>
     <h1 class="rv">Jeder Kampf.<span class="soft">Aufgezeichnet.</span></h1>
     <p class="lede rv">Nexora ist ein kostenloser Minecraft-Client mit eigenem Launcher. <strong>Sieh dir jeden Kampf von oben noch einmal an</strong>, mit Laufwegen, Treffern und Leben. Dazu ein HUD, das mitkämpft, und ein FPS-Doktor, der dein Spiel schneller macht.</p>
     <div class="cta rv">
@@ -628,21 +676,21 @@
           </div>
         </div>
       </div>
-      <div class="chip c1" data-depth="26"><span class="xmark"></span><span>HitMarker <small>Treffer zählt</small></span></div>
-      <div class="chip c2" data-depth="40"><span class="k">FPS <span data-count>412</span></span><small>1%-Low 238</small></div>
-      <div class="chip c3" data-depth="34"><span class="pop"></span><span>Steve_PvP <small>2 Totems gepoppt</small></span></div>
-      <div class="chip c4" data-depth="18"><span class="k">K/D 3.50</span><small>Kills 7 · Tode 2</small></div>
+      <div class="chip c1" data-depth="26" style="--dp:0.65"><span class="xmark"></span><span>HitMarker <small>Treffer zählt</small></span></div>
+      <div class="chip c2" data-depth="40" style="--dp:1.00"><span class="k">FPS <span data-count>412</span></span><small>1%-Low 238</small></div>
+      <div class="chip c3" data-depth="34" style="--dp:0.85"><span class="pop"></span><span>Steve_PvP <small>2 Totems gepoppt</small></span></div>
+      <div class="chip c4" data-depth="18" style="--dp:0.45"><span class="k">K/D 3.50</span><small>Kills 7 · Tode 2</small></div>
     </div>
   </div>
 
-  <div class="marquee" aria-label="Einige der 115 Module">
+  <div class="marquee" aria-label="Einige der 113 Module">
     <div class="track" id="t1"></div>
     <div class="track rev" id="t2"></div>
   </div>
 
   <section class="wrap" id="features">
     <div class="head">
-      <div><span class="eyebrow rv"><span data-count>115</span> Module</span><h2 class="rv">Alles drin. Nichts zusammensuchen.</h2></div>
+      <div><span class="eyebrow rv"><span data-count>113</span> Module</span><h2 class="rv">Alles drin. Nichts zusammensuchen.</h2></div>
       <p class="rv">Was du sonst aus zehn Mods baust, steckt in einem Client. Jedes Modul lässt sich einzeln schalten und im HUD-Editor frei platzieren.</p>
     </div>
 
@@ -683,34 +731,19 @@
         </div>
       </div>
 
-      <div class="cell w6 shell rv">
+      <div class="cell shell rv">
         <div class="core">
           <div><h3>Instanz teilen</h3><p>Dein Setup als .mrpack. Ein Freund importiert es und hat genau deine Mods und Einstellungen.</p></div>
           <div class="file push"><span class="fi">MRPACK</span><span><b>PvP Setup.mrpack</b><small>55 Mods von Modrinth, 2 mitgepackt</small></span></div>
         </div>
       </div>
 
-      <div class="cell w6 shell rv">
+      <div class="cell shell rv">
         <div class="core">
           <div><h3>Mehrere Spiele</h3><p>Jede Instanz mit eigenem Konto. CPU und RAM immer im Blick.</p></div>
           <div class="runs push">
             <div class="run"><span><span class="live"></span>PvP 1.21.11</span><span class="num">CPU 18 %</span><small>Main · seit 42 min</small><span class="num">3.1 GB</span></div>
             <div class="run"><span><span class="live"></span>Farm 26.2</span><span class="num">CPU 9 %</span><small>Zweitkonto · seit 2 h</small><span class="num">2.4 GB</span></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="cell w8 shell rv">
-        <div class="core">
-          <div><h3>Spotify und Lyrics <span class="tag">Neu</span></h3><p>Der Song aus Spotify im HUD, und darüber der Songtext, Zeile für Zeile im Takt, zwei Sekunden vorab. Beides verschiebst du getrennt. Ohne Spotify-Login.</p></div>
-          <div class="spot-stage push" aria-label="Beispiel: Spotify-Karte und Songtext im Spiel">
-            <div class="lyr"><b id="lyrNow">Die Stadt schläft, wir fahren weiter</b><span id="lyrNext">Neonlicht auf nassem Asphalt</span></div>
-            <div class="spot">
-              <span class="cover" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-              <span class="meta"><b>Nachtfahrt</b><small>Beispiel-Band</small><span class="prog"><i id="spotBar"></i></span></span>
-              <span class="time" id="spotTime">1:14 / 3:05</span>
-            </div>
-            <span class="ex">Beispiel, kein echter Song</span>
           </div>
         </div>
       </div>
@@ -767,7 +800,6 @@
           <li>Halloween-Paket<span>Kürbiskopf, Fledermausflügel, Herbstlaub-Aura</span></li>
           <li>KillEffect<span>Totem-, Funken-, Seelen- oder Herz-Explosion</span></li>
           <li>Outfits<span>Kombinationen speichern und per Klick wechseln</span></li>
-          <li>Themes<span>Halloween, Midnight, Sakura und mehr für den Launcher</span></li>
         </ul>
       </div>
       <div class="card-stage rv" id="cardStage">
@@ -893,7 +925,7 @@
   overlay.querySelectorAll('a').forEach(a => a.addEventListener('click', () => toggle(false)));
 
   // ---- Module marquee ----
-  const mods = ['Kampf-Replay', 'Kill-Cam', 'Spotify', 'Lyrics', 'HitMarker', 'TotemPops', 'PotCounter', 'FightSummary', 'Gegner-Rüstung', 'SessionStats', 'TPSDisplay', 'InventoryHUD', 'KillEffect', 'LowFire', 'Keystrokes', 'CPS', 'Zoom', 'Minimap', 'Waypoints', 'FreeLook', 'ToggleSprint', 'FrameGraph', 'RenderLimits', 'MotionBlur', 'ColorSaturation', 'SkyColor', 'FogCustomizer', 'NameTags', 'Profiles', 'Crosshair', 'HitSound', 'Emotes', 'Pets', 'Capes'];
+  const mods = ['Kampf-Replay', 'Kill-Cam', 'HitMarker', 'TotemPops', 'PotCounter', 'FightSummary', 'Gegner-Rüstung', 'SessionStats', 'TPSDisplay', 'InventoryHUD', 'KillEffect', 'LowFire', 'Keystrokes', 'CPS', 'Zoom', 'Minimap', 'Waypoints', 'FreeLook', 'ToggleSprint', 'FrameGraph', 'RenderLimits', 'MotionBlur', 'ColorSaturation', 'SkyColor', 'FogCustomizer', 'NameTags', 'Profiles', 'Crosshair', 'HitSound', 'Emotes', 'Pets', 'Capes'];
   const fill = (el, list) => { const html = list.map((m, i) => `<span${i % 5 === 0 ? ' class="hl"' : ''}>${m}</span>`).join(''); el.innerHTML = html + html; };
   fill($('t1'), mods); fill($('t2'), mods.slice().reverse());
 
@@ -908,7 +940,7 @@
 
   // ---- Product shot: flattens as it scrolls in, chips drift with the pointer ----
   const stage = $('stage');
-  new IntersectionObserver(es => es.forEach(e => stage.classList.toggle('flat', e.intersectionRatio > .55)), { threshold: [0, .55, 1] }).observe(stage);
+  if (still) stage.classList.add('flat');
   const chips = [...stage.querySelectorAll('.chip')];
   if (!still && matchMedia('(pointer: fine)').matches) {
     addEventListener('pointermove', e => {
@@ -1247,27 +1279,188 @@
     });
   });
 
-  // ---- Spotify example: the progress runs, the lyric lines move on ----
-  const lyric = [
-    ['Die Stadt schläft, wir fahren weiter', 'Neonlicht auf nassem Asphalt'],
-    ['Neonlicht auf nassem Asphalt', 'Das Radio spielt nur für uns zwei'],
-    ['Das Radio spielt nur für uns zwei', 'Bis der Morgen uns einholt'],
-    ['Bis der Morgen uns einholt', 'Die Stadt schläft, wir fahren weiter'],
-  ];
-  let li = 0, songPos = 74;
-  const lyrBox = document.querySelector('.lyr');
-  const spotTick = () => {
-    songPos = songPos >= 185 ? 0 : songPos + 1;
-    $('spotBar').style.width = (songPos / 185 * 100).toFixed(1) + '%';
-    $('spotTime').textContent = Math.floor(songPos / 60) + ':' + String(songPos % 60).padStart(2, '0') + ' / 3:05';
-  };
-  spotTick();
+
+  // ================= Motion, part two =================
+  const fine = matchMedia('(pointer: fine)').matches;
+
+  // Intro: the logo draws itself, once per visit.
+  let introSeen = false; try { introSeen = sessionStorage.getItem('nexora-intro') === '1'; sessionStorage.setItem('nexora-intro', '1'); } catch {}
+  if (!still && !introSeen) {
+    const intro = document.createElement('div');
+    intro.className = 'intro-screen'; intro.setAttribute('aria-hidden', 'true');
+    intro.innerHTML = '<svg viewBox="0 0 64 64"><path class="ring" d="M45.5 13.2A22 22 0 1 0 53.6 26" fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round"/><path class="n" d="M22 44V20h5.6l10 14.6V20H43v24h-5.4L27.4 29.4V44z" fill="#fff"/><path class="star" d="M51 6l2.2 5.6L59 13.8l-5.8 2.2L51 21.6 48.8 16 43 13.8l5.8-2.2z" fill="var(--accent)"/></svg>';
+    document.body.appendChild(intro);
+    document.querySelectorAll('.hero h1 .w > span, .intro').forEach(el => { el.style.animationDelay = `calc(${getComputedStyle(el).animationDelay.split(',')[0]} + 1.1s)`; });
+    setTimeout(() => intro.remove(), 2000);
+  }
+
+  // Constellation: drifting points, linked when close, pulled a little toward the pointer.
   if (!still) {
-    setInterval(spotTick, 1000);
-    setInterval(() => {
-      lyrBox.classList.add('swap');
-      setTimeout(() => { li = (li + 1) % lyric.length; $('lyrNow').textContent = lyric[li][0]; $('lyrNext').textContent = lyric[li][1]; lyrBox.classList.remove('swap'); }, 450);
-    }, 3200);
+    const cv = document.createElement('canvas'); cv.className = 'stars'; cv.setAttribute('aria-hidden', 'true');
+    document.body.insertBefore(cv, document.body.firstChild);
+    const cx = cv.getContext('2d'); let W = 0, H = 0, dpr = 1;
+    const pts = []; const mouse = { x: -1e4, y: -1e4 };
+    const resize = () => { dpr = Math.min(2, devicePixelRatio || 1); W = innerWidth; H = innerHeight; cv.width = W * dpr; cv.height = H * dpr; cx.setTransform(dpr, 0, 0, dpr, 0, 0); };
+    resize(); addEventListener('resize', resize);
+    const count = Math.round(Math.min(90, W * H / 16000));
+    for (let i = 0; i < count; i++) pts.push({ x: Math.random() * W, y: Math.random() * H, vx: (Math.random() - .5) * .25, vy: (Math.random() - .5) * .25, r: Math.random() * 1.3 + .4 });
+    addEventListener('pointermove', e => { mouse.x = e.clientX; mouse.y = e.clientY; }, { passive: true });
+    let accentRgb = '255,255,255';
+    const readAccent = () => { const h = getComputedStyle(root).getPropertyValue('--accent').trim(); const n = parseInt(h.slice(1), 16); if (h.length === 7) accentRgb = `${n >> 16},${n >> 8 & 255},${n & 255}`; };
+    readAccent(); box.addEventListener('click', readAccent);
+    let visibleStars = true;
+    (function frame() {
+      const fade = Math.max(0, 1 - scrollY / (innerHeight * 1.1));
+      cv.style.opacity = fade;
+      visibleStars = fade > 0.01 && !document.hidden;
+      if (visibleStars) {
+        cx.clearRect(0, 0, W, H);
+        for (const p of pts) {
+          const dx = mouse.x - p.x, dy = mouse.y - p.y, d2 = dx * dx + dy * dy;
+          if (d2 < 32000) { p.vx += dx * 0.00002; p.vy += dy * 0.00002; }
+          p.vx *= .995; p.vy *= .995;
+          p.x += p.vx + (Math.random() - .5) * .02; p.y += p.vy + (Math.random() - .5) * .02;
+          if (p.x < -10) p.x = W + 10; if (p.x > W + 10) p.x = -10; if (p.y < -10) p.y = H + 10; if (p.y > H + 10) p.y = -10;
+        }
+        cx.lineWidth = 1;
+        for (let i = 0; i < pts.length; i++) {
+          const a = pts[i];
+          for (let j = i + 1; j < pts.length; j++) {
+            const b = pts[j], dx = a.x - b.x, dy = a.y - b.y, d2 = dx * dx + dy * dy;
+            if (d2 < 15000) { cx.strokeStyle = `rgba(${accentRgb},${(1 - d2 / 15000) * .16})`; cx.beginPath(); cx.moveTo(a.x, a.y); cx.lineTo(b.x, b.y); cx.stroke(); }
+          }
+          const md = (mouse.x - a.x) ** 2 + (mouse.y - a.y) ** 2;
+          if (md < 26000) { cx.strokeStyle = `rgba(${accentRgb},${(1 - md / 26000) * .35})`; cx.beginPath(); cx.moveTo(a.x, a.y); cx.lineTo(mouse.x, mouse.y); cx.stroke(); }
+          cx.fillStyle = `rgba(${accentRgb},${.35 + a.r * .25})`; cx.beginPath(); cx.arc(a.x, a.y, a.r, 0, 7); cx.fill();
+        }
+      }
+      requestAnimationFrame(frame);
+    })();
+  }
+
+  // Scroll-linked: orbs parallax, product shot flattens, chips drift, marquee leans.
+  const tilt = $('tilt'), orbs = document.querySelector('.orbs'), marquee = document.querySelector('.marquee');
+  let prevY = scrollY, skew = 0;
+  if (!still) {
+    tilt.style.transition = 'none';
+    (function scrollFrame() {
+      const y = scrollY;
+      orbs.style.setProperty('--py', `${-y * .12}px`);
+      const r = stage.getBoundingClientRect();
+      const p = Math.max(0, Math.min(1, (innerHeight - r.top) / (innerHeight * .75)));
+      if (innerWidth > 767) tilt.style.transform = `rotateX(${(1 - p) * 16}deg) scale(${.94 + p * .06})`;
+      stage.style.setProperty('--sp', ((r.top + r.height / 2 - innerHeight / 2) / 12).toFixed(1));
+      const v = y - prevY; prevY = y;
+      skew += (Math.max(-6, Math.min(6, v * .12)) - skew) * .15;
+      marquee.style.setProperty('--skew', `${skew.toFixed(2)}deg`);
+      requestAnimationFrame(scrollFrame);
+    })();
+  }
+
+  // Section headings split into words that rise on reveal (plain-text headings only).
+  document.querySelectorAll('main h2').forEach(h => {
+    if (still || h.children.length || h.closest('.hero')) return;
+    let n = 0;
+    h.innerHTML = h.textContent.split(/(\s+)/).map(t => /^\s+$/.test(t) || !t ? t : `<span class="w"><span style="--i:${n++}">${t}</span></span>`).join('');
+    h.classList.add('split');
+    // A word wider than the column (long German words on a phone) can't break inside its mask: keep that heading plain.
+    const room = h.getBoundingClientRect().right + 1;
+    if ([...h.querySelectorAll('.w')].some(w => w.getBoundingClientRect().right > room)) { h.textContent = h.textContent; h.classList.remove('split'); return; }
+    seen(h, () => h.classList.add('in'), '0px 0px -12% 0px');
+  });
+  // The changelog title can be replaced from the release notes later; keep it whole then.
+  const neuTitle = $('neuTitle');
+  new MutationObserver(() => { if (!neuTitle.querySelector('.w')) neuTitle.classList.remove('split'); }).observe(neuTitle, { childList: true });
+
+  // Nav: sliding pill, and the section you're in stays marked.
+  const links = [...document.querySelectorAll('.nav-links a')], navBox = document.querySelector('.nav-links');
+  const pill = document.createElement('span'); pill.className = 'pill'; navBox.prepend(pill);
+  let current = null;
+  const pillTo = a => {
+    if (!a) { pill.style.opacity = 0; return; }
+    pill.style.opacity = 1; pill.style.width = `${a.offsetWidth}px`; pill.style.transform = `translateX(${a.offsetLeft}px)`;
+  };
+  links.forEach(a => a.addEventListener('pointerenter', () => pillTo(a)));
+  navBox.addEventListener('pointerleave', () => pillTo(current));
+  const spy = new IntersectionObserver(es => es.forEach(e => {
+    if (!e.isIntersecting) return;
+    current = links.find(a => a.getAttribute('href') === '#' + e.target.id) || null;
+    links.forEach(a => a.classList.toggle('cur', a === current));
+    if (!navBox.matches(':hover')) pillTo(current);
+  }), { rootMargin: '-45% 0px -50% 0px' });
+  links.forEach(a => { const t = document.querySelector(a.getAttribute('href')); if (t) spy.observe(t); });
+  addEventListener('scroll', () => { if (scrollY < innerHeight * .5 && current) { current = null; links.forEach(a => a.classList.remove('cur')); pillTo(null); } }, { passive: true });
+
+  if (!still && fine) {
+    // Pointer ring that grows over anything clickable.
+    const ring = document.createElement('div'); ring.className = 'cursor-ring'; document.body.appendChild(ring);
+    let rx = 0, ry = 0, mx = 0, my = 0, ringOn = false;
+    addEventListener('pointermove', e => {
+      mx = e.clientX; my = e.clientY; ring.classList.add('on');
+      ring.classList.toggle('big', !!e.target.closest('a, button, summary, .sw'));
+      if (!ringOn) { ringOn = true; rx = mx; ry = my; requestAnimationFrame(follow); }
+    }, { passive: true });
+    const follow = () => {
+      rx += (mx - rx) * .22; ry += (my - ry) * .22;
+      ring.style.transform = `translate3d(${rx}px, ${ry}px, 0)`;
+      if (Math.abs(mx - rx) + Math.abs(my - ry) > .3) requestAnimationFrame(follow); else ringOn = false;
+    };
+    addEventListener('pointerdown', () => ring.classList.add('down'));
+    addEventListener('pointerup', () => ring.classList.remove('down'));
+    document.addEventListener('pointerleave', () => ring.classList.remove('on'));
+
+    // Bento cards tip toward the pointer.
+    document.querySelectorAll('.cell').forEach(c => {
+      const core = c.querySelector(':scope > .core');
+      c.addEventListener('pointermove', e => {
+        const r = c.getBoundingClientRect(), x = (e.clientX - r.left) / r.width - .5, y = (e.clientY - r.top) / r.height - .5;
+        c.classList.add('tilting'); core.style.transform = `rotateX(${(-y * 5).toFixed(2)}deg) rotateY(${(x * 6).toFixed(2)}deg)`;
+      });
+      c.addEventListener('pointerleave', () => { c.classList.remove('tilting'); core.style.transform = ''; });
+    });
+
+    // Footer letters swell toward the pointer.
+    const letters = [...mark.querySelectorAll('span')];
+    mark.addEventListener('pointermove', e => letters.forEach(l => {
+      const r = l.getBoundingClientRect(), d = Math.abs(e.clientX - (r.left + r.width / 2)) / r.width;
+      l.style.setProperty('--mag', (1 + Math.max(0, .18 - d * .07)).toFixed(3));
+    }));
+    mark.addEventListener('pointerleave', () => letters.forEach(l => l.style.removeProperty('--mag')));
+  }
+
+  if (!still) {
+    // Ripple wherever a button is pressed.
+    document.addEventListener('pointerdown', e => {
+      const b = e.target.closest('.btn, .oses a, .jars a'); if (!b) return;
+      const r = b.getBoundingClientRect(), s = document.createElement('span');
+      s.className = 'ripple'; s.style.left = `${e.clientX - r.left}px`; s.style.top = `${e.clientY - r.top}px`;
+      b.appendChild(s); setTimeout(() => s.remove(), 800);
+    });
+    // A burst of sparks from a download button.
+    document.querySelectorAll('[data-dl], .jars').forEach(el => el.addEventListener('click', e => {
+      const b = e.target.closest('a'); if (!b) return;
+      const r = b.getBoundingClientRect(), x0 = r.left + r.width / 2, y0 = r.top + r.height / 2;
+      for (let i = 0; i < 22; i++) {
+        const s = document.createElement('i'); s.className = 'spark'; s.style.left = `${x0}px`; s.style.top = `${y0}px`;
+        document.body.appendChild(s);
+        const a = Math.random() * Math.PI * 2, d = 60 + Math.random() * 110;
+        s.animate([{ transform: 'translate(0,0) rotate(0) scale(1)', opacity: 1 },
+          { transform: `translate(${Math.cos(a) * d}px, ${Math.sin(a) * d - 30}px) rotate(${Math.random() * 540}deg) scale(.3)`, opacity: 0 }],
+          { duration: 700 + Math.random() * 500, easing: 'cubic-bezier(.16,1,.3,1)' }).onfinish = () => s.remove();
+      }
+    }));
+    // "Aufgezeichnet." decodes once the words are up.
+    const target = h1.querySelector('.soft .w > span');
+    if (target) setTimeout(() => {
+      const final = target.textContent, glyphs = 'abcdefghijklmnopqrstuvxyz0123456789#%&*+=<>/';
+      // Held at its real width, so wider random glyphs can't push the line or the page sideways.
+      target.style.width = `${target.getBoundingClientRect().width}px`; target.style.whiteSpace = 'nowrap'; target.style.overflow = 'hidden';
+      let frame = 0;
+      const iv = setInterval(() => {
+        target.textContent = [...final].map((c, i) => i < frame / 2 ? c : glyphs[Math.floor(Math.random() * glyphs.length)]).join('');
+        if (++frame > final.length * 2) { clearInterval(iv); target.textContent = final; target.style.width = target.style.whiteSpace = target.style.overflow = ''; }
+      }, 32);
+    }, introSeen ? 1100 : 2200);
   }
 
   // ---- Copy the jar name ----
