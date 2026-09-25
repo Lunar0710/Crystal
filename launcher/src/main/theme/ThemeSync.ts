@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import os from 'os'
 import { crystalPath } from '../paths'
+import { writeFileAtomic } from '../util/atomicWrite'
 
 // Mirrors the CSS custom properties defined in globals.css for each theme id.
 // Kept in sync manually since the renderer's CSS can't be read from the main process.
@@ -46,7 +47,7 @@ export function syncThemeToClient(themeId: string) {
 
   const configDir = crystalPath('config')
   fs.mkdirSync(configDir, { recursive: true })
-  fs.writeFileSync(path.join(configDir, 'theme.json'), JSON.stringify(payload, null, 2))
+  writeFileAtomic(path.join(configDir, 'theme.json'), JSON.stringify(payload, null, 2))
 }
 
 const PERK_RANKS = ['owner', 'co_owner', 'admin', 'staff', 'developer', 'media', 'crystal_plus']
@@ -63,5 +64,5 @@ export function syncProfileToClient(rank: string, tester = false) {
   const file = path.join(configDir, 'profile.json')
   // Only rewrite on change: the client watches the file's timestamp.
   if (fs.existsSync(file) && fs.readFileSync(file, 'utf8') === next) return
-  fs.writeFileSync(file, next)
+  writeFileAtomic(file, next)
 }

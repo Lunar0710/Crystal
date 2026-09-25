@@ -5,6 +5,7 @@ import { InstanceManager } from './InstanceManager'
 import { JarReader } from '../util/jarReader'
 import { crystalPath, isPlainFileName } from '../paths'
 import { logger } from '../logs/Logger'
+import { writeFileAtomic } from '../util/atomicWrite'
 
 export type PerfFixKind = 'disable-mod' | 'disable-module' | 'install-perf-pack' | 'set-ram' | 'set-option'
 
@@ -243,7 +244,7 @@ export class PerfDoctor {
     try { text = fs.readFileSync(file, 'utf8') } catch { return { ok: false, message: 'options.txt nicht gefunden.' } }
     const pattern = new RegExp(`^${rule.key}:.*$`, 'm')
     if (!pattern.test(text)) return { ok: false, message: 'Einstellung nicht gefunden.' }
-    fs.writeFileSync(file, text.replace(pattern, `${rule.key}:${rule.value}`))
+    writeFileAtomic(file, text.replace(pattern, `${rule.key}:${rule.value}`))
     logger.info('client', `FPS-Doktor: ${rule.key} auf ${rule.value}`)
     return { ok: true, message: `${rule.label}: erledigt. Gilt beim nächsten Start.` }
   }

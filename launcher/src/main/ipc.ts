@@ -30,6 +30,7 @@ import { StatsService } from './stats/StatsService'
 import { RunningGames } from './minecraft/RunningGames'
 import { PerfDoctor, type PerfFix } from './minecraft/PerfDoctor'
 import { crystalPath, crystalRoot, defaultCrystalRoot, setCrystalRoot, canUseAsRoot } from './paths'
+import { writeFileAtomic } from './util/atomicWrite'
 
 export function registerIpcHandlers(store: Store) {
   const minecraft = new MinecraftManager(store)
@@ -708,7 +709,7 @@ export function registerIpcHandlers(store: Store) {
     const json = JSON.stringify(clean, null, 2)
     try {
       if (fs.existsSync(target) && fs.readFileSync(target, 'utf8') === json) return true
-      fs.writeFileSync(target, json)
+      writeFileAtomic(target, json)
       return true
     } catch (err) {
       logger.warn('launcher', 'Cosmetics-Loadout konnte nicht geschrieben werden', String(err))
@@ -754,7 +755,7 @@ export function registerIpcHandlers(store: Store) {
       ? image
       : image.resize({ width: targetW, height: targetH, quality: 'best' })
 
-    fs.writeFileSync(target, normalized.toPNG())
+    writeFileAtomic(target, normalized.toPNG())
     if (width !== targetW || height !== targetH) {
       logger.info('launcher', `Cape von ${width}x${height} auf ${targetW}x${targetH} skaliert`)
     }
@@ -773,8 +774,8 @@ export function registerIpcHandlers(store: Store) {
     if (height % n !== 0 || width !== (height / n) * 2 || width > 1024) return false
     const dir = crystalPath('cosmetics')
     fs.mkdirSync(dir, { recursive: true })
-    fs.writeFileSync(path.join(dir, 'equipped_cape.png'), image.toPNG())
-    fs.writeFileSync(path.join(dir, 'equipped_cape.json'), JSON.stringify({ frames: n, fps: speed }))
+    writeFileAtomic(path.join(dir, 'equipped_cape.png'), image.toPNG())
+    writeFileAtomic(path.join(dir, 'equipped_cape.json'), JSON.stringify({ frames: n, fps: speed }))
     writeEquippedCapeId(dir, capeId)
     return true
   })
