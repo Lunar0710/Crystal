@@ -108,6 +108,7 @@ function writeTestSettings(gameDir) {
       TotemPops: { enabled: true },
       LowFire: { enabled: true },
       KillEffect: { enabled: true },
+      InventoryHUD: { enabled: true, settings: { X: 300, Y: 4 } },
       ItemPhysics: { enabled: true },
       ParticleChanger: { enabled: true },
       BetterSounds: { enabled: true },

@@ -49,6 +49,8 @@ public class CrystalHUD {
                 drawDurabilityWarning(context, warning);
             } else if (module instanceof FrameGraph graph) {
                 drawFrameGraph(context, graph);
+            } else if (module instanceof dev.crystal.client.module.hud.InventoryHUD inventory) {
+                drawInventory(context, inventory);
             } else if (module instanceof HudModule hud) {
                 drawStyledText(context, hud);
             } else if (module instanceof HudRenderable renderable) {
@@ -76,6 +78,9 @@ public class CrystalHUD {
             return new int[]{x, y, x + w, y + h};
         }
         float s = module.getScale();
+        if (module instanceof dev.crystal.client.module.hud.InventoryHUD) {
+            return new int[]{x - Math.round(2 * s), y - Math.round(2 * s), x + Math.round((INV_W + 2) * s), y + Math.round((INV_H + 2) * s)};
+        }
         if (module instanceof FrameGraph graph) {
             int[] size = frameGraphSize(graph);
             return new int[]{x - Math.round(3 * s), y - Math.round(2 * s), x + Math.round((size[0] + 3) * s), y + Math.round((size[1] + 2) * s)};
@@ -173,6 +178,32 @@ public class CrystalHUD {
     }
 
     private static final int GRAPH_H = 24;
+    private static final int INV_W = 9 * 18, INV_H = 3 * 18;
+
+    /** The 27 main inventory slots (inventory slots 9 to 35), with counts. */
+    private void drawInventory(GuiGraphics context, dev.crystal.client.module.hud.InventoryHUD module) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null) return;
+        float scale = module.getScale();
+        context.pose().pushMatrix();
+        context.pose().translate(module.getX(), module.getY());
+        context.pose().scale(scale, scale);
+        if (module.hasPanel()) GuiRender.roundedRect(context, -2, -2, INV_W + 2, INV_H + 2, 3, 0x9E0C0C0D);
+        var inventory = mc.player.getInventory();
+        for (int i = 0; i < 27; i++) {
+            ItemStack stack = inventory.getItem(9 + i);
+            int sx = (i % 9) * 18 + 1, sy = (i / 9) * 18 + 1;
+            context.fill(sx, sy, sx + 16, sy + 16, 0x22FFFFFF);
+            if (stack.isEmpty()) continue;
+            context.renderItem(stack, sx, sy);
+            if (stack.getCount() > 1) {
+                String count = String.valueOf(stack.getCount());
+                // Drawn on top of the item, bottom right like the vanilla slot number.
+                context.drawString(mc.font, count, sx + 17 - mc.font.width(count), sy + 9, 0xFFFFFFFF, true);
+            }
+        }
+        context.pose().popMatrix();
+    }
 
     /** Unscaled {width, height} of the frame graph: the text line, then the bars. */
     private int[] frameGraphSize(FrameGraph graph) {
