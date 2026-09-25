@@ -25,6 +25,11 @@ public final class SafeFiles {
             Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
         } catch (AtomicMoveNotSupportedException e) {
             Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            // Windows refuses the move now and then (a virus scanner holding the
+            // file); writing in place as before still beats not saving at all.
+            Files.deleteIfExists(temp);
+            Files.writeString(target, text, StandardCharsets.UTF_8);
         }
     }
 
