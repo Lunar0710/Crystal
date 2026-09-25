@@ -30,6 +30,7 @@ public class TotemPops extends Module {
 
     private boolean inNametag = true;
     private boolean inChat = true;
+    private boolean selfAlert = true;
 
     public TotemPops() {
         super("TotemPops", "Counts how many totems each player has popped since they last died", ModuleCategory.PLAYER);
@@ -47,6 +48,17 @@ public class TotemPops extends Module {
         UUID uuid = player.getUUID();
         if (id == 35) {
             int pops = POPS.merge(uuid, 1, Integer::sum);
+            // Your own totem: how many are left is the number that matters now.
+            Minecraft mc = Minecraft.getInstance();
+            if (module != null && module.selfAlert && player == mc.player) {
+                int left = 0;
+                var inventory = mc.player.getInventory();
+                for (int i = 0; i < inventory.getContainerSize(); i++) {
+                    var stack = inventory.getItem(i);
+                    if (stack.is(net.minecraft.world.item.Items.TOTEM_OF_UNDYING)) left += stack.getCount();
+                }
+                mc.player.displayClientMessage(Component.literal("Totem! Noch " + left + " übrig").withStyle(left <= 1 ? ChatFormatting.RED : ChatFormatting.GOLD, ChatFormatting.BOLD), true);
+            }
             if (module != null && module.inChat) module.say(player.getName().getString() + " hat "
                     + (pops == 1 ? "ein Totem" : pops + " Totems") + " verloren", ChatFormatting.GOLD);
         } else {
@@ -81,6 +93,7 @@ public class TotemPops extends Module {
     public List<Setting<?>> getSettings() {
         return List.of(
                 new BooleanSetting("Im Namensschild", () -> inNametag, v -> inNametag = v, true),
-                new BooleanSetting("Im Chat melden", () -> inChat, v -> inChat = v, true));
+                new BooleanSetting("Im Chat melden", () -> inChat, v -> inChat = v, true),
+                new BooleanSetting("Eigene Totems warnen", () -> selfAlert, v -> selfAlert = v, true));
     }
 }

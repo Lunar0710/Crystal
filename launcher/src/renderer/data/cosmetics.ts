@@ -165,6 +165,10 @@ const PETS: CosmeticDef[] = [
   { id: 'pt-ghost',    name: 'Geist',          slot: 'pet', color: '#e4e4e7', secondary: '#e4e4e7', variant: 'ghost', requiredRank: 'crystal_plus' },
   { id: 'pt-drone',    name: 'Drohne',         slot: 'pet', color: '#52525b', secondary: '#d4d4d8', variant: 'drone', requiredRank: 'crystal_plus' },
   { id: 'pt-bee',      name: 'Biene',          slot: 'pet', color: '#facc15', secondary: '#f5f5f5', variant: 'bee', requiredRank: 'crystal_plus' },
+  { id: 'pt-dragon',   name: 'Drache',         slot: 'pet', color: '#1f2937', secondary: '#7c3aed', variant: 'dragon', requiredRank: 'crystal_plus' },
+  { id: 'pt-axolotl',  name: 'Axolotl',        slot: 'pet', color: '#f9a8d4', secondary: '#db2777', variant: 'axolotl', requiredRank: 'crystal_plus' },
+  { id: 'pt-penguin',  name: 'Pinguin',        slot: 'pet', color: '#18181b', secondary: '#f4f4f5', variant: 'penguin', requiredRank: 'crystal_plus' },
+  { id: 'pt-robot',    name: 'Roboter',        slot: 'pet', color: '#a1a1aa', secondary: '#52525b', variant: 'robot', requiredRank: 'crystal_plus' },
 ]
 
 export type NonCapeSlot = Exclude<CosmeticSlot, 'cape'>
