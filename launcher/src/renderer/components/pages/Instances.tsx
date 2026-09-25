@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import {
-  Plus, Trash2, ChevronLeft, Search, Download, FolderInput, Boxes,
-  Upload, FolderOpen, Check, X, ChevronDown,
+  Plus, Trash2, Copy, ChevronLeft, Search, Download, FolderInput, Boxes,
+  Upload, FolderOpen, Check, X, ChevronDown, Share2,
 } from 'lucide-react'
 import { notify } from '../../store/notificationStore'
 import { ClientInstallPanel } from '../ui/ClientInstallPanel'
 import { ModProfileBar } from '../ui/ModProfileBar'
+import { WorldBackupsPanel } from '../ui/WorldBackupsPanel'
+import { ModUpdatesPanel } from '../ui/ModUpdatesPanel'
 import { Page, PageHeader, EmptyState, Switch } from '../ui/Page'
 
 type ContentType = 'mod' | 'resourcepack' | 'shader'
@@ -96,6 +98,23 @@ export function Instances() {
   async function setMode(inst: Instance, useCrystalClient: boolean) {
     await api?.updateInstance(inst.id, { useCrystalClient })
     refresh()
+  }
+
+  async function duplicateInstance(inst: Instance) {
+    const withWorlds = window.confirm(`„${inst.name}“ kopieren. Welten auch mitkopieren? (OK = mit Welten, Abbrechen = ohne)`)
+    let copy = null
+    try { copy = await api?.duplicateInstance(inst.id, withWorlds) } catch { /* reported below */ }
+    refresh()
+    notify(copy
+      ? { type: 'success', title: 'Instanz kopiert', message: `„${copy.name}“ ist fertig.` }
+      : { type: 'error', title: 'Instanz kopieren', message: 'Das Kopieren ging nicht. Läuft die Instanz gerade, oder ist die Festplatte voll?' })
+  }
+
+  // Packs the instance as a .mrpack to send to a friend.
+  async function exportInstance(inst: Instance) {
+    let r: { ok: boolean; message: string } | undefined
+    try { r = await api?.exportModpack(inst.id) } catch { r = { ok: false, message: 'Der Export ist fehlgeschlagen.' } }
+    if (r?.message) notify({ type: r.ok ? 'success' : 'error', title: 'Instanz teilen', message: r.message })
   }
 
   async function removeInstance(inst: Instance) {
@@ -199,6 +218,24 @@ export function Instances() {
                 </button>
 
                 <ModeToggle value={inst.useCrystalClient} onChange={v => setMode(inst, v)} />
+
+                <button
+                  onClick={() => duplicateInstance(inst)}
+                  aria-label={`${inst.name} kopieren`}
+                  title="Kopie anlegen, zum Beispiel zum Ausprobieren neuer Mods"
+                  className="p-1.5 rounded-md text-crystal-muted opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-crystal-text hover:bg-crystal-border/50 transition"
+                >
+                  <Copy size={14} strokeWidth={1.75} />
+                </button>
+
+                <button
+                  onClick={() => exportInstance(inst)}
+                  aria-label={`${inst.name} als .mrpack teilen`}
+                  title="Als .mrpack speichern, damit ein Freund genau dieses Setup importieren kann"
+                  className="p-1.5 rounded-md text-crystal-muted opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-crystal-text hover:bg-crystal-border/50 transition"
+                >
+                  <Share2 size={14} strokeWidth={1.75} />
+                </button>
 
                 <button
                   onClick={() => setConfirmDelete(inst.id)}
@@ -650,6 +687,10 @@ function InstanceDetail({ instance, onBack }: { instance: Instance; onBack: () =
       <ClientInstallPanel instanceId={instance.id} />
 
       <PerformancePanel instanceId={instance.id} onInstalled={refreshFiles} />
+
+      <ModUpdatesPanel instanceId={instance.id} onUpdated={refreshFiles} />
+
+      <WorldBackupsPanel instanceId={instance.id} />
 
       <div className="flex items-end justify-between gap-4 border-b border-crystal-border mb-4 mt-2">
         <div className="flex gap-5" role="tablist">

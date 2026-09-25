@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Check, Upload, Trash2, X, Lock } from 'lucide-react'
 import { Page, PageHeader, EmptyState } from '../ui/Page'
+import { OutfitsPanel } from '../ui/OutfitsPanel'
 import { notify } from '../../store/notificationStore'
 import { BUILTIN_CAPES, CAPE_CATEGORIES, CapeCategory, capeTextureUrl, capePreviewUrl, isCapeTexture, pictureToCapeTexture, canUseCape, capeFrameUrls, capeAnimationStrip } from '../../data/capes'
 import { ANIMATION_FRAMES, ANIMATION_FPS } from '../../data/animatedCapes'
@@ -254,6 +255,8 @@ export function Cosmetics() {
               </div>
             </div>
           </div>
+
+          <OutfitsPanel loadout={loadout} rank={rank} onApply={next => { setLoadout(next); api?.setLoadout(next) }} />
 
           <div className="crystal-card divide-y divide-crystal-border">
             {SLOTS.map(s => {

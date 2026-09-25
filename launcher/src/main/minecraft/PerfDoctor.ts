@@ -6,7 +6,7 @@ import { JarReader } from '../util/jarReader'
 import { crystalPath, isPlainFileName } from '../paths'
 import { logger } from '../logs/Logger'
 
-export type PerfFixKind = 'disable-mod' | 'disable-module' | 'install-perf-pack' | 'set-ram' | 'set-option'
+export type PerfFixKind = 'disable-mod' | 'disable-module' | 'enable-module' | 'install-perf-pack' | 'set-ram' | 'set-option'
 
 export interface PerfFix {
   kind: PerfFixKind
@@ -155,6 +155,17 @@ export class PerfDoctor {
       })
     }
 
+    // Farms and PvP arenas are full of dropped items and orbs; RenderLimits stops drawing the far ones.
+    if (config?.json?.modules && !enabled('RenderLimits')) {
+      findings.push({
+        id: 'render-limits',
+        level: 'info',
+        title: 'Render-Grenzen sind aus',
+        detail: 'RenderLimits zeichnet Items, Erfahrung, Rahmen und Schilder in großer Entfernung nicht mehr. Auf Farmen und in PvP-Arenen spart das spürbar FPS, Spieler und Mobs bleiben immer sichtbar.',
+        fix: { kind: 'enable-module', label: 'RenderLimits einschalten', module: 'RenderLimits' },
+      })
+    }
+
     for (const [name, { ms, note }] of Object.entries(COSTLY_MODULES)) {
       if (!enabled(name)) continue
       findings.push({
@@ -260,5 +271,16 @@ export class PerfDoctor {
     fs.writeFileSync(config.path, JSON.stringify(config.json, null, 2))
     logger.info('client', `FPS-Doktor: Modul ${module} ausgeschaltet`)
     return { ok: true, message: `${module} ist aus. Im Spiel kannst du es im Modmenü wieder einschalten.` }
+  }
+
+  /** Switches on one of the modules the doctor recommends (only those), creating its entry if needed. */
+  enableModule(instanceId: string, module: string | undefined): { ok: boolean; message: string } {
+    if (module !== 'RenderLimits') return { ok: false, message: 'Modul nicht gefunden.' }
+    const config = this.nexoraConfig(instanceId)
+    if (!config?.json?.modules) return { ok: false, message: 'Starte die Instanz einmal mit Nexora, dann geht das.' }
+    config.json.modules[module] = { ...(config.json.modules[module] ?? {}), enabled: true }
+    fs.writeFileSync(config.path, JSON.stringify(config.json, null, 2))
+    logger.info('client', `FPS-Doktor: Modul ${module} eingeschaltet`)
+    return { ok: true, message: `${module} ist an. Die Entfernungen stellst du im Modmenü ein.` }
   }
 }

@@ -11,12 +11,14 @@ import { Cosmetics } from './components/pages/Cosmetics'
 import { Logs } from './components/pages/Logs'
 import { Screenshots } from './components/pages/Screenshots'
 import { Stats } from './components/pages/Stats'
+import { Fights } from './components/pages/Fights'
 import { Servers } from './components/pages/Servers'
 import { Friends } from './components/pages/Friends'
 import { News } from './components/pages/News'
 import { Settings } from './components/pages/Settings'
 import { NotificationContainer } from './components/ui/Notifications'
 import { UpdateBanner } from './components/ui/UpdateBanner'
+import { WhatsNew } from './components/ui/WhatsNew'
 
 export default function App() {
   const navigate = useNavigate()
@@ -56,6 +58,7 @@ export default function App() {
             <Route path="/logs" element={<Logs />} />
             <Route path="/screenshots" element={<Screenshots />} />
             <Route path="/stats" element={<Stats />} />
+            <Route path="/fights" element={<Fights />} />
             <Route path="/friends" element={<Friends />} />
             <Route path="/news" element={<News />} />
             <Route path="/settings" element={<Settings />} />
@@ -64,6 +67,7 @@ export default function App() {
       </div>
       <NotificationContainer />
       <UpdateBanner />
+      <WhatsNew />
     </div>
   )
 }

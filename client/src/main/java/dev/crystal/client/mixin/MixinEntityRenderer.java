@@ -28,7 +28,14 @@ public class MixinEntityRenderer {
                               CallbackInfoReturnable<Boolean> cir) {
         if (!cir.getReturnValueZ()) return;
         CrystalClient client = CrystalClient.getInstance();
-        SmartCulling culling = client == null ? null : client.getModuleManager().get(SmartCulling.class);
+        if (client == null) return;
+        // RenderLimits: items, orbs and decorations beyond their distance.
+        dev.crystal.client.module.render.RenderLimits limits = client.getModuleManager().getEnabled(dev.crystal.client.module.render.RenderLimits.class);
+        if (limits != null && limits.hides(entity, entity.distanceToSqr(camX, camY, camZ))) {
+            cir.setReturnValue(false);
+            return;
+        }
+        SmartCulling culling = client.getModuleManager().get(SmartCulling.class);
         if (culling == null || !culling.cullsEntities()) return;
         // Never the player's own entity, what they ride, or glowing (outlined) entities.
         Minecraft mc = Minecraft.getInstance();
@@ -45,6 +52,7 @@ public class MixinEntityRenderer {
 
         NameTags tags = client.getModuleManager().getEnabled(NameTags.class);
         if (tags != null) state.nameTag = tags.decorate(state.nameTag, player);
+        state.nameTag = dev.crystal.client.module.player.TotemPops.decorate(state.nameTag, player);
         TeamView team = client.getModuleManager().getEnabled(TeamView.class);
         if (team != null) state.nameTag = team.decorate(state.nameTag, player);
         CrystalLogo logo = client.getModuleManager().getEnabled(CrystalLogo.class);

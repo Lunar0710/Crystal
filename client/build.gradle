@@ -10,7 +10,8 @@ apply from: rootProject.file('replacements.gradle')
 def mc = stonecutter.current.version
 def javaVersion = (project.property('java_version') as String).toInteger()
 
-// crystal-client-<mod>+<mc>.jar: the launcher picks the jar by the part after "+".
+// nexora-<mod>+<mc>.jar: the launcher picks the jar by the part after "+". The same
+// jar works on its own in any Fabric launcher (with Fabric API), so releases attach it.
 version = "${rootProject.property('mod_version')}+${mc}"
 group = rootProject.property('maven_group')
 base { archivesName = rootProject.property('archives_base_name') }

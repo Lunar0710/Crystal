@@ -82,6 +82,11 @@ function pet(variant: string | undefined, c: string, a: string, b: B): ShapeBox[
     case 'slime': return [
       b(0, 0, 0, 4, 4, 4), b(-1.4, 1.4, 0, 0.8, 0.8, 4.1, a), ...eyes(0.5, 2.05, 0.9), b(0.4, -0.7, 2.05, 0.6, 0.4, 0.1, EYE),
     ]
+    case 'pumpkin': return [
+      b(0, 0, 0, 3.6, 3, 3.6), b(-0.9, 0, 0, 0.4, 3.1, 3.7, a), b(0.9, 0, 0, 0.4, 3.1, 3.7, a),
+      b(-0.8, 0.4, 1.85, 0.6, 0.6, 0.1, '#fbbf24', { glow: true }), b(0.8, 0.4, 1.85, 0.6, 0.6, 0.1, '#fbbf24', { glow: true }),
+      b(0, -0.6, 1.85, 1.8, 0.4, 0.1, '#fbbf24', { glow: true }), b(0, 1.9, 0, 0.5, 0.9, 0.5, '#4d7c0f'),
+    ]
     case 'ghost': return [
       b(0, 0.4, 0, 3.4, 3.6, 3, c, { glow: true }),
       b(-1.15, -1.8, 0, 1.1, 0.8, 3, c, { glow: true }), b(0.9, -1.7, 0, 1.3, 0.6, 3, c, { glow: true }),
@@ -96,6 +101,33 @@ function pet(variant: string | undefined, c: string, a: string, b: B): ShapeBox[
       b(0, 0, -1.2, 2.4, 2.4, 1, c), b(0, 0, -0.2, 2.4, 2.4, 1, EYE), b(0, 0, 0.8, 2.4, 2.4, 1, c),
       b(0, 0, 1.9, 2, 2, 1.2, EYE), b(0, 0, -2, 0.4, 0.4, 0.6, EYE),
       b(-1.4, 1.6, 0, 1.6, 0.2, 2, a, { rz: 0.4 }), b(1.4, 1.6, 0, 1.6, 0.2, 2, a, { rz: -0.4 }),
+    ]
+    // Small dragon: body, neck, head with horns, wings raised.
+    case 'dragon': return [
+      b(0, -0.6, -0.6, 2.4, 2, 3.6), b(0, 0.6, 1.4, 1.4, 1.6, 1.2), b(0, 1.4, 2.4, 2, 1.6, 2),
+      b(-0.6, 2.5, 2, 0.4, 1, 0.4, a), b(0.6, 2.5, 2, 0.4, 1, 0.4, a), ...eyes(1.6, 3.45, 0.5),
+      b(-2.2, 1, -0.6, 3, 0.2, 2.2, a, { rz: 0.5 }), b(2.2, 1, -0.6, 3, 0.2, 2.2, a, { rz: -0.5 }),
+      b(0, -0.8, -3, 0.8, 0.8, 1.6), b(0, -0.5, -4.2, 0.5, 0.5, 1, a),
+    ]
+    // Axolotl: flat body, wide head, the frilly gills on both sides.
+    case 'axolotl': return [
+      b(0, -0.8, -0.8, 2.2, 1.4, 3.8), b(0, -0.5, 1.8, 2.8, 1.8, 1.8),
+      b(-1.7, 0, 1.8, 0.6, 1.6, 0.4, a), b(1.7, 0, 1.8, 0.6, 1.6, 0.4, a),
+      b(-1.6, 0.9, 1.8, 0.4, 0.6, 0.4, a), b(1.6, 0.9, 1.8, 0.4, 0.6, 0.4, a),
+      ...eyes(-0.2, 2.75, 0.8), b(0, -0.8, -3.4, 0.4, 1.4, 1.6, a),
+    ]
+    // Penguin: dark back, light front, orange beak and feet.
+    case 'penguin': return [
+      b(0, -0.4, 0, 2.6, 3.6, 2.2), b(0, -0.6, 1.15, 1.8, 2.8, 0.2, a),
+      ...eyes(0.9, 1.15, 0.5), b(0, 0.5, 1.4, 0.6, 0.4, 0.6, '#f59e0b'),
+      b(-0.6, -2.3, 0.4, 0.8, 0.3, 1, '#f59e0b'), b(0.6, -2.3, 0.4, 0.8, 0.3, 1, '#f59e0b'),
+      b(-1.45, -0.4, 0, 0.3, 2.2, 1.2), b(1.45, -0.4, 0, 0.3, 2.2, 1.2),
+    ]
+    // Robot: boxy head with a glowing visor and an antenna.
+    case 'robot': return [
+      b(0, -0.2, 0, 3, 3, 3), b(0, 0.3, 1.55, 2.2, 0.8, 0.1, '#38bdf8', { glow: true }),
+      b(0, 1.8, 0, 0.3, 1, 0.3, a), b(0, 2.5, 0, 0.7, 0.7, 0.7, '#ef4444', { glow: true }),
+      b(-1.8, -0.2, 0, 0.6, 1.2, 1.2, a), b(1.8, -0.2, 0, 0.6, 1.2, 1.2, a),
     ]
     // Cat, and the default.
     default: return [
@@ -141,6 +173,13 @@ function hat(variant: string | undefined, c: string, a: string, b: B): ShapeBox[
       boxes.push(b(0, T + 1, FACE + 0.5, 1.4, 1.4, 0.6, a, { glow: true }))
       return boxes
     }
+    // Carved pumpkin over the whole head: ribbed shell, candlelit face, stem.
+    case 'pumpkin': return [
+      b(0, 0, 0, 9.4, 9, 9.4), b(-2.4, 0, 0, 0.6, 9.2, 9.6, a), b(2.4, 0, 0, 0.6, 9.2, 9.6, a),
+      b(-2, 1.2, FACE + 0.75, 1.8, 1.6, 0.2, '#fbbf24', { glow: true }), b(2, 1.2, FACE + 0.75, 1.8, 1.6, 0.2, '#fbbf24', { glow: true }),
+      b(0, -1.8, FACE + 0.75, 5, 1.2, 0.2, '#fbbf24', { glow: true }), b(0, -1.2, FACE + 0.8, 1, 0.6, 0.2, c),
+      b(0.3, T + 1.4, 0, 1.2, 2, 1.2, '#4d7c0f', { rz: 0.2 }), b(1.6, T + 0.8, 0.4, 2, 0.4, 1, '#65a30d', { rz: -0.3 }),
+    ]
     // Santa hat: fur band, cone bending to one side, bobble at the tip.
     case 'santa': return [
       b(0, T + 0.8, 0, 9, 1.6, 9, a), b(0, T + 2.8, 0, 7.4, 2.6, 7.4), b(0.8, T + 4.8, -0.6, 5.2, 2, 5.2),

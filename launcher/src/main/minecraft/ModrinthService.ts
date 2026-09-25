@@ -5,6 +5,7 @@ import { createHash } from 'crypto'
 import { InstanceManager, Instance } from './InstanceManager'
 import { JarReader } from '../util/jarReader'
 import { logger } from '../logs/Logger'
+import { ZipWriter } from '../util/zipWriter'
 import { crystalPath, isPlainFileName, resolveInside } from '../paths'
 
 // Electron 31 ships a Node runtime with a native global fetch (Node 18+),
@@ -58,7 +59,9 @@ export interface ModpackInstallResult {
 interface MrpackFile {
   path: string
   downloads: string[]
-  env?: { client?: 'required' | 'optional' | 'unsupported' }
+  env?: { client?: 'required' | 'optional' | 'unsupported'; server?: 'required' | 'optional' | 'unsupported' }
+  hashes?: { sha1: string; sha512: string }
+  fileSize?: number
 }
 
 interface MrpackIndex {
@@ -321,6 +324,43 @@ export class ModrinthService {
   }
 
   /**
+   * Mods with a newer version for this Minecraft version and loader, found
+   * with one request (Modrinth's bulk version_files/update endpoint). Files
+   * Modrinth doesn't know (hand-made or from elsewhere) are left out.
+   */
+  async checkModUpdates(instanceId: string, gameVersion: string, loader: string): Promise<{ fileName: string; versionId: string; versionNumber: string; beta: boolean }[]> {
+    const dir = path.join(this.gameDir(instanceId), TARGET_FOLDER.mod)
+    if (!fs.existsSync(dir)) return []
+    const byHash = new Map<string, string>()
+    for (const fileName of fs.readdirSync(dir)) {
+      if (!fileName.endsWith('.jar')) continue
+      const hash = this.sha1Of(path.join(dir, fileName))
+      if (hash) byHash.set(hash, fileName)
+    }
+    if (byHash.size === 0) return []
+    try {
+      const res = await (globalThis as any).fetch(`${API_BASE}/version_files/update`, {
+        method: 'POST',
+        headers: { ...HEADERS, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hashes: [...byHash.keys()], algorithm: 'sha1', loaders: [loader], game_versions: [gameVersion] }),
+      })
+      if (!res.ok) return []
+      const data = await res.json() as Record<string, { id: string; version_number: string; version_type?: string; files: { hashes: { sha1: string } }[] }>
+      const updates: { fileName: string; versionId: string; versionNumber: string; beta: boolean }[] = []
+      for (const [hash, latest] of Object.entries(data)) {
+        const fileName = byHash.get(hash)
+        // The newest version is the installed one when one of its files has the same hash.
+        if (!fileName || latest.files.some(f => f.hashes?.sha1 === hash)) continue
+        updates.push({ fileName, versionId: latest.id, versionNumber: latest.version_number, beta: !!latest.version_type && latest.version_type !== 'release' })
+      }
+      return updates
+    } catch (err) {
+      logger.warn('client', 'Mod-Update-Prüfung fehlgeschlagen', String(err))
+      return []
+    }
+  }
+
+  /**
    * Replaces an installed file with a different version of the same project.
    * The old file is only deleted once the new one is on disk, so a failed
    * download can't leave the instance with no mod at all.
@@ -434,6 +474,86 @@ export class ModrinthService {
     } finally {
       fs.rm(tempPath, { force: true }, () => {})
     }
+  }
+
+  /**
+   * Packs an instance as a .mrpack a friend can import (here or in any
+   * Modrinth-compatible launcher). Mods, resource packs and shaders Modrinth
+   * knows go in as download links; anything else, plus config/ and
+   * options.txt, is bundled as an override. Disabled files and Nexora's own
+   * jar (the launcher adds it at start) are left out. Worlds are not included.
+   */
+  async exportModpack(instanceId: string, outPath: string): Promise<{ ok: boolean; message: string }> {
+    const instance = this.instances?.get(instanceId)
+    if (!instance) return { ok: false, message: 'Instanz nicht gefunden.' }
+    const gameDir = this.gameDir(instance.id)
+    const zip = new ZipWriter()
+
+    // Every content file by sha1, looked up with one request.
+    const content: { rel: string; file: string; sha1: string }[] = []
+    for (const folder of ['mods', 'resourcepacks', 'shaderpacks']) {
+      const dir = path.join(gameDir, folder)
+      if (!fs.existsSync(dir)) continue
+      for (const name of fs.readdirSync(dir)) {
+        const file = path.join(dir, name)
+        if (name.endsWith('.disabled') || /^(?:nexora|crystal-client)-\d.*\.jar$/.test(name) || !fs.statSync(file).isFile()) continue
+        const sha1 = this.sha1Of(file)
+        if (sha1) content.push({ rel: `${folder}/${name}`, file, sha1 })
+      }
+    }
+    let known: Record<string, { files: { url: string; size: number; hashes: { sha1: string; sha512: string } }[] }> = {}
+    if (content.length > 0) {
+      try {
+        const res = await (globalThis as any).fetch(`${API_BASE}/version_files`, {
+          method: 'POST',
+          headers: { ...HEADERS, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ hashes: content.map(c => c.sha1), algorithm: 'sha1' }),
+        })
+        if (res.ok) known = await res.json() as typeof known
+      } catch (err) {
+        logger.warn('client', 'Modrinth-Abfrage für den Export fehlgeschlagen, alles wird mitgepackt', String(err))
+      }
+    }
+
+    const files: MrpackFile[] = []
+    let bundled = 0
+    for (const c of content) {
+      const match = known[c.sha1]?.files.find(f => f.hashes?.sha1 === c.sha1)
+      if (match) {
+        files.push({ path: c.rel, hashes: { sha1: c.sha1, sha512: match.hashes.sha512 }, env: { client: 'required', server: 'optional' }, downloads: [match.url], fileSize: match.size })
+      } else {
+        zip.add(`overrides/${c.rel}`, fs.readFileSync(c.file))
+        bundled++
+      }
+    }
+
+    // Settings: the config folder and the game options.
+    const addTree = (dir: string, rel: string) => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name)
+        if (entry.isDirectory()) addTree(full, `${rel}/${entry.name}`)
+        else if (entry.isFile()) zip.add(`overrides/${rel}/${entry.name}`, fs.readFileSync(full))
+      }
+    }
+    if (fs.existsSync(path.join(gameDir, 'config'))) addTree(path.join(gameDir, 'config'), 'config')
+    if (fs.existsSync(path.join(gameDir, 'options.txt'))) zip.add('overrides/options.txt', fs.readFileSync(path.join(gameDir, 'options.txt')))
+
+    const dependencies: Record<string, string> = { minecraft: instance.version }
+    if (instance.loader === 'fabric') {
+      try {
+        const res = await fetch(`https://meta.fabricmc.net/v2/versions/loader/${encodeURIComponent(instance.version)}`)
+        const loaders = res.ok ? await res.json() as { loader: { version: string } }[] : []
+        if (!loaders[0]) return { ok: false, message: 'Die Fabric-Version konnte nicht ermittelt werden. Bist du online?' }
+        dependencies['fabric-loader'] = loaders[0].loader.version
+      } catch {
+        return { ok: false, message: 'Die Fabric-Version konnte nicht ermittelt werden. Bist du online?' }
+      }
+    }
+    const index = { formatVersion: 1, game: 'minecraft', versionId: '1.0.0', name: instance.name, summary: 'Exportiert aus Nexora', files, dependencies }
+    zip.add('modrinth.index.json', Buffer.from(JSON.stringify(index, null, 2)))
+    zip.writeTo(outPath)
+    logger.info('client', `Instanz "${instance.name}" exportiert: ${files.length} von Modrinth, ${bundled} mitgepackt`)
+    return { ok: true, message: `Gespeichert: ${path.basename(outPath)} (${files.length} Dateien von Modrinth, ${bundled} mitgepackt)` }
   }
 
   /** Same install as {@link installModpack}, but from a .mrpack file already on disk — used by the "Datei importieren" picker. */

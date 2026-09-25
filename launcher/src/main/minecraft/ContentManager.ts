@@ -29,7 +29,8 @@ const EXTENSIONS: Record<ContentType, string[]> = {
 const DISABLED_SUFFIX = '.disabled'
 const PROFILES_FILE = 'crystal-mod-profiles.json'
 /** The launcher adds and removes the Nexora jar itself; profiles leave it alone. */
-const MANAGED_MOD = /^crystal-client-/
+// Nexora's own jar; "crystal-client-" is its name before 1.6, still found in older instances.
+const MANAGED_MOD = /^(?:nexora|crystal-client)-\d/
 
 export interface ModProfiles {
   active: string | null

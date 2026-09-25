@@ -23,6 +23,7 @@ const THEME_COLORS: Record<string, Record<string, [number, number, number]>> = {
   'void':             { bg: [3,3,6], panel: [8,8,14], card: [13,13,22], border: [24,24,38], accent: [255,255,255], accent2: [180,180,210], text: [240,240,250], muted: [120,120,140] },
   'aurora':           { bg: [5,12,16], panel: [9,20,26], card: [13,28,36], border: [24,48,58], accent: [52,211,153], accent2: [129,140,248], text: [226,245,242], muted: [112,141,145] },
   'sakura':           { bg: [18,8,18], panel: [27,12,27], card: [36,17,36], border: [61,29,58], accent: [244,114,182], accent2: [126,34,206], text: [250,232,244], muted: [158,116,148] },
+  'halloween':        { bg: [14,9,16], panel: [22,14,25], card: [31,19,34], border: [58,34,58], accent: [249,115,22], accent2: [126,34,206], text: [252,238,226], muted: [156,124,140] },
   'terminal':         { bg: [2,8,5], panel: [4,14,9], card: [6,20,13], border: [14,44,28], accent: [34,197,94], accent2: [22,163,74], text: [209,250,229], muted: [82,130,102] },
   'sandstorm':        { bg: [18,12,6], panel: [28,19,10], card: [37,25,13], border: [66,45,22], accent: [217,119,6], accent2: [245,158,11], text: [250,240,224], muted: [160,130,92] },
   'nebula':           { bg: [8,5,18], panel: [14,9,30], card: [20,13,42], border: [40,26,76], accent: [192,132,252], accent2: [34,211,238], text: [237,231,252], muted: [132,116,168] },

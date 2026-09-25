@@ -67,6 +67,18 @@ public class ModuleManager {
         register(new Crosshair());
         register(new FogCustomizer());
         register(new dev.crystal.client.module.render.SkyColor());
+        register(new dev.crystal.client.module.render.RenderLimits());
+        register(new dev.crystal.client.module.render.HitMarker());
+        register(new dev.crystal.client.module.hud.PotCounter());
+        register(new dev.crystal.client.module.hud.FightSummary());
+        register(new dev.crystal.client.module.player.TotemPops());
+        register(new dev.crystal.client.module.render.LowFire());
+        register(new dev.crystal.client.module.render.KillEffect());
+        register(new dev.crystal.client.module.hud.InventoryHUD());
+        register(new dev.crystal.client.module.hud.TPSDisplay());
+        register(new dev.crystal.client.module.hud.SessionStats());
+        register(new dev.crystal.client.module.hud.OpponentArmor());
+        register(new dev.crystal.client.module.hud.KillCam());
         register(new PerformanceMode());
         register(new BackgroundFps());
         register(new CapeFlutter());

@@ -100,6 +100,15 @@ function writeTestSettings(gameDir) {
       // 1.5: the frame graph, so its bars show in the HUD screenshot.
       FrameGraph: { enabled: true },
       SkyColor: { enabled: true, settings: { 'Farbe von': 'Mint' } },
+      // 1.6: runs its distance checks on every entity and block entity drawn.
+      RenderLimits: { enabled: true },
+      PotCounter: { enabled: true },
+      FightSummary: { enabled: true },
+      HitMarker: { enabled: true },
+      TotemPops: { enabled: true },
+      LowFire: { enabled: true },
+      KillEffect: { enabled: true },
+      InventoryHUD: { enabled: true, settings: { X: 300, Y: 4 } },
       ItemPhysics: { enabled: true },
       ParticleChanger: { enabled: true },
       BetterSounds: { enabled: true },
@@ -238,6 +247,8 @@ function stripedCapePng() {
   log('launching')
   const ok = await manager.launch({
     version: VERSION, instanceId: 'smoke-world', gameDir, username: profile.username, profile, maxRam: Number(process.env.CRYSTAL_SMOKE_RAM || 3072),
+    // CRYSTAL_SMOKE_ZGC=1 plays with the launcher's "fewer stutters" collector.
+    lowStutterGc: process.env.CRYSTAL_SMOKE_ZGC === '1',
     loader: 'fabric', injectCrystal: true,
     // CRYSTAL_SMOKE_JVM adds flags for special runs, e.g. -Dcrystal.smoke.bench=1.
     extraJvmArgs: [`-Dcrystal.smoke.screenshot=${shotName}`, ...peers.jvmArgs, ...(process.env.CRYSTAL_SMOKE_JVM || '').split(' ').filter(Boolean)],

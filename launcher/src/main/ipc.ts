@@ -27,8 +27,10 @@ import { CrashDoctor } from './minecraft/CrashDoctor'
 import { ScreenshotService } from './screenshots/ScreenshotService'
 import { ServerListService, isValidServerAddress } from './servers/ServerListService'
 import { StatsService } from './stats/StatsService'
-import { RunningGames } from './minecraft/RunningGames'
+import { RunningGames, gameMarkers } from './minecraft/RunningGames'
 import { PerfDoctor, type PerfFix } from './minecraft/PerfDoctor'
+import { FightService } from './stats/FightService'
+import { WorldBackups } from './minecraft/WorldBackups'
 import { crystalPath, crystalRoot, defaultCrystalRoot, setCrystalRoot, canUseAsRoot } from './paths'
 
 export function registerIpcHandlers(store: Store) {
@@ -353,8 +355,48 @@ export function registerIpcHandlers(store: Store) {
   })
   /** Instances between the Play click and a running game; a second click must not start them again. */
   const starting = new Set<string>()
+  // Games that outlived an earlier launcher (they start detached) come back into the list.
+  running.adoptRunning(id => {
+    const instance = instances.get(id)
+    return instance ? { name: instance.name, version: instance.version } : null
+  }).catch(() => {})
   ipcMain.handle('games:list', () => running.list())
   ipcMain.handle('games:close', (_e, instanceId: string) => running.close(String(instanceId)))
+
+  // World backups per instance. Not while the instance runs: a copy taken
+  // while the game writes its region files can be half old, half new.
+  const worlds = new WorldBackups(id => instances.get(id)?.gameDir ?? null)
+  const busy = { ok: false, message: 'Schließ die Instanz erst, sie läuft gerade.' }
+  ipcMain.handle('worlds:list', (_e, id: string) => worlds.list(String(id)))
+  ipcMain.handle('worlds:backup', (_e, id: string, world: string) =>
+    running.isInstanceRunning(String(id)) ? busy : worlds.backup(String(id), String(world)))
+  ipcMain.handle('worlds:restore', (_e, id: string, world: string, stamp: string) =>
+    running.isInstanceRunning(String(id)) ? busy : worlds.restore(String(id), String(world), String(stamp)))
+
+  // Fight replay: the rounds the client recorded, and one with all its frames.
+  const fights = new FightService(() => instances.list())
+  ipcMain.handle('fights:list', () => fights.list())
+  ipcMain.handle('fights:read', (_e, instanceId: string, file: string) => fights.read(String(instanceId), String(file)))
+  // A picture of the replay card, for sharing. The rect comes in page pixels;
+  // the page is zoomed (UI_ZOOM), so it is scaled to window pixels first.
+  ipcMain.handle('fights:saveImage', async (e, rect: { x: number; y: number; width: number; height: number }, name: string) => {
+    const win = BrowserWindow.fromWebContents(e.sender)
+    if (!win || !rect) return { ok: false, message: 'Kein Fenster.' }
+    const zoom = e.sender.getZoomFactor()
+    const r = {
+      x: Math.max(0, Math.round(Number(rect.x) * zoom)), y: Math.max(0, Math.round(Number(rect.y) * zoom)),
+      width: Math.max(1, Math.round(Number(rect.width) * zoom)), height: Math.max(1, Math.round(Number(rect.height) * zoom)),
+    }
+    const image = await e.sender.capturePage(r)
+    const safe = String(name || 'Kampf').replace(/[<>:"/\\|?*\x00-\x1f]/g, '').slice(0, 60) || 'Kampf'
+    const { canceled, filePath } = await dialog.showSaveDialog(win, {
+      defaultPath: path.join(app.getPath('pictures'), `${safe}.png`),
+      filters: [{ name: 'PNG', extensions: ['png'] }],
+    })
+    if (canceled || !filePath) return { ok: false, message: '' }
+    fs.writeFileSync(filePath, image.toPNG())
+    return { ok: true, message: `Gespeichert: ${path.basename(filePath)}` }
+  })
 
   // FPS-Doktor: what in an instance costs frames, and one-click fixes for it.
   const perfDoctor = new PerfDoctor(instances)
@@ -371,6 +413,7 @@ export function registerIpcHandlers(store: Store) {
       case 'disable-mod': return perfDoctor.disableMod(id, fix.modFile)
       case 'disable-module': return perfDoctor.disableModule(id, fix.module)
       case 'set-option': return perfDoctor.setOption(id, fix.option, fix.value)
+      case 'enable-module': return perfDoctor.enableModule(id, fix.module)
       case 'set-ram': {
         const ram = Math.round(Number(fix.ram))
         if (!Number.isFinite(ram) || ram < 1024 || ram > 65536) return { ok: false, message: 'Ungültiger Wert.' }
@@ -425,6 +468,20 @@ export function registerIpcHandlers(store: Store) {
       return false
     }
     if (launchId) starting.add(launchId)
+    // The player's switch: worlds played since their last backup are copied before the start.
+    if (launchId && store.get('autoWorldBackup') === true) {
+      win?.webContents.send('launch:progress', { step: 'Welten werden gesichert...', percent: 1 })
+      try {
+        const saved = await worlds.autoBackup(launchId)
+        if (saved > 0) logger.info('launcher', `Vor dem Start ${saved} Welt(en) gesichert`)
+      } catch (err) {
+        logger.warn('launcher', 'Automatisches Welt-Backup fehlgeschlagen', String(err))
+      }
+    }
+    // Marks that let a later launcher recognise this game (RunningGames.adoptRunning).
+    if (launchId && profile) {
+      opts.extraJvmArgs = [...(opts.extraJvmArgs ?? []), ...gameMarkers(launchId, profile.uuid, profile.username, Number(opts.maxRam) || 0)]
+    }
 
     // A launch never waits on this — an update becomes a dismissible banner
     // (see UpdateBanner.tsx), never a blocker standing between the user and Play.
@@ -526,6 +583,9 @@ export function registerIpcHandlers(store: Store) {
   ipcMain.handle('instances:update', (_e, id: string, patch) => instances.update(id, patch))
   ipcMain.handle('instances:import', (_e, version: string) => instances.importFromDisk(version))
   ipcMain.handle('instances:delete', (_e, id: string) => instances.delete(id))
+  // Not while it runs: worlds copied mid-save could be half old, half new.
+  ipcMain.handle('instances:duplicate', (_e, id: string, withWorlds: boolean) =>
+    running.isInstanceRunning(String(id)) ? null : instances.duplicate(String(id), withWorlds === true))
   // A desktop icon that starts the instance straight away (Windows).
   ipcMain.handle('instances:createShortcut', (_e, id: string) => {
     const instance = instances.get(String(id))
@@ -569,6 +629,24 @@ export function registerIpcHandlers(store: Store) {
   ipcMain.handle('friends:list', () => friends.list())
   ipcMain.handle('friends:add', (_e, username: string) => friends.add(username))
   ipcMain.handle('friends:remove', (_e, id: string) => friends.remove(id))
+  // Which friends are playing with Nexora right now, asked from the Nexora
+  // server; empty while no server is set or it can't be reached.
+  ipcMain.handle('friends:presence', async () => {
+    const address = crystalServerAddress(store)
+    const list = friends.list().filter(f => f.uuid)
+    if (!address || list.length === 0) return { available: !!address, online: [] }
+    const dashed = (id: string) => id.includes('-') ? id.toLowerCase()
+      : `${id.slice(0, 8)}-${id.slice(8, 12)}-${id.slice(12, 16)}-${id.slice(16, 20)}-${id.slice(20)}`.toLowerCase()
+    const byUuid = new Map(list.map(f => [dashed(f.uuid!), f.id]))
+    const url = address.replace(/^ws/, 'http').replace(/\/+$/, '') + '/presence?u=' + [...byUuid.keys()].join(',')
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(4000) })
+      const data = await res.json() as { online?: string[] }
+      return { available: true, online: (data.online ?? []).map(u => byUuid.get(u.toLowerCase())).filter(Boolean) }
+    } catch {
+      return { available: false, online: [] }
+    }
+  })
 
   // Instance content (mods / resourcepacks / shaderpacks) — read straight off disk
   ipcMain.handle('content:list', (_e, instanceId: string, type: ContentType) => content.list(instanceId, type))
@@ -598,6 +676,23 @@ export function registerIpcHandlers(store: Store) {
     modrinth.identifyFile(instanceId, type, fileName))
   ipcMain.handle('perfpack:status', (_e, instanceId: string) => modrinth.performancePackStatus(instanceId))
   ipcMain.handle('perfpack:install', (_e, instanceId: string) => modrinth.installPerformancePack(instanceId, instances.get(instanceId)?.version ?? '1.21.11'))
+  ipcMain.handle('modrinth:checkModUpdates', (_e, instanceId: string) => {
+    const instance = instances.get(String(instanceId))
+    if (!instance || instance.loader === 'vanilla') return []
+    return modrinth.checkModUpdates(instance.id, instance.version, instance.loader || 'fabric')
+  })
+  ipcMain.handle('modrinth:updateMods', async (_e, instanceId: string, updates: { fileName: string; versionId: string }[]) => {
+    const id = String(instanceId)
+    if (running.isInstanceRunning(id)) return { updated: 0, failed: [], error: 'Schließ die Instanz erst, sie läuft gerade.' }
+    let updated = 0
+    const failed: string[] = []
+    for (const u of Array.isArray(updates) ? updates.slice(0, 500) : []) {
+      const result = await modrinth.switchVersion(id, 'mod', String(u.fileName), String(u.versionId))
+      if (result.success) updated++
+      else failed.push(String(u.fileName))
+    }
+    return { updated, failed }
+  })
   ipcMain.handle('modrinth:identifyFolder', (_e, instanceId: string, type: ContentType) =>
     modrinth.identifyFolder(instanceId, type))
   ipcMain.handle('modrinth:switchVersion', (_e, instanceId: string, type: ContentType, fileName: string, versionId: string) =>
@@ -619,6 +714,25 @@ export function registerIpcHandlers(store: Store) {
     })
     if (result.canceled || result.filePaths.length === 0) return null
     return modrinth.installModpackFromFile(instanceId, result.filePaths[0])
+  })
+
+  ipcMain.handle('modrinth:exportModpack', async (e, instanceId: string) => {
+    const inst = instances.get(String(instanceId))
+    const win = BrowserWindow.fromWebContents(e.sender)
+    if (!inst || !win) return { ok: false, message: 'Instanz nicht gefunden.' }
+    const safe = inst.name.replace(/[<>:"/\\|?*\x00-\x1f]/g, '').slice(0, 60) || 'Instanz'
+    const { canceled, filePath } = await dialog.showSaveDialog(win, {
+      title: 'Instanz als .mrpack speichern',
+      defaultPath: path.join(app.getPath('downloads'), `${safe}.mrpack`),
+      filters: [{ name: 'Modrinth Modpack', extensions: ['mrpack'] }],
+    })
+    if (canceled || !filePath) return { ok: false, message: '' }
+    try {
+      return await modrinth.exportModpack(inst.id, filePath)
+    } catch (err) {
+      logger.error('client', 'Instanz-Export fehlgeschlagen', err)
+      return { ok: false, message: err instanceof Error ? err.message : 'Der Export ist fehlgeschlagen.' }
+    }
   })
 
   // External clients (Lunar/Badlion/custom jars or launchers)

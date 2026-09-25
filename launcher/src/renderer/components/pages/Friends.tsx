@@ -14,6 +14,14 @@ const api = (window as any).crystal
 
 export function Friends() {
   const [friends, setFriends] = useState<Friend[] | null>(null)
+  // Who is playing with Nexora now; asked again every 30 seconds while the page is open.
+  const [presence, setPresence] = useState<{ available: boolean; online: string[] }>({ available: false, online: [] })
+  useEffect(() => {
+    const ask = () => api?.friendsPresence?.().then((p: { available: boolean; online: string[] } | undefined) => p && setPresence(p))
+    ask()
+    const timer = setInterval(ask, 30000)
+    return () => clearInterval(timer)
+  }, [friends])
   const [search, setSearch] = useState('')
   const [adding, setAdding] = useState(false)
   const [newName, setNewName] = useState('')
@@ -55,7 +63,9 @@ export function Friends() {
     <Page>
       <PageHeader
         title="Freunde"
-        description="Deine Liste liegt nur auf diesem PC. Online-Status und Chat gibt es noch nicht."
+        description={presence.available
+          ? 'Deine Liste liegt nur auf diesem PC. Wer gerade mit Nexora spielt, siehst du am grünen Punkt.'
+          : 'Deine Liste liegt nur auf diesem PC. Den Online-Status gibt es, sobald ein Nexora-Server eingestellt ist.'}
         actions={
           <button onClick={() => { setAdding(true); setError(null) }} disabled={adding} className="crystal-btn-primary text-[13px] disabled:opacity-60">
             <UserPlus size={14} /> Hinzufügen
@@ -118,14 +128,18 @@ export function Friends() {
         <div className="crystal-card divide-y divide-crystal-border overflow-hidden">
           {filtered.map(friend => (
             <div key={friend.id} className="group flex items-center gap-3 px-4 py-2.5">
-              <span className="w-8 h-8 rounded-md bg-crystal-panel border border-crystal-border flex items-center justify-center text-xs font-semibold text-crystal-text shrink-0">
+              <span className="relative w-8 h-8 rounded-md bg-crystal-panel border border-crystal-border flex items-center justify-center text-xs font-semibold text-crystal-text shrink-0">
                 {friend.username.charAt(0).toUpperCase()}
+                {presence.online.includes(friend.id) && (
+                  <span className="absolute -right-0.5 -bottom-0.5 h-2.5 w-2.5 rounded-full bg-crystal-success ring-2 ring-crystal-card" aria-hidden="true" />
+                )}
               </span>
               <div className="flex-1 min-w-0">
                 <p className="text-[13px] text-crystal-text truncate">{friend.username}</p>
                 <p className="text-xs text-crystal-muted">
                   Seit {new Date(friend.addedAt).toLocaleDateString('de-DE', { day: 'numeric', month: 'short', year: 'numeric' })}
                   {!friend.uuid && ', nicht verifiziert'}
+                  {presence.online.includes(friend.id) && <span className="text-crystal-success">, spielt gerade mit Nexora</span>}
                 </p>
               </div>
               <button

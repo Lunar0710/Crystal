@@ -41,6 +41,9 @@ const ranks = new RankBook({
   owners: (process.env.OWNERS || '').split(',').map(s => s.trim()).filter(Boolean),
 })
 
+/** uuid -> number of authenticated connections, for the friends list's "playing now" */
+const online = new Map()
+
 /** room hash -> Set of authenticated clients in it */
 const rooms = new Map()
 
@@ -48,7 +51,9 @@ const rooms = new Map()
 function hasJoined(name, serverId) {
   if (FAKE_AUTH) {
     const id = crypto.createHash('md5').update('fake:' + name).digest('hex')
-    return Promise.resolve({ id, name })
+    // Tests: names starting with "Slow" take a moment, like Mojang can.
+    const delay = name.startsWith('Slow') ? 300 : 0
+    return new Promise(resolve => setTimeout(() => resolve({ id, name }), delay))
   }
   const url = 'https://sessionserver.mojang.com/session/minecraft/hasJoined'
     + `?username=${encodeURIComponent(name)}&serverId=${encodeURIComponent(serverId)}`
@@ -120,11 +125,15 @@ async function handle(client, message) {
     if (client.checking) return
     client.checking = true
     const profile = await hasJoined(message.name, client.serverId)
+    // The check can take seconds; a connection that closed meanwhile must not
+    // be counted as online, or the player would stay online for good.
+    if (client.closed) return
     if (!profile) return client.ws.close(4003, 'not verified')
     client.uuid = dashed(profile.id)
     client.name = profile.name
     client.rank = ranks.rankOf(profile.name)
     clearTimeout(client.authTimer)
+    online.set(client.uuid, (online.get(client.uuid) || 0) + 1)
     send(client.ws, { t: 'welcome', uuid: client.uuid, rank: client.rank })
     return
   }
@@ -162,6 +171,15 @@ async function handle(client, message) {
 
 function start(port = PORT) {
   const server = http.createServer((req, res) => {
+    // Which of up to 100 players (dashed uuids) are playing with Nexora right
+    // now. Only that yes or no, never where: the room stays private.
+    const url = new URL(req.url || '/', 'http://localhost')
+    if (url.pathname === '/presence') {
+      const asked = (url.searchParams.get('u') || '').split(',').filter(u => /^[0-9a-f-]{32,36}$/i.test(u)).slice(0, 100)
+      res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' })
+      res.end(JSON.stringify({ online: asked.filter(u => online.has(u.toLowerCase())) }))
+      return
+    }
     // Plain HTTP answers a health check; everything else is the WebSocket.
     res.writeHead(200, { 'content-type': 'application/json' })
     let players = 0
@@ -199,8 +217,14 @@ function start(port = PORT) {
       handle(client, message).catch(err => console.error('message failed:', err))
     })
     ws.on('close', () => {
+      client.closed = true
       clearTimeout(client.authTimer)
       leaveRoom(client)
+      if (client.uuid) {
+        const left = (online.get(client.uuid) || 1) - 1
+        if (left > 0) online.set(client.uuid, left)
+        else online.delete(client.uuid)
+      }
     })
   })
 

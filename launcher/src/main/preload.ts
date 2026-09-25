@@ -63,6 +63,14 @@ contextBridge.exposeInMainWorld('crystal', {
   listRunningGames: () => ipcRenderer.invoke('games:list'),
   closeGame:        (instanceId: string) => ipcRenderer.invoke('games:close', instanceId),
   analyzePerformance: (instanceId: string) => ipcRenderer.invoke('perfDoctor:analyze', instanceId),
+  listFights:       () => ipcRenderer.invoke('fights:list'),
+  saveFightImage:   (rect: object, name: string) => ipcRenderer.invoke('fights:saveImage', rect, name),
+  listWorlds:       (instanceId: string) => ipcRenderer.invoke('worlds:list', instanceId),
+  checkModUpdates:  (instanceId: string) => ipcRenderer.invoke('modrinth:checkModUpdates', instanceId),
+  updateMods:       (instanceId: string, updates: object[]) => ipcRenderer.invoke('modrinth:updateMods', instanceId, updates),
+  backupWorld:      (instanceId: string, world: string) => ipcRenderer.invoke('worlds:backup', instanceId, world),
+  restoreWorld:     (instanceId: string, world: string, stamp: string) => ipcRenderer.invoke('worlds:restore', instanceId, world, stamp),
+  readFight:        (instanceId: string, file: string) => ipcRenderer.invoke('fights:read', instanceId, file),
   applyPerformanceFix: (instanceId: string, fix: object) => ipcRenderer.invoke('perfDoctor:fix', instanceId, fix),
   tryWithCrystal:   (instanceId: string) => ipcRenderer.invoke('tryCrystal:run', instanceId),
   selectGameDir:    () => ipcRenderer.invoke('minecraft:selectDir'),
@@ -84,6 +92,8 @@ contextBridge.exposeInMainWorld('crystal', {
   createInstance:   (data: object) => ipcRenderer.invoke('instances:create', data),
   updateInstance:   (id: string, patch: object) => ipcRenderer.invoke('instances:update', id, patch),
   createInstanceShortcut: (id: string) => ipcRenderer.invoke('instances:createShortcut', id),
+  duplicateInstance: (id: string, withWorlds: boolean) => ipcRenderer.invoke('instances:duplicate', id, withWorlds),
+  exportModpack: (id: string) => ipcRenderer.invoke('modrinth:exportModpack', id),
   importInstance:   (version: string) => ipcRenderer.invoke('instances:import', version),
   deleteInstance:   (id: string) => ipcRenderer.invoke('instances:delete', id),
 
@@ -98,6 +108,7 @@ contextBridge.exposeInMainWorld('crystal', {
   listFriends:  () => ipcRenderer.invoke('friends:list'),
   addFriend:    (username: string) => ipcRenderer.invoke('friends:add', username),
   removeFriend: (id: string) => ipcRenderer.invoke('friends:remove', id),
+  friendsPresence: () => ipcRenderer.invoke('friends:presence'),
 
   // External clients
   listExternalClients:   () => ipcRenderer.invoke('externalClients:list'),

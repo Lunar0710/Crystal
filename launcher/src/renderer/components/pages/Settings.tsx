@@ -33,12 +33,14 @@ export function Settings() {
   const [minimizeOnLaunch, setMinimizeOnLaunch] = useState(true)
   const [autoRam, setAutoRam] = useState(true)
   const [lowStutterGc, setLowStutterGc] = useState(false)
+  const [autoWorldBackup, setAutoWorldBackup] = useState(false)
   const [autoPerformancePack, setAutoPerformancePack] = useState(true)
 
   useEffect(() => {
     api?.getSetting('minimizeOnLaunch').then((v: boolean | undefined) => setMinimizeOnLaunch(v !== false))
     api?.getSetting('autoRam').then((v: boolean | undefined) => setAutoRam(v !== false))
     api?.getSetting('lowStutterGc').then((v: boolean | undefined) => setLowStutterGc(v === true))
+    api?.getSetting('autoWorldBackup').then((v: boolean | undefined) => setAutoWorldBackup(v === true))
     api?.getSetting('autoPerformancePack').then((v: boolean | undefined) => setAutoPerformancePack(v !== false))
     api?.getDataRoot().then((r: { current: string; default: string }) => r && setDataRoot(r))
     api?.getVersionInfo().then((v: { launcher: string; client: string | null }) => v && setVersions(v))
@@ -204,6 +206,17 @@ export function Settings() {
             checked={autoRam}
             onChange={v => { setAutoRam(v); api?.setSetting('autoRam', v) }}
             label="RAM automatisch anpassen"
+          />
+        </Field>
+
+        <Field
+          label="Welten vor jedem Start sichern"
+          hint="Jede Einzelspieler-Welt, die du seit ihrem letzten Backup gespielt hast, wird vor dem Start kopiert. Fünf Stände pro Welt, Welten über 1 GB werden übersprungen. Wiederherstellen kannst du bei der Instanz."
+        >
+          <Switch
+            checked={autoWorldBackup}
+            onChange={v => { setAutoWorldBackup(v); api?.setSetting('autoWorldBackup', v) }}
+            label="Welten vor jedem Start sichern"
           />
         </Field>
 

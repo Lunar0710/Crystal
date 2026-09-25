@@ -24,6 +24,10 @@ public class Waypoints extends Module implements HudRenderable {
     private final List<Waypoint> waypoints = new ArrayList<>();
     private int addKey = GLFW.GLFW_KEY_UNKNOWN;
     private boolean wasAddPressed = false;
+    /** A waypoint where you last died, so the way back to your items is on screen. */
+    private boolean deathPoint = true;
+    private boolean wasDead = false;
+    private static final String DEATH_NAME = "Tod";
 
     private int x = 4, y = 280;
     private final Consumer<TickEvent> tickListener = this::onTick;
@@ -45,6 +49,16 @@ public class Waypoints extends Module implements HudRenderable {
 
     private void onTick(TickEvent event) {
         Minecraft mc = event.getClient();
+        // The moment of dying: one waypoint there, replacing the previous one.
+        boolean dead = mc.player != null && mc.player.isDeadOrDying();
+        if (dead && !wasDead && deathPoint) {
+            BlockPos pos = mc.player.blockPosition();
+            waypoints.removeIf(wp -> wp.name().equals(DEATH_NAME));
+            waypoints.add(new Waypoint(DEATH_NAME, pos));
+            mc.player.displayClientMessage(net.minecraft.network.chat.Component.literal(
+                    "§cTodespunkt gesetzt: §f" + pos.getX() + ", " + pos.getY() + ", " + pos.getZ()), false);
+        }
+        wasDead = dead;
         if (addKey == GLFW.GLFW_KEY_UNKNOWN || mc.player == null || mc.screen != null) {
             wasAddPressed = false;
             return;
@@ -85,6 +99,8 @@ public class Waypoints extends Module implements HudRenderable {
 
     @Override
     public List<Setting<?>> getSettings() {
-        return List.of(new KeybindSetting("Add Waypoint", () -> addKey, v -> addKey = v));
+        return List.of(
+                new KeybindSetting("Add Waypoint", () -> addKey, v -> addKey = v),
+                new dev.crystal.client.module.BooleanSetting("Todespunkt setzen", () -> deathPoint, v -> deathPoint = v, true));
     }
 }

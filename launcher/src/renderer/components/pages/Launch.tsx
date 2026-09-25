@@ -60,16 +60,27 @@ export function Launch() {
   const [accounts, setAccounts] = useState<Profile[]>([])
 
   function refreshInstances() {
-    api?.getInstances().then((list: Instance[]) => {
+    Promise.all([api?.getInstances(), api?.getSetting('lastInstance')]).then(([list, last]: [Instance[], string | undefined]) => {
       const all = list || []
       setInstances(all)
       const requested = searchParams.get('instance')
+      // A link asks for one; otherwise the one played last, so a start is one click.
       setInstanceId(current =>
         all.some(i => i.id === current) ? current
           : requested && all.some(i => i.id === requested) ? requested
+          : last && all.some(i => i.id === last) ? last
           : all[0]?.id ?? '')
     })
   }
+
+  // Playtime per instance (by name, as the statistics keep it), shown in the picker.
+  const [playtime, setPlaytime] = useState<Record<string, number>>({})
+  useEffect(() => {
+    api?.getStatsSummary?.().then((s: { byInstance?: { name: string; ms: number }[] } | null) => {
+      setPlaytime(Object.fromEntries((s?.byInstance ?? []).map(r => [r.name, r.ms])))
+    })
+  }, [])
+  const hours = (ms: number) => ms >= 3_600_000 ? `${Math.round(ms / 3_600_000)} Std.` : `${Math.max(1, Math.round(ms / 60_000))} Min.`
 
   function refreshExternalClients() {
     api?.listExternalClients().then((list: ExternalClient[]) => setExternalClients(list || []))
@@ -183,6 +194,7 @@ export function Launch() {
     setLastError(null)
     setCrashOpen(false)
     launchedInstanceRef.current = instance.id
+    api?.setSetting('lastInstance', instance.id)
 
     await api?.launchGame({
       version: instance.version,
@@ -196,6 +208,15 @@ export function Launch() {
   }
 
   const busy = launching || trying
+
+  // Ctrl+Enter starts the selected instance from anywhere on the page.
+  const launchRef = useRef<() => void>(() => {})
+  launchRef.current = () => { if (!busy && instance && !instanceRunning) launch() }
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); launchRef.current() } }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   // A shortcut or link can ask for another instance while the page is open.
   useEffect(() => {
@@ -318,7 +339,7 @@ export function Launch() {
                   className="crystal-input w-full appearance-none pr-9 cursor-pointer text-[13px]"
                 >
                   {instances.map(i => (
-                    <option key={i.id} value={i.id}>{i.name}</option>
+                    <option key={i.id} value={i.id}>{i.name}{playtime[i.name] ? `, ${hours(playtime[i.name])} gespielt` : ''}</option>
                   ))}
                 </select>
                 <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-crystal-muted pointer-events-none" />

@@ -52,6 +52,7 @@ const HATS: CosmeticDef[] = [
   { id: 'ht-mohawk',   name: 'Irokese',     slot: 'hat', color: '#22d3ee', secondary: '#0e7490', variant: 'mohawk', requiredRank: 'crystal_plus' },
   { id: 'ht-wreath',   name: 'Blätterkranz', slot: 'hat', color: '#4ade80', secondary: '#15803d', variant: 'wreath', requiredRank: 'crystal_plus' },
   { id: 'ht-santa', name: 'Weihnachtsmütze', slot: 'hat', color: '#c0392b', secondary: '#f5f5f4', variant: 'santa', requiredRank: 'crystal_plus' },
+  { id: 'ht-pumpkin', name: 'Kürbiskopf', slot: 'hat', color: '#ea580c', secondary: '#c2410c', variant: 'pumpkin', requiredRank: 'crystal_plus' },
   { id: 'ht-graduation', name: 'Doktorhut', slot: 'hat', color: '#1c1c1e', secondary: '#d4a843', variant: 'graduation', requiredRank: 'crystal_plus' },
   { id: 'ht-fedora', name: 'Fedora', slot: 'hat', color: '#3b3530', secondary: '#1c1917', variant: 'fedora', requiredRank: 'crystal_plus' },
   { id: 'ht-samurai', name: 'Kabuto', slot: 'hat', color: '#2b2b2e', secondary: '#c9a24a', variant: 'samurai', requiredRank: 'crystal_plus' },
@@ -110,6 +111,7 @@ const WINGS: CosmeticDef[] = [
   { id: 'wg-mecha',   name: 'Mecha',    slot: 'wings', color: '#64748b', secondary: '#22d3ee', requiredRank: 'developer', variant: 'mecha' },
   { id: 'wg-monarch', name: 'Monarch',  slot: 'wings', color: '#f97316', secondary: '#18181b', requiredRank: 'developer', variant: 'butterfly' },
   { id: 'wg-dragon',  name: 'Drache',   slot: 'wings', color: '#166534', secondary: '#4ade80', variant: 'bat', requiredRank: 'crystal_plus' },
+  { id: 'wg-nightbat', name: 'Fledermaus', slot: 'wings', color: '#1c1917', secondary: '#7c2d12', variant: 'bat', requiredRank: 'crystal_plus' },
   { id: 'wg-frost',   name: 'Frost',    slot: 'wings', color: '#bae6fd', secondary: '#38bdf8', variant: 'shard', requiredRank: 'crystal_plus' },
   { id: 'wg-sakura',  name: 'Sakura',   slot: 'wings', color: '#fbcfe8', secondary: '#db2777', requiredRank: 'crystal_plus', variant: 'butterfly' },
   { id: 'wg-dragon',   name: 'Drachenflügel', slot: 'wings', color: '#7f1d1d', secondary: '#dc2626', variant: 'dragon', requiredRank: 'crystal_plus' },
@@ -154,6 +156,7 @@ const AURAS: CosmeticDef[] = [
   { id: 'au-bolts',   name: 'Blitze',    slot: 'aura', color: '#fde047', secondary: '#f8fafc', variant: 'bolts', requiredRank: 'crystal_plus' },
   { id: 'au-notes',   name: 'Noten',     slot: 'aura', color: '#f0abfc', secondary: '#c084fc', variant: 'notes', requiredRank: 'crystal_plus' },
   { id: 'au-leaves',  name: 'Blätter',   slot: 'aura', color: '#86efac', secondary: '#65a30d', variant: 'leaves', requiredRank: 'crystal_plus' },
+  { id: 'au-autumn',  name: 'Herbstlaub', slot: 'aura', color: '#f97316', secondary: '#b45309', variant: 'leaves', requiredRank: 'crystal_plus' },
 ]
 
 // A small companion that floats beside your shoulder.
@@ -163,8 +166,13 @@ const PETS: CosmeticDef[] = [
   { id: 'pt-fox',      name: 'Fuchs',          slot: 'pet', color: '#ea580c', secondary: '#fafaf9', variant: 'fox', requiredRank: 'crystal_plus' },
   { id: 'pt-slime',    name: 'Slime',          slot: 'pet', color: '#65a30d', secondary: '#a3e635', variant: 'slime', requiredRank: 'crystal_plus' },
   { id: 'pt-ghost',    name: 'Geist',          slot: 'pet', color: '#e4e4e7', secondary: '#e4e4e7', variant: 'ghost', requiredRank: 'crystal_plus' },
+  { id: 'pt-pumpkin',  name: 'Kürbis',         slot: 'pet', color: '#ea580c', secondary: '#c2410c', variant: 'pumpkin', requiredRank: 'crystal_plus' },
   { id: 'pt-drone',    name: 'Drohne',         slot: 'pet', color: '#52525b', secondary: '#d4d4d8', variant: 'drone', requiredRank: 'crystal_plus' },
   { id: 'pt-bee',      name: 'Biene',          slot: 'pet', color: '#facc15', secondary: '#f5f5f5', variant: 'bee', requiredRank: 'crystal_plus' },
+  { id: 'pt-dragon',   name: 'Drache',         slot: 'pet', color: '#1f2937', secondary: '#7c3aed', variant: 'dragon', requiredRank: 'crystal_plus' },
+  { id: 'pt-axolotl',  name: 'Axolotl',        slot: 'pet', color: '#f9a8d4', secondary: '#db2777', variant: 'axolotl', requiredRank: 'crystal_plus' },
+  { id: 'pt-penguin',  name: 'Pinguin',        slot: 'pet', color: '#18181b', secondary: '#f4f4f5', variant: 'penguin', requiredRank: 'crystal_plus' },
+  { id: 'pt-robot',    name: 'Roboter',        slot: 'pet', color: '#a1a1aa', secondary: '#52525b', variant: 'robot', requiredRank: 'crystal_plus' },
 ]
 
 export type NonCapeSlot = Exclude<CosmeticSlot, 'cape'>

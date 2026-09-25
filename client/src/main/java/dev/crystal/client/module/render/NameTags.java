@@ -20,6 +20,7 @@ public class NameTags extends Module {
 
     private boolean showOwn = true;
     private boolean showHealth = true;
+    private boolean showPing = false;
     private float backgroundOpacity = 25f;
 
     public NameTags() {
@@ -32,13 +33,23 @@ public class NameTags extends Module {
     /** Background alpha 0-1, replacing the vanilla 25%. */
     public float getBackgroundOpacity() { return backgroundOpacity / 100f; }
 
-    /** The name with " 20❤" appended in a colour from green to red. */
+    /** The name with " 20❤" appended in a colour from green to red, and the ping when wanted. */
     public Component decorate(Component name, Player player) {
-        if (!showHealth) return name;
+        MutableComponent text = name.copy();
+        if (showPing) {
+            // The latency the server reports in the tab list; absent in singleplayer and for NPCs.
+            var connection = net.minecraft.client.Minecraft.getInstance().getConnection();
+            var info = connection == null ? null : connection.getPlayerInfo(player.getUUID());
+            if (info != null) {
+                int ping = info.getLatency();
+                ChatFormatting pc = ping < 80 ? ChatFormatting.GREEN : ping < 160 ? ChatFormatting.YELLOW : ChatFormatting.RED;
+                text.append(Component.literal(" " + ping + "ms").withStyle(pc));
+            }
+        }
+        if (!showHealth) return text;
         float health = player.getHealth() + player.getAbsorptionAmount();
         float fraction = player.getMaxHealth() <= 0 ? 0 : player.getHealth() / player.getMaxHealth();
         ChatFormatting color = fraction > 0.6f ? ChatFormatting.GREEN : fraction > 0.3f ? ChatFormatting.YELLOW : ChatFormatting.RED;
-        MutableComponent text = name.copy();
         text.append(Component.literal(" " + Math.round(health) + "❤").withStyle(color));
         return text;
     }
@@ -48,6 +59,7 @@ public class NameTags extends Module {
         return List.of(
                 new BooleanSetting("Show Own Nametag", () -> showOwn, v -> showOwn = v, true),
                 new BooleanSetting("Show Health", () -> showHealth, v -> showHealth = v, true),
+                new BooleanSetting("Ping zeigen", () -> showPing, v -> showPing = v, false),
                 new SliderSetting("Background Opacity", () -> backgroundOpacity, v -> backgroundOpacity = v, 0f, 100f, 5f, 0));
     }
 }

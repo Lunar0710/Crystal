@@ -143,6 +143,25 @@ async function check(name, fn) {
   const health = await (await fetch(`http://127.0.0.1:${port}/`)).json()
   await check('Status-Seite zählt Spieler', () => assert.strictEqual(health.players, 2))
 
+  // Member left above; PlusPlayer is still connected; the third id never was.
+  const unknown = '00000000-0000-3000-8000-000000000000'
+  const presence = await (await fetch(`http://127.0.0.1:${port}/presence?u=${plus.uuid},${member.uuid},${unknown},../x`)).json()
+  await check('Online-Status: nur wer gerade verbunden ist', () => assert.deepStrictEqual(presence.online, [plus.uuid]))
+
+  // Leaving while Mojang is still being asked must not leave the player online.
+  const slowId = require('crypto').createHash('md5').update('fake:SlowQuit').digest('hex')
+  const slowUuid = `${slowId.slice(0, 8)}-${slowId.slice(8, 12)}-${slowId.slice(12, 16)}-${slowId.slice(16, 20)}-${slowId.slice(20)}`
+  await new Promise(resolve => {
+    const ws = new WebSocket(`ws://127.0.0.1:${port}`)
+    ws.on('message', data => {
+      if (JSON.parse(data.toString()).t === 'challenge') { ws.send(JSON.stringify({ t: 'hello', name: 'SlowQuit' })); ws.close() }
+    })
+    ws.on('close', resolve)
+  })
+  await wait(500)
+  const afterQuit = await (await fetch(`http://127.0.0.1:${port}/presence?u=${slowUuid}`)).json()
+  await check('Online-Status: Abbruch während der Anmeldung zählt nicht', () => assert.deepStrictEqual(afterQuit.online, []))
+
   plus.ws.close(); elsewhere.ws.close()
   srv.close(); ranksServer.close()
   console.log(failures ? `${failures} FEHLER` : 'alle Tests bestanden')

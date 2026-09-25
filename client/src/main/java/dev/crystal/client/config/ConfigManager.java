@@ -50,8 +50,14 @@ public class ConfigManager {
 
     /** Saves every module's state as profile {@code slot} under {@code name}. */
     public boolean saveProfile(int slot, String name) {
+        return saveProfile(slot, name, null);
+    }
+
+    /** As above; {@code server} (may be null) is the address the profile loads itself on. */
+    public boolean saveProfile(int slot, String name, String server) {
         JsonObject root = new JsonObject();
         root.addProperty("name", name);
+        if (server != null && !server.isBlank()) root.addProperty("server", server.trim().toLowerCase(java.util.Locale.ROOT));
         root.add("modules", snapshot(ConfigManager::inProfile));
         try {
             Files.createDirectories(profileFile(slot).getParent());
@@ -78,6 +84,16 @@ public class ConfigManager {
     }
 
     /** The saved name of profile {@code slot}, or null when the slot is empty. */
+    /** The server address profile {@code slot} loads itself on, or null. */
+    public String profileServer(int slot) {
+        try {
+            JsonObject root = JsonParser.parseString(Files.readString(profileFile(slot))).getAsJsonObject();
+            return root.has("server") ? root.get("server").getAsString() : null;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     public String profileName(int slot) {
         try {
             JsonObject root = JsonParser.parseString(Files.readString(profileFile(slot))).getAsJsonObject();

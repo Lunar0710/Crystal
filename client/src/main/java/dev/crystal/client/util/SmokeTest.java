@@ -104,6 +104,8 @@ public final class SmokeTest {
         }
 
         if (worldTicks == 30) profileTest();
+        // After tick 40, which fills the hotbar with the test gear.
+        if (worldTicks >= 46 && worldTicks <= 300) pvpTest(mc);
 
         if (worldTicks == 40) {
             mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
@@ -285,8 +287,12 @@ public final class SmokeTest {
             }
         }
 
+        // Kill cam, last because it kills the player: hit a pig, die mid-fight,
+        // the death screen must carry the replay; after respawning it must be gone.
+        if (uiShotsDone && !killCamDone) killCamTest(mc, base);
+
         // Done once every check has an answer and the last screenshot is taken.
-        if (!finished && uiShotsDone && worldTicks > Math.max(peerTest ? 355 : 325, BUILDER_SHOT_TICK)
+        if (!finished && uiShotsDone && killCamDone && worldTicks > Math.max(peerTest ? 355 : 325, BUILDER_SHOT_TICK)
                 && cullingResult != null && builderResult != null) {
             finished = true;
             // Leave the way a player does, through Nexora's pause menu. That
@@ -311,6 +317,52 @@ public final class SmokeTest {
     private static boolean finished = false;
     private static int uiShotsStart = 0;
     private static boolean uiShotsDone = false;
+    private static int killCamStart = 0, killCamHit = 0;
+    private static boolean killCamDone = false;
+
+    private static void killCamTest(Minecraft mc, String base) {
+        var server = mc.getSingleplayerServer();
+        if (server == null || mc.player == null) { killCamDone = true; return; }
+        if (killCamStart == 0) killCamStart = worldTicks;
+        int since = worldTicks - killCamStart;
+        String name = mc.player.getName().getString();
+        if (since == 1) {
+            CombatTracker.countMobs = true;
+            var pos = mc.player.blockPosition();
+            server.execute(() -> server.getCommands().performPrefixedCommand(server.createCommandSourceStack(),
+                    "summon pig " + pos.getX() + " " + pos.getY() + " " + (pos.getZ() + 2) + " {NoAI:1b}"));
+        } else if (killCamHit == 0 && since >= 10) {
+            var pig = mc.level.getEntities(mc.player, mc.player.getBoundingBox().inflate(12),
+                    e -> e.getType() == net.minecraft.world.entity.EntityType.PIG && e.isAlive()).stream().findFirst().orElse(null);
+            if (pig != null) {
+                mc.gameMode.attack(mc.player, pig);
+                mc.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+                killCamHit = worldTicks;
+            } else if (since > 40) {
+                CrystalClient.LOGGER.info("[Nexora] Kill cam FAILED: no pig");
+                killCamDone = true;
+            }
+        } else if (killCamHit > 0 && worldTicks == killCamHit + 8) {
+            server.execute(() -> server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), "kill " + name));
+        } else if (killCamHit > 0 && worldTicks == killCamHit + 24) {
+            var cam = CrystalClient.getInstance().getModuleManager().getEnabled(dev.crystal.client.module.hud.KillCam.class);
+            var replay = cam == null ? null : cam.replay();
+            killCamShown = replay != null && replay.size() >= 2 && mc.screen instanceof net.minecraft.client.gui.screens.DeathScreen;
+            killCamFrames = replay == null ? -1 : replay.size();
+            Screenshot.grab(mc.gameDirectory, base + "-killcam.png", mc.getMainRenderTarget(), 1,
+                    msg -> CrystalClient.LOGGER.info("[Nexora] Smoke screenshot: {}", msg.getString()));
+        } else if (killCamHit > 0 && worldTicks == killCamHit + 28) {
+            mc.player.respawn();
+            mc.setScreen(null);
+        } else if (killCamHit > 0 && worldTicks == killCamHit + 50) {
+            boolean cleared = CombatTracker.deathReplay() == null && mc.player.isAlive();
+            CrystalClient.LOGGER.info("[Nexora] Kill cam {}: shown={} frames={} clearedAfterRespawn={}",
+                    killCamShown && cleared ? "PASS" : "FAILED", killCamShown, killCamFrames, cleared);
+            killCamDone = true;
+        }
+    }
+    private static boolean killCamShown = false;
+    private static int killCamFrames = 0;
 
     /** The test peer's id: the test server derives it from the name (FAKE_AUTH in server.js). */
     private static final java.util.UUID PEER_UUID = fakeUuid("PeerBot");
@@ -925,6 +977,67 @@ public final class SmokeTest {
                 ok ? "PASS" : "FAILED", saved, loaded, !graph.isSwitchedOn(), config.profileName(5));
         graph.setEnabled(before);
         config.save();
+    }
+
+    /**
+     * PvP HUD: three healing splash potions and a pig in front of the player,
+     * one attack through the normal attack path. CombatTracker must count it
+     * as a confirmed hit, and PotCounter must read 3.
+     */
+    /** Tick of the first hit on the pig; 0 until the pig has turned up. */
+    private static int pvpFirstHit = 0;
+
+    private static void pvpTest(Minecraft mc) {
+        var server = mc.getSingleplayerServer();
+        if (server == null || mc.player == null) return;
+        if (worldTicks == 46) {
+            // The test fights a pig; real fights are against players only.
+            CombatTracker.countMobs = true;
+            String name = mc.player.getName().getString();
+            var pos = mc.player.blockPosition();
+            server.execute(() -> {
+                var source = server.createCommandSourceStack();
+                server.getCommands().performPrefixedCommand(source,
+                        "give " + name + " splash_potion[potion_contents={potion:\"minecraft:healing\"}] 3");
+                server.getCommands().performPrefixedCommand(source,
+                        "summon pig " + pos.getX() + " " + pos.getY() + " " + (pos.getZ() + 2) + " {NoAI:1b}");
+            });
+        } else if (worldTicks >= 56 && worldTicks <= 76 && pvpFirstHit == 0 || pvpFirstHit > 0 && worldTicks == pvpFirstHit + 16) {
+            // Two hits, the second past the pig's hurt cooldown so it kills it.
+            // The pig can take a few ticks to reach the client, so the first
+            // hit waits for it (up to 20 ticks).
+            var pig = mc.level.getEntities(mc.player, mc.player.getBoundingBox().inflate(12),
+                    e -> e.getType() == net.minecraft.world.entity.EntityType.PIG).stream().findFirst().orElse(null);
+            if (pig == null) {
+                if (worldTicks == 76) CrystalClient.LOGGER.info("[Nexora] PvP HUD FAILED: no pig");
+                return;
+            }
+            if (pvpFirstHit == 0) pvpFirstHit = worldTicks;
+            mc.gameMode.attack(mc.player, pig);
+            mc.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+        } else if (pvpFirstHit > 0 && worldTicks == pvpFirstHit + 10) {
+            var round = CombatTracker.current();
+            String pots = CrystalClient.getInstance().getModuleManager().getModuleByName("PotCounter")
+                    .map(m -> ((dev.crystal.client.module.hud.PotCounter) m).getText()).orElse("?");
+            boolean ok = round != null && round.hits() >= 1 && "Pots: 3".equals(pots);
+            CrystalClient.LOGGER.info("[Nexora] PvP HUD {}: hits={} swings={} pots=\"{}\"",
+                    ok ? "PASS" : "FAILED", round == null ? -1 : round.hits(), round == null ? -1 : round.swings(), pots);
+        } else if (pvpFirstHit > 0 && worldTicks == pvpFirstHit + 40) {
+            // The pig died from the second hit: a won round (and KillEffect ran on the way).
+            var last = CombatTracker.lastRound();
+            CrystalClient.LOGGER.info("[Nexora] Kill round {}: won={} hits={}",
+                    last != null && last.won() && last.hits() >= 2 ? "PASS" : "FAILED", last != null && last.won(), last == null ? -1 : last.hits());
+            // TotemPops through the real path: entity event packets handed to the
+            // connection, the way the server sends them. Two pops, then a death.
+            var me = mc.player;
+            mc.getConnection().handleEntityEvent(new net.minecraft.network.protocol.game.ClientboundEntityEventPacket(me, (byte) 35));
+            mc.getConnection().handleEntityEvent(new net.minecraft.network.protocol.game.ClientboundEntityEventPacket(me, (byte) 35));
+            String popped = dev.crystal.client.module.player.TotemPops.decorate(net.minecraft.network.chat.Component.literal("X"), me).getString();
+            mc.getConnection().handleEntityEvent(new net.minecraft.network.protocol.game.ClientboundEntityEventPacket(me, (byte) 3));
+            String after = dev.crystal.client.module.player.TotemPops.decorate(net.minecraft.network.chat.Component.literal("X"), me).getString();
+            CrystalClient.LOGGER.info("[Nexora] TotemPops {}: popped=\"{}\" after=\"{}\"",
+                    "X -2".equals(popped) && "X".equals(after) ? "PASS" : "FAILED", popped, after);
+        }
     }
 
     // ---------------------------------------------------------------- bench
