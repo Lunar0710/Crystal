@@ -175,6 +175,8 @@ $NicSets = @{
 }
 function Get-NicProps($id) {
     $want = @($NicSets[$id])
+    # A one-entry set collapses to a flat pair; wrap it again.
+    if ($want.Count -gt 0 -and $want[0] -is [string]) { $want = @(, $want) }
     $list = @()
     foreach ($a in Get-NetAdapter -Physical -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq 'Up' }) {
         foreach ($w in $want) {

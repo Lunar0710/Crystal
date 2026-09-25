@@ -323,13 +323,22 @@ async function bufferbloat(sendProgress) {
   const { net: enet } = require('electron')
   const ctrl = new AbortController()
   let bytes = 0, started = Date.now(), stopped = false
-  const dl = (async () => {
-    try {
-      const res = await enet.fetch('https://speed.cloudflare.com/__down?bytes=200000000', { signal: ctrl.signal, cache: 'no-store' })
-      const reader = res.body.getReader()
-      while (!stopped) { const { done, value } = await reader.read(); if (done) break; bytes += value.length }
-    } catch {}
-  })()
+  // Several parallel 25 MB downloads, restarted until the time is up, so the
+  // line stays full; a second host covers a blocked or failing first one.
+  const urls = ['https://speed.cloudflare.com/__down?bytes=25000000', 'https://proof.ovh.net/files/100Mb.dat']
+  let status = null
+  const stream = async () => {
+    for (let u = 0; !stopped && u < urls.length * 3; ) {
+      try {
+        const res = await enet.fetch(urls[u % urls.length], { signal: ctrl.signal, cache: 'no-store' })
+        status = res.status
+        if (!res.ok) { u++; continue }
+        const reader = res.body.getReader()
+        while (!stopped) { const { done, value } = await reader.read(); if (done) break; bytes += value.length }
+      } catch { if (stopped) return; u++ }
+    }
+  }
+  const dl = Promise.all([stream(), stream(), stream()])
   const loaded = []
   const until = Date.now() + 8000
   await new Promise(r => setTimeout(r, 1200))
@@ -340,7 +349,7 @@ async function bufferbloat(sendProgress) {
   const mbps = bytes * 8 / ((Date.now() - started) / 1000) / 1e6
   const plus = idleMs != null && loadMs != null ? loadMs - idleMs : null
   const grade = plus == null ? '?' : plus < 5 ? 'A+' : plus < 30 ? 'A' : plus < 60 ? 'B' : plus < 200 ? 'C' : 'D'
-  return { idle: idleMs, loaded: loadMs, plus, mbps, grade }
+  return { idle: idleMs, loaded: loadMs, plus, mbps, grade: mbps < 1 ? '?' : grade, status }
 }
 
 // ---------------------------------------------------------------- update check
@@ -617,7 +626,7 @@ async function selftest(file) {
       return { adapters: g.adapters, bench }
     })
     await step('boost-list', () => boostList())
-    await step('bufferbloat', async () => { const r = await bufferbloat(); if (r.idle == null) throw new Error('no ping'); return r })
+    await step('bufferbloat', async () => { const r = await bufferbloat(); if (r.idle == null) throw new Error('no ping'); if (!(r.mbps > 1)) throw new Error('download ' + r.mbps + ' Mbit/s, status ' + r.status); return r })
     await step('game-scan', async () => { const p = await tasklist(); if (!p.length) throw new Error('tasklist empty'); return { processes: p.length, sample: p.slice(0, 3) } })
     await step('settings', async () => { loadSettings(); settings.customGames = ['test.exe']; saveSettings(); loadSettings(); if (settings.customGames[0] !== 'test.exe') throw new Error('not saved'); settings.customGames = []; saveSettings(); return settings })
     await step('network', () => network())

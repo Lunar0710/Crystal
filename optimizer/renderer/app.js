@@ -482,6 +482,7 @@
     A: 'Sehr gut: Downloads und Streams im Netz stören beim Spielen kaum.',
     B: 'Merkbar: Lädt jemand nebenbei, steigt dein Ping etwas. Im Router QoS oder „Gaming-Priorität“ für deinen PC einschalten hilft.',
     C: 'Deutlich: Lädt oder streamt jemand, laggst du. Schalte im Router QoS / „Smart Queue“ (SQM) ein oder gib deinem PC Priorität. Bei der FRITZ!Box: Internet > Filter > Priorisierung.',
+    '?': 'Der Download für den Lasttest kam nicht zustande (Firewall oder keine Verbindung). Versuch es gleich noch einmal.',
     D: 'Stark: Dein Router puffert zu viel. Mit QoS/SQM im Router lässt sich das fast immer beheben. Kurzfristig: Downloads und Streams im Netz pausieren, während du spielst.',
   }
   api.onBloat && api.onBloat(p => { const s = $('bloatStatus'); if (s) s.textContent = p.mbps ? `Lädt … ${p.mbps.toFixed(0)} Mbit/s` : 'Misst Ping in Ruhe …' })
