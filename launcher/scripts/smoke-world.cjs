@@ -100,6 +100,8 @@ function writeTestSettings(gameDir) {
       // 1.5: the frame graph, so its bars show in the HUD screenshot.
       FrameGraph: { enabled: true },
       SkyColor: { enabled: true, settings: { 'Farbe von': 'Mint' } },
+      // 1.6: runs its distance checks on every entity and block entity drawn.
+      RenderLimits: { enabled: true },
       ItemPhysics: { enabled: true },
       ParticleChanger: { enabled: true },
       BetterSounds: { enabled: true },

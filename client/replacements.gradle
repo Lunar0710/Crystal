@@ -53,6 +53,10 @@ stonecutter.replacements.regex(at26) {
     r '\\bClientCommandManager\\b', 'ClientCommands'
     r '\\bClickType\\b', 'ContainerInput'
 
+    // The entity and block entity type constants moved to classes of their own.
+    r '\\bEntityType\\.([A-Z][A-Z_]+)\\b', 'EntityTypes.$1'
+    r '\\bBlockEntityType\\.([A-Z][A-Z_]+)\\b', 'BlockEntityTypes.$1'
+
     // Moved packages.
     r 'net([./])minecraft([./])client([./])GuiMessage', 'net$1minecraft$2client$3multiplayer$3chat$3GuiMessage'
     r 'renderer([./])state([./])(CameraRenderState|BlockOutlineRenderState|SkyRenderState)', 'renderer$1state$2level$2$3'

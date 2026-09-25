@@ -51,7 +51,13 @@ public class MixinBlockEntityCulling {
         if (blockEntity instanceof BeaconBlockEntity || blockEntity instanceof TheEndGatewayBlockEntity
                 || blockEntity instanceof StructureBlockEntity) return false;
         CrystalClient client = CrystalClient.getInstance();
-        SmartCulling culling = client == null ? null : client.getModuleManager().get(SmartCulling.class);
+        if (client == null) return false;
+        // RenderLimits: signs, banners and heads beyond their distance.
+        dev.crystal.client.module.render.RenderLimits limits = client.getModuleManager().getEnabled(dev.crystal.client.module.render.RenderLimits.class);
+        var player = net.minecraft.client.Minecraft.getInstance().player;
+        if (limits != null && player != null
+                && limits.hides(blockEntity, player.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(blockEntity.getBlockPos())))) return true;
+        SmartCulling culling = client.getModuleManager().get(SmartCulling.class);
         return culling != null && culling.cullsBlockEntities() && OcclusionCuller.isBlockEntityHidden(blockEntity.getBlockPos());
     }
 }

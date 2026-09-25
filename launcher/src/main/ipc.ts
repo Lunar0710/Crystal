@@ -376,6 +376,7 @@ export function registerIpcHandlers(store: Store) {
       case 'disable-mod': return perfDoctor.disableMod(id, fix.modFile)
       case 'disable-module': return perfDoctor.disableModule(id, fix.module)
       case 'set-option': return perfDoctor.setOption(id, fix.option, fix.value)
+      case 'enable-module': return perfDoctor.enableModule(id, fix.module)
       case 'set-ram': {
         const ram = Math.round(Number(fix.ram))
         if (!Number.isFinite(ram) || ram < 1024 || ram > 65536) return { ok: false, message: 'Ungültiger Wert.' }

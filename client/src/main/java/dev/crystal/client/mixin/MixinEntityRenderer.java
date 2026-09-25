@@ -28,7 +28,14 @@ public class MixinEntityRenderer {
                               CallbackInfoReturnable<Boolean> cir) {
         if (!cir.getReturnValueZ()) return;
         CrystalClient client = CrystalClient.getInstance();
-        SmartCulling culling = client == null ? null : client.getModuleManager().get(SmartCulling.class);
+        if (client == null) return;
+        // RenderLimits: items, orbs and decorations beyond their distance.
+        dev.crystal.client.module.render.RenderLimits limits = client.getModuleManager().getEnabled(dev.crystal.client.module.render.RenderLimits.class);
+        if (limits != null && limits.hides(entity, entity.distanceToSqr(camX, camY, camZ))) {
+            cir.setReturnValue(false);
+            return;
+        }
+        SmartCulling culling = client.getModuleManager().get(SmartCulling.class);
         if (culling == null || !culling.cullsEntities()) return;
         // Never the player's own entity, what they ride, or glowing (outlined) entities.
         Minecraft mc = Minecraft.getInstance();
