@@ -1,5 +1,6 @@
-# Publishes the website in website/ to GitHub Pages
-# (https://lunar0710.github.io/Crystal/) whenever it changes.
+# Keeps the website (https://lunar0710.github.io/Crystal/) up to date: when
+# website/ changes, its files are copied onto the gh-pages branch, which
+# GitHub Pages serves ("Deploy from a branch", gh-pages, / (root)).
 name: Website
 
 on:
@@ -9,33 +10,28 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  publish:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       # site.html is the page without its <head> wrapper (the Artifact preview
       # uses it); index.html is the full page, so only that and the icon go out.
-      - name: Collect the site
+      - name: Update gh-pages
         run: |
-          mkdir -p _site
+          git fetch origin gh-pages
+          git worktree add _site origin/gh-pages
           cp website/index.html website/icon.png _site/
-      - uses: actions/configure-pages@v5
-        with:
-          enablement: true
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
-      - id: deployment
-        uses: actions/deploy-pages@v4
+          cd _site
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then echo "no changes"; exit 0; fi
+          git commit -m "Website from ${GITHUB_SHA::7}"
+          git push origin HEAD:gh-pages
