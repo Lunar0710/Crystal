@@ -34,6 +34,10 @@ public class TPSDisplay extends HudModule {
         long newest = ARRIVALS[(count - 1) % ARRIVALS.length];
         long oldest = ARRIVALS[(count - n) % ARRIVALS.length];
         float seconds = (newest - oldest) / 1000f / (n - 1); // average gap between two packets
+        // A server that froze sends nothing: the wait since the last packet
+        // counts too, so the value drops instead of showing the last good one.
+        float sinceNewest = (System.currentTimeMillis() - newest) / 1000f;
+        seconds = Math.max(seconds, sinceNewest);
         // Each packet comes after 20 server ticks, so 20 ticks took "seconds".
         return seconds <= 0 ? 20f : Math.min(20f, 20f / seconds);
     }

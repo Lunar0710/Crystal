@@ -941,6 +941,8 @@ public final class SmokeTest {
         var server = mc.getSingleplayerServer();
         if (server == null || mc.player == null) return;
         if (worldTicks == 46) {
+            // The test fights a pig; real fights are against players only.
+            CombatTracker.countMobs = true;
             String name = mc.player.getName().getString();
             var pos = mc.player.blockPosition();
             server.execute(() -> {

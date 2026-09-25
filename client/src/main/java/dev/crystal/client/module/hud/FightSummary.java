@@ -38,6 +38,7 @@ public class FightSummary extends HudModule {
     protected List<Setting<?>> getExtraSettings() {
         return List.of(
                 new BooleanSetting("Während des Kampfes zeigen", () -> duringFight, v -> duringFight = v, true),
+                new BooleanSetting("Mobs mitzählen", () -> CombatTracker.countMobs, v -> CombatTracker.countMobs = v, false),
                 new SliderSetting("Ergebnis zeigen (s)", () -> showSeconds, v -> showSeconds = v, 3f, 30f, 1f, 0));
     }
 }

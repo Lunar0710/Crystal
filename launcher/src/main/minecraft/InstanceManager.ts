@@ -2,6 +2,7 @@ import Store from 'electron-store'
 import { randomUUID } from 'crypto'
 import { dialog, BrowserWindow } from 'electron'
 import path from 'path'
+import { logger } from '../logs/Logger'
 import os from 'os'
 import fs from 'fs'
 import { crystalPath } from '../paths'
@@ -53,12 +54,20 @@ export class InstanceManager {
     const { id: _id, createdAt: _c, gameDir: from, imported: _i, ...rest } = source
     const copy = this.create({ ...rest, name: `${source.name} (Kopie)`, gameDir: '' } as Omit<Instance, 'id' | 'createdAt'>)
     const skip = new Set(['logs', 'crash-reports', 'backups', 'screenshots', ...(withWorlds ? [] : ['saves'])])
-    for (const entry of fs.readdirSync(from)) {
-      if (skip.has(entry) || entry === 'session.lock' || /^hs_err_pid\d+\.log$/.test(entry)) continue
-      await fs.promises.cp(path.join(from, entry), path.join(copy.gameDir, entry), {
-        recursive: true,
-        filter: src => path.basename(src) !== 'session.lock',
-      })
+    try {
+      for (const entry of fs.readdirSync(from)) {
+        if (skip.has(entry) || entry === 'session.lock' || /^hs_err_pid\d+\.log$/.test(entry)) continue
+        await fs.promises.cp(path.join(from, entry), path.join(copy.gameDir, entry), {
+          recursive: true,
+          filter: src => path.basename(src) !== 'session.lock',
+        })
+      }
+    } catch (err) {
+      // A half copy (disk full, a locked file) is taken out again rather than left in the list.
+      logger.warn('launcher', `Kopie von ${source.name} fehlgeschlagen`, String(err))
+      this.store.set('instances', this.list().filter(i => i.id !== copy.id))
+      await fs.promises.rm(copy.gameDir, { recursive: true, force: true }).catch(() => {})
+      return null
     }
     return copy
   }

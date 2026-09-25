@@ -102,11 +102,12 @@ export function Instances() {
 
   async function duplicateInstance(inst: Instance) {
     const withWorlds = window.confirm(`„${inst.name}“ kopieren. Welten auch mitkopieren? (OK = mit Welten, Abbrechen = ohne)`)
-    const copy = await api?.duplicateInstance(inst.id, withWorlds)
+    let copy = null
+    try { copy = await api?.duplicateInstance(inst.id, withWorlds) } catch { /* reported below */ }
     refresh()
     notify(copy
       ? { type: 'success', title: 'Instanz kopiert', message: `„${copy.name}“ ist fertig.` }
-      : { type: 'error', title: 'Instanz kopieren', message: 'Das Kopieren ist fehlgeschlagen.' })
+      : { type: 'error', title: 'Instanz kopieren', message: 'Das Kopieren ging nicht. Läuft die Instanz gerade, oder ist die Festplatte voll?' })
   }
 
   async function removeInstance(inst: Instance) {

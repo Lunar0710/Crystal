@@ -65,9 +65,17 @@ public final class CombatTracker {
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(CombatTracker::tick);
     }
 
+    /**
+     * Fights are against players only: a mob farm would otherwise fill the
+     * kill count and push real PvP recordings out. FightSummary's "Mobs
+     * mitzählen" (and the world test, which fights a pig) turn mobs on.
+     */
+    public static boolean countMobs = false;
+
     /** From MultiPlayerGameMode.attack: the player swung at an entity. */
     public static void onAttack(Entity target) {
         if (!(target instanceof LivingEntity living)) return;
+        if (!countMobs && !(living instanceof net.minecraft.world.entity.player.Player)) return;
         startFightIfNeeded(living);
         swings++;
         pendingTarget = living;

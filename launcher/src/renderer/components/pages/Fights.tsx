@@ -53,9 +53,12 @@ export function Fights() {
   useEffect(() => {
     if (!selected) return
     setFight(null)
+    // A quick second click must not be overtaken by the first fight's answer.
+    let current = true
     api?.readFight(selected.instanceId, selected.file).then((f: Fight | null) => {
-      if (f && Array.isArray(f.frames)) setFight({ ...selected, frames: f.frames })
+      if (current && f && Array.isArray(f.frames)) setFight({ ...selected, frames: f.frames })
     })
+    return () => { current = false }
   }, [selected])
 
   return (
@@ -158,7 +161,15 @@ function Replay({ fight }: { fight: Fight }) {
   const W = 400
   const px = (x: number) => ((x - view.x0) / view.size) * W
   const pz = (z: number) => ((z - view.z0) / view.size) * W
-  const path = (xi: number, zi: number) => frames.map(f => `${px(f[xi]).toFixed(1)},${pz(f[zi]).toFixed(1)}`).join(' ')
+  // Worked out once per fight, not on each of the up to 60 redraws a second while playing.
+  const lines = useMemo(() => {
+    const path = (xi: number, zi: number) => frames.map(f => `${px(f[xi]).toFixed(1)},${pz(f[zi]).toFixed(1)}`).join(' ')
+    let top = 20
+    for (const f of frames) top = Math.max(top, f[4], f[9])
+    const hp = (idx: number) => frames.map((f, t) =>
+      `${((t / Math.max(1, frames.length - 1)) * W).toFixed(1)},${(70 - (f[idx] / top) * 70).toFixed(1)}`).join(' ')
+    return { myPath: path(0, 2), opponentPath: path(5, 7), myHp: hp(4), opponentHp: hp(9) }
+  }, [frames, view])
 
   const i = Number.isFinite(tick) ? Math.max(0, Math.min(frames.length - 1, Math.floor(tick))) : 0
   const now = frames[i]
@@ -168,11 +179,7 @@ function Replay({ fight }: { fight: Fight }) {
   }
   const me = facing(now[0], now[2], now[3])
   const op = facing(now[5], now[7], now[8])
-  const maxHp = Math.max(20, ...frames.map(f => Math.max(f[4], f[9])))
-
   const H = 70
-  const hpLine = (idx: number) => frames.map((f, t) =>
-    `${((t / Math.max(1, frames.length - 1)) * W).toFixed(1)},${(H - (f[idx] / maxHp) * H).toFixed(1)}`).join(' ')
 
   return (
     <div className="crystal-card p-4 space-y-3">
@@ -193,8 +200,8 @@ function Replay({ fight }: { fight: Fight }) {
 
       <svg viewBox={`0 0 ${W} ${W}`} className="w-full max-w-[480px] mx-auto block rounded-lg bg-crystal-bg" role="img"
         aria-label={`Draufsicht des Kampfes gegen ${fight.opponent}`}>
-        <polyline points={path(5, 7)} fill="none" className="stroke-crystal-muted" strokeWidth="1.5" strokeDasharray="3 3" opacity="0.6" />
-        <polyline points={path(0, 2)} fill="none" className="stroke-crystal-accent" strokeWidth="1.5" opacity="0.6" />
+        <polyline points={lines.opponentPath} fill="none" className="stroke-crystal-muted" strokeWidth="1.5" strokeDasharray="3 3" opacity="0.6" />
+        <polyline points={lines.myPath} fill="none" className="stroke-crystal-accent" strokeWidth="1.5" opacity="0.6" />
         {frames.map((f, t) => (f[10] & 1) ? (
           <circle key={'h' + t} cx={px(f[5])} cy={pz(f[7])} r="3" className="fill-crystal-accent" opacity={t <= i ? 0.9 : 0.25} />
         ) : null)}
@@ -220,8 +227,8 @@ function Replay({ fight }: { fight: Fight }) {
           <span className="tabular">Du {now[4].toFixed(1)}, {fight.opponent} {now[9].toFixed(1)}</span>
         </div>
         <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-16" preserveAspectRatio="none" aria-hidden="true">
-          <polyline points={hpLine(9)} fill="none" className="stroke-crystal-muted" strokeWidth="1.5" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
-          <polyline points={hpLine(4)} fill="none" className="stroke-crystal-accent" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
+          <polyline points={lines.opponentHp} fill="none" className="stroke-crystal-muted" strokeWidth="1.5" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
+          <polyline points={lines.myHp} fill="none" className="stroke-crystal-accent" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
           <line x1={(i / Math.max(1, frames.length - 1)) * W} x2={(i / Math.max(1, frames.length - 1)) * W} y1="0" y2={H}
             className="stroke-crystal-text" strokeWidth="1" opacity="0.4" vectorEffect="non-scaling-stroke" />
         </svg>
