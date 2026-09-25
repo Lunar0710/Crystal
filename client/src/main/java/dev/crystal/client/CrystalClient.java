@@ -71,9 +71,10 @@ public class CrystalClient implements ClientModInitializer {
             hudPresetManager.moveOffOldDefaults();
         }
 
+        var netTick = dev.crystal.client.util.SafeRender.safeTick("CrystalNet", dev.crystal.client.net.CrystalNet::tick);
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             eventBus.post(new dev.crystal.client.event.events.TickEvent(client));
-            dev.crystal.client.net.CrystalNet.tick(client);
+            netTick.accept(client);
         });
 
         // Other Nexora players' emotes and cosmetics; off without a server address.
