@@ -436,6 +436,7 @@ function Test-Applied($t) {
     if ($t.id -eq 'memcomp') {
         # Get-MMAgent needs admin rights; without them, whether Lunar switched it off.
         $m = $null; try { $m = Get-MMAgent -ErrorAction Stop } catch {}
+        if ((Get-Service SysMain -ErrorAction SilentlyContinue).Status -ne 'Running' -and ((Get-Backup).PSObject.Properties.Name -contains 'memcomp')) { return $true }
         if ($m) { return (-not $m.MemoryCompression) }
         return ((Get-Backup).PSObject.Properties.Name -contains 'memcomp')
     }
@@ -461,6 +462,8 @@ function Apply-Tweak($Backup, $t) {
             $Backup | Add-Member -NotePropertyName memcomp -NotePropertyValue ([bool](Get-MMAgent -ErrorAction Stop).MemoryCompression)
             Save-Backup $Backup
         }
+        # Memory compression runs inside SysMain: with that service off it is inactive anyway.
+        if ((Get-Service SysMain -ErrorAction SilentlyContinue).Status -ne 'Running') { return }
         Disable-MMAgent -MemoryCompression -ErrorAction Stop
         return
     }
@@ -484,7 +487,7 @@ function Revert-Tweak($Backup, $t) {
     if ($t.nic) { Revert-Nic $Backup $t.id; return }
     if ($t.id -eq 'memcomp') {
         if ($Backup.PSObject.Properties.Name -contains 'memcomp') {
-            if ($Backup.memcomp) { Enable-MMAgent -MemoryCompression -ErrorAction Stop }
+            if ($Backup.memcomp) { try { Enable-MMAgent -MemoryCompression -ErrorAction Stop } catch { if ((Get-Service SysMain -ErrorAction SilentlyContinue).Status -eq 'Running') { throw } } }
             $Backup.PSObject.Properties.Remove('memcomp'); Save-Backup $Backup
         }
         return
