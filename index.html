@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="icon" href="icon.png">
+<meta name="theme-color" content="#050505">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Nexora">
+<meta property="og:title" content="Nexora Client: jeder Kampf aufgezeichnet">
+<meta property="og:description" content="Kostenloser Minecraft-Client mit eigenem Launcher: Kampf-Replays, Kill-Cam, PvP-HUD und mehr FPS. Für 1.21.4 bis 26.2.">
+<meta property="og:url" content="https://lunar0710.github.io/Crystal/">
+<meta property="og:image" content="https://lunar0710.github.io/Crystal/icon.png">
+<meta name="twitter:card" content="summary">
 <title>Nexora Client</title>
 <meta name="description" content="Nexora ist ein kostenloser Minecraft-Client mit eigenem Launcher: Kampf-Replays, Kill-Cam, PvP-HUD und mehr FPS. Für Minecraft 1.21.4 bis 26.2.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -56,7 +64,7 @@
 
   /* ---------- Double bezel ---------- */
   .shell { padding: 6px; border-radius: var(--r); background: rgba(255, 255, 255, .025); box-shadow: 0 0 0 1px var(--hair), 0 40px 80px -40px rgba(0, 0, 0, .8); }
-  .core { border-radius: calc(var(--r) - 6px); background: linear-gradient(180deg, var(--core-2), var(--core)); box-shadow: inset 0 1px 1px rgba(255, 255, 255, .07); overflow: hidden; position: relative; }
+  .core { border-radius: calc(var(--r) - 6px); background: linear-gradient(180deg, var(--core-2), var(--core)); box-shadow: inset 0 1px 1px rgba(255, 255, 255, .07); overflow: hidden; overflow: clip; position: relative; }
 
   /* ---------- Eyebrow ---------- */
   .eyebrow { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 8px; border-radius: 999px; font-size: 11px; letter-spacing: .16em; text-transform: uppercase; font-weight: 500; color: var(--ash); background: rgba(255, 255, 255, .03); box-shadow: 0 0 0 1px var(--hair); }
@@ -82,7 +90,7 @@
   .overlay a { font-family: var(--display); font-stretch: 125%; font-weight: 800; font-size: 40px; letter-spacing: -.03em; transform: translateY(48px); opacity: 0; transition: transform .8s var(--spring), opacity .8s var(--spring); }
   .menu-open .overlay { opacity: 1; pointer-events: auto; }
   .menu-open .overlay a { transform: none; opacity: 1; }
-  .overlay a:nth-child(2) { transition-delay: .05s; } .overlay a:nth-child(3) { transition-delay: .1s; } .overlay a:nth-child(4) { transition-delay: .15s; } .overlay a:nth-child(5) { transition-delay: .2s; }
+  .overlay a:nth-child(2) { transition-delay: .05s; } .overlay a:nth-child(3) { transition-delay: .1s; } .overlay a:nth-child(4) { transition-delay: .15s; } .overlay a:nth-child(5) { transition-delay: .2s; } .overlay a:nth-child(6) { transition-delay: .25s; } .overlay a:nth-child(7) { transition-delay: .3s; }
 
   /* ---------- Buttons: island with nested icon ---------- */
   .btn { display: inline-flex; align-items: center; gap: 14px; padding: 7px 7px 7px 22px; border-radius: 999px; font-weight: 500; font-size: 15px; cursor: pointer; border: 0;
@@ -302,6 +310,182 @@
   .wordmark { font-family: var(--display); font-stretch: 125%; font-weight: 900; font-size: clamp(80px, 21vw, 330px); line-height: .78; letter-spacing: -.05em; text-align: center; margin-top: 30px;
     background: linear-gradient(180deg, rgba(255, 255, 255, .14), rgba(255, 255, 255, 0) 85%); -webkit-background-clip: text; background-clip: text; color: transparent; user-select: none; }
 
+
+  /* ---------- Jar downloads ---------- */
+  .jars { margin-top: 24px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .jars a { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px 8px 12px; border-radius: 999px; font: 500 13px var(--mono); font-variant-numeric: tabular-nums;
+    color: var(--ink); background: rgba(255, 255, 255, .04); box-shadow: inset 0 0 0 1px var(--hair-2);
+    transition: background .4s var(--spring), color .4s var(--spring), translate .4s var(--spring), box-shadow .4s var(--spring); }
+  .jars a::before { content: ""; width: 12px; height: 12px; flex: none; background: currentColor; opacity: .7;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 2.5v9m0 0L4.5 8M8 11.5 11.5 8M3 14h10' fill='none' stroke='%23000' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 2.5v9m0 0L4.5 8M8 11.5 11.5 8M3 14h10' fill='none' stroke='%23000' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat; }
+  .jars a:hover { background: var(--accent); color: var(--accent-ink); translate: 0 -2px; box-shadow: 0 10px 30px -10px var(--accent); }
+  .jars a.main { background: var(--accent); color: var(--accent-ink); }
+  .jars a small { font: 400 11px var(--body); opacity: .65; }
+  .js .jars.go a { animation: fadeUp .7s var(--out) both; animation-delay: calc(var(--i) * 55ms); }
+  .jars-note { margin-top: 14px !important; font-size: 13px; }
+  .jars-note a { color: var(--ink); text-decoration: underline; text-decoration-color: var(--hair-2); text-underline-offset: 3px; }
+
+  /* ---------- What's new ---------- */
+  .news { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; counter-reset: n; }
+  .news .core { flex: 1; padding: 28px; display: flex; flex-direction: column; gap: 10px; }
+  .news article { display: flex; transition: translate .6s var(--spring); }
+  .news article:hover { translate: 0 -4px; }
+  .news .n { font: 500 12px var(--mono); color: var(--dim); letter-spacing: .1em; }
+  .news h3 { font-size: 21px; font-weight: 760; font-stretch: 118%; line-height: 1.1; }
+  .news p { color: var(--ash); font-size: 15px; font-weight: 300; }
+  .news article:hover .n { color: var(--accent); }
+  .news-all { margin-top: 26px; text-align: center; font-size: 14px; }
+  .news-all a { color: var(--ash); border-bottom: 1px solid var(--hair-2); padding-bottom: 2px; transition: color .4s var(--spring), border-color .4s var(--spring); }
+  .news-all a:hover { color: var(--ink); border-color: var(--accent); }
+
+  /* ---------- FAQ ---------- */
+  .faq { display: grid; gap: 10px; max-width: 880px; }
+  .faq details { border-radius: 20px; background: rgba(255, 255, 255, .025); box-shadow: inset 0 0 0 1px var(--hair); transition: background .5s var(--spring), box-shadow .5s var(--spring); }
+  .faq details[open] { background: rgba(255, 255, 255, .045); box-shadow: inset 0 0 0 1px var(--hair-2); }
+  .faq summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 20px 22px; font-size: 16.5px; font-weight: 500; }
+  .faq summary::-webkit-details-marker { display: none; }
+  .faq summary::after { content: ""; width: 26px; height: 26px; flex: none; border-radius: 50%; background: rgba(255, 255, 255, .06) center / 12px no-repeat
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M6 1v10M1 6h10' stroke='%23f4f4f5' stroke-width='1.4' stroke-linecap='round'/%3E%3C/svg%3E");
+    transition: transform .6s var(--spring), background-color .4s var(--spring); }
+  .faq details[open] summary::after { transform: rotate(135deg); background-color: rgba(255, 255, 255, .12); }
+  .faq .a { overflow: hidden; }
+  .faq .a p { padding: 0 22px 22px; color: var(--ash); font-weight: 300; max-width: 44em; }
+  .faq .a a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--hair-2); }
+  .live-meta { margin-left: 10px; padding: 3px 10px; border-radius: 999px; background: rgba(255, 255, 255, .04); box-shadow: inset 0 0 0 1px var(--hair); color: var(--ash); white-space: nowrap; }
+  .live-meta i { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #3dbe7a; margin-right: 6px; vertical-align: 1px; box-shadow: 0 0 0 3px rgba(61, 190, 122, .18); }
+  @media (max-width: 1080px) { .news { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 767px) { .news { grid-template-columns: 1fr; } .faq summary { padding: 18px; } .faq .a p { padding: 0 18px 18px; } .live-meta { display: inline-block; margin: 8px 0 0; } }
+
+  /* ---------- Direct downloads ---------- */
+  .dl-size { margin-top: 16px !important; font-size: 13px; color: var(--dim); }
+  .oses a.here { color: var(--ink); box-shadow: inset 0 0 0 1px var(--hair-2); background: rgba(255, 255, 255, .05); }
+  .toast { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 22px); z-index: 60; translate: -50% 140%; opacity: 0;
+    display: grid; gap: 2px; max-width: min(460px, calc(100vw - 32px)); padding: 14px 18px 14px 50px; border-radius: 18px; font-size: 13.5px; color: var(--ash);
+    background: rgba(18, 18, 20, .86) no-repeat 18px 50% / 20px; backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Ccircle cx='10' cy='10' r='9' fill='%233dbe7a'/%3E%3Cpath d='M6 10.2l2.6 2.6L14 7.4' fill='none' stroke='%23050505' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    box-shadow: 0 0 0 1px var(--hair-2), 0 30px 60px -20px rgba(0, 0, 0, .9); transition: translate .7s var(--spring), opacity .5s var(--out); pointer-events: none; }
+  .toast.on { translate: -50% 0; opacity: 1; }
+  .toast b { color: var(--ink); font-weight: 600; }
+
+  /* ---------- Motion ---------- */
+  @property --ang { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+  .progress { position: fixed; top: 0; left: 0; right: 0; height: 2px; z-index: 50; pointer-events: none; transform-origin: left; transform: scaleX(0);
+    background: linear-gradient(90deg, var(--glow), var(--accent)); box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 70%, transparent); }
+  .cursor-glow { position: fixed; left: 0; top: 0; width: 560px; height: 560px; margin: -280px 0 0 -280px; border-radius: 50%; pointer-events: none; z-index: 0;
+    background: radial-gradient(circle, color-mix(in srgb, var(--accent) 8%, transparent), transparent 62%); opacity: 0; transition: opacity .8s var(--out); will-change: transform; }
+  .cursor-glow.on { opacity: 1; }
+  .orbs i:nth-child(1) { animation: drift1 26s ease-in-out infinite alternate; }
+  .orbs i:nth-child(2) { animation: drift2 32s ease-in-out infinite alternate; }
+  @keyframes drift1 { to { translate: 14vw 12vh; scale: 1.15; } }
+  @keyframes drift2 { to { translate: -12vw 18vh; scale: .88; } }
+
+  /* Nav tucks away while scrolling down, comes back on the way up. */
+  .nav { transition: translate .7s var(--spring), background .6s var(--spring); }
+  .nav.hide { translate: 0 calc(-100% - 40px); }
+  .nav.solid { background: rgba(12, 12, 13, .82); }
+
+  /* Headline: every word rises out of its own mask. */
+  .hero h1.split .soft { background: none; }
+  .hero h1 .w { display: inline-block; overflow: hidden; vertical-align: top; padding: .02em .02em .22em; margin: -.02em 0 -.22em; }
+  .hero h1 .w > span { display: inline-block; transform: translateY(115%) rotate(7deg); transform-origin: 0 100%; animation: rise 1.2s var(--out) forwards; animation-delay: calc(var(--i) * 90ms + 120ms); }
+  .hero h1 .soft .w > span { background: linear-gradient(180deg, #8d8d94, #3b3b40); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  @keyframes rise { to { transform: none; } }
+  .intro { animation: fadeUp 1.1s var(--out) both; animation-delay: var(--d, 0s); }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(26px); filter: blur(8px); } }
+
+  .eyebrow b { animation: ping 2.6s var(--out) infinite; }
+  @keyframes ping { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); } 70%, 100% { box-shadow: 0 0 0 9px transparent; } }
+
+  /* Buttons: a light sweep, and they lean toward the pointer. */
+  .btn { position: relative; overflow: hidden; overflow: clip; isolation: isolate; transition: transform .6s var(--spring), translate .5s var(--spring), background .6s var(--spring), box-shadow .6s var(--spring); }
+  .btn::after { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; translate: -130% 0; transition: translate .9s var(--out);
+    background: linear-gradient(100deg, transparent 35%, rgba(255, 255, 255, .22) 50%, transparent 65%); }
+  .btn-solid::after { background: linear-gradient(100deg, transparent 35%, color-mix(in srgb, var(--accent-ink) 8%, transparent) 50%, transparent 65%); }
+  .btn:hover::after { translate: 130% 0; }
+  #heroDl::after, #mainDl::after { animation: sweep 5s var(--out) 1.8s infinite; }
+  @keyframes sweep { 0% { translate: -130% 0; } 35%, 100% { translate: 130% 0; } }
+
+  /* Product shot: chips float on their own. */
+  .chip { animation: bob 6s ease-in-out infinite; }
+  .chip.c2 { animation-delay: -1.6s; } .chip.c3 { animation-delay: -3.1s; animation-duration: 7s; } .chip.c4 { animation-delay: -4.4s; animation-duration: 5.4s; }
+  @keyframes bob { 50% { translate: 0 -10px; } }
+  .kpi b, .gl b { display: inline-block; }
+  .kpi { transition: background .5s var(--spring), translate .5s var(--spring); }
+  .kpi:hover { background: rgba(255, 255, 255, .05); translate: 0 -2px; }
+  .row { transition: background .4s var(--spring), translate .4s var(--spring); }
+  .row:hover { background: rgba(255, 255, 255, .04); translate: 3px 0; }
+
+  .marquee:hover .track { animation-play-state: paused; }
+  .track span { transition: color .4s var(--spring), background .4s var(--spring), box-shadow .4s var(--spring); }
+  .track span:hover { color: var(--accent-ink); background: var(--accent); box-shadow: 0 0 24px -4px var(--accent); }
+
+  /* Bento: the border lights up where the pointer is, the card lifts. */
+  .cell.shell { --sx: 50%; --sy: -30%; transition: translate .6s var(--spring), box-shadow .6s var(--spring);
+    background: radial-gradient(420px circle at var(--sx) var(--sy), color-mix(in srgb, var(--accent) 30%, transparent), rgba(255, 255, 255, .025) 60%); }
+  .cell > .core::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .6s var(--out);
+    background: radial-gradient(520px circle at var(--sx) var(--sy), color-mix(in srgb, var(--accent) 7%, transparent), transparent 55%); }
+  .cell:hover { translate: 0 -4px; box-shadow: 0 0 0 1px var(--hair-2), 0 50px 90px -40px rgba(0, 0, 0, .9); }
+  .cell:hover > .core::before { opacity: 1; }
+
+  /* FPS-Doktor fixes its findings one after another. */
+  .doc div { transition: opacity .6s var(--out), translate .6s var(--spring), background .6s var(--spring); }
+  .doc .sev { transition: background .4s var(--out), transform .6s var(--spring); }
+  .doc em { transition: background .4s var(--out), color .4s var(--out); }
+  .doc div.fixed { opacity: .6; translate: 4px 0; }
+  .doc div.fixed .sev { background: #3dbe7a !important; transform: scale(1.35); box-shadow: 0 0 10px #3dbe7a; }
+  .doc div.fixed em { background: rgba(61, 190, 122, .16); color: #6be3a2; }
+
+  /* Versions: the line draws itself, the dots follow. */
+  .js .tl::before { transform-origin: left; transform: scaleX(0); transition: transform 1.8s var(--out); }
+  .js .tl div { opacity: 0; translate: 0 12px; transition: opacity .7s var(--out), translate .7s var(--spring); transition-delay: calc(var(--i) * 110ms + .2s); }
+  .js .tl.go::before { transform: scaleX(1); }
+  .js .tl.go div { opacity: 1; translate: 0 0; }
+  .tl div.new::before { animation: beacon 2.2s var(--out) infinite; }
+  @keyframes beacon { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 60%, transparent), 0 0 24px var(--accent); } 100% { box-shadow: 0 0 0 12px transparent, 0 0 24px var(--accent); } }
+
+  /* Nexora+ */
+  .js .perks li { opacity: 0; translate: -18px 0; transition: opacity .8s var(--out), translate .8s var(--spring); transition-delay: calc(var(--i) * 90ms + .15s); }
+  .js .perks.go li { opacity: 1; translate: 0 0; }
+  .perks li { transition: padding .4s var(--spring); }
+  .perks li:hover { padding-left: 8px; }
+  .member { animation: hover 7s ease-in-out infinite; }
+  @keyframes hover { 50% { translate: 0 -14px; } }
+  .member .in::after { content: ""; position: absolute; inset: -60%; pointer-events: none; animation: sheen 6s var(--out) infinite;
+    background: linear-gradient(115deg, transparent 42%, rgba(255, 255, 255, .13) 50%, transparent 58%); }
+  @keyframes sheen { 0% { translate: -45% 0; } 45%, 100% { translate: 45% 0; } }
+
+  /* Terminal types its lines. */
+  .js .term .ln { display: inline-block; clip-path: inset(0 100% 0 0); }
+  .term.go .ln { animation: type .8s steps(22, end) forwards; animation-delay: calc(var(--i) * .65s + .2s); }
+  @keyframes type { to { clip-path: inset(0 0 0 0); } }
+  .caret { display: inline-block; width: 7px; height: 1.1em; margin-left: 4px; vertical-align: -.2em; background: var(--accent); animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* Download: a light runs around the frame. */
+  .dl { position: relative; }
+  .dl::before { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1.5px; pointer-events: none; z-index: 2;
+    background: conic-gradient(from var(--ang), transparent 0 62%, color-mix(in srgb, var(--accent) 90%, transparent) 80%, transparent 96%);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; animation: spin 6s linear infinite; }
+  @keyframes spin { to { --ang: 360deg; } }
+  .dl > .core::before { animation: breathe 5s ease-in-out infinite; }
+  @keyframes breathe { 50% { opacity: .55; scale: 1.08; } }
+  .oses a { transition: color .4s var(--spring), background .4s var(--spring), translate .4s var(--spring); }
+  .oses a:hover { translate: 0 -2px; }
+
+  /* Footer wordmark: letters rise in. */
+  .wordmark.split { background: none; }
+  .wordmark span { display: inline-block; background: linear-gradient(180deg, rgba(255, 255, 255, .16), rgba(255, 255, 255, 0) 85%); -webkit-background-clip: text; background-clip: text; color: transparent;
+    transition: transform 1.2s var(--out), opacity 1.2s var(--out); transition-delay: calc(var(--i) * 70ms); }
+  .js .wordmark.split:not(.go) span { transform: translateY(45%); opacity: 0; }
+  .wordmark span:hover { transform: translateY(-6%); transition-delay: 0s; transition-duration: .5s; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; }
+    .hero h1 .w > span { transform: none; }
+    .cursor-glow { display: none; }
+  }
+
   /* ---------- Responsive ---------- */
   @media (max-width: 1080px) {
     .win { grid-template-columns: 56px 1fr; }
@@ -339,6 +523,8 @@
 <body>
 <div class="orbs" aria-hidden="true"><i></i><i></i></div>
 <div class="grain" aria-hidden="true"></div>
+<div class="cursor-glow" id="cursorGlow" aria-hidden="true"></div>
+<div class="progress" id="progress" aria-hidden="true"></div>
 
 <header class="nav" id="nav">
   <a class="brand" href="#top" aria-label="Nexora, nach oben">
@@ -348,8 +534,10 @@
   <nav class="nav-links" aria-label="Seiten">
     <a href="#features">Features</a>
     <a href="#versionen">Versionen</a>
+    <a href="#neu">Neu</a>
     <a href="#plus">Nexora+</a>
     <a href="#jar">Mod-Datei</a>
+    <a href="#faq">FAQ</a>
   </nav>
   <a class="btn btn-solid btn-sm" href="#download">Download<span class="ic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v9m0 0L4.5 8M8 11.5 11.5 8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
   <button class="burger" id="burger" type="button" aria-label="Menü öffnen" aria-expanded="false"><i></i><i></i></button>
@@ -358,7 +546,9 @@
   <a href="#features">Features</a>
   <a href="#versionen">Versionen</a>
   <a href="#plus">Nexora+</a>
+  <a href="#neu">Neu</a>
   <a href="#jar">Mod-Datei</a>
+  <a href="#faq">FAQ</a>
   <a href="#download">Download</a>
 </div>
 
@@ -368,10 +558,10 @@
     <h1 class="rv">Jeder Kampf.<span class="soft">Aufgezeichnet.</span></h1>
     <p class="lede rv">Nexora ist ein kostenloser Minecraft-Client mit eigenem Launcher. <strong>Sieh dir jeden Kampf von oben noch einmal an</strong>, mit Laufwegen, Treffern und Leben. Dazu ein HUD, das mitkämpft, und ein FPS-Doktor, der dein Spiel schneller macht.</p>
     <div class="cta rv">
-      <a class="btn btn-solid" href="#download" id="heroDl">Nexora herunterladen<span class="ic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v9m0 0L4.5 8M8 11.5 11.5 8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+      <a class="btn btn-solid" data-dl href="https://github.com/Lunar0710/Crystal/releases/download/v1.5.1/Nexora-Launcher-Setup-1.5.1.exe" id="heroDl">Nexora herunterladen<span class="ic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v9m0 0L4.5 8M8 11.5 11.5 8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
       <a class="btn btn-ghost" href="#features">Alle Features<span class="ic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 11.5l7-7m0 0H6m5.5 0V10" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
     </div>
-    <p class="meta rv">Windows, macOS, Linux. Minecraft 1.21.4 bis 26.2 mit Fabric.</p>
+    <p class="meta rv">Windows, macOS, Linux. Minecraft 1.21.4 bis 26.2 mit Fabric.<span id="liveMeta"></span></p>
 
     <div class="stage rv" id="stage">
       <div class="tilt" id="tilt">
@@ -389,10 +579,10 @@
               <div class="pane">
                 <div class="pane-head"><h4>Kämpfe</h4><span>Heute, 21:14 · Hypixel Duels</span></div>
                 <div class="kpis">
-                  <div class="kpi"><small>Kämpfe</small><b>48</b></div>
-                  <div class="kpi"><small>Siege</small><b>31</b></div>
-                  <div class="kpi"><small>Trefferquote</small><b>68 %</b></div>
-                  <div class="kpi"><small>Beste Combo</small><b>7</b></div>
+                  <div class="kpi"><small>Kämpfe</small><b data-count>48</b></div>
+                  <div class="kpi"><small>Siege</small><b data-count>31</b></div>
+                  <div class="kpi"><small>Trefferquote</small><b><span data-count>68</span> %</b></div>
+                  <div class="kpi"><small>Beste Combo</small><b data-count>7</b></div>
                 </div>
                 <div class="map">
                   <canvas id="heroMap" role="img" aria-label="Replay: zwei Spieler umkreisen sich, Treffer blinken auf, der Gegner fällt."></canvas>
@@ -423,7 +613,7 @@
         </div>
       </div>
       <div class="chip c1" data-depth="26"><span class="xmark"></span><span>HitMarker <small>Treffer zählt</small></span></div>
-      <div class="chip c2" data-depth="40"><span class="k">FPS 412</span><small>1%-Low 238</small></div>
+      <div class="chip c2" data-depth="40"><span class="k">FPS <span data-count>412</span></span><small>1%-Low 238</small></div>
       <div class="chip c3" data-depth="34"><span class="pop"></span><span>Steve_PvP <small>2 Totems gepoppt</small></span></div>
       <div class="chip c4" data-depth="18"><span class="k">K/D 3.50</span><small>Kills 7 · Tode 2</small></div>
     </div>
@@ -436,7 +626,7 @@
 
   <section class="wrap" id="features">
     <div class="head">
-      <div><span class="eyebrow rv">113 Module</span><h2 class="rv">Alles drin. Nichts zusammensuchen.</h2></div>
+      <div><span class="eyebrow rv"><span data-count>113</span> Module</span><h2 class="rv">Alles drin. Nichts zusammensuchen.</h2></div>
       <p class="rv">Was du sonst aus zehn Mods baust, steckt in einem Client. Jedes Modul lässt sich einzeln schalten und im HUD-Editor frei platzieren.</p>
     </div>
 
@@ -518,6 +708,22 @@
     </div>
   </section>
 
+  <section class="wrap" id="neu">
+    <div class="head">
+      <div><span class="eyebrow rv" id="neuTag"><b>1.6</b> Changelog</span><h2 class="rv" id="neuTitle">Neu in Nexora 1.6.</h2></div>
+      <p class="rv">Die größten Neuerungen im letzten Update. Der Launcher aktualisiert sich selbst, du musst nichts tun.</p>
+    </div>
+    <div class="news" id="news">
+      <article class="shell rv"><div class="core"><span class="n">01</span><h3>Kampf-Replay</h3><p>Jeder Kampf wird aufgezeichnet. Im Launcher siehst du ihn von oben noch einmal, mit Laufwegen, Treffern und Leben.</p></div></article>
+      <article class="shell rv"><div class="core"><span class="n">02</span><h3>Kill-Cam</h3><p>Der Todesbildschirm zeigt die letzten fünf Sekunden vor deinem Tod von oben.</p></div></article>
+      <article class="shell rv"><div class="core"><span class="n">03</span><h3>HitMarker</h3><p>Ein kurzes Kreuz am Fadenkreuz, wenn ein Treffer wirklich zählt.</p></div></article>
+      <article class="shell rv"><div class="core"><span class="n">04</span><h3>TotemPops</h3><p>Wie viele Totems jeder Spieler seit seinem letzten Tod verloren hat, am Namensschild und im Chat.</p></div></article>
+      <article class="shell rv"><div class="core"><span class="n">05</span><h3>Instanz teilen</h3><p>Dein Setup als .mrpack-Datei, mit Mods, Resource Packs, Shadern und Einstellungen.</p></div></article>
+      <article class="shell rv"><div class="core"><span class="n">06</span><h3>Mehr FPS</h3><p>3D Skins bis zu viermal leichter, schnellerer Start und ein Leistungsmodus, der die teuersten Optionen zurückdreht.</p></div></article>
+    </div>
+    <p class="news-all rv"><a href="https://github.com/Lunar0710/Crystal/releases" id="newsAll">Alle Änderungen ansehen</a></p>
+  </section>
+
   <section class="wrap" id="plus">
     <div class="plus">
       <div>
@@ -554,6 +760,10 @@
           <span class="eyebrow">Mod-Datei</span>
           <h3 style="margin-top:18px">Lieber dein eigener Launcher?</h3>
           <p>Jedes Release hat Nexora auch als einzelne Jar, eine pro Minecraft-Version. Sie läuft in Prism, MultiMC und dem normalen Launcher. Nexora+ gibt es nur mit Anmeldung im Nexora-Launcher.</p>
+          <div class="jars" id="jars" role="list" aria-label="Mod-Datei pro Minecraft-Version">
+            <a role="listitem" href="https://github.com/Lunar0710/Crystal/releases/latest">1.21.11</a><a role="listitem" href="https://github.com/Lunar0710/Crystal/releases/latest">26.2</a><a role="listitem" href="https://github.com/Lunar0710/Crystal/releases/latest">1.21.10</a><a role="listitem" href="https://github.com/Lunar0710/Crystal/releases/latest">1.21.9</a><a role="listitem" href="https://github.com/Lunar0710/Crystal/releases/latest">1.21.8</a><a role="listitem" href="https://github.com/Lunar0710/Crystal/releases/latest">1.21.7</a><a role="listitem" href="https://github.com/Lunar0710/Crystal/releases/latest">1.21.6</a><a role="listitem" href="https://github.com/Lunar0710/Crystal/releases/latest">1.21.5</a><a role="listitem" href="https://github.com/Lunar0710/Crystal/releases/latest">1.21.4</a>
+          </div>
+          <p class="jars-note" id="jarsNote">Wähl deine Minecraft-Version. Dazu gehört die <a href="https://modrinth.com/mod/fabric-api/versions">Fabric API</a> in denselben mods-Ordner.</p>
         </div>
         <div class="term">
           <div class="term-top"><span>.minecraft/mods</span><button type="button" id="copyJar">Name kopieren</button></div>
@@ -566,18 +776,35 @@
     </div>
   </section>
 
+  <section class="wrap" id="faq">
+    <div class="head">
+      <div><span class="eyebrow rv">Fragen</span><h2 class="rv">Kurz beantwortet.</h2></div>
+      <p class="rv">Was Spieler vor dem ersten Start am häufigsten wissen wollen.</p>
+    </div>
+    <div class="faq rv">
+      <details><summary>Kostet Nexora etwas?</summary><div class="a"><p>Nein. Launcher, Client, alle Module und Capes sind kostenlos. Nur Nexora+ mit Pets, Hüten, KillEffect und mehr Themes ist eine freiwillige Mitgliedschaft.</p></div></details>
+      <details><summary>Brauche ich Java oder Fabric?</summary><div class="a"><p>Nein. Der Launcher lädt die passende Java-Version, Fabric und Nexora selbst herunter. Du meldest dich nur mit deinem Microsoft-Konto an.</p></div></details>
+      <details><summary>Läuft Nexora auf meinem PC?</summary><div class="a"><p>Auf Windows 10 und 11, macOS (Intel und Apple Silicon) und Linux. Der Launcher installiert beim ersten Start Sodium und weitere Leistungs-Mods, und der FPS-Doktor schlägt passende Einstellungen für schwächere Rechner vor.</p></div></details>
+      <details><summary>Kann ich meine eigenen Mods und Shader nutzen?</summary><div class="a"><p>Ja. Jede Instanz hat ihren eigenen mods-Ordner, Mods von Modrinth installierst du direkt im Launcher. Shader laufen über Iris.</p></div></details>
+      <details><summary>Ich nutze Prism, MultiMC oder den normalen Launcher.</summary><div class="a"><p>Dann nimm die <a href="#jar">Mod-Datei</a> für deine Minecraft-Version und leg sie zusammen mit der Fabric API in den mods-Ordner. Nexora+ gibt es nur mit Anmeldung im Nexora-Launcher.</p></div></details>
+      <details><summary>Wie bekomme ich Updates?</summary><div class="a"><p>Automatisch. Der Launcher prüft beim Start auf eine neue Version und bietet sie dir an, der Client wird beim nächsten Spielstart mit aktualisiert.</p></div></details>
+    </div>
+  </section>
+
   <section class="wrap" id="download">
     <div class="shell dl rv">
       <div class="core">
         <span class="eyebrow">Kostenlos</span>
         <h2>Bereit für den nächsten Kampf?</h2>
         <p class="lede">Der Launcher richtet Java, Fabric und Nexora selbst ein und hält sich danach automatisch aktuell. Anmelden mit deinem Microsoft-Konto.</p>
-        <div class="cta"><a class="btn btn-solid" id="mainDl" href="https://github.com/Lunar0710/Crystal/releases/latest"><span id="mainDlText">Für Windows herunterladen</span><span class="ic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v9m0 0L4.5 8M8 11.5 11.5 8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a></div>
+        <div class="cta"><a class="btn btn-solid" id="mainDl" data-dl href="https://github.com/Lunar0710/Crystal/releases/download/v1.5.1/Nexora-Launcher-Setup-1.5.1.exe"><span id="mainDlText">Für Windows herunterladen</span><span class="ic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v9m0 0L4.5 8M8 11.5 11.5 8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a></div>
+        <p class="dl-size" id="dlSize">Version 1.5.1 · Windows 10 und 11</p>
         <div class="oses">
-          <a href="https://github.com/Lunar0710/Crystal/releases/latest">Windows .exe</a>
-          <a href="https://github.com/Lunar0710/Crystal/releases/latest">macOS .dmg</a>
-          <a href="https://github.com/Lunar0710/Crystal/releases/latest">Linux .AppImage</a>
-          <a href="https://github.com/Lunar0710/Crystal/releases/latest">Nur die Mod .jar</a>
+          <a data-dl data-os="win" href="https://github.com/Lunar0710/Crystal/releases/download/v1.5.1/Nexora-Launcher-Setup-1.5.1.exe">Windows .exe</a>
+          <a data-dl data-os="mac-arm64" href="https://github.com/Lunar0710/Crystal/releases/download/v1.5.1/Nexora-Launcher-1.5.1-mac-arm64.dmg">macOS Apple Silicon</a>
+          <a data-dl data-os="mac-x64" href="https://github.com/Lunar0710/Crystal/releases/download/v1.5.1/Nexora-Launcher-1.5.1-mac-x64.dmg">macOS Intel</a>
+          <a data-dl data-os="linux" href="https://github.com/Lunar0710/Crystal/releases/download/v1.5.1/Nexora-Launcher-1.5.1-linux-x86_64.AppImage">Linux .AppImage</a>
+          <a href="#jar">Nur die Mod .jar</a>
         </div>
       </div>
     </div>
@@ -591,12 +818,16 @@
   </div>
   <div class="wordmark" aria-hidden="true">Nexora</div>
 </footer>
+<div class="toast" id="toast" role="status" aria-live="polite"><b id="toastTitle">Download startet</b><span id="toastText">Öffne die Datei, wenn sie fertig ist.</span></div>
 
 <script>
 (() => {
   const $ = id => document.getElementById(id);
   const root = document.documentElement;
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Published releases, newest first; [] when GitHub can't be reached (the links then stay as written).
+  const releases = fetch('https://api.github.com/repos/Lunar0710/Crystal/releases?per_page=100', { headers: { Accept: 'application/vnd.github+json' } })
+    .then(r => r.ok ? r.json() : []).then(rs => Array.isArray(rs) ? rs.filter(x => !x.draft && !x.prerelease) : []).catch(() => []);
 
   // ---- Accent colours: the nine from the in-game NexoraMenu ----
   const accents = [['Weiß', '#ffffff'], ['Blau', '#4c8dff'], ['Türkis', '#3cc3c8'], ['Grün', '#3dbe7a'], ['Gold', '#d4af5a'], ['Orange', '#f08c3a'], ['Rot', '#e5484d'], ['Pink', '#e86aa6'], ['Lila', '#8e6bef']];
@@ -752,10 +983,237 @@
   paint();
   if (!still) setInterval(() => { off++; paint(); }, 120);
 
-  // ---- Download: name the viewer's platform ----
+  // ---- Download: the file itself for the viewer's platform, no detour via GitHub ----
   const ua = navigator.userAgent;
   const os = /Mac/i.test(ua) ? 'macOS' : /Linux|X11/i.test(ua) && !/Android/i.test(ua) ? 'Linux' : 'Windows';
+  // Browsers don't tell Apple Silicon from Intel reliably; almost every Mac sold since 2021 is Apple Silicon.
+  const myKey = os === 'macOS' ? 'mac-arm64' : os === 'Linux' ? 'linux' : 'win';
   $('mainDlText').textContent = `Für ${os} herunterladen`;
+  const osLinks = [...document.querySelectorAll('.oses a[data-os]')];
+  const mine = () => osLinks.find(a => a.dataset.os === myKey);
+  const syncMain = () => {
+    const a = mine(); if (!a) return;
+    $('mainDl').href = a.href; $('heroDl').href = a.href;
+    osLinks.forEach(l => l.classList.toggle('here', l === a));
+  };
+  syncMain();
+  const assetFor = (assets, key) => assets.find(a => ({
+    'win': /Setup.*\.exe$/, 'mac-arm64': /arm64\.dmg$/, 'mac-x64': /x64\.dmg$/, 'linux': /\.AppImage$/,
+  })[key].test(a.name));
+  releases.then(rs => {
+    const r = rs.find(x => x.assets.some(a => /\.exe$/.test(a.name)));
+    if (!r) return;
+    osLinks.forEach(l => { const a = assetFor(r.assets, l.dataset.os); if (a) { l.href = a.browser_download_url; l.dataset.size = (a.size / 1048576).toFixed(0); } });
+    syncMain();
+    const a = mine(), v = r.tag_name.replace(/^v/, '');
+    const where = os === 'Windows' ? 'Windows 10 und 11' : os === 'macOS' ? 'Apple Silicon, für Intel-Macs unten wählen' : 'x86_64';
+    $('dlSize').textContent = `Version ${v}` + (a && a.dataset.size ? ` · ${a.dataset.size} MB` : '') + ` · ${where}`;
+  });
+
+  // A short note once the download starts, with what to do next.
+  const toast = $('toast'); let toastTimer = 0;
+  const steps = {
+    win: 'Öffne die .exe. Meldet Windows „Der Computer wurde geschützt“, klick auf „Weitere Informationen“ und dann „Trotzdem ausführen“.',
+    'mac-arm64': 'Öffne die .dmg und zieh Nexora in „Programme“. Beim ersten Start mit Rechtsklick auf die App „Öffnen“ wählen.',
+    'mac-x64': 'Öffne die .dmg und zieh Nexora in „Programme“. Beim ersten Start mit Rechtsklick auf die App „Öffnen“ wählen.',
+    linux: 'Mach die .AppImage ausführbar (Rechtsklick, Eigenschaften, „Als Programm ausführen“) und starte sie per Doppelklick.',
+  };
+  document.querySelectorAll('[data-dl]').forEach(a => a.addEventListener('click', () => {
+    const key = a.dataset.os || myKey;
+    $('toastText').textContent = steps[key] || '';
+    toast.classList.add('on'); clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('on'), 9000);
+  }));
+
+
+  // ---- Motion ----
+  root.classList.add('js');
+  const seen = (el, fn, margin = '0px 0px -10% 0px') => {
+    if (still || !('IntersectionObserver' in window)) { fn(); return; }
+    const o = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { o.disconnect(); fn(); } }, { rootMargin: margin });
+    o.observe(el);
+  };
+
+  // Headline words rise one after another; the rest of the hero follows.
+  const h1 = document.querySelector('.hero h1');
+  if (!still) {
+    let n = 0;
+    const words = node => node.textContent.split(/(\s+)/).map(t => /^\s+$/.test(t) || !t ? t : `<span class="w"><span style="--i:${n++}">${t}</span></span>`).join('');
+    const soft = h1.querySelector('.soft');
+    const first = h1.firstChild.textContent;
+    h1.innerHTML = words({ textContent: first }) + `<span class="soft">${words(soft)}</span>`;
+    h1.classList.add('split');
+    // A long word ("Aufgezeichnet.") must not run off a narrow phone screen.
+    const fit = () => {
+      h1.style.fontSize = '';
+      const room = h1.getBoundingClientRect().right;
+      const widest = Math.max(...[...h1.querySelectorAll('.w')].map(w => w.getBoundingClientRect().right));
+      if (widest > room + 1) {
+        const left = h1.getBoundingClientRect().left;
+        h1.style.fontSize = `${parseFloat(getComputedStyle(h1).fontSize) * (room - left) / (widest - left) * .98}px`;
+      }
+    };
+    fit(); addEventListener('resize', fit); document.fonts && document.fonts.ready.then(fit);
+    [...document.querySelectorAll('.hero > .rv')].filter(el => el !== h1).forEach((el, i) => {
+      el.classList.add('intro'); el.style.setProperty('--d', `${i === 0 ? 0 : .25 + i * .12}s`);
+    });
+  }
+
+  // Numbers count up the first time they come into view.
+  document.querySelectorAll('[data-count]').forEach(el => {
+    const end = parseFloat(el.textContent);
+    if (!isFinite(end) || still) return;
+    el.textContent = '0';
+    seen(el, () => {
+      const t0 = performance.now(), dur = 1400 + Math.min(900, end * 4);
+      (function step(now) {
+        const p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 4);
+        el.textContent = Math.round(end * e);
+        if (p < 1) requestAnimationFrame(step);
+      })(t0);
+    }, '0px');
+  });
+
+  // Scroll: progress bar, nav tucks away going down.
+  const bar = $('progress'), nav = $('nav');
+  let lastY = scrollY, ticking = false;
+  addEventListener('scroll', () => {
+    if (ticking) return; ticking = true;
+    requestAnimationFrame(() => {
+      const y = scrollY, max = document.documentElement.scrollHeight - innerHeight;
+      bar.style.transform = `scaleX(${max > 0 ? y / max : 0})`;
+      if (!still && !document.body.classList.contains('menu-open')) nav.classList.toggle('hide', y > lastY && y > 260);
+      nav.classList.toggle('solid', y > 40);
+      lastY = y; ticking = false;
+    });
+  }, { passive: true });
+
+  if (!still && matchMedia('(pointer: fine)').matches) {
+    // A soft light follows the pointer across the page.
+    const glow = $('cursorGlow');
+    let gx = innerWidth / 2, gy = innerHeight / 3, tx = gx, ty = gy, running = false;
+    const follow = () => {
+      gx += (tx - gx) * .12; gy += (ty - gy) * .12;
+      glow.style.transform = `translate3d(${gx}px, ${gy}px, 0)`;
+      if (Math.abs(tx - gx) + Math.abs(ty - gy) > .5) requestAnimationFrame(follow); else running = false;
+    };
+    addEventListener('pointermove', e => { tx = e.clientX; ty = e.clientY; glow.classList.add('on'); if (!running) { running = true; requestAnimationFrame(follow); } }, { passive: true });
+    document.addEventListener('pointerleave', () => glow.classList.remove('on'));
+
+    // Bento cards: the border lights up under the pointer.
+    document.querySelectorAll('.cell.shell').forEach(c => c.addEventListener('pointermove', e => {
+      const r = c.getBoundingClientRect();
+      c.style.setProperty('--sx', `${e.clientX - r.left}px`); c.style.setProperty('--sy', `${e.clientY - r.top}px`);
+    }));
+
+    // Buttons lean toward the pointer.
+    document.querySelectorAll('.btn').forEach(b => {
+      b.addEventListener('pointermove', e => {
+        const r = b.getBoundingClientRect();
+        b.style.translate = `${(e.clientX - r.left - r.width / 2) * .15}px ${(e.clientY - r.top - r.height / 2) * .25}px`;
+      });
+      b.addEventListener('pointerleave', () => { b.style.translate = ''; });
+    });
+  }
+
+  // Cards revealed together come in one after another, not all at once.
+  document.querySelectorAll('.bento .rv').forEach((el, i) => { el.style.transitionDelay = `${(i % 3) * 110}ms`; });
+  setTimeout(() => document.querySelectorAll('.bento .rv').forEach(el => { el.style.transitionDelay = ''; }), 4000);
+  document.querySelectorAll('.bento .rv').forEach(el => el.addEventListener('transitionend', () => { el.style.transitionDelay = ''; }, { once: true }));
+
+  // Version timeline, perks, terminal and footer: each plays once when reached.
+  const tl = document.querySelector('.tl');
+  tl.querySelectorAll('div').forEach((d, i) => d.style.setProperty('--i', i));
+  seen(tl, () => tl.classList.add('go'));
+  const perks = document.querySelector('.perks');
+  perks.querySelectorAll('li').forEach((li, i) => li.style.setProperty('--i', i));
+  seen(perks, () => perks.classList.add('go'));
+
+  const term = document.querySelector('.term'), pre = term.querySelector('pre');
+  pre.innerHTML = pre.innerHTML.split('\n').map((l, i) => `<span class="ln" style="--i:${i}">${l}</span>`).join('\n') + '<span class="caret"></span>';
+  seen(term, () => term.classList.add('go'));
+
+  const mark = document.querySelector('.wordmark');
+  mark.innerHTML = [...mark.textContent].map((c, i) => `<span style="--i:${i}">${c}</span>`).join('');
+  mark.classList.add('split');
+  seen(mark, () => mark.classList.add('go'), '0px');
+
+  // FPS-Doktor: works through its findings, then starts over.
+  const doc = [...document.querySelectorAll('.doc div')];
+  if (!still) seen(doc[0].parentElement, () => {
+    let i = 0;
+    const next = () => {
+      if (i < doc.length) {
+        doc[i].classList.add('fixed'); doc[i].querySelector('em').textContent = 'Behoben';
+        i++; setTimeout(next, 1100);
+      } else {
+        setTimeout(() => { doc.forEach(d => { d.classList.remove('fixed'); d.querySelector('em').textContent = 'Beheben'; }); i = 0; setTimeout(next, 1600); }, 3200);
+      }
+    };
+    setTimeout(next, 900);
+  });
+
+
+  // ---- Mod jars: straight from the newest release that has them ----
+  const jars = $('jars');
+  const mcOrder = v => v.split('.').map(Number).reduce((a, n, i) => a + n * [1e6, 1e3, 1][i], 0);
+  const showJars = (release) => {
+    const list = release.assets
+      .filter(a => /\+[\d.]+\.jar$/.test(a.name) && !/-sources/.test(a.name))
+      .map(a => ({ mc: a.name.match(/\+([\d.]+)\.jar$/)[1], url: a.browser_download_url, name: a.name, mb: (a.size / 1048576).toFixed(1) }))
+      .sort((x, y) => mcOrder(y.mc) - mcOrder(x.mc));
+    if (!list.length) return false;
+    // The version most players are on first; the rest newest to oldest.
+    const pick = list.find(j => j.mc === '1.21.11') || list[0];
+    const ordered = [pick, ...list.filter(j => j !== pick)];
+    jars.innerHTML = ordered.map((j, i) => `<a role="listitem" href="${j.url}" download class="${i === 0 ? 'main' : ''}" style="--i:${i}" title="${j.name}">${j.mc}<small>${j.mb} MB</small></a>`).join('');
+    $('jarName').textContent = pick.name;
+    $('jarsNote').innerHTML = `Nexora ${release.tag_name.replace(/^v/, '')}. Wähl deine Minecraft-Version. Dazu gehört die <a href="https://modrinth.com/mod/fabric-api/versions">Fabric API</a> in denselben mods-Ordner.`;
+    return true;
+  };
+  releases
+    .then(rs => { const r = rs.find(x => x.assets.some(a => /\+[\d.]+\.jar$/.test(a.name))); if (r) showJars(r); })
+    .finally(() => seen(jars, () => jars.classList.add('go')));
+
+  // ---- Live: newest version and total downloads ----
+  const semver = v => v.replace(/^v/, '').split(/[.-]/).slice(0, 3).map(Number);
+  const newer = (a, b) => { const x = semver(a), y = semver(b); for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); return false; };
+  releases.then(rs => {
+    if (!rs.length) return;
+    const latest = rs[0], v = latest.tag_name.replace(/^v/, '');
+    const total = rs.reduce((n, r) => n + r.assets.reduce((m, a) => m + (/\.(exe|dmg|AppImage|jar)$/.test(a.name) ? a.download_count : 0), 0), 0);
+    const meta = $('liveMeta');
+    meta.className = 'live-meta';
+    meta.innerHTML = `<i></i>Version ${v}` + (total >= 100 ? ` · ${total.toLocaleString('de-DE')} Downloads` : '');
+
+    // What's new: from the release notes, once a release is at least as new as this page.
+    if (newer('1.6.0', v)) return;
+    const neu = (latest.body || '').split(/^## /m).find(part => /^Neu\b/.test(part));
+    const items = (neu || '').split('\n').map(l => l.match(/^- \*\*(.+?):?\*\*:?\s*(.+)$/)).filter(m => m && !/^Website$/i.test(m[1])).slice(0, 6);
+    if (items.length < 3) return;
+    const esc = t => t.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const first = t => { const m = t.match(/^.+?[.!?](\s|$)/); const f = m ? m[0].trim() : t; return f.length > 150 ? f.slice(0, f.lastIndexOf(' ', 145)) + ' …' : f; };
+    $('news').innerHTML = items.map((m, i) => `<article class="shell"><div class="core"><span class="n">${String(i + 1).padStart(2, '0')}</span><h3>${esc(m[1])}</h3><p>${esc(first(m[2]))}</p></div></article>`).join('');
+    $('neuTitle').textContent = `Neu in Nexora ${v.replace(/\.0$/, '')}.`;
+    $('neuTag').innerHTML = `<b>${esc(v.replace(/\.0$/, ''))}</b> Changelog`;
+    $('newsAll').href = latest.html_url;
+  });
+
+  // ---- FAQ: open and close with a height animation ----
+  document.querySelectorAll('.faq details').forEach(d => {
+    const sum = d.querySelector('summary'), body = d.querySelector('.a');
+    sum.addEventListener('click', e => {
+      if (still) return;
+      e.preventDefault();
+      if (d.open) {
+        const a = body.animate([{ height: body.offsetHeight + 'px', opacity: 1 }, { height: '0px', opacity: 0 }], { duration: 380, easing: 'cubic-bezier(.32,.72,0,1)' });
+        a.onfinish = () => { d.open = false; };
+      } else {
+        d.open = true;
+        body.animate([{ height: '0px', opacity: 0 }, { height: body.offsetHeight + 'px', opacity: 1 }], { duration: 520, easing: 'cubic-bezier(.32,.72,0,1)' });
+      }
+    });
+  });
 
   // ---- Copy the jar name ----
   $('copyJar').addEventListener('click', async e => {
