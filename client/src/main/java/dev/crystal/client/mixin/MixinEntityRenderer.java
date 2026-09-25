@@ -52,6 +52,7 @@ public class MixinEntityRenderer {
 
         NameTags tags = client.getModuleManager().getEnabled(NameTags.class);
         if (tags != null) state.nameTag = tags.decorate(state.nameTag, player);
+        state.nameTag = dev.crystal.client.module.player.TotemPops.decorate(state.nameTag, player);
         TeamView team = client.getModuleManager().getEnabled(TeamView.class);
         if (team != null) state.nameTag = team.decorate(state.nameTag, player);
         CrystalLogo logo = client.getModuleManager().getEnabled(CrystalLogo.class);

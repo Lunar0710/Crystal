@@ -35,6 +35,8 @@ public class Profiles extends Module {
     private String slot = "1";
     /** Name typed for the selected slot; saved with the profile. */
     private final String[] names = new String[SLOTS + 1];
+    /** Server address typed for the selected slot: joining it loads the profile. */
+    private final String[] servers = new String[SLOTS + 1];
     private int cycleKey = GLFW.GLFW_KEY_UNKNOWN;
     private boolean wasPressed = false;
 
@@ -50,12 +52,16 @@ public class Profiles extends Module {
 
     /** Saved profile names by slot, read from disk at most every two seconds (the menu asks every frame). */
     private final String[] savedNames = new String[SLOTS + 1];
+    private final String[] savedServers = new String[SLOTS + 1];
     private long savedNamesAt = 0;
 
     private String savedName(int index) {
         long now = System.currentTimeMillis();
         if (now - savedNamesAt > 2000) {
-            for (int i = 1; i <= SLOTS; i++) savedNames[i] = config().profileName(i);
+            for (int i = 1; i <= SLOTS; i++) {
+                savedNames[i] = config().profileName(i);
+                savedServers[i] = config().profileServer(i);
+            }
             savedNamesAt = now;
         }
         return savedNames[index];
@@ -75,7 +81,8 @@ public class Profiles extends Module {
         int i = slotIndex();
         String name = nameOf(i);
         savedNamesAt = 0;
-        tell(config().saveProfile(i, name) ? "Profil \"" + name + "\" gespeichert" : "Profil ließ sich nicht speichern");
+        String server = servers[i] != null ? servers[i] : config().profileServer(i);
+        tell(config().saveProfile(i, name, server) ? "Profil \"" + name + "\" gespeichert" : "Profil ließ sich nicht speichern");
     }
 
     private void load(int i) {
@@ -98,6 +105,30 @@ public class Profiles extends Module {
             }
         }
         tell("Noch kein Profil gespeichert");
+    }
+
+    /**
+     * On joining a server: loads the profile whose "Automatisch auf Server"
+     * matches its address (the address or its end, so "hypixel.net" also
+     * matches "mc.hypixel.net"). Works with the module switched off too.
+     */
+    public static void onJoin() {
+        var server = Minecraft.getInstance().getCurrentServer();
+        if (server == null || server.ip == null) return;
+        String ip = server.ip.toLowerCase(java.util.Locale.ROOT).replaceFirst(":\\d+$", "");
+        var config = CrystalClient.getInstance().getConfigManager();
+        for (int i = 1; i <= SLOTS; i++) {
+            String wanted = config.profileServer(i);
+            if (wanted == null || wanted.isBlank()) continue;
+            String w = wanted.replaceFirst(":\\d+$", "");
+            if (ip.equals(w) || ip.endsWith("." + w)) {
+                if (config.loadProfile(i)) {
+                    Minecraft mc = Minecraft.getInstance();
+                    if (mc.player != null) mc.player.displayClientMessage(Component.literal("Profil \"" + config.profileName(i) + "\" für " + wanted + " geladen"), true);
+                }
+                return;
+            }
+        }
     }
 
     private void tell(String message) {
@@ -131,6 +162,13 @@ public class Profiles extends Module {
         return List.of(
                 new EnumSetting("Platz", () -> slot, v -> slot = SLOT_NAMES.contains(v) ? v : "1", SLOT_NAMES),
                 new TextSetting("Name", () -> nameOf(slotIndex()), v -> names[slotIndex()] = v, "", 24),
+                new TextSetting("Automatisch auf Server", () -> {
+                    String typed = servers[slotIndex()];
+                    if (typed != null) return typed;
+                    savedName(slotIndex()); // refreshes both caches
+                    String saved = savedServers[slotIndex()];
+                    return saved != null ? saved : "";
+                }, v -> servers[slotIndex()] = v, "", 64),
                 new ButtonSetting("Speichern", () -> "Speichern", this::save),
                 new ButtonSetting("Laden", () -> savedName(slotIndex()) == null ? "Leer" : "Laden", () -> load(slotIndex())),
                 new KeybindSetting("Profil wechseln", () -> cycleKey, v -> cycleKey = v));

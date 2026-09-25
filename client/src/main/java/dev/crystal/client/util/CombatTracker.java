@@ -130,6 +130,11 @@ public final class CombatTracker {
     }
 
     private static void endFight(boolean won) {
+        if (won && opponentEntity != null) {
+            var client = dev.crystal.client.CrystalClient.getInstance();
+            var effect = client == null ? null : client.getModuleManager().getEnabled(dev.crystal.client.module.render.KillEffect.class);
+            if (effect != null) effect.play(opponentEntity);
+        }
         if (swings > 0) {
             lastRound = new Round(opponent, hits, swings, longestCombo, hitsTaken, System.currentTimeMillis() - fightStart, won);
             lastRoundAt = System.currentTimeMillis();

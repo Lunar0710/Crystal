@@ -71,6 +71,9 @@ public class ModuleManager {
         register(new dev.crystal.client.module.render.HitMarker());
         register(new dev.crystal.client.module.hud.PotCounter());
         register(new dev.crystal.client.module.hud.FightSummary());
+        register(new dev.crystal.client.module.player.TotemPops());
+        register(new dev.crystal.client.module.render.LowFire());
+        register(new dev.crystal.client.module.render.KillEffect());
         register(new PerformanceMode());
         register(new BackgroundFps());
         register(new CapeFlutter());

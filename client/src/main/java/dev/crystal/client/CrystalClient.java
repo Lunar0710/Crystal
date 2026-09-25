@@ -103,6 +103,13 @@ public class CrystalClient implements ClientModInitializer {
         // Hits, misses and rounds for the PvP HUD (HitMarker, FightSummary).
         dev.crystal.client.util.CombatTracker.register();
 
+        // Joining a world or server: totem counts start over, and a profile
+        // tied to that server loads itself.
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
+            dev.crystal.client.module.player.TotemPops.reset();
+            client.execute(dev.crystal.client.module.misc.Profiles::onJoin);
+        });
+
         // No-op unless started by the launcher's automated world test.
         dev.crystal.client.util.SmokeTest.registerIfRequested();
 

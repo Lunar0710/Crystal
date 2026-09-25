@@ -105,7 +105,7 @@ public final class SmokeTest {
 
         if (worldTicks == 30) profileTest();
         // After tick 40, which fills the hotbar with the test gear.
-        if (worldTicks >= 46 && worldTicks <= 72) pvpTest(mc);
+        if (worldTicks >= 46 && worldTicks <= 300) pvpTest(mc);
 
         if (worldTicks == 40) {
             mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
@@ -934,6 +934,9 @@ public final class SmokeTest {
      * one attack through the normal attack path. CombatTracker must count it
      * as a confirmed hit, and PotCounter must read 3.
      */
+    /** Tick of the first hit on the pig; 0 until the pig has turned up. */
+    private static int pvpFirstHit = 0;
+
     private static void pvpTest(Minecraft mc) {
         var server = mc.getSingleplayerServer();
         if (server == null || mc.player == null) return;
@@ -947,19 +950,40 @@ public final class SmokeTest {
                 server.getCommands().performPrefixedCommand(source,
                         "summon pig " + pos.getX() + " " + pos.getY() + " " + (pos.getZ() + 2) + " {NoAI:1b}");
             });
-        } else if (worldTicks == 56) {
-            var pig = mc.level.getEntities(mc.player, mc.player.getBoundingBox().inflate(6),
+        } else if (worldTicks >= 56 && worldTicks <= 76 && pvpFirstHit == 0 || pvpFirstHit > 0 && worldTicks == pvpFirstHit + 16) {
+            // Two hits, the second past the pig's hurt cooldown so it kills it.
+            // The pig can take a few ticks to reach the client, so the first
+            // hit waits for it (up to 20 ticks).
+            var pig = mc.level.getEntities(mc.player, mc.player.getBoundingBox().inflate(12),
                     e -> e.getType() == net.minecraft.world.entity.EntityType.PIG).stream().findFirst().orElse(null);
-            if (pig == null) { CrystalClient.LOGGER.info("[Nexora] PvP HUD FAILED: no pig"); return; }
+            if (pig == null) {
+                if (worldTicks == 76) CrystalClient.LOGGER.info("[Nexora] PvP HUD FAILED: no pig");
+                return;
+            }
+            if (pvpFirstHit == 0) pvpFirstHit = worldTicks;
             mc.gameMode.attack(mc.player, pig);
             mc.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
-        } else if (worldTicks == 68) {
+        } else if (pvpFirstHit > 0 && worldTicks == pvpFirstHit + 10) {
             var round = CombatTracker.current();
             String pots = CrystalClient.getInstance().getModuleManager().getModuleByName("PotCounter")
                     .map(m -> ((dev.crystal.client.module.hud.PotCounter) m).getText()).orElse("?");
             boolean ok = round != null && round.hits() >= 1 && "Pots: 3".equals(pots);
             CrystalClient.LOGGER.info("[Nexora] PvP HUD {}: hits={} swings={} pots=\"{}\"",
                     ok ? "PASS" : "FAILED", round == null ? -1 : round.hits(), round == null ? -1 : round.swings(), pots);
+        } else if (pvpFirstHit > 0 && worldTicks == pvpFirstHit + 40) {
+            // The pig died from the second hit: a won round (and KillEffect ran on the way).
+            var last = CombatTracker.lastRound();
+            CrystalClient.LOGGER.info("[Nexora] Kill round {}: won={} hits={}",
+                    last != null && last.won() && last.hits() >= 2 ? "PASS" : "FAILED", last != null && last.won(), last == null ? -1 : last.hits());
+            // TotemPops from the entity events alone: two pops, then a death clears them.
+            var me = mc.player;
+            dev.crystal.client.module.player.TotemPops.onEntityEvent(me, (byte) 35);
+            dev.crystal.client.module.player.TotemPops.onEntityEvent(me, (byte) 35);
+            String popped = dev.crystal.client.module.player.TotemPops.decorate(net.minecraft.network.chat.Component.literal("X"), me).getString();
+            dev.crystal.client.module.player.TotemPops.onEntityEvent(me, (byte) 3);
+            String after = dev.crystal.client.module.player.TotemPops.decorate(net.minecraft.network.chat.Component.literal("X"), me).getString();
+            CrystalClient.LOGGER.info("[Nexora] TotemPops {}: popped=\"{}\" after=\"{}\"",
+                    "X -2".equals(popped) && "X".equals(after) ? "PASS" : "FAILED", popped, after);
         }
     }
 
