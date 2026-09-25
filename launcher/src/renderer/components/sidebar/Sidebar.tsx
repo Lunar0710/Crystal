@@ -57,11 +57,11 @@ export function Sidebar() {
   }, [location.pathname])
 
   return (
-    <nav className="flex flex-col w-56 shrink-0 bg-crystal-panel border-r border-crystal-border">
+    <nav className="flex flex-col w-56 shrink-0 bg-crystal-panel/55 border-r border-white/[0.06]">
       <div className="flex-1 overflow-y-auto px-2.5 pt-4 pb-2 space-y-5">
         {groups.map(group => (
           <div key={group.title}>
-            <p className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-crystal-muted/70">{group.title}</p>
+            <p className="px-3 mb-1.5 text-[10px] font-medium uppercase tracking-[0.16em] text-crystal-muted/60">{group.title}</p>
             <div className="space-y-0.5">
               {group.items.map(item => <Item key={item.path} {...item} />)}
             </div>
@@ -69,13 +69,13 @@ export function Sidebar() {
         ))}
       </div>
 
-      <div className="px-2.5 py-2.5 border-t border-crystal-border space-y-px">
+      <div className="px-2.5 py-2.5 border-t border-white/[0.06] space-y-px">
         <Item path="/settings" icon={Settings} label="Einstellungen" />
         <button
           onClick={() => navigate('/launch')}
-          className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md text-left hover:bg-crystal-card transition-colors"
+          className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left hover:bg-white/[0.04] nexora-ease"
         >
-          <span className="w-6 h-6 rounded bg-crystal-border text-crystal-text text-[11px] font-semibold flex items-center justify-center shrink-0">
+          <span className="w-7 h-7 rounded-full bg-crystal-accent/15 ring-1 ring-inset ring-crystal-accent/30 text-crystal-text text-[11px] font-semibold flex items-center justify-center shrink-0">
             {username ? username.charAt(0).toUpperCase() : '?'}
           </span>
           <span className="min-w-0 flex-1">
@@ -96,10 +96,10 @@ function Item({ path, icon: Icon, label }: NavItem) {
     <NavLink
       to={path}
       className={({ isActive }) =>
-        `relative flex items-center gap-3 px-3 py-2 rounded-[10px] text-[13px] transition-colors ` +
+        `relative flex items-center gap-3 px-3 py-2 rounded-full text-[13px] nexora-ease ` +
         (isActive
-          ? 'bg-crystal-accent/12 text-crystal-text font-medium'
-          : 'text-crystal-muted hover:text-crystal-text hover:bg-crystal-card/70')
+          ? 'nexora-nav-active text-crystal-text font-medium'
+          : 'text-crystal-muted hover:text-crystal-text hover:bg-white/[0.04]')
       }
     >
       {({ isActive }) => (

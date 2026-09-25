@@ -43,7 +43,7 @@ export default function App() {
   }, [])
 
   return (
-    <div className="relative flex flex-col h-full bg-crystal-bg">
+    <div className="relative flex flex-col h-full bg-crystal-bg nexora-atmosphere">
       <TitleBar />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
