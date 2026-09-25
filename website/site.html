@@ -184,14 +184,36 @@
   /* ---------- Sections ---------- */
   section { padding-top: clamp(110px, 14vw, 180px); }
   .head { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 40px; align-items: end; margin-bottom: 56px; }
-  .head h2 { margin-top: 20px; font-size: clamp(34px, 4.6vw, 68px); overflow-wrap: anywhere; line-height: .92; font-weight: 830; }
+  .head h2 { margin-top: 20px; font-size: clamp(30px, 4.2vw, 58px); hyphens: manual; line-height: .92; font-weight: 830; }
   .head p { color: var(--ash); font-weight: 300; font-size: 17px; max-width: 30em; }
 
   /* ---------- Bento ---------- */
   .bento { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; }
   .cell { grid-column: span 4; display: flex; }
   .cell > .core { flex: 1; padding: 30px; display: flex; flex-direction: column; gap: 22px; }
-  .cell.w7 { grid-column: span 7; grid-row: span 2; } .cell.w5 { grid-column: span 5; } .cell.w8 { grid-column: span 8; } .cell.w12 { grid-column: span 12; }
+  .cell.w7 { grid-column: span 7; grid-row: span 2; } .cell.w5 { grid-column: span 5; } .cell.w6 { grid-column: span 6; } .cell.w8 { grid-column: span 8; } .cell.w12 { grid-column: span 12; }
+
+  /* Spotify card and lyrics, as they sit in the game */
+  .spot-stage { position: relative; min-height: 190px; border-radius: 18px; padding: 22px; display: flex; flex-direction: column; justify-content: space-between; gap: 18px; overflow: hidden;
+    background: linear-gradient(180deg, #5f86b8 0%, #8fb0d6 48%, #3b5a33 49%, #243a20 100%); box-shadow: inset 0 0 0 1px var(--hair); }
+  .spot-stage::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(5,5,5,.15), rgba(5,5,5,.5)); }
+  .lyr, .spot, .ex { position: relative; z-index: 1; }
+  .lyr { align-self: center; text-align: center; display: grid; gap: 4px; }
+  .lyr b { font-family: var(--display); font-stretch: 112%; font-weight: 700; font-size: 17px; padding: 4px 14px; border-radius: 10px; background: rgba(0,0,0,.45); transition: opacity .5s var(--out), transform .5s var(--out); }
+  .lyr span { font-size: 13px; color: rgba(255,255,255,.72); transition: opacity .5s var(--out); }
+  .lyr.swap b { opacity: 0; transform: translateY(6px); } .lyr.swap span { opacity: 0; }
+  .spot { align-self: flex-end; display: flex; align-items: center; gap: 12px; width: min(320px, 100%); padding: 9px; border-radius: 16px; background: rgba(11,11,12,.88); box-shadow: 0 0 0 1px rgba(255,255,255,.1), inset 0 1px 0 rgba(255,255,255,.12), 0 20px 40px -18px rgba(0,0,0,.9); }
+  .cover { width: 50px; height: 50px; flex: none; border-radius: 10px; background: linear-gradient(160deg, #1ed760, #0e5f2c); display: flex; align-items: flex-end; gap: 4px; padding: 0 10px 10px; }
+  .cover i { width: 4px; border-radius: 2px; background: #fff; height: 30%; animation: eq 1s ease-in-out infinite alternate; }
+  .cover i:nth-child(2) { animation-delay: -.3s; } .cover i:nth-child(3) { animation-delay: -.6s; } .cover i:nth-child(4) { animation-delay: -.15s; }
+  @keyframes eq { to { height: 85%; } }
+  .meta { flex: 1; min-width: 0; display: grid; gap: 2px; }
+  .meta b { font-weight: 600; font-size: 14px; } .meta small { color: #a1a1aa; font-size: 12px; }
+  .prog { margin-top: 6px; height: 3px; border-radius: 3px; background: rgba(255,255,255,.15); overflow: hidden; }
+  .prog i { display: block; height: 100%; width: 40%; background: #1db954; border-radius: 3px; }
+  .time { align-self: flex-start; font-family: var(--mono); font-size: 10.5px; color: #71717a; font-variant-numeric: tabular-nums; }
+  .ex { position: absolute; left: 14px; bottom: 10px; font-size: 11px; color: rgba(255,255,255,.55); }
+  @media (prefers-reduced-motion: reduce) { .cover i { animation: none; height: 60%; } }
   .cell h3 { font-size: 22px; font-weight: 760; font-stretch: 118%; line-height: 1.1; }
   .cell p { color: var(--ash); font-size: 15px; font-weight: 300; margin-top: 8px; max-width: 34em; }
   .cell .push { margin-top: auto; }
@@ -556,7 +578,8 @@
   @media (max-width: 1080px) {
     .win { grid-template-columns: 56px 1fr; }
     .list { display: none; }
-    .cell, .cell.w7, .cell.w5, .cell.w8 { grid-column: span 6; grid-row: auto; }
+    .cell, .cell.w7, .cell.w5, .cell.w6, .cell.w8 { grid-column: span 6; grid-row: auto; }
+    .cell.w8 { grid-column: span 12; }
     .cell.w7 { grid-column: span 12; }
   }
   @media (max-width: 767px) {
@@ -576,7 +599,8 @@
     .head, .plus, .jar > .core { grid-template-columns: 1fr; }
     .head { gap: 20px; }
     .bento { grid-template-columns: 1fr; }
-    .cell, .cell.w7, .cell.w5, .cell.w8, .cell.w12 { grid-column: 1 / -1; }
+    .cell, .cell.w7, .cell.w5, .cell.w6, .cell.w8, .cell.w12 { grid-column: 1 / -1; }
+    .spot { align-self: stretch; width: auto; }
     .cell > .core { padding: 22px; }
     .tl { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 26px; }
     .tl::before { display: none; }
@@ -618,7 +642,7 @@
 
 <main id="top">
   <div class="wrap hero">
-    <span class="eyebrow rv"><b>1.6</b> Kampf-Replay und Kill-Cam</span>
+    <span class="eyebrow rv"><b>1.6</b> Kampf-Replay, Kill-Cam und Spotify</span>
     <h1 class="rv">Jeder Kampf.<span class="soft">Aufgezeichnet.</span></h1>
     <p class="lede rv">Nexora ist ein kostenloser Minecraft-Client mit eigenem Launcher. <strong>Sieh dir jeden Kampf von oben noch einmal an</strong>, mit Laufwegen, Treffern und Leben. Dazu ein HUD, das mitkämpft, und ein FPS-Doktor, der dein Spiel schneller macht.</p>
     <div class="cta rv">
@@ -683,14 +707,14 @@
     </div>
   </div>
 
-  <div class="marquee" aria-label="Einige der 113 Module">
+  <div class="marquee" aria-label="Einige der 115 Module">
     <div class="track" id="t1"></div>
     <div class="track rev" id="t2"></div>
   </div>
 
   <section class="wrap" id="features">
     <div class="head">
-      <div><span class="eyebrow rv"><span data-count>113</span> Module</span><h2 class="rv">Alles drin. Nichts zusammensuchen.</h2></div>
+      <div><span class="eyebrow rv"><span data-count>115</span> Module</span><h2 class="rv">Alles drin. Nichts zusammensuchen.</h2></div>
       <p class="rv">Was du sonst aus zehn Mods baust, steckt in einem Client. Jedes Modul lässt sich einzeln schalten und im HUD-Editor frei platzieren.</p>
     </div>
 
@@ -731,19 +755,34 @@
         </div>
       </div>
 
-      <div class="cell shell rv">
+      <div class="cell w6 shell rv">
         <div class="core">
           <div><h3>Instanz teilen</h3><p>Dein Setup als .mrpack. Ein Freund importiert es und hat genau deine Mods und Einstellungen.</p></div>
           <div class="file push"><span class="fi">MRPACK</span><span><b>PvP Setup.mrpack</b><small>55 Mods von Modrinth, 2 mitgepackt</small></span></div>
         </div>
       </div>
 
-      <div class="cell shell rv">
+      <div class="cell w6 shell rv">
         <div class="core">
           <div><h3>Mehrere Spiele</h3><p>Jede Instanz mit eigenem Konto. CPU und RAM immer im Blick.</p></div>
           <div class="runs push">
             <div class="run"><span><span class="live"></span>PvP 1.21.11</span><span class="num">CPU 18 %</span><small>Main · seit 42 min</small><span class="num">3.1 GB</span></div>
             <div class="run"><span><span class="live"></span>Farm 26.2</span><span class="num">CPU 9 %</span><small>Zweitkonto · seit 2 h</small><span class="num">2.4 GB</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="cell w8 shell rv">
+        <div class="core">
+          <div><h3>Spotify und Lyrics <span class="tag">Neu</span></h3><p>Der Song aus Spotify im HUD, und darüber der Songtext, Zeile für Zeile im Takt, zwei Sekunden vorab. Beides verschiebst du getrennt. Ohne Spotify-Login.</p></div>
+          <div class="spot-stage push" aria-label="Beispiel: Spotify-Karte und Songtext im Spiel">
+            <div class="lyr"><b id="lyrNow">Die Stadt schläft, wir fahren weiter</b><span id="lyrNext">Neonlicht auf nassem Asphalt</span></div>
+            <div class="spot">
+              <span class="cover" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+              <span class="meta"><b>Nachtfahrt</b><small>Beispiel-Band</small><span class="prog"><i id="spotBar"></i></span></span>
+              <span class="time" id="spotTime">1:14 / 3:05</span>
+            </div>
+            <span class="ex">Beispiel, kein echter Song</span>
           </div>
         </div>
       </div>
@@ -800,6 +839,7 @@
           <li>Halloween-Paket<span>Kürbiskopf, Fledermausflügel, Herbstlaub-Aura</span></li>
           <li>KillEffect<span>Totem-, Funken-, Seelen- oder Herz-Explosion</span></li>
           <li>Outfits<span>Kombinationen speichern und per Klick wechseln</span></li>
+          <li>Themes<span>Halloween, Midnight, Sakura und mehr für den Launcher</span></li>
         </ul>
       </div>
       <div class="card-stage rv" id="cardStage">
@@ -925,7 +965,7 @@
   overlay.querySelectorAll('a').forEach(a => a.addEventListener('click', () => toggle(false)));
 
   // ---- Module marquee ----
-  const mods = ['Kampf-Replay', 'Kill-Cam', 'HitMarker', 'TotemPops', 'PotCounter', 'FightSummary', 'Gegner-Rüstung', 'SessionStats', 'TPSDisplay', 'InventoryHUD', 'KillEffect', 'LowFire', 'Keystrokes', 'CPS', 'Zoom', 'Minimap', 'Waypoints', 'FreeLook', 'ToggleSprint', 'FrameGraph', 'RenderLimits', 'MotionBlur', 'ColorSaturation', 'SkyColor', 'FogCustomizer', 'NameTags', 'Profiles', 'Crosshair', 'HitSound', 'Emotes', 'Pets', 'Capes'];
+  const mods = ['Kampf-Replay', 'Kill-Cam', 'Spotify', 'Lyrics', 'HitMarker', 'TotemPops', 'PotCounter', 'FightSummary', 'Gegner-Rüstung', 'SessionStats', 'TPSDisplay', 'InventoryHUD', 'KillEffect', 'LowFire', 'Keystrokes', 'CPS', 'Zoom', 'Minimap', 'Waypoints', 'FreeLook', 'ToggleSprint', 'FrameGraph', 'RenderLimits', 'MotionBlur', 'ColorSaturation', 'SkyColor', 'FogCustomizer', 'NameTags', 'Profiles', 'Crosshair', 'HitSound', 'Emotes', 'Pets', 'Capes'];
   const fill = (el, list) => { const html = list.map((m, i) => `<span${i % 5 === 0 ? ' class="hl"' : ''}>${m}</span>`).join(''); el.innerHTML = html + html; };
   fill($('t1'), mods); fill($('t2'), mods.slice().reverse());
 
@@ -1461,6 +1501,29 @@
         if (++frame > final.length * 2) { clearInterval(iv); target.textContent = final; target.style.width = target.style.whiteSpace = target.style.overflow = ''; }
       }, 32);
     }, introSeen ? 1100 : 2200);
+  }
+
+  // ---- Spotify example: the progress runs, the lyric lines move on ----
+  const lyric = [
+    ['Die Stadt schläft, wir fahren weiter', 'Neonlicht auf nassem Asphalt'],
+    ['Neonlicht auf nassem Asphalt', 'Das Radio spielt nur für uns zwei'],
+    ['Das Radio spielt nur für uns zwei', 'Bis der Morgen uns einholt'],
+    ['Bis der Morgen uns einholt', 'Die Stadt schläft, wir fahren weiter'],
+  ];
+  let li = 0, songPos = 74;
+  const lyrBox = document.querySelector('.lyr');
+  const spotTick = () => {
+    songPos = songPos >= 185 ? 0 : songPos + 1;
+    $('spotBar').style.width = (songPos / 185 * 100).toFixed(1) + '%';
+    $('spotTime').textContent = Math.floor(songPos / 60) + ':' + String(songPos % 60).padStart(2, '0') + ' / 3:05';
+  };
+  spotTick();
+  if (!still) {
+    setInterval(spotTick, 1000);
+    setInterval(() => {
+      lyrBox.classList.add('swap');
+      setTimeout(() => { li = (li + 1) % lyric.length; $('lyrNow').textContent = lyric[li][0]; $('lyrNext').textContent = lyric[li][1]; lyrBox.classList.remove('swap'); }, 450);
+    }, 3200);
   }
 
   // ---- Copy the jar name ----
