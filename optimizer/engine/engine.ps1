@@ -327,6 +327,11 @@ $Tweaks = @(
        desc = 'Apps aus dem Microsoft Store laufen nicht mehr heimlich weiter. Mail und Co. melden sich dann nur, wenn sie offen sind.'
        reg = @(, @('HKCU:\Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications', 'GlobalUserDisabled', 1, 'DWord')) }
 )
+function Restore-Hibernate($h) {
+    $path = 'HKLM:\SYSTEM\CurrentControlSet\Control\Power'
+    if ($null -eq $h.value) { Remove-ItemProperty -Path $path -Name 'HibernateEnabled' -ErrorAction SilentlyContinue }
+    elseif ([int]$h.value -ne 0) { powercfg /hibernate on | Out-Null }
+}
 function Find-Tweak($id) { $Tweaks | Where-Object { $_.id -eq $id } | Select-Object -First 1 }
 
 # The registry entries of a tweak, always as a list of entries. PowerShell
@@ -359,7 +364,8 @@ function Apply-Tweak($Backup, $t) {
     if ($t.id -eq 'power') { Apply-Power $Backup; return }
     if ($t.id -eq 'hibernate') {
         if (-not ($Backup.PSObject.Properties.Name -contains 'hibernate')) {
-            $Backup | Add-Member -NotePropertyName hibernate -NotePropertyValue ((Get-RegValue 'HKLM:\SYSTEM\CurrentControlSet\Control\Power' 'HibernateEnabled') -ne 0)
+            # The exact old value: 1, 0 or none (PCs without hibernation have no value at all).
+            $Backup | Add-Member -NotePropertyName hibernate -NotePropertyValue ([pscustomobject]@{ value = (Get-RegValue 'HKLM:\SYSTEM\CurrentControlSet\Control\Power' 'HibernateEnabled') })
             Save-Backup $Backup
         }
         powercfg /hibernate off | Out-Null
@@ -375,7 +381,7 @@ function Revert-Tweak($Backup, $t) {
     if ($t.id -eq 'power') { Revert-Power $Backup; return }
     if ($t.id -eq 'hibernate') {
         if ($Backup.PSObject.Properties.Name -contains 'hibernate') {
-            if ($Backup.hibernate) { powercfg /hibernate on | Out-Null }
+            Restore-Hibernate $Backup.hibernate
             $Backup.PSObject.Properties.Remove('hibernate'); Save-Backup $Backup
         }
         return
@@ -614,7 +620,7 @@ try {
             $b = Get-Backup
             $n = 0
             foreach ($p in @($b.registry.PSObject.Properties)) { try { Restore-Entry $p.Value; $n++ } catch {} }
-            if ($b.PSObject.Properties.Name -contains 'hibernate' -and $b.hibernate) { powercfg /hibernate on | Out-Null; $n++ }
+            if ($b.PSObject.Properties.Name -contains 'hibernate') { Restore-Hibernate $b.hibernate; $n++ }
             if ($b.PSObject.Properties.Name -contains 'dns') { try { Set-Dns $b @() $true; $n++ } catch {} }
             if ($b.PSObject.Properties.Name -contains 'services') { foreach ($p in @($b.services.PSObject.Properties)) { try { Restore-Service $p.Name $p.Value; $n++ } catch {} } }
             if ((Get-LunarScheme) -or $b.powerScheme) { Revert-Power $b }
