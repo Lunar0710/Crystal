@@ -29,6 +29,8 @@ public class CrystalHUD {
         for (dev.crystal.client.module.Module module : moduleManager.getModules()) {
             if (module.isEnabled()) drawModule(context, module);
         }
+        dev.crystal.client.module.player.AttackIndicator attack = moduleManager.getEnabled(dev.crystal.client.module.player.AttackIndicator.class);
+        if (attack != null) attack.draw(context, context.guiWidth(), context.guiHeight(), tickDelta);
     }
 
     /**

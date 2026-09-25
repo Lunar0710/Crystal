@@ -823,7 +823,7 @@ public class CrystalClientScreen extends Screen {
         if (n.contains("health") || n.contains("saturation") || n.contains("respawn") || n.contains("hit")) return I_HEART;
         if (n.contains("armor") || n.contains("durability") || n.contains("uhc")) return I_SHIELD;
         if (n.contains("keystroke") || n.contains("hotkey") || n.contains("cps")) return I_KEYS;
-        if (n.contains("pvp") || n.contains("combo") || n.contains("reach") || n.contains("target") || n.contains("bedwars") || n.contains("autotool")) return I_SWORD;
+        if (n.contains("pvp") || n.contains("attack") || n.contains("combo") || n.contains("reach") || n.contains("target") || n.contains("bedwars") || n.contains("autotool")) return I_SWORD;
         if (n.contains("chat") || n.contains("title") || n.contains("actionbar") || n.contains("nick") || n.contains("name")) return I_CHAT;
         if (n.contains("ping") || n.contains("server") || n.contains("reconnect") || n.contains("hypixel") || n.contains("quickplay") || n.contains("player") && n.contains("count") || n.contains("mumble") || n.contains("tab")) return I_GLOBE;
         if (n.contains("light") || n.contains("weather") || n.contains("fog") || n.contains("blur") || n.contains("bright")) return I_SUN;
