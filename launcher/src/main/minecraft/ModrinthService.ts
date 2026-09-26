@@ -71,7 +71,11 @@ interface MrpackIndex {
 }
 
 const API_BASE = 'https://api.modrinth.com/v2'
-const HEADERS = { 'User-Agent': 'crystal-client/1.0.0 (github.com/crystal-client)' }
+// Modrinth asks for project/version (contact); a vague one gets blocked sooner.
+const HEADERS = { 'User-Agent': 'Lunar0710/Nexora-Launcher (github.com/Lunar0710/Crystal)' }
+
+/** Modrinth's answer per file hash, kept for the session: a jar's version doesn't change. */
+const versionByHash = new Map<string, { id: string; project_id: string } | null>()
 
 export type ContentType = 'mod' | 'resourcepack' | 'shader'
 
@@ -309,8 +313,11 @@ export class ModrinthService {
         headers: { ...HEADERS, 'Content-Type': 'application/json' },
         body: JSON.stringify({ hashes: [...byHash.keys()], algorithm: 'sha1' }),
       })
-      if (!res.ok) return {}
-      const data = await res.json() as Record<string, { id: string; project_id: string }>
+      // Modrinth's firewall sometimes refuses the bulk request (403 with a web
+      // page); then each file is asked for on its own, which it lets through.
+      const data: Record<string, { id: string; project_id: string }> = res.ok && /json/.test(res.headers.get('content-type') || '')
+        ? await res.json()
+        : await this.identifyOneByOne([...byHash.keys()])
       const result: Record<string, { projectId: string; versionId: string }> = {}
       for (const [hash, version] of Object.entries(data)) {
         const fileName = byHash.get(hash)
@@ -321,6 +328,24 @@ export class ModrinthService {
       logger.warn('client', 'Modrinth-Sammelabfrage fehlgeschlagen', String(err))
       return {}
     }
+  }
+
+  /** One request per file hash, six at a time, answers cached. */
+  private async identifyOneByOne(hashes: string[]): Promise<Record<string, { id: string; project_id: string }>> {
+    const result: Record<string, { id: string; project_id: string }> = {}
+    const queue = hashes.filter(h => { const known = versionByHash.get(h); if (known) result[h] = known; return !versionByHash.has(h) })
+    const worker = async () => {
+      for (let hash = queue.shift(); hash; hash = queue.shift()) {
+        try {
+          const res = await (globalThis as any).fetch(`${API_BASE}/version_file/${hash}?algorithm=sha1`, { headers: HEADERS })
+          const version = res.ok ? await res.json() as { id: string; project_id: string } : null
+          versionByHash.set(hash, version && version.id ? version : null)
+          if (version && version.id) result[hash] = version
+        } catch { /* left out, asked again next time */ }
+      }
+    }
+    await Promise.all(Array.from({ length: 6 }, worker))
+    return result
   }
 
   /**
@@ -344,8 +369,29 @@ export class ModrinthService {
         headers: { ...HEADERS, 'Content-Type': 'application/json' },
         body: JSON.stringify({ hashes: [...byHash.keys()], algorithm: 'sha1', loaders: [loader], game_versions: [gameVersion] }),
       })
-      if (!res.ok) return []
-      const data = await res.json() as Record<string, { id: string; version_number: string; version_type?: string; files: { hashes: { sha1: string } }[] }>
+      type Latest = { id: string; version_number: string; version_type?: string; files: { hashes: { sha1: string } }[] }
+      let data: Record<string, Latest>
+      if (res.ok && /json/.test(res.headers.get('content-type') || '')) {
+        data = await res.json()
+      } else {
+        // Bulk request refused by Modrinth's firewall: per project, newest version
+        // for this game version and loader (six at a time).
+        data = {}
+        const known = await this.identifyOneByOne([...byHash.keys()])
+        const queue = Object.entries(known)
+        const params = `?loaders=${encodeURIComponent(JSON.stringify([loader]))}&game_versions=${encodeURIComponent(JSON.stringify([gameVersion]))}`
+        const worker = async () => {
+          for (let next = queue.shift(); next; next = queue.shift()) {
+            const [hash, version] = next
+            try {
+              const r = await (globalThis as any).fetch(`${API_BASE}/project/${version.project_id}/version${params}`, { headers: HEADERS })
+              const list = r.ok ? await r.json() as Latest[] : []
+              if (list[0]) data[hash] = list[0]
+            } catch { /* skipped */ }
+          }
+        }
+        await Promise.all(Array.from({ length: 6 }, worker))
+      }
       const updates: { fileName: string; versionId: string; versionNumber: string; beta: boolean }[] = []
       for (const [hash, latest] of Object.entries(data)) {
         const fileName = byHash.get(hash)

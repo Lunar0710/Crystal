@@ -1,10 +1,60 @@
 import Store from 'electron-store'
 import { BrowserWindow, Notification } from 'electron'
 import WebSocket from 'ws'
+import crypto from 'crypto'
 import { AuthManager } from '../auth/AuthManager'
 import { crystalServerAddress } from '../cosmetics/CrystalServer'
 import { FriendManager } from './FriendManager'
 import { logger } from '../logs/Logger'
+
+/**
+ * The account's chat-signing key pair from Mojang, kept until shortly before
+ * it expires (a day or so). Only on this PC; the server sees the public half.
+ */
+let certificate: { uuid: string; privateKey: crypto.KeyObject; publicKey: string; keySignature: string; expiresAt: number } | null = null
+
+function pemToDer(pem: string): Buffer {
+  return Buffer.from(pem.replace(/-----[^-]+-----/g, '').replace(/\s+/g, ''), 'base64')
+}
+
+/**
+ * What the Nexora server needs to know it's really this account, without
+ * asking Mojang (see server/worker/src/proof.js): the Mojang-signed public
+ * key, the challenge signed with its private key, and the Mojang-signed
+ * profile that carries the name.
+ */
+async function loginProof(accessToken: string, uuid: string, serverId: string) {
+  const plainUuid = uuid.replace(/-/g, '').toLowerCase()
+  if (!certificate || certificate.uuid !== plainUuid || certificate.expiresAt - Date.now() < 10 * 60 * 1000) {
+    const res = await fetch('https://api.minecraftservices.com/player/certificates', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
+      signal: AbortSignal.timeout(10000),
+    } as any)
+    if (!res.ok) throw new Error(`Zertifikat: ${res.status}`)
+    const cert = await res.json() as any
+    certificate = {
+      uuid: plainUuid,
+      // Mojang labels them "RSA" keys, but the contents are PKCS#8 and X.509.
+      privateKey: crypto.createPrivateKey({ key: pemToDer(cert.keyPair.privateKey), format: 'der', type: 'pkcs8' }),
+      publicKey: pemToDer(cert.keyPair.publicKey).toString('base64'),
+      keySignature: String(cert.publicKeySignatureV2),
+      expiresAt: Date.parse(cert.expiresAt),
+    }
+  }
+  const profile = await fetch(`https://sessionserver.mojang.com/session/minecraft/profile/${plainUuid}?unsigned=false`, { signal: AbortSignal.timeout(10000) } as any)
+  if (!profile.ok) throw new Error(`Profil: ${profile.status}`)
+  const textures = ((await profile.json()) as any).properties?.find((p: any) => p.name === 'textures')
+  if (!textures?.signature) throw new Error('Profil ohne Signatur')
+  return {
+    uuid: plainUuid,
+    publicKey: certificate.publicKey,
+    keySignature: certificate.keySignature,
+    expiresAt: certificate.expiresAt,
+    signature: crypto.sign('sha256', Buffer.from(`nexora-login:${serverId}`), certificate.privateKey).toString('base64'),
+    textures: { value: textures.value, signature: textures.signature },
+  }
+}
 
 /** How the launcher's own connection to the Nexora server is doing. */
 export type NetState = 'no-server' | 'offline-account' | 'no-account' | 'connecting' | 'online' | 'error'
@@ -117,7 +167,9 @@ export class NexoraNet {
     this.ws = ws
     ws.on('message', data => this.onMessage(ws, data.toString()).catch(err => logger.warn('launcher', 'Nexora-Server: Nachricht nicht verarbeitet', String(err))))
     ws.on('error', err => logger.debug?.('launcher', 'Nexora-Server Verbindung: ' + String(err)))
-    ws.on('close', () => {
+    ws.on('close', (code, reason) => {
+      // The server says why it closed (not verified, bad hello ...): worth a line in the log.
+      if (code >= 4000) logger.warn('launcher', `Nexora-Server hat die Verbindung beendet: ${code} ${reason.toString()}`)
       if (this.ws !== ws) return
       if (this.pingTimer) clearInterval(this.pingTimer)
       this.ws = null
@@ -133,18 +185,20 @@ export class NexoraNet {
       case 'challenge': {
         const { profile } = await this.auth.ensureFreshProfile()
         if (!profile || profile.type !== 'microsoft') { this.setState('offline-account'); ws.close(); return }
-        const res = await fetch('https://sessionserver.mojang.com/session/minecraft/join', {
+        // Proof by Mojang's signatures (see server/worker/src/proof.js): the
+        // server can't ask Mojang from Cloudflare. The token stays on this PC.
+        const proof = await loginProof(profile.accessToken, profile.uuid, m.serverId).catch(err => {
+          logger.warn('launcher', 'Nachweis für den Nexora-Server nicht erstellt', String(err))
+          return null
+        })
+        // The classic check as well, for a server that can reach Mojang.
+        await fetch('https://sessionserver.mojang.com/session/minecraft/join', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ accessToken: profile.accessToken, selectedProfile: profile.uuid.replace(/-/g, ''), serverId: m.serverId }),
           signal: AbortSignal.timeout(10000),
         } as any).catch(() => null)
-        if (!res || (res.status !== 204 && res.status !== 200)) {
-          logger.warn('launcher', `Anmeldung am Nexora-Server fehlgeschlagen (Mojang ${res ? res.status : 'nicht erreichbar'})`)
-          ws.close()
-          return
-        }
-        ws.send(JSON.stringify({ t: 'hello', name: profile.username, client: 'launcher' }))
+        ws.send(JSON.stringify({ t: 'hello', name: profile.username, client: 'launcher', proof }))
         return
       }
       case 'welcome': {

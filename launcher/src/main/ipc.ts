@@ -239,7 +239,7 @@ export function registerIpcHandlers(store: Store) {
   // failure the UI shows an honest "couldn't load" instead of placeholder posts.
   ipcMain.handle('news:list', async () => {
     try {
-      const res = await (globalThis as any).fetch('https://api.github.com/repos/Lunar0710/Nexora/releases?per_page=10', {
+      const res = await (globalThis as any).fetch('https://api.github.com/repos/Lunar0710/Crystal/releases?per_page=10', {
         headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'crystal-launcher' },
       })
       if (!res.ok) return { ok: false, items: [] }
@@ -265,7 +265,7 @@ export function registerIpcHandlers(store: Store) {
   ipcMain.handle('shell:openExternal', (_e, url: string) => {
     // Only the project's own GitHub pages and uploaded crash logs — never an arbitrary URL from the renderer.
     if (typeof url !== 'string') return
-    if (url.startsWith('https://github.com/Lunar0710/Nexora') || /^https:\/\/mclo\.gs\/[A-Za-z0-9]+$/.test(url)) shell.openExternal(url)
+    if (url.startsWith('https://github.com/Lunar0710/Crystal') || /^https:\/\/mclo\.gs\/[A-Za-z0-9]+$/.test(url)) shell.openExternal(url)
   })
 
   // Data folder location. Existing instances keep their stored absolute path,

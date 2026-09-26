@@ -62,8 +62,8 @@ export class UpdateManager {
     if (process.platform === 'darwin') {
       const version = this.store.get('updater.candidateVersion') as string | undefined
       await shell.openExternal(version
-        ? `https://github.com/Lunar0710/Nexora/releases/tag/v${version}`
-        : 'https://github.com/Lunar0710/Nexora/releases/latest')
+        ? `https://github.com/Lunar0710/Crystal/releases/tag/v${version}`
+        : 'https://github.com/Lunar0710/Crystal/releases/latest')
       emit('update:error', 'Auf dem Mac wird das Update von Hand installiert. Die Download-Seite ist jetzt offen.')
       return false
     }

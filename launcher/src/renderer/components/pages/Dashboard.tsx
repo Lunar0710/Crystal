@@ -90,6 +90,8 @@ export function Dashboard() {
   const isLoading = runningGame?.usage?.windowOpen === false
   // Minutes without a window: say why that usually happens instead of leaving it at "lädt".
   const loadingMinutes = isLoading && runningGame ? Math.floor((Date.now() - runningGame.startedAt) / 60000) : 0
+  // Once the game process is there, the start is done: from here the bar shows loading, then running.
+  useEffect(() => { if (isRunning) setProgress(null) }, [isRunning])
 
   const choose = (id: string) => {
     setInstanceId(id)

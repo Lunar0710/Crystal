@@ -1,3 +1,4 @@
+import { verifyProof } from './proof.js'
 /**
  * Nexora server on Cloudflare: one Worker in front of one Durable Object
  * ("Hub") that holds every connection, the same job server.js does as a Node
@@ -133,11 +134,14 @@ export class Hub {
     const url = 'https://sessionserver.mojang.com/session/minecraft/hasJoined'
       + `?username=${encodeURIComponent(name)}&serverId=${encodeURIComponent(serverId)}`
     try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
-      if (res.status !== 200) return null
+      // Mojang turns away requests from Cloudflare without a User-Agent (403).
+      const res = await fetch(url, { signal: AbortSignal.timeout(8000), headers: { 'User-Agent': 'NexoraServer/1.0 (+https://github.com/Lunar0710/Crystal)', Accept: 'application/json' } })
+      // 204 means Mojang has no join for this name and id; anything else is Mojang or the network.
+      if (res.status !== 200) { console.log('hasJoined', name, res.status); return null }
       const body = await res.json()
       return body && typeof body.id === 'string' ? { id: body.id, name: body.name } : null
-    } catch {
+    } catch (err) {
+      console.log('hasJoined failed', name, String(err))
       return null
     }
   }
@@ -266,7 +270,9 @@ export class Hub {
       if (i.checking) return
       i.checking = true
       this.save(ws, i)
-      const profile = await this.hasJoined(m.name, i.serverId)
+      // Mojang's signatures first (works from Cloudflare, whose network Mojang's session
+      // server refuses); the classic hasJoined check for clients without a proof.
+      const profile = (m.proof ? await verifyProof(m.proof, i.serverId) : null) ?? await this.hasJoined(m.name, i.serverId)
       if (!profile) return ws.close(4003, 'not verified')
       const uuid = dashed(profile.id)
       const rank = await this.rankOf(profile.name)

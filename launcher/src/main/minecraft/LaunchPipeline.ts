@@ -149,7 +149,7 @@ export class LaunchPipeline {
     fs.mkdirSync(LIBRARIES_DIR(), { recursive: true })
     fs.mkdirSync(ASSETS_DIR(), { recursive: true })
 
-    emit('launch:progress', { step: 'Resolving version metadata...', percent: 5 })
+    emit('launch:progress', { step: 'Version wird geprüft...', percent: 5 })
     const manifest = await this.getJson<{ versions: { id: string; url: string }[] }>(
       'https://launchermeta.mojang.com/mc/game/version_manifest_v2.json'
     )
@@ -166,7 +166,7 @@ export class LaunchPipeline {
     let loaderProfile: any = null
 
     if (opts.loader === 'fabric') {
-      emit('launch:progress', { step: 'Resolving Fabric loader...', percent: 12 })
+      emit('launch:progress', { step: 'Fabric wird vorbereitet...', percent: 12 })
       // Official Fabric from 1.14, Legacy Fabric for 1.8.9 to 1.13.2.
       const meta = fabricMetaFor(opts.version)
       const loaders = meta
@@ -184,13 +184,13 @@ export class LaunchPipeline {
       extraLibraries = loaderProfile.libraries || []
     }
 
-    emit('launch:progress', { step: 'Downloading client jar...', percent: 18 })
+    emit('launch:progress', { step: 'Minecraft wird geladen...', percent: 18 })
     const versionDir = path.join(VERSIONS_DIR(), opts.version)
     fs.mkdirSync(versionDir, { recursive: true })
     const clientJarPath = path.join(versionDir, `${opts.version}.jar`)
     await this.downloadIfMissing(versionJson.downloads.client.url, clientJarPath)
 
-    emit('launch:progress', { step: 'Downloading libraries...', percent: 30 })
+    emit('launch:progress', { step: 'Bibliotheken werden geladen...', percent: 30 })
     // A loader library replaces the game's copy of the same one: Legacy Fabric
     // ships its own LWJGL 2 build, and two LWJGLs on the classpath crash the game.
     const libraryKey = (name: string) => name.split(':').slice(0, 2).join(':')
@@ -198,18 +198,18 @@ export class LaunchPipeline {
     const gameLibraries = (versionJson.libraries as LibraryArtifact[]).filter(l => !replacedByLoader.has(libraryKey(l.name)))
     const { classpath: libPaths, natives: nativeJars } = await this.downloadLibraries(
       [...gameLibraries, ...extraLibraries],
-      (done, total) => emit('launch:progress', { step: `Downloading libraries (${done}/${total})...`, percent: 30 + Math.round((done / Math.max(1, total)) * 25) })
+      (done, total) => emit('launch:progress', { step: `Bibliotheken (${done}/${total})...`, percent: 30 + Math.round((done / Math.max(1, total)) * 25) })
     )
 
     // LWJGL loads its .dll files off java.library.path, so the natives jars
     // have to be unpacked to disk — without this Minecraft dies on startup.
     const nativesDir = path.join(VERSIONS_DIR(), opts.version, 'natives')
-    emit('launch:progress', { step: 'Extracting natives...', percent: 56 })
+    emit('launch:progress', { step: 'Grafik-Bibliotheken werden entpackt...', percent: 56 })
     await this.extractNatives(nativeJars, nativesDir)
 
-    emit('launch:progress', { step: 'Downloading assets...', percent: 58 })
+    emit('launch:progress', { step: 'Texturen und Sounds werden geladen...', percent: 58 })
     await this.downloadAssets(versionJson.assetIndex, (done, total) => {
-      if (total > 0) emit('launch:progress', { step: `Downloading assets (${done}/${total})...`, percent: 58 + Math.round((done / total) * 27) })
+      if (total > 0) emit('launch:progress', { step: `Texturen und Sounds (${done}/${total})...`, percent: 58 + Math.round((done / total) * 27) })
     })
 
     // Mojang's logging config. For 1.8.9 to 1.18 it is also the Log4Shell fix:
@@ -223,7 +223,7 @@ export class LaunchPipeline {
       loggingArgs.push(logging.argument.replace('${path}', logConfig))
     }
 
-    emit('launch:progress', { step: 'Launching Minecraft...', percent: 92 })
+    emit('launch:progress', { step: 'Minecraft startet...', percent: 92 })
 
     // Measured as late as possible: what is free right before the start counts.
     const free = await freeMemory
@@ -359,7 +359,7 @@ export class LaunchPipeline {
 
     logger.info('client', `Minecraft läuft (PID ${proc.pid})`)
     emit('launch:started', { version: opts.version, gameDir: opts.gameDir, username: opts.profile.username, pid: proc.pid })
-    emit('launch:progress', { step: 'Game started!', percent: 100 })
+    emit('launch:progress', { step: 'Minecraft lädt...', percent: 100 })
     return true
   }
 
