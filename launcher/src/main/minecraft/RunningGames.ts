@@ -42,6 +42,13 @@ export interface GameUsage {
   cpuPercent: number
   /** Memory the process holds (working set), in MB. */
   ramMb: number
+  /**
+   * Whether the game has its window yet. Minecraft loads for a while (minutes
+   * with many mods on a slow disk) before the window appears; until then the
+   * launcher says "Lädt" instead of "Läuft", which read as a start that did nothing.
+   * Unknown (true) where it can't be told.
+   */
+  windowOpen: boolean
 }
 
 export type RunningGameWithUsage = RunningGame & { usage: GameUsage | null }
@@ -49,7 +56,7 @@ export type RunningGameWithUsage = RunningGame & { usage: GameUsage | null }
 const SAMPLE_MS = 2000
 
 /** One reading: CPU as total milliseconds (Windows) or as a ready share (ps), and memory. */
-type Sample = { cpuMs?: number; cpuPercent?: number; ramBytes: number }
+type Sample = { cpuMs?: number; cpuPercent?: number; ramBytes: number; windowOpen?: boolean }
 
 /**
  * Every game the launcher has running, and what each one uses.
@@ -241,7 +248,7 @@ export class RunningGames {
       const raw = process.platform === 'win32' ? await this.sampleWindows(pids) : await this.samplePs(pids)
       const cores = Math.max(1, os.cpus().length)
       const now = Date.now()
-      for (const [pid, { cpuMs, ramBytes, cpuPercent }] of raw) {
+      for (const [pid, { cpuMs, ramBytes, cpuPercent, windowOpen }] of raw) {
         let percent = cpuPercent ?? 0
         // Windows gives CPU time; the first reading has nothing to compare with yet.
         let firstReading = false
@@ -254,6 +261,7 @@ export class RunningGames {
         const usage = {
           cpuPercent: Math.max(0, Math.min(100, Math.round(percent * 10) / 10)),
           ramMb: Math.round(ramBytes / (1024 * 1024)),
+          windowOpen: windowOpen ?? true,
         }
         this.usage.set(pid, usage)
         if (!firstReading) {
@@ -275,12 +283,12 @@ export class RunningGames {
 
   private sampleWindows(pids: number[]): Promise<Map<number, Sample>> {
     if (!this.shell) {
-      // Reads a line of comma separated ids, answers "id:cpuMs:bytes;..." on one line.
+      // Reads a line of comma separated ids, answers "id:cpuMs:bytes:window;..." on one line.
       const script =
         '$ErrorActionPreference = "SilentlyContinue"; ' +
         'while ($null -ne ($line = [Console]::In.ReadLine())) { ' +
         '$out = foreach ($id in $line.Split(",")) { $p = Get-Process -Id ([int]$id); ' +
-        'if ($p) { "{0}:{1}:{2}" -f $p.Id, [long]$p.TotalProcessorTime.TotalMilliseconds, $p.WorkingSet64 } }; ' +
+        'if ($p) { "{0}:{1}:{2}:{3}" -f $p.Id, [long]$p.TotalProcessorTime.TotalMilliseconds, $p.WorkingSet64, [int]($p.MainWindowHandle -ne 0) } }; ' +
         '[Console]::Out.WriteLine(($out -join ";")); [Console]::Out.Flush() }'
       this.shell = spawn('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', script], { windowsHide: true })
       this.shell.stdout.setEncoding('utf8')
@@ -304,8 +312,8 @@ export class RunningGames {
         clearTimeout(timeout)
         const result = new Map<number, Sample>()
         for (const part of line.split(';')) {
-          const [id, cpu, bytes] = part.split(':').map(Number)
-          if (id && Number.isFinite(cpu) && Number.isFinite(bytes)) result.set(id, { cpuMs: cpu, ramBytes: bytes })
+          const [id, cpu, bytes, window] = part.split(':').map(Number)
+          if (id && Number.isFinite(cpu) && Number.isFinite(bytes)) result.set(id, { cpuMs: cpu, ramBytes: bytes, windowOpen: window !== 0 })
         }
         resolve(result)
       }

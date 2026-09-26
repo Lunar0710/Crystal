@@ -10,7 +10,7 @@ export interface RunningGame {
   pid: number
   startedAt: number
   maxRamMb: number
-  usage: { cpuPercent: number; ramMb: number } | null
+  usage: { cpuPercent: number; ramMb: number; windowOpen?: boolean } | null
 }
 
 const api = (window as any).crystal
@@ -77,7 +77,7 @@ export function RunningGamesPanel({ games }: { games: RunningGame[] }) {
     <section aria-label="Laufende Spiele">
       <div className="flex items-baseline justify-between mb-2 px-0.5">
         <h2 className="text-[13px] font-semibold text-crystal-text">
-          {games.length === 1 ? 'Läuft gerade' : `${games.length} Spiele laufen`}
+          {games.length === 1 ? (games[0].usage?.windowOpen === false ? 'Lädt noch (Fenster kommt gleich)' : 'Läuft gerade') : `${games.length} Spiele laufen`}
         </h2>
         {games.length > 1 && (
           <span className="text-xs text-crystal-muted tabular">

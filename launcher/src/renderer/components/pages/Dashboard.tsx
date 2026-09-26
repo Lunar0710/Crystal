@@ -84,7 +84,10 @@ export function Dashboard() {
   const instance = instances?.find(i => i.id === instanceId) ?? null
   const instanceIdRef = useRef('')
   instanceIdRef.current = instanceId
-  const isRunning = !!instance && running.some(g => g.instanceId === instance.id)
+  const runningGame = instance ? running.find(g => g.instanceId === instance.id) : undefined
+  const isRunning = !!runningGame
+  // Started, but Minecraft's window isn't there yet: it is still loading.
+  const isLoading = runningGame?.usage?.windowOpen === false
 
   const choose = (id: string) => {
     setInstanceId(id)
@@ -111,7 +114,7 @@ export function Dashboard() {
   }
 
   const launchLabel = progress ? `${progress.step.replace(/\.+$/, '')} ${Math.round(progress.percent)} %`
-    : !instance ? 'Instanz anlegen' : isRunning ? 'Läuft' : `${instance.useCrystalClient ? 'Nexora' : 'Minecraft'} starten`
+    : !instance ? 'Instanz anlegen' : isLoading ? 'Minecraft lädt …' : isRunning ? 'Läuft' : `${instance.useCrystalClient ? 'Nexora' : 'Minecraft'} starten`
 
   return (
     <div className="h-full px-5 pb-4 pt-1 grid grid-cols-[minmax(0,1fr)_290px] gap-4 min-h-0">

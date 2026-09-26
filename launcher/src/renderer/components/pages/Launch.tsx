@@ -251,7 +251,8 @@ export function Launch() {
     await api?.updateInstance(instance.id, { accountUuid: uuid })
     refreshInstances()
   }
-  const playLabel = launching ? 'Startet…' : instanceRunning ? 'Läuft' : 'Spielen'
+  const instanceLoading = !!instance && runningGames.find(g => g.instanceId === instance.id)?.usage?.windowOpen === false
+  const playLabel = launching ? 'Startet…' : instanceLoading ? 'Lädt …' : instanceRunning ? 'Läuft' : 'Spielen'
 
   return (
     <Page>
