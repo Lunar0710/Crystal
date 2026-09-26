@@ -22,6 +22,7 @@ import { ClaudeService } from './claude/ClaudeService'
 import { FriendManager } from './friends/FriendManager'
 import { NexoraNet } from './friends/NexoraNet'
 import { scrubGameDir } from './util/secureStore'
+import { bringGameToFront } from './util/foreground'
 import { logger, LogCategory } from './logs/Logger'
 import { TryCrystalService } from './minecraft/TryCrystalService'
 import { CustomClientInstaller } from './minecraft/CustomClientInstaller'
@@ -543,6 +544,8 @@ export function registerIpcHandlers(store: Store) {
         playStartedAt = Date.now()
         starting.delete(launchId)
         const pid = (data as { pid?: number })?.pid
+        // With the launcher minimised, Windows would open the game behind everything.
+        if (pid) bringGameToFront(pid)
         if (launchId && pid && profile) {
           running.add({
             instanceId: launchId,

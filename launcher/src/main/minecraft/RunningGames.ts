@@ -94,6 +94,9 @@ export class RunningGames {
     return [...this.games.values()].find(g => g.accountUuid === accountUuid)
   }
 
+  /** Games a close was sent to, by pid. */
+  private closing = new Set<number>()
+
   add(game: RunningGame) {
     this.games.set(game.instanceId, game)
     this.start()
@@ -119,8 +122,19 @@ export class RunningGames {
     const game = this.games.get(instanceId)
     if (!game) return false
     if (process.platform === 'win32') {
+      // One close at a time: repeated clicks only add log noise.
+      if (this.closing.has(game.pid)) return true
+      this.closing.add(game.pid)
+      const force = () => execFile('taskkill', ['/F', '/T', '/PID', String(game.pid)], err => {
+        this.closing.delete(game.pid)
+        if (err && this.games.has(instanceId)) logger.warn('launcher', `Spiel ${game.instanceName} ließ sich nicht beenden`, String(err))
+      })
       execFile('taskkill', ['/PID', String(game.pid)], err => {
-        if (err) logger.warn('launcher', `Spiel ${game.instanceName} ließ sich nicht schließen`, String(err))
+        // A game still starting up (no window yet) refuses a friendly close:
+        // then it has nothing to save and is simply ended.
+        if (err) { force(); return }
+        // Asked nicely; if it is still there after 20 seconds (hung on saving), end it.
+        setTimeout(() => { if (this.games.has(instanceId)) force(); else this.closing.delete(game.pid) }, 20000)
       })
     } else {
       try { process.kill(game.pid, 'SIGTERM') } catch { return false }
