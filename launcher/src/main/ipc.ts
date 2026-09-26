@@ -325,6 +325,9 @@ export function registerIpcHandlers(store: Store) {
       }
       case 'disable-mod':
         return crashDoctor.disableMod(instanceId, fix.modFile)
+      case 'disable-zgc':
+        store.set('lowStutterGc', false)
+        return { ok: true, message: '"Weniger Ruckler" (ZGC) ist aus. Starte das Spiel neu.' }
       default:
         return { ok: false, message: 'Unbekannter Fix.' }
     }

@@ -191,6 +191,34 @@ public final class NowPlaying {
 
     private static void sleep(long ms) throws InterruptedException { Thread.sleep(ms); }
 
+    // ------------------------------------------------------------ controls
+
+    public enum Control { PLAY_PAUSE, NEXT, PREVIOUS }
+
+    /**
+     * Play/pause, next or previous song in Spotify, without leaving the game.
+     * Windows: the media keys every player listens to; macOS: AppleScript;
+     * Linux: playerctl. Runs off the game thread.
+     */
+    public static void control(Control action) {
+        String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
+        List<String> command;
+        if (os.contains("win")) {
+            int key = switch (action) { case PLAY_PAUSE -> 179; case NEXT -> 176; case PREVIOUS -> 177; };
+            command = List.of("powershell.exe", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-Command",
+                    "(New-Object -ComObject WScript.Shell).SendKeys([char]" + key + ")");
+        } else if (os.contains("mac")) {
+            String verb = switch (action) { case PLAY_PAUSE -> "playpause"; case NEXT -> "next track"; case PREVIOUS -> "previous track"; };
+            command = List.of("osascript", "-e", "tell application \"Spotify\" to " + verb);
+        } else {
+            String verb = switch (action) { case PLAY_PAUSE -> "play-pause"; case NEXT -> "next"; case PREVIOUS -> "previous"; };
+            command = List.of("playerctl", "-p", "spotify", verb);
+        }
+        Thread t = new Thread(() -> run(command), "Nexora Spotify control");
+        t.setDaemon(true);
+        t.start();
+    }
+
     // ------------------------------------------------------------ lyrics
 
     private static final Pattern LRC = Pattern.compile("\\[(\\d+):(\\d+(?:[.:]\\d+)?)]");

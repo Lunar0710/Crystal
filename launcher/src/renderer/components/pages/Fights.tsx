@@ -38,11 +38,32 @@ function accuracy(f: FightSummary): number {
   return f.swings === 0 ? 0 : Math.round((100 * f.hits) / f.swings)
 }
 
+interface Rival { name: string; fights: number; won: number; hits: number; swings: number; last: number }
+
+/** Everyone fought, most fights first: the record against each of them. */
+function rivalsOf(list: FightSummary[]): Rival[] {
+  const by = new Map<string, Rival>()
+  for (const f of list) {
+    const key = f.opponent.toLowerCase()
+    const r = by.get(key) ?? { name: f.opponent, fights: 0, won: 0, hits: 0, swings: 0, last: 0 }
+    r.fights++
+    if (f.won) r.won++
+    r.hits += f.hits
+    r.swings += f.swings
+    r.last = Math.max(r.last, f.start)
+    by.set(key, r)
+  }
+  return [...by.values()].sort((a, b) => b.fights - a.fights || b.last - a.last)
+}
+
 /** The recorded fights, and a replay of one seen from above. */
 export function Fights() {
   const [list, setList] = useState<FightSummary[] | null>(null)
   const [selected, setSelected] = useState<FightSummary | null>(null)
   const [fight, setFight] = useState<Fight | null>(null)
+  const [rival, setRival] = useState<string | null>(null)
+  const rivals = useMemo(() => rivalsOf(list ?? []), [list])
+  const shown = useMemo(() => (list ?? []).filter(f => !rival || f.opponent.toLowerCase() === rival), [list, rival])
 
   useEffect(() => {
     api?.listFights?.().then((l: FightSummary[]) => {
@@ -83,10 +104,35 @@ export function Fights() {
           </dl>
         )
       })()}
+      {rivals.length > 0 && (
+        <section className="mb-6">
+          <div className="flex items-baseline justify-between mb-3 px-0.5">
+            <h2 className="nexora-display text-[15px] text-crystal-text">Rivalen</h2>
+            {rival && <button onClick={() => setRival(null)} className="text-xs text-crystal-muted hover:text-crystal-text">Alle Kämpfe zeigen</button>}
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+            {rivals.slice(0, 6).map(r => {
+              const lost = r.fights - r.won
+              const active = rival === r.name.toLowerCase()
+              const ahead = r.won > lost ? 'text-crystal-success' : r.won < lost ? 'text-crystal-danger' : 'text-crystal-text'
+              return (
+                <button key={r.name} onClick={() => setRival(active ? null : r.name.toLowerCase())}
+                  className={`crystal-card px-4 py-3 text-left nexora-ease ${active ? 'ring-1 ring-crystal-accent/60' : 'hover:brightness-110'}`}>
+                  <p className="text-[13px] text-crystal-text truncate">{r.name}</p>
+                  <p className={`nexora-display text-[22px] leading-tight tabular ${ahead}`}>{r.won}:{lost}</p>
+                  <p className="text-[11px] text-crystal-muted tabular">
+                    {r.fights} {r.fights === 1 ? 'Kampf' : 'Kämpfe'}, Trefferquote {r.swings ? Math.round((100 * r.hits) / r.swings) : 0} %
+                  </p>
+                </button>
+              )
+            })}
+          </div>
+        </section>
+      )}
       {list && list.length > 0 && (
         <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
           <ul className="crystal-card divide-y divide-crystal-border self-start max-h-[70vh] overflow-y-auto">
-            {list.map(f => {
+            {shown.map(f => {
               const active = selected?.file === f.file && selected?.instanceId === f.instanceId
               return (
                 <li key={f.instanceId + f.file}>

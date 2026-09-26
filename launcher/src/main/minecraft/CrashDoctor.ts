@@ -13,6 +13,7 @@ export type FixKind =
   | 'install-fabric-api'
   | 'lower-ram'
   | 'raise-ram'
+  | 'disable-zgc'
 
 export interface ProblemFix {
   kind: FixKind
@@ -223,6 +224,8 @@ export class CrashDoctor {
       })
     }
 
+    this.nativeCrash(instanceId, push)
+
     if (/Could not reserve enough space for.*object heap/i.test(log)) {
       const lowered = Math.max(1024, Math.floor(currentRam / 2))
       push({
@@ -281,6 +284,69 @@ export class CrashDoctor {
   }
 
   /** Disables one mod by renaming it; the Mods tab can turn it back on. */
+  /**
+   * A hard crash of Java itself (an hs_err_pid*.log in the game folder from the
+   * last few minutes). Java's own stack names the class that was running; if a
+   * mod's jar holds that class, that mod crashed the game, and turning it off
+   * is the fix. A crash in some library's own native code while ZGC was on
+   * gets a second offer: start without ZGC, which such libraries often don't
+   * cope with (KryptonPlus did exactly that).
+   */
+  private nativeCrash(instanceId: string, push: (p: DetectedProblem) => void): void {
+    const gameDir = this.instances.get(instanceId)?.gameDir || crystalPath('instances', instanceId)
+    let report: string | null = null
+    try {
+      const newest = fs.readdirSync(gameDir)
+        .filter(f => /^hs_err_pid\d+\.log$/.test(f))
+        .map(f => ({ f, t: fs.statSync(path.join(gameDir, f)).mtimeMs }))
+        .sort((a, b) => b.t - a.t)[0]
+      if (newest && Date.now() - newest.t < 10 * 60 * 1000) report = fs.readFileSync(path.join(gameDir, newest.f), 'utf8')
+    } catch { return }
+    if (!report) return
+
+    const frame = report.match(/^# (?:C|j|J|V)\s+\[?([^\]\s+]+)/m)?.[1] ?? ''
+    const zgc = /-XX:\+UseZGC/.test(report)
+    // The first Java frame outside Java, Minecraft, Fabric and Mixin is the suspect.
+    const skip = /^(?:java\.|jdk\.|sun\.|net\.minecraft\.|com\.mojang\.|net\.fabricmc\.|org\.spongepowered\.|com\.llamalad7\.|org\.lwjgl\.|org\.objectweb\.)/
+    let suspectClass: string | null = null
+    const javaFrames = report.split('Java frames:')[1] ?? ''
+    for (const m of javaFrames.matchAll(/^[jJ]\s+(?:\d+\s+c\d\s+)?([\w$.\/]+)\.[\w$<>]+\(/gm)) {
+      if (!skip.test(m[1])) { suspectClass = m[1]; break }
+    }
+    let suspectJar: string | null = null
+    if (suspectClass) {
+      const entry = suspectClass.replace(/\./g, '/') + '.class'
+      try {
+        for (const file of fs.readdirSync(this.modsDir(instanceId))) {
+          if (!file.endsWith('.jar')) continue
+          try {
+            if (new JarReader(path.join(this.modsDir(instanceId), file)).has(entry)) { suspectJar = file; break }
+          } catch { /* unreadable jar: not the one */ }
+        }
+      } catch { /* no mods folder */ }
+    }
+    if (suspectJar && !/^(?:nexora|crystal-client)-/i.test(suspectJar)) {
+      push({
+        id: `native-crash-${suspectJar}`,
+        group: 'other',
+        title: `${suspectJar.replace(/\.jar$/, '')} hat Minecraft abstürzen lassen`,
+        detail: 'Java ist hart abgestürzt, während diese Mod lief' + (frame ? ` (in ${frame})` : '') + '. '
+          + 'Deaktiviere sie, oder hol dir eine neuere Version. Mods, die eigenen nativen Code nachladen, solltest du nur aus sicheren Quellen nehmen.',
+        fix: { kind: 'disable-mod', label: 'Mod deaktivieren', modFile: suspectJar, modName: suspectJar },
+      })
+    }
+    if (zgc && frame && !/^(?:jvm\.dll|libjvm)/i.test(frame)) {
+      push({
+        id: 'native-crash-zgc',
+        group: 'other',
+        title: 'Absturz mit "Weniger Ruckler" (ZGC)',
+        detail: 'Der Absturz passierte in fremdem nativem Code, während ZGC an war. Manche Mods vertragen ZGC nicht. '
+          + 'Starte ohne ZGC; einschalten kannst du es jederzeit wieder in den Einstellungen.',
+        fix: { kind: 'disable-zgc', label: 'Ohne ZGC starten' },
+      })
+    }
+  }
+
   disableMod(instanceId: string, modFile: string | undefined): { ok: boolean; message: string } {
     if (!modFile) return { ok: false, message: 'Keine Datei angegeben.' }
     if (!isPlainFileName(modFile)) return { ok: false, message: 'Ungültiger Dateiname.' }
