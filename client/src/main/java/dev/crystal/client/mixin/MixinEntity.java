@@ -30,10 +30,7 @@ public class MixinEntity {
             return;
         }
 
-        Freelook freelook = CrystalClient.getInstance().getModuleManager().getModuleByName("Freelook")
-                .filter(m -> m.isEnabled())
-                .map(m -> (Freelook) m)
-                .orElse(null);
+        Freelook freelook = CrystalClient.getInstance().getModuleManager().getEnabled(Freelook.class);
         if (freelook == null || !freelook.isActive()) return;
 
         freelook.accumulate(cursorDeltaX, cursorDeltaY);

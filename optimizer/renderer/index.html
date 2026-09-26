@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'">
+<title>Lunar Optimizer</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+  <header class="titlebar">
+    <div class="drag"></div>
+    <div class="winbtns">
+      <button id="wMin" aria-label="Minimieren"><svg viewBox="0 0 12 12"><path d="M2 6h8"/></svg></button>
+      <button id="wMax" aria-label="Maximieren"><svg viewBox="0 0 12 12"><rect x="2.5" y="2.5" width="7" height="7" rx="1"/></svg></button>
+      <button id="wClose" class="close" aria-label="Schließen"><svg viewBox="0 0 12 12"><path d="M3 3l6 6M9 3l-6 6"/></svg></button>
+    </div>
+  </header>
+
+  <aside class="side">
+    <div class="brand">
+      <svg viewBox="0 0 32 32" class="moon" aria-hidden="true"><defs><linearGradient id="mg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="var(--accent)"/></linearGradient></defs><path d="M21.5 4.5A12 12 0 1 0 27.5 20 9.5 9.5 0 0 1 21.5 4.5z" fill="url(#mg)"/><circle cx="25" cy="7" r="1.6" fill="#fff"/></svg>
+      <div><b>Lunar</b><span>Optimizer</span></div>
+    </div>
+    <nav id="nav">
+      <a data-page="home" class="on"><svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v8.5a.5.5 0 0 1-.5.5H15v-6H9v6H4.5a.5.5 0 0 1-.5-.5z"/></svg>Übersicht</a>
+      <a data-page="hardware"><svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/></svg>Hardware</a>
+      <a data-page="monitor"><svg viewBox="0 0 24 24"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg>Live-Monitor</a>
+      <a data-page="latency"><svg viewBox="0 0 24 24"><path d="M12 20a8 8 0 1 1 8-8"/><path d="M12 12l5-5"/><circle cx="12" cy="12" r="1.5"/></svg>Latenz</a>
+      <a data-page="tweaks"><svg viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>Optimieren</a>
+      <a data-page="startup"><svg viewBox="0 0 24 24"><path d="M12 3v9"/><path d="M6.3 7.3a8 8 0 1 0 11.4 0"/></svg>Autostart</a>
+      <a data-page="clean"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>Aufräumen</a>
+      <a data-page="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Einstellungen</a>
+    </nav>
+    <div class="side-foot">
+      <div class="mini" id="miniPing"><i></i><span>Ping</span><b>–</b></div>
+      <div class="mini" id="miniCpu"><i></i><span>CPU</span><b>–</b></div>
+      <button class="update" id="update" hidden></button>
+      <p id="adminNote"></p>
+      <p class="ver" id="ver"></p>
+    </div>
+  </aside>
+
+  <main id="main">
+    <!-- Übersicht -->
+    <section class="page on" id="p-home">
+      <div class="hero">
+        <div class="score shell"><div class="core">
+          <svg viewBox="0 0 200 200" class="ring"><circle cx="100" cy="100" r="86" class="track"/><circle cx="100" cy="100" r="86" class="val" id="scoreArc"/></svg>
+          <div class="score-in"><b id="scoreNum">–</b><span id="scoreWord">wird geprüft</span></div>
+        </div></div>
+        <div class="hero-text">
+          <span class="eyebrow"><b>Gaming-Score</b>dein PC im Check</span>
+          <h1 id="heroTitle">Einen Moment, dein PC wird geprüft.</h1>
+          <p id="heroSub">Hardware, Treiber, Windows-Einstellungen, Speicher und Verbindung.</p>
+          <div class="cta">
+            <button class="btn solid" id="optimizeAll"><span>Jetzt optimieren</span><i><svg viewBox="0 0 16 16"><path d="M9 1.5L3 9h4.5L7 14.5 13 7H8.5z"/></svg></i></button>
+            <button class="btn ghost" data-go="tweaks"><span>Einzeln wählen</span><i><svg viewBox="0 0 16 16"><path d="M5 3l5 5-5 5"/></svg></i></button>
+          </div>
+        </div>
+      </div>
+      <div class="tiles">
+        <div class="tile shell"><div class="core"><small>CPU</small><b id="tCpu">–</b><span id="tCpuName"></span><canvas class="spark" id="sCpu"></canvas></div></div>
+        <div class="tile shell"><div class="core"><small>Grafikkarte</small><b id="tGpu">–</b><span id="tGpuName"></span><canvas class="spark" id="sGpu"></canvas></div></div>
+        <div class="tile shell"><div class="core"><small>Arbeitsspeicher</small><b id="tRam">–</b><span id="tRamName"></span><canvas class="spark" id="sRam"></canvas></div></div>
+        <div class="tile shell"><div class="core"><small>Ping (Cloudflare)</small><b id="tPing">–</b><span id="tPingName">TCP, alle 3 s</span><canvas class="spark" id="sPing"></canvas></div></div>
+      </div>
+      <h2 class="h2">Gefunden <span id="issueCount" class="count"></span></h2>
+      <div class="issues" id="issues"><div class="empty">Wird geprüft …</div></div>
+    </section>
+
+    <!-- Hardware -->
+    <section class="page" id="p-hardware">
+      <div class="page-head"><div><span class="eyebrow">Hardware</span><h1>Was in deinem PC steckt.</h1></div><button class="btn ghost sm" id="hwReload"><span>Neu einlesen</span></button></div>
+      <div class="hw" id="hw"><div class="empty">Wird eingelesen …</div></div>
+    </section>
+
+    <!-- Monitor -->
+    <section class="page" id="p-monitor">
+      <div class="page-head"><div><span class="eyebrow">Live-Monitor</span><h1>Was gerade Leistung frisst.</h1></div><button class="btn ghost sm" id="openTaskmgr"><span>Task-Manager</span></button></div>
+      <div class="boost shell"><div class="core">
+        <div class="boost-head"><div><b>Spiel-Boost</b><small>Schließt Apps, die im Hintergrund Leistung und Arbeitsspeicher belegen. Nichts von Windows, kein Anti-Cheat.</small></div><button class="btn solid sm" id="boostRun" disabled><span>Ausgewählte schließen</span></button></div>
+        <div class="boost-list" id="boost"><div class="empty">Wird geprüft …</div></div>
+      </div></div>
+      <div class="charts">
+        <div class="chart shell"><div class="core"><div class="ch-head"><small>CPU</small><b id="cCpu">–</b></div><canvas id="gCpu"></canvas><div class="cores" id="cores"></div></div></div>
+        <div class="chart shell"><div class="core"><div class="ch-head"><small>Grafikkarte</small><b id="cGpu">–</b></div><canvas id="gGpu"></canvas><p class="ch-foot" id="cGpuFoot"></p></div></div>
+        <div class="chart shell"><div class="core"><div class="ch-head"><small>Arbeitsspeicher</small><b id="cRam">–</b></div><canvas id="gRam"></canvas><div class="ch-row"><p class="ch-foot" id="cRamFoot"></p><button class="btn ghost sm" id="ramClean" title="Leert ungenutzten Arbeitsspeicher aller Programme"><span>RAM freigeben</span></button></div></div></div>
+        <div class="chart shell"><div class="core"><div class="ch-head"><small>Netzwerk</small><b id="cNet">–</b></div><canvas id="gNet"></canvas><p class="ch-foot" id="cNetFoot"></p></div></div>
+      </div>
+      <h2 class="h2">Programme <span class="count" id="procCount"></span></h2>
+      <div class="procs shell"><div class="core"><table><thead><tr><th>Programm</th><th class="r">CPU</th><th class="r">RAM</th><th></th></tr></thead><tbody id="procs"></tbody></table></div></div>
+    </section>
+
+    <!-- Latenz -->
+    <section class="page" id="p-latency">
+      <div class="page-head"><div><span class="eyebrow">Latenz</span><h1>Wie schnell deine Verbindung antwortet.</h1></div></div>
+      <div class="targets" id="targets"></div>
+      <div class="lat">
+        <div class="chart shell big"><div class="core"><div class="ch-head"><small id="latTarget">Ziel</small><b id="latNow">–</b></div><canvas id="gLat"></canvas></div></div>
+        <div class="lat-side">
+          <div class="stat shell"><div class="core"><small>Durchschnitt</small><b id="lAvg">–</b></div></div>
+          <div class="stat shell"><div class="core"><small>Schwankung (Jitter)</small><b id="lJit">–</b></div></div>
+          <div class="stat shell"><div class="core"><small>Min / Max</small><b id="lMm">–</b></div></div>
+          <div class="stat shell"><div class="core"><small>Verlust</small><b id="lLoss">–</b></div></div>
+          <p class="verdict" id="lVerdict"></p>
+        </div>
+      </div>
+      <h2 class="h2">Ping unter Last</h2>
+      <p class="note">Streamt oder lädt jemand im Netz, steigt bei vielen Routern der Ping stark an (Bufferbloat). Das ist die häufigste Ursache für plötzliche Lag-Spitzen. Der Test lädt 8 Sekunden lang und misst dabei den Ping.</p>
+      <div class="list shell"><div class="core" id="bloat"><div class="li"><div><b>Noch nicht gemessen</b><small>Dauert etwa 12 Sekunden und nutzt kurz deine volle Leitung.</small></div><button class="btn solid sm" id="bloatRun"><span>Test starten</span></button></div></div></div>
+      <h2 class="h2">DNS-Test</h2>
+      <p class="note">Bei jeder Adresse (Server, Skins, Discord) fragt dein PC zuerst einen DNS-Server. Ein schneller spart bei jedem Verbinden Zeit. Umstellen lässt sich mit einem Klick zurücknehmen.</p>
+      <p class="note dns-now" id="dnsCurrent">Aktueller DNS: wird gelesen …</p>
+      <div class="list shell"><div class="core" id="dns"><div class="li"><div><b>Noch nicht gemessen</b><small>Dauert etwa 5 Sekunden.</small></div><button class="btn solid sm" id="dnsRun"><span>DNS testen</span></button></div></div></div>
+      <h2 class="h2">Reaktionstest</h2>
+      <div class="react shell"><div class="core" id="react"><b>Klick hier zum Starten</b><span>Sobald die Fläche grün wird, so schnell wie möglich klicken. Gemessen wird Maus, PC, Bildschirm und du.</span></div></div>
+    </section>
+
+    <!-- Optimieren -->
+    <section class="page" id="p-tweaks">
+      <div class="page-head"><div><span class="eyebrow">Optimieren</span><h1>Windows auf Spielen eingestellt.</h1></div>
+        <div class="row-btns"><button class="btn ghost sm" id="undoAll"><span>Alles rückgängig</span></button><button class="btn solid sm" id="applyAll"><span>Alle empfohlenen</span></button></div></div>
+      <div class="banner" id="rebootBanner" hidden><span>Einige Änderungen wirken erst nach einem Neustart.</span><button class="btn solid sm" id="rebootNow"><span>Jetzt neu starten</span></button></div>
+      <p class="note">Nur Einstellungen, die Windows selbst anbietet. Defender, Updates und Firewall bleiben an. Jeder alte Wert wird gesichert und lässt sich zurückholen.</p>
+      <div class="tw-bar">
+        <input id="twSearch" placeholder="Suchen, z. B. Maus, Netzwerk, Dienst …" spellcheck="false">
+        <div class="tw-cats" id="twCats"></div>
+        <span class="count" id="twCount"></span>
+      </div>
+      <div class="presets">
+        <button class="preset" data-preset="safe"><b>Empfohlen</b><small>Die wichtigsten, ohne Nebenwirkungen</small></button>
+        <button class="preset" data-preset="max"><b>Maximal</b><small>Alles, auch optionale (Dienste, Ruhezustand)</small></button>
+        <button class="preset" data-preset="none"><b>Original</b><small>Alles zurück wie vorher</small></button>
+      </div>
+      <div id="tweaks"><div class="empty">Wird geladen …</div></div>
+    </section>
+
+    <!-- Autostart -->
+    <section class="page" id="p-startup">
+      <div class="page-head"><div><span class="eyebrow">Autostart</span><h1>Was mit Windows mitstartet.</h1></div></div>
+      <p class="note">Jedes Programm hier startet bei jedem Hochfahren und läuft danach im Hintergrund. Ausschalten löscht nichts: Es ist derselbe Schalter wie im Task-Manager.</p>
+      <div class="list shell"><div class="core" id="startup"><div class="empty">Wird geladen …</div></div></div>
+    </section>
+
+    <!-- Aufräumen -->
+    <section class="page" id="p-clean">
+      <div class="page-head"><div><span class="eyebrow">Aufräumen</span><h1>Platz schaffen, ohne etwas Wichtiges zu löschen.</h1></div><button class="btn ghost sm" id="cleanScan"><span>Neu scannen</span></button></div>
+      <p class="note">Nur Dateien, die Windows und Programme von selbst neu anlegen. Deine Dokumente, Bilder und Downloads werden nie angefasst. Shader-Caches bleiben, damit Spiele danach nicht ruckeln.</p>
+      <div class="list shell"><div class="core" id="clean"><div class="empty">Wird gescannt …</div></div></div>
+      <div class="clean-foot"><span id="cleanTotal"></span><button class="btn solid" id="cleanRun" disabled><span>Aufräumen</span><i><svg viewBox="0 0 16 16"><path d="M3 8.5l3 3 7-7"/></svg></i></button></div>
+    </section>
+    <!-- Einstellungen -->
+    <section class="page" id="p-settings">
+      <div class="page-head"><div><span class="eyebrow">Einstellungen</span><h1>Lunar arbeitet für dich, auch im Hintergrund.</h1></div></div>
+      <div class="gm shell"><div class="core">
+        <div class="gm-head"><div><b>Auto-Spielmodus</b><small>Startest du ein Spiel, bekommt es automatisch hohe Priorität, einen feineren Timer und freien Arbeitsspeicher, und die gewählten Apps werden geschlossen. Prüft alle 5 Sekunden, kostet praktisch nichts.</small></div><div class="switch" id="sGameMode" role="switch" tabindex="0"></div></div>
+        <p class="gm-active" id="gmActive"></p>
+      </div></div>
+      <div class="set-grid">
+        <div class="list shell"><div class="core">
+          <div class="li"><div><b>Spiele auf hohe Priorität</b><small>Windows gibt dem Spiel Vorrang vor allem anderen. Nie „Echtzeit“, das kann das System einfrieren.</small></div><div class="switch" id="sPriority" role="switch" tabindex="0"></div></div>
+          <div class="li"><div><b>Timer auf 0,5 ms</b><small>Solange ein Spiel läuft, arbeitet der Windows-Taktgeber feiner: gleichmäßigere Frametimes, direktere Eingaben. Danach wieder normal.</small></div><div class="switch" id="sTimer" role="switch" tabindex="0"></div></div>
+          <div class="li"><div><b>RAM beim Spielstart freigeben</b><small>Räumt ungenutzten Arbeitsspeicher der anderen Programme auf, damit das Spiel Platz hat. Das Spiel selbst bleibt unberührt.</small></div><div class="switch" id="sRam" role="switch" tabindex="0"></div></div>
+          <div class="li"><div><b>Im Infobereich weiterlaufen</b><small>Schließen versteckt das Fenster nur, der Mond bleibt neben der Uhr. Nötig für den Auto-Spielmodus.</small></div><div class="switch" id="sTray" role="switch" tabindex="0"></div></div>
+          <div class="li"><div><b>Mit Windows starten</b><small id="sAutostartNote">Startet unsichtbar im Infobereich.</small></div><div class="switch" id="sAutostart" role="switch" tabindex="0"></div></div>
+        </div></div>
+        <div class="list shell"><div class="core">
+          <div class="li"><div><b>Beim Spielstart schließen</b><small>Diese Apps schließt der Spielmodus, wenn sie laufen.</small></div></div>
+          <div class="boost-list" id="sClose" style="padding:0 14px 14px"></div>
+        </div></div>
+      </div>
+      <h2 class="h2">Erkannte Spiele</h2>
+      <p class="note" id="sGames"></p>
+      <div class="targets"><input id="sCustom" placeholder="Eigenes Spiel hinzufügen, z. B. MeinSpiel.exe" spellcheck="false"></div>
+      <div class="boost-list" id="sCustomList"></div>
+    </section>
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+<div class="modal" id="modal" hidden><div class="modal-box shell"><div class="core"><h3 id="mTitle"></h3><p id="mText"></p><div class="row-btns"><button class="btn ghost sm" id="mNo"><span>Abbrechen</span></button><button class="btn solid sm" id="mYes"><span>OK</span></button></div></div></div></div>
+<script src="charts.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

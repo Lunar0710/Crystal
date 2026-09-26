@@ -1,5 +1,6 @@
-# Builds and tests the launcher on macOS and Linux. Those installers can't be
-# made on Windows (a .dmg needs macOS), so GitHub's own machines do it.
+# Builds and tests the launcher on macOS and Linux (and starts the game on
+# Windows). The macOS and Linux installers can't be made on Windows (a .dmg
+# needs macOS), so GitHub's own machines do it.
 #
 # Runs on pushes to main and the OS-update branch, and by hand (Actions tab > Run
 # workflow). Installers are attached to the run as downloadable artifacts;
@@ -106,6 +107,69 @@ jobs:
             ${{ runner.temp }}/crystal-world*/instances/smoke-world/screenshots/
             ${{ runner.temp }}/crystal-world*/instances/smoke-world/crystal-launch.log
             ${{ runner.temp }}/crystal-world*/instances/smoke-world/crash-reports/
+          if-no-files-found: ignore
+
+  # Windows: the same launch, through the launcher's real code, on GitHub's
+  # Windows machine (Windows Server 2022, the closest to Windows 10/11 there
+  # is). It has no GPU, so Mesa's software OpenGL (llvmpipe) is put next to
+  # java.exe, where Windows loads opengl32.dll from first; the game then opens
+  # a real window and loads fully instead of stopping at window creation.
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Build client mod
+        working-directory: client
+        run: ./gradlew build --no-daemon
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: launcher/package-lock.json
+
+      - name: Build launcher (main process)
+        working-directory: launcher
+        run: |
+          npm ci
+          npm run build:main
+
+      - name: Software OpenGL (Mesa) next to Java
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download -R pal1000/mesa-dist-win --pattern '*-release-msvc.7z' -D "$RUNNER_TEMP/mesa"
+          7z x "$RUNNER_TEMP"/mesa/*.7z -o"$RUNNER_TEMP/mesa/x" -y > /dev/null
+          cp "$RUNNER_TEMP"/mesa/x/x64/*.dll "$JAVA_HOME/bin/"
+          ls "$JAVA_HOME/bin" | grep -i -E 'opengl32|gallium|glapi'
+
+      # JAVA_HOME stays set: the launcher takes it first, and that Java has Mesa beside it.
+      - name: Launch Minecraft with Nexora
+        working-directory: launcher
+        env:
+          GALLIUM_DRIVER: llvmpipe
+          CRYSTAL_SMOKE_ROOT: ${{ runner.temp }}/crystal-smoke-win
+        run: |
+          mkdir -p "$CRYSTAL_SMOKE_ROOT"
+          node scripts/smoke-launch.cjs
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: launch-test-windows
+          path: |
+            ${{ runner.temp }}/crystal-smoke-win/instances/smoke/crystal-launch.log
+            ${{ runner.temp }}/crystal-smoke-win/instances/smoke/crash-reports/
           if-no-files-found: ignore
 
   # Starts Minecraft through the launcher on versions across the whole range

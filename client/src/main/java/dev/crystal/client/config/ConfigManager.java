@@ -27,8 +27,7 @@ public class ConfigManager {
         root.add("modules", snapshot(m -> true));
 
         try {
-            Files.createDirectories(configDir);
-            Files.writeString(configFile, gson.toJson(root));
+            dev.crystal.client.util.SafeFiles.writeAtomic(configFile, gson.toJson(root));
         } catch (IOException e) {
             CrystalClient.LOGGER.error("Failed to save config: {}", e.getMessage());
         }
@@ -60,8 +59,7 @@ public class ConfigManager {
         if (server != null && !server.isBlank()) root.addProperty("server", server.trim().toLowerCase(java.util.Locale.ROOT));
         root.add("modules", snapshot(ConfigManager::inProfile));
         try {
-            Files.createDirectories(profileFile(slot).getParent());
-            Files.writeString(profileFile(slot), gson.toJson(root));
+            dev.crystal.client.util.SafeFiles.writeAtomic(profileFile(slot), gson.toJson(root));
             return true;
         } catch (IOException e) {
             CrystalClient.LOGGER.error("Failed to save profile {}: {}", slot, e.getMessage());
@@ -139,15 +137,21 @@ public class ConfigManager {
             CrystalClient.LOGGER.info("[Nexora] Config loaded.");
             return true;
         } catch (Exception e) {
-            CrystalClient.LOGGER.error("Failed to load config: {}", e.getMessage());
+            // Kept as crystal.json.broken: the defaults that load now would
+            // otherwise overwrite it on the next save and the settings are gone.
+            CrystalClient.LOGGER.error("Failed to load config, kept as crystal.json.broken: {}", e.getMessage());
+            dev.crystal.client.util.SafeFiles.keepBroken(configFile);
             return false;
         }
     }
 
     private void apply(JsonObject modules, java.util.function.Predicate<Module> include) {
         for (Module module : CrystalClient.getInstance().getModuleManager().getModules()) {
-            if (!include.test(module) || !modules.has(module.getName())) continue;
-            JsonObject mObj = modules.getAsJsonObject(module.getName());
+            if (!include.test(module)) continue;
+            // A renamed module picks up what was saved under its old name.
+            String key = modules.has(module.getName()) ? module.getName() : LEGACY_NAMES.get(module.getName());
+            if (key == null || !modules.has(key)) continue;
+            JsonObject mObj = modules.getAsJsonObject(key);
 
             // Settings before enabling: a module's onEnable() may read them immediately.
             if (mObj.has("settings") && mObj.get("settings").isJsonObject()) {
@@ -168,6 +172,9 @@ public class ConfigManager {
             if (mObj.has("enabled")) module.setEnabled(mObj.get("enabled").getAsBoolean());
         }
     }
+
+    /** Current module name -> the name it was saved under before a rename. */
+    private static final java.util.Map<String, String> LEGACY_NAMES = java.util.Map.of("AttackIndicator", "Cooldowns");
 
     public void reset() {
         try {

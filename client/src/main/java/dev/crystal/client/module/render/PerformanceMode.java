@@ -40,6 +40,20 @@ public class PerformanceMode extends Module {
     private boolean disableClouds = true;
     private boolean disableEntityShadows = true;
     private boolean disableBiomeBlend = true;
+    private boolean disableSmoothLighting = true;
+    private float entityDistance = 75f;
+    private boolean noFabulous = true;
+    private boolean fastGraphics = false;
+
+    // 1.21.11 replaced the Fast/Fancy/Fabulous switch with graphics presets
+    // and a separate "Improved Transparency" toggle (what Fabulous was).
+    // There, "FABULOUS" stands for that toggle on and "FANCY" for off; Fast is gone.
+    private static final boolean GRAPHICS_OPTION = true;
+    //? if <1.21.11 {
+    /*private static final boolean FAST_OPTION = true;
+    *///?} else {
+    private static final boolean FAST_OPTION = false;
+    //?}
 
     private boolean applied = false;
     private final Consumer<TickEvent> tickListener = this::onTick;
@@ -78,15 +92,20 @@ public class PerformanceMode extends Module {
             saved.addProperty("clouds", o.cloudStatus().get().name());
             saved.addProperty("entityShadows", o.entityShadows().get());
             saved.addProperty("biomeBlend", o.biomeBlendRadius().get());
+            saved.addProperty("smoothLighting", o.ambientOcclusion().get());
+            saved.addProperty("entityDistance", o.entityDistanceScaling().get());
+            if (GRAPHICS_OPTION) saved.addProperty("graphics", graphicsName(o));
             try {
-                Files.createDirectories(backup.getParent());
-                Files.writeString(backup, GSON.toJson(saved));
+                dev.crystal.client.util.SafeFiles.writeAtomic(backup, GSON.toJson(saved));
             } catch (IOException e) {
                 // Without a backup we can't promise a clean restore, so change nothing.
                 CrystalClient.LOGGER.error("[Nexora] Leistungsmodus: Sicherung fehlgeschlagen, keine Optionen geändert: {}", e.getMessage());
                 applied = true;
                 return;
             }
+        } else if (!addGraphicsToBackup(backup, o)) {
+            applied = true;
+            return;
         }
 
         o.renderDistance().set(Math.min(o.renderDistance().get(), Math.round(viewDistance)));
@@ -95,8 +114,53 @@ public class PerformanceMode extends Module {
         if (disableClouds) o.cloudStatus().set(CloudStatus.OFF);
         if (disableEntityShadows) o.entityShadows().set(false);
         if (disableBiomeBlend) o.biomeBlendRadius().set(0);
+        // Smooth lighting makes every chunk rebuild noticeably slower.
+        if (disableSmoothLighting) o.ambientOcclusion().set(false);
+        // Mobs and items far off are drawn less far; 100% leaves it alone.
+        o.entityDistanceScaling().set(Math.min(o.entityDistanceScaling().get(), entityDistance / 100.0));
+        // Fabulous draws every translucent layer (water, glass, particles) into
+        // its own buffer and merges them with a shader: the most expensive
+        // single option. Fast also drops transparent leaves.
+        if (GRAPHICS_OPTION) {
+            if (fastGraphics && FAST_OPTION) setGraphics(o, "FAST");
+            else if (noFabulous && "FABULOUS".equals(graphicsName(o))) setGraphics(o, "FANCY");
+        }
         o.save();
         applied = true;
+    }
+
+    /**
+     * A backup from before the graphics option existed doesn't hold it. Graphics
+     * were never touched back then, so the current value is still the original.
+     * False when the backup can't be updated: then graphics stay as they are.
+     */
+    private boolean addGraphicsToBackup(Path backup, Options o) {
+        try {
+            JsonObject saved = GSON.fromJson(Files.readString(backup), JsonObject.class);
+            if (!GRAPHICS_OPTION || saved.has("graphics")) return true;
+            saved.addProperty("graphics", graphicsName(o));
+            dev.crystal.client.util.SafeFiles.writeAtomic(backup, GSON.toJson(saved));
+            return true;
+        } catch (Exception e) {
+            CrystalClient.LOGGER.error("[Nexora] Leistungsmodus: Sicherung nicht lesbar: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    private static String graphicsName(Options o) {
+        //? if <1.21.11 {
+        /*return o.graphicsMode().get().name();
+        *///?} else {
+        return o.improvedTransparency().get() ? "FABULOUS" : "FANCY";
+        //?}
+    }
+
+    private static void setGraphics(Options o, String name) {
+        //? if <1.21.11 {
+        /*o.graphicsMode().set(net.minecraft.client.GraphicsStatus.valueOf(name));
+        *///?} else {
+        o.improvedTransparency().set("FABULOUS".equals(name));
+        //?}
     }
 
     private void restore() {
@@ -114,6 +178,10 @@ public class PerformanceMode extends Module {
             o.cloudStatus().set(CloudStatus.valueOf(saved.get("clouds").getAsString()));
             o.entityShadows().set(saved.get("entityShadows").getAsBoolean());
             o.biomeBlendRadius().set(saved.get("biomeBlend").getAsInt());
+            // Backups written before these two were added don't have them.
+            if (saved.has("smoothLighting")) o.ambientOcclusion().set(saved.get("smoothLighting").getAsBoolean());
+            if (saved.has("entityDistance")) o.entityDistanceScaling().set(saved.get("entityDistance").getAsDouble());
+            if (GRAPHICS_OPTION && saved.has("graphics")) setGraphics(o, saved.get("graphics").getAsString());
             o.save();
             Files.delete(backup);
         } catch (Exception e) {
@@ -134,13 +202,19 @@ public class PerformanceMode extends Module {
 
     @Override
     public List<Setting<?>> getSettings() {
-        return List.of(
+        List<Setting<?>> list = new java.util.ArrayList<>(List.of(
                 new SliderSetting("Max View Distance", () -> viewDistance, v -> { viewDistance = v; reapply(); }, 2f, 16f, 1f, 0),
                 new SliderSetting("Max Simulation Distance", () -> simulationDistance, v -> { simulationDistance = v; reapply(); }, 5f, 12f, 1f, 0),
                 new BooleanSetting("Fewer Particles", () -> reduceParticles, v -> { reduceParticles = v; reapply(); }, true),
                 new BooleanSetting("No Clouds", () -> disableClouds, v -> { disableClouds = v; reapply(); }, true),
                 new BooleanSetting("No Entity Shadows", () -> disableEntityShadows, v -> { disableEntityShadows = v; reapply(); }, true),
-                new BooleanSetting("No Biome Blend", () -> disableBiomeBlend, v -> { disableBiomeBlend = v; reapply(); }, true)
-        );
+                new BooleanSetting("No Biome Blend", () -> disableBiomeBlend, v -> { disableBiomeBlend = v; reapply(); }, true),
+                new BooleanSetting("Keine weiche Beleuchtung", () -> disableSmoothLighting, v -> { disableSmoothLighting = v; reapply(); }, true),
+                new SliderSetting("Entity-Sichtweite (%)", () -> entityDistance, v -> { entityDistance = v; reapply(); }, 50f, 100f, 5f, 0)));
+        if (GRAPHICS_OPTION) {
+            list.add(new BooleanSetting("Kein Fabulous-Grafik", () -> noFabulous, v -> { noFabulous = v; reapply(); }, true));
+            if (FAST_OPTION) list.add(new BooleanSetting("Schnelle Grafik (Fast)", () -> fastGraphics, v -> { fastGraphics = v; reapply(); }, false));
+        }
+        return list;
     }
 }

@@ -35,24 +35,43 @@ public class NameTags extends Module {
 
     /** The name with " 20❤" appended in a colour from green to red, and the ping when wanted. */
     public Component decorate(Component name, Player player) {
-        MutableComponent text = name.copy();
+        int ping = -1;
         if (showPing) {
             // The latency the server reports in the tab list; absent in singleplayer and for NPCs.
             var connection = net.minecraft.client.Minecraft.getInstance().getConnection();
             var info = connection == null ? null : connection.getPlayerInfo(player.getUUID());
-            if (info != null) {
-                int ping = info.getLatency();
-                ChatFormatting pc = ping < 80 ? ChatFormatting.GREEN : ping < 160 ? ChatFormatting.YELLOW : ChatFormatting.RED;
-                text.append(Component.literal(" " + ping + "ms").withStyle(pc));
-            }
+            if (info != null) ping = info.getLatency();
         }
-        if (!showHealth) return text;
-        float health = player.getHealth() + player.getAbsorptionAmount();
-        float fraction = player.getMaxHealth() <= 0 ? 0 : player.getHealth() / player.getMaxHealth();
-        ChatFormatting color = fraction > 0.6f ? ChatFormatting.GREEN : fraction > 0.3f ? ChatFormatting.YELLOW : ChatFormatting.RED;
-        text.append(Component.literal(" " + Math.round(health) + "❤").withStyle(color));
+        int health = -1;
+        ChatFormatting color = null;
+        if (showHealth) {
+            health = Math.round(player.getHealth() + player.getAbsorptionAmount());
+            float fraction = player.getMaxHealth() <= 0 ? 0 : player.getHealth() / player.getMaxHealth();
+            color = fraction > 0.6f ? ChatFormatting.GREEN : fraction > 0.3f ? ChatFormatting.YELLOW : ChatFormatting.RED;
+        }
+
+        // Called for every player in every frame; the label only changes when
+        // the name, health or ping does, so the last one is reused until then.
+        Cached cached = cache.get(player.getUUID());
+        if (cached != null && cached.health == health && cached.color == color && cached.ping == ping && cached.name.equals(name)) {
+            return cached.label;
+        }
+
+        MutableComponent text = name.copy();
+        if (ping >= 0) {
+            ChatFormatting pc = ping < 80 ? ChatFormatting.GREEN : ping < 160 ? ChatFormatting.YELLOW : ChatFormatting.RED;
+            text.append(Component.literal(" " + ping + "ms").withStyle(pc));
+        }
+        if (color != null) text.append(Component.literal(" " + health + "❤").withStyle(color));
+        if (cache.size() > 512) cache.clear();
+        cache.put(player.getUUID(), new Cached(name, health, color, ping, text));
         return text;
     }
+
+    private record Cached(Component name, int health, ChatFormatting color, int ping, Component label) {}
+
+    /** Last label per player; render thread only. */
+    private final java.util.Map<java.util.UUID, Cached> cache = new java.util.HashMap<>();
 
     @Override
     public List<Setting<?>> getSettings() {

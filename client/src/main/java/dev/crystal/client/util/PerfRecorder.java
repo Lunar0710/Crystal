@@ -32,8 +32,9 @@ public final class PerfRecorder {
     private PerfRecorder() {}
 
     public static void register() {
-        ClientTickEvents.END_CLIENT_TICK.register(PerfRecorder::tick);
-        ClientLifecycleEvents.CLIENT_STOPPING.register(mc -> write());
+        var tick = SafeRender.safeTick("PerfRecorder", PerfRecorder::tick);
+        ClientTickEvents.END_CLIENT_TICK.register(tick::accept);
+        ClientLifecycleEvents.CLIENT_STOPPING.register(mc -> write(Arrays.copyOf(samples, count)));
     }
 
     private static void tick(Minecraft mc) {
@@ -42,12 +43,18 @@ public final class PerfRecorder {
         // The window being minimised or in the background caps the frame rate; not the game's fault.
         if (!mc.isWindowActive()) return;
         if (count < MAX_SAMPLES) samples[count++] = mc.getFps();
-        if (ticks % (20 * 60) == 0) write();
+        if (ticks % (20 * 60) == 0) {
+            // Sorting up to six hours of samples and writing the file took a
+            // moment on the game thread once a minute, a small hitch on slow
+            // disks; only the copy happens here now.
+            int[] copy = Arrays.copyOf(samples, count);
+            Thread.ofVirtual().name("Nexora-PerfRecorder").start(() -> write(copy));
+        }
     }
 
-    private static void write() {
+    private static void write(int[] sorted) {
+        int count = sorted.length;
         if (count < 10) return;
-        int[] sorted = Arrays.copyOf(samples, count);
         Arrays.sort(sorted);
         long sum = 0;
         for (int fps : sorted) sum += fps;

@@ -16,6 +16,7 @@ import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.util.Mth;
 import org.joml.Quaternionf;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -99,11 +100,18 @@ public class MixinCapeFeatureRenderer {
         matrices.popPose();
     }
 
+    /**
+     * Grid points of the cape being built, reused for every cape instead of
+     * three new 2D arrays per player and frame. The mesh is only built on the
+     * render thread, one cape at a time.
+     */
+    @Unique private static final float[][] crystal$px = new float[COLS + 1][ROWS + 1];
+    @Unique private static final float[][] crystal$py = new float[COLS + 1][ROWS + 1];
+    @Unique private static final float[][] crystal$pz = new float[COLS + 1][ROWS + 1];
+
     /** A wavy slab: outer and inner cloth surfaces plus the four edges joining them. */
     private static void buildMesh(PoseStack.Pose entry, VertexConsumer vc, int light, float amplitude, float t, float thickness) {
-        float[][] px = new float[COLS + 1][ROWS + 1];
-        float[][] py = new float[COLS + 1][ROWS + 1];
-        float[][] pz = new float[COLS + 1][ROWS + 1];
+        float[][] px = crystal$px, py = crystal$py, pz = crystal$pz;
         for (int c = 0; c <= COLS; c++) {
             for (int r = 0; r <= ROWS; r++) {
                 float u = c / (float) COLS, v = r / (float) ROWS;

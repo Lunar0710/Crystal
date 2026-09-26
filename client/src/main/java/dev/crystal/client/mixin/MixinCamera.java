@@ -8,7 +8,8 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.Entity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Redirect;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 //? if >=26 {
 /*import dev.crystal.client.util.FovControl;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -41,9 +42,11 @@ public class MixinCamera {
     private static final String ALIGN = "setup";
     //?}
 
-    @Redirect(method = ALIGN, at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;getViewYRot(F)F"))
-    private float crystal$cameraYaw(Entity entity, float tickDelta) {
-        float yaw = entity.getViewYRot(tickDelta);
+    // Wrapped, not redirected: other camera and perspective mods hook these same
+    // two calls, and a second redirect on one call crashes the game at start.
+    @WrapOperation(method = ALIGN, at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;getViewYRot(F)F"))
+    private float crystal$cameraYaw(Entity entity, float tickDelta, Operation<Float> original) {
+        float yaw = original.call(entity, tickDelta);
         if (!isLocalPlayer(entity)) return yaw;
 
         Freelook freelook = freelook();
@@ -53,9 +56,9 @@ public class MixinCamera {
         return snaplook != null ? snaplook.snap(yaw) : yaw;
     }
 
-    @Redirect(method = ALIGN, at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;getViewXRot(F)F"))
-    private float crystal$cameraPitch(Entity entity, float tickDelta) {
-        float pitch = entity.getViewXRot(tickDelta);
+    @WrapOperation(method = ALIGN, at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;getViewXRot(F)F"))
+    private float crystal$cameraPitch(Entity entity, float tickDelta, Operation<Float> original) {
+        float pitch = original.call(entity, tickDelta);
         if (!isLocalPlayer(entity)) return pitch;
 
         Freelook freelook = freelook();
@@ -67,16 +70,12 @@ public class MixinCamera {
     }
 
     private static Freelook freelook() {
-        return CrystalClient.getInstance().getModuleManager().getModuleByName("Freelook")
-                .filter(m -> m.isEnabled() && ((Freelook) m).isActive())
-                .map(m -> (Freelook) m)
-                .orElse(null);
+        Freelook module = CrystalClient.getInstance().getModuleManager().getEnabled(Freelook.class);
+        return module != null && module.isActive() ? module : null;
     }
 
     private static Snaplook snaplook() {
-        return CrystalClient.getInstance().getModuleManager().getModuleByName("Snaplook")
-                .filter(m -> m.isEnabled() && ((Snaplook) m).isActive())
-                .map(m -> (Snaplook) m)
-                .orElse(null);
+        Snaplook module = CrystalClient.getInstance().getModuleManager().getEnabled(Snaplook.class);
+        return module != null && module.isActive() ? module : null;
     }
 }

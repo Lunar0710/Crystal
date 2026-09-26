@@ -20,6 +20,8 @@ public class MixinClientPlayerInteractionManager {
         CrystalClient client = CrystalClient.getInstance();
         if (client == null) return;
         dev.crystal.client.util.CombatTracker.onAttack(target);
+        dev.crystal.client.module.hud.ReachDisplay reach = client.getModuleManager().getEnabled(dev.crystal.client.module.hud.ReachDisplay.class);
+        if (reach != null) reach.onAttack(player, target);
         ParticleChanger particles = client.getModuleManager().getEnabled(ParticleChanger.class);
         if (particles != null) particles.onAttack(target);
         BetterSounds sounds = client.getModuleManager().getEnabled(BetterSounds.class);

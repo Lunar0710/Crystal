@@ -47,14 +47,11 @@ public class MixinItemEntityRenderer {
         ((ItemGroundState) state).crystal$setOnGround(entity.onGround());
     }
 
-    @Redirect(method = DRAW, at = @At(value = "INVOKE", target = SIN))
-    //? if >=1.21.11 {
-    private float crystal$bob(double value) {
-    //?} else {
-    /*private float crystal$bob(float value) {
-    *///?}
+    // The value is modified, not the call redirected: this chains with other item mods hooking the same call.
+    @com.llamalad7.mixinextras.injector.ModifyExpressionValue(method = DRAW, at = @At(value = "INVOKE", target = SIN))
+    private float crystal$bob(float vanilla) {
         // sin() = -1 makes vanilla's "sin * 0.1 + 0.1" bob offset exactly 0.
-        return crystal$items2D() != null || crystal$physics() != null ? -1f : Mth.sin(value);
+        return crystal$items2D() != null || crystal$physics() != null ? -1f : vanilla;
     }
 
     //? if >=1.21.5 {
@@ -78,17 +75,25 @@ public class MixinItemEntityRenderer {
         ItemPhysics physics = crystal$physics();
         if (physics != null && ((ItemGroundState) state).crystal$isOnGround()) {
             // Lying on the ground: a fixed random turn, then tipped flat.
-            matrices.mulPose(Axis.YP.rotation(state.bobOffset));
-            matrices.mulPose(Axis.XP.rotationDegrees(90f));
+            matrices.mulPose(crystal$turn.rotationY(state.bobOffset));
+            matrices.mulPose(crystal$turn.rotationX((float) (Math.PI / 2)));
             return;
         }
         if (crystal$items2D() != null) {
             matrices.mulPose(cameraRotation);
-            matrices.mulPose(Axis.YP.rotationDegrees(180f));
+            matrices.mulPose(crystal$turn.rotationY((float) Math.PI));
             return;
         }
         matrices.mulPose(spin);
     }
+
+    /**
+     * Reused for the turns above: Axis.rotation made a new quaternion per
+     * dropped item and frame, and farms have hundreds of items lying around.
+     * mulPose copies it straight into the pose; render thread only.
+     */
+    @org.spongepowered.asm.mixin.Unique
+    private static final org.joml.Quaternionf crystal$turn = new org.joml.Quaternionf();
 
     @org.spongepowered.asm.mixin.Unique
     private static Items2D crystal$items2D() {

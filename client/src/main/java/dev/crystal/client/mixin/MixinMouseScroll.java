@@ -32,10 +32,7 @@ public class MixinMouseScroll {
             return;
         }
 
-        ScrollableTooltips module = CrystalClient.getInstance().getModuleManager().getModuleByName("ScrollableTooltips")
-                .filter(m -> m.isEnabled())
-                .map(m -> (ScrollableTooltips) m)
-                .orElse(null);
+        ScrollableTooltips module = CrystalClient.getInstance().getModuleManager().getEnabled(ScrollableTooltips.class);
         if (module == null || module.getHoldKey() == org.lwjgl.glfw.GLFW.GLFW_KEY_UNKNOWN) return;
         if (!InputConstants.isKeyDown(minecraft.getWindow(), module.getHoldKey())) return;
 

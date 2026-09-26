@@ -27,6 +27,13 @@ public class TimeChanger extends Module {
 
     private String time = DAY;
 
+    /**
+     * Set while a module reads the world's real time and weather (SleepTimer):
+     * the TimeChanger and WeatherChanger overrides in MixinClientWorld step aside.
+     * Render thread only.
+     */
+    public static boolean readingRealWorld = false;
+
     public TimeChanger() {
         super("TimeChanger", "Client-side-only override of the rendered day/night cycle", ModuleCategory.MISC);
     }
