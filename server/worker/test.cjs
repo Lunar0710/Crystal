@@ -115,6 +115,21 @@ async function check(name, fn) {
     c.ws.close()
   })
 
+  await check('Einladung: nur mit Server, kommt beim Freund an', async () => {
+    send(a, { t: 'invite', to: b.uuid })
+    await wait(400)
+    assert.strictEqual(last(a, 'error').code, 'noserver')
+    send(a, { t: 'server', address: 'play.example.net' })
+    send(a, { t: 'invite', to: b.uuid })
+    await wait(500)
+    const inv = last(bLauncher, 'invite')
+    assert.ok(inv && inv.server === 'play.example.net' && inv.from.uuid === a.uuid)
+    send(a, { t: 'server', address: 'bad address; rm' })
+    send(a, { t: 'invite', to: b.uuid })
+    await wait(400)
+    assert.strictEqual(last(a, 'error').code, 'noserver')
+  })
+
   await check('Entfernen', async () => {
     send(a, { t: 'friend-remove', uuid: b.uuid })
     await wait(600)

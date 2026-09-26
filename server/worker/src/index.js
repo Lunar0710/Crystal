@@ -36,6 +36,9 @@ const MAX_CHAT_CHARS = 500
 const AUTH_TIMEOUT_MS = 15000
 const NAME = /^[A-Za-z0-9_]{1,16}$/
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+/** A Minecraft server address as the game shows it: host with an optional port. */
+const SERVER_ADDRESS = /^[A-Za-z0-9.-]{1,253}(:\d{1,5})?$/
+const INVITE_LIMIT = 10 // per minute
 
 export default {
   async fetch(request, env) {
@@ -317,6 +320,27 @@ export class Hub {
       }
       case 'ping':
         return this.send(ws, { t: 'pong' })
+
+      // ---------------------------------------------------- playing together
+      case 'server': {
+        // The game says which server it is on. Kept with the connection, never
+        // passed on by itself: only an invite the player sends reveals it.
+        i.server = typeof m.address === 'string' && SERVER_ADDRESS.test(m.address) ? m.address.toLowerCase() : null
+        this.save(ws, i)
+        return
+      }
+      case 'invite': {
+        if (!this.allow(ws, 'invite', INVITE_LIMIT, 60000)) return this.send(ws, { t: 'error', code: 'slow', message: 'Zu viele Einladungen, warte kurz.' })
+        const to = String(m.to || '').toLowerCase()
+        const mine = await this.user(i.uuid)
+        if (!mine.friends.includes(to)) return this.send(ws, { t: 'error', code: 'notfriend', message: 'Einladen kannst du nur Freunde.' })
+        // The server of whichever game this player has open.
+        const game = this.socketsOf(i.uuid).map(s => this.info(s)).find(x => x.client === 'game' && x.server)
+        if (!game) return this.send(ws, { t: 'error', code: 'noserver', message: 'Du bist gerade auf keinem Server. Tritt erst einem bei, dann kannst du einladen.' })
+        if (this.statusOf(to) === 'offline') return this.send(ws, { t: 'error', code: 'offline', message: 'Dein Freund ist gerade offline.' })
+        this.sendTo(to, { t: 'invite', from: { uuid: i.uuid, name: i.name }, server: game.server, at: Date.now() })
+        return this.send(ws, { t: 'invite-sent', to, server: game.server })
+      }
 
       // ---------------------------------------------------- friends
       case 'friends':

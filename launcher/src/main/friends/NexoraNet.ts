@@ -74,7 +74,7 @@ export class NexoraNet {
 
   /** Passes a request from the Friends page on (only the kinds the page may send). */
   send(message: Record<string, unknown>): boolean {
-    const allowed = ['friends', 'friend-add', 'friend-accept', 'friend-decline', 'friend-remove', 'chat-send', 'chat-history', 'chat-read']
+    const allowed = ['friends', 'friend-add', 'friend-accept', 'friend-decline', 'friend-remove', 'chat-send', 'chat-history', 'chat-read', 'invite']
     if (!message || !allowed.includes(String(message.t))) return false
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN || this.state !== 'online') return false
     this.ws.send(JSON.stringify(message))
@@ -176,6 +176,9 @@ export class NexoraNet {
         break
       case 'chat':
         if (m.message && m.message.from !== this.me?.uuid) this.notify(m.message.name, m.message.text)
+        break
+      case 'invite':
+        this.notify('Einladung', `${m.from?.name ?? 'Jemand'} lädt dich auf ${m.server} ein.`)
         break
     }
     this.emit(m)

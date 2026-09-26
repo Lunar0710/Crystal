@@ -193,6 +193,18 @@ public final class CrystalNet {
         return null;
     }
 
+    /** Invites a friend by name to the server you are on. Returns a problem to show, or null. */
+    public static String invite(String name) {
+        if (!ready) return "Nicht mit dem Nexora-Server verbunden.";
+        String id = FRIEND_IDS.get(name.toLowerCase(java.util.Locale.ROOT));
+        if (id == null) return name + " ist nicht in deiner Freundesliste.";
+        JsonObject out = new JsonObject();
+        out.addProperty("t", "invite");
+        out.addProperty("to", id);
+        send(out);
+        return null;
+    }
+
     /** A line in the game's own chat, for this player only; never sent to the Minecraft server. */
     private static void chatLine(net.minecraft.network.chat.Component line) {
         Minecraft mc = Minecraft.getInstance();
@@ -255,6 +267,21 @@ public final class CrystalNet {
                     chatLine(net.minecraft.network.chat.Component.literal("Antworten mit /nmsg " + name + " <Text>").withStyle(net.minecraft.ChatFormatting.DARK_GRAY));
                 }
             }
+            case "invite" -> {
+                JsonElement from = m.get("from");
+                String name = from != null && from.isJsonObject() ? str(from.getAsJsonObject(), "name") : null;
+                String address = str(m, "server");
+                if (name == null || address == null || !address.matches("[A-Za-z0-9.-]{1,253}(:\\d{1,5})?")) return;
+                var join = net.minecraft.network.chat.Component.literal("[Beitreten]").withStyle(s -> s
+                        .withColor(net.minecraft.ChatFormatting.GREEN).withUnderlined(true)
+                        //? if >=1.21.5 {
+                        .withClickEvent(new net.minecraft.network.chat.ClickEvent.RunCommand("/njoin " + address)));
+                        //?} else {
+                        /*.withClickEvent(new net.minecraft.network.chat.ClickEvent(net.minecraft.network.chat.ClickEvent.Action.RUN_COMMAND, "/njoin " + address)));
+                        *///?}
+                chatLine(net.minecraft.network.chat.Component.literal(name + " lädt dich auf " + address + " ein ").withStyle(net.minecraft.ChatFormatting.WHITE).append(join));
+            }
+            case "invite-sent" -> chatLine(net.minecraft.network.chat.Component.literal("Einladung verschickt.").withStyle(net.minecraft.ChatFormatting.GRAY));
             case "error" -> {
                 String message = str(m, "message");
                 if (message != null) chatLine(net.minecraft.network.chat.Component.literal(message).withStyle(net.minecraft.ChatFormatting.RED));
@@ -324,6 +351,13 @@ public final class CrystalNet {
             where.addProperty("t", "where");
             if (room == null) where.add("room", JsonNull.INSTANCE); else where.addProperty("room", room);
             WORKER.execute(() -> send(where));
+            // The address itself, kept by the Nexora server only so an invite you send can name it.
+            var current = mc.getCurrentServer();
+            JsonObject server = new JsonObject();
+            server.addProperty("t", "server");
+            if (room == null || current == null || current.ip == null) server.add("address", JsonNull.INSTANCE);
+            else server.addProperty("address", current.ip.trim());
+            WORKER.execute(() -> send(server));
             if (room == null) PeerRegistry.clear();
         }
         long now = System.currentTimeMillis();

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { UserPlus, Users, X, Check, Send, MessageCircle, UserMinus, RefreshCw, Gamepad2 } from 'lucide-react'
+import { UserPlus, Users, X, Check, Send, MessageCircle, UserMinus, RefreshCw, Gamepad2, LogIn, MailPlus } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { notify } from '../../store/notificationStore'
 import { Page, PageHeader, EmptyState } from '../ui/Page'
 
@@ -7,6 +8,7 @@ type Status = 'offline' | 'launcher' | 'game'
 interface Person { uuid: string; name: string | null }
 interface Friend extends Person { status: Status }
 interface ChatMessage { id: string; from: string; to: string; name: string; text: string; at: number }
+interface Invite { from: Person; server: string; at: number }
 type NetState = 'no-server' | 'offline-account' | 'no-account' | 'connecting' | 'online' | 'error'
 interface Snapshot {
   state: NetState
@@ -53,6 +55,8 @@ export function Friends() {
   const [open, setOpen] = useState<string | null>(null)
   const [history, setHistory] = useState<Record<string, ChatMessage[]>>({})
   const [draft, setDraft] = useState('')
+  const [invites, setInvites] = useState<Invite[]>([])
+  const navigate = useNavigate()
   const listEnd = useRef<HTMLDivElement>(null)
   const openRef = useRef<string | null>(null)
   openRef.current = open
@@ -87,6 +91,12 @@ export function Friends() {
           })
           break
         }
+        case 'invite':
+          setInvites(list => [{ from: m.from, server: m.server, at: m.at }, ...list.filter(x => x.from.uuid !== m.from.uuid)].slice(0, 5))
+          break
+        case 'invite-sent':
+          notify({ type: 'success', message: `Einladung auf ${m.server} verschickt.` })
+          break
         case 'friend-request':
           notify({ type: 'info', title: 'Freundschaftsanfrage', message: `${m.from?.name ?? 'Jemand'} möchte dein Freund sein.` })
           break
@@ -175,6 +185,26 @@ export function Friends() {
       {online && (
         <div className="grid grid-cols-[minmax(0,300px)_minmax(0,1fr)] gap-6 items-start">
           <div className="space-y-6">
+            {invites.length > 0 && (
+              <section>
+                <h2 className="nexora-display text-[15px] text-crystal-text mb-3 px-0.5">Einladungen</h2>
+                <div className="crystal-card divide-y divide-white/[0.06] overflow-hidden">
+                  {invites.map(inv => (
+                    <div key={inv.from.uuid + inv.at} className="flex items-center gap-3 px-3.5 py-2.5">
+                      <Avatar name={inv.from.name} size={28} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] text-crystal-text truncate">{inv.from.name}</p>
+                        <p className="text-[11px] text-crystal-muted truncate">lädt dich auf {inv.server} ein</p>
+                      </div>
+                      <button onClick={() => navigate(`/launch?join=${encodeURIComponent(inv.server)}&autostart=1`)}
+                        className="crystal-btn-primary text-[12px] px-3 py-1.5"><LogIn size={12} /> Beitreten</button>
+                      <button onClick={() => setInvites(list => list.filter(x => x !== inv))} aria-label="Einladung ausblenden"
+                        className="p-1.5 rounded-full text-crystal-muted hover:text-crystal-text hover:bg-white/[0.06] nexora-ease"><X size={13} /></button>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
             {requests > 0 && (
               <section>
                 <h2 className="nexora-display text-[15px] text-crystal-text mb-3 px-0.5">Anfragen</h2>
@@ -251,6 +281,10 @@ export function Friends() {
                       {openFriend.status === 'game' && <Gamepad2 size={11} />}{STATUS_LABEL[openFriend.status]}
                     </p>
                   </div>
+                  {openFriend.status !== 'offline' && (
+                    <button onClick={() => api?.socialSend({ t: 'invite', to: openFriend.uuid })}
+                      className="crystal-btn-ghost text-[12px]" title="Auf den Server einladen, auf dem du gerade spielst"><MailPlus size={13} /> Einladen</button>
+                  )}
                   <button onClick={() => { api?.socialSend({ t: 'friend-remove', uuid: openFriend.uuid }); setOpen(null) }}
                     className="crystal-btn-ghost text-[12px]" title="Aus der Freundesliste entfernen"><UserMinus size={13} /> Entfernen</button>
                 </header>

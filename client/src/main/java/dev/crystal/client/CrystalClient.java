@@ -148,6 +148,43 @@ public class CrystalClient implements ClientModInitializer {
                                                 .withStyle(net.minecraft.ChatFormatting.GRAY));
                                         return 1;
                                     }))));
+            // Invite a Nexora friend to the server you are on, and join one you were invited to.
+            dispatcher.register(ClientCommandManager.literal("ninvite")
+                    .then(ClientCommandManager.argument("name", word())
+                            .suggests((ctx, builder) -> {
+                                for (String n : dev.crystal.client.net.CrystalNet.friendNames()) builder.suggest(n);
+                                return builder.buildFuture();
+                            })
+                            .executes(ctx -> {
+                                String problem = dev.crystal.client.net.CrystalNet.invite(getString(ctx, "name"));
+                                if (problem != null) ctx.getSource().sendError(Component.literal("[Nexora] " + problem));
+                                return 1;
+                            })));
+            dispatcher.register(ClientCommandManager.literal("njoin")
+                    .then(ClientCommandManager.argument("address", com.mojang.brigadier.arguments.StringArgumentType.string())
+                            .executes(ctx -> {
+                                String address = getString(ctx, "address");
+                                if (!address.matches("[A-Za-z0-9.-]{1,253}(:\\d{1,5})?")) return 0;
+                                var mc = net.minecraft.client.Minecraft.getInstance();
+                                // Leave the current world first, then connect like the server list does.
+                                mc.execute(() -> {
+                                    if (mc.level != null) {
+                                        //? if >=1.21.9 {
+                                        mc.disconnectFromWorld(net.minecraft.client.multiplayer.ClientLevel.DEFAULT_QUIT_MESSAGE);
+                                        //?} else if >=1.21.6 {
+                                        /*mc.level.disconnect(Component.literal(""));
+                                        mc.disconnect(new net.minecraft.client.gui.screens.TitleScreen(), false);
+                                        *///?} else {
+                                        /*mc.level.disconnect();
+                                        mc.disconnect(new net.minecraft.client.gui.screens.TitleScreen(), false);
+                                        *///?}
+                                    }
+                                    var data = new net.minecraft.client.multiplayer.ServerData(address, address, net.minecraft.client.multiplayer.ServerData.Type.OTHER);
+                                    net.minecraft.client.gui.screens.ConnectScreen.startConnecting(new net.minecraft.client.gui.screens.TitleScreen(), mc,
+                                            net.minecraft.client.multiplayer.resolver.ServerAddress.parseString(address), data, false, null);
+                                });
+                                return 1;
+                            })));
             dispatcher.register(ClientCommandManager.literal("cplay")
                     .then(ClientCommandManager.argument("mode", word())
                             .executes(ctx -> {
