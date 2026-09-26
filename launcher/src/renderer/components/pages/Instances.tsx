@@ -774,7 +774,7 @@ function InstanceDetail({ instance, onBack }: { instance: Instance; onBack: () =
                   return (
                     <div key={file.fileName} className="flex items-center gap-3 px-4 min-h-[84px] rounded-lg bg-crystal-accent/[0.08] ring-1 ring-inset ring-crystal-accent/30">
                       <span className="flex-1 text-[13px] text-crystal-text truncate">{title} löschen?</span>
-                      <button onClick={() => removeFile(file.fileName)} className="crystal-btn text-xs py-1.5 bg-crystal-accent text-white hover:brightness-110">Löschen</button>
+                      <button onClick={() => removeFile(file.fileName)} className="crystal-btn text-xs py-1.5 bg-crystal-accent text-on-accent hover:brightness-110">Löschen</button>
                       <button onClick={() => setConfirmRemove(null)} className="crystal-btn-ghost text-xs py-1.5">Abbrechen</button>
                     </div>
                   )
@@ -807,7 +807,7 @@ function InstanceDetail({ instance, onBack }: { instance: Instance; onBack: () =
                           onClick={() => setConfirmRemove(file.fileName)}
                           aria-label={`${title} löschen`}
                           title="Löschen"
-                          className="w-7 h-7 flex items-center justify-center rounded-md bg-[#3a1614] text-crystal-accent hover:bg-crystal-accent hover:text-white transition-colors"
+                          className="w-7 h-7 flex items-center justify-center rounded-md bg-[#3a1614] text-crystal-accent hover:bg-crystal-accent hover:text-on-accent transition-colors"
                         >
                           <Trash2 size={13} />
                         </button>

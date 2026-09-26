@@ -5,13 +5,13 @@ import { JarReader } from '../util/jarReader'
 
 /**
  * The title-screen panorama of a Minecraft version, for the start banner:
- * faces 0 to 3 are the ring around the camera, so side by side they make one
- * seamless 360° strip. Newer versions ship the real images as assets (the
+ * all six faces of the cube around the camera (0 ahead, 1 right, 2 behind,
+ * 3 left, 4 up, 5 down). Newer versions ship the real images as assets (the
  * jar only holds tiny placeholders), older ones inside the jar. Nothing is
  * downloaded: a version that was never started has no panorama yet.
  */
 
-const FACES = [0, 1, 2, 3]
+const FACES = [0, 1, 2, 3, 4, 5]
 const ENTRY = (i: number) => `minecraft/textures/gui/title/background/panorama_${i}.png`
 const cache = new Map<string, string[] | null>()
 
@@ -43,7 +43,7 @@ function fromJar(versionId: string): Buffer[] | null {
   } catch { return null }
 }
 
-/** Four data URLs (faces 0 to 3), or null when the version has none on this PC. */
+/** Six data URLs (faces 0 to 5: ahead, right, behind, left, up, down), or null when the version has none on this PC. */
 export function panoramaFor(versionId: string): string[] | null {
   if (!/^[\w.\-]+$/.test(versionId)) return null
   if (cache.has(versionId)) return cache.get(versionId)!

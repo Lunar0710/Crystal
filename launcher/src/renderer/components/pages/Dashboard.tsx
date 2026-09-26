@@ -162,7 +162,7 @@ export function Dashboard() {
         <button
           onClick={() => launch()}
           disabled={isRunning || !!progress}
-          className="relative overflow-hidden h-12 shrink-0 rounded-lg bg-crystal-accent text-white text-[14px] font-bold uppercase tracking-[0.06em] flex items-center justify-center gap-2.5 hover:brightness-110 disabled:opacity-60 disabled:hover:brightness-100 transition"
+          className="relative overflow-hidden h-12 shrink-0 rounded-lg bg-crystal-accent text-on-accent text-[14px] font-bold uppercase tracking-[0.06em] flex items-center justify-center gap-2.5 hover:brightness-110 disabled:opacity-60 disabled:hover:brightness-100 transition"
         >
           {/* While starting, the bar fills like Feather's. */}
           {progress && <span className="absolute inset-y-0 left-0 bg-white/15 transition-[width] duration-300" style={{ width: `${Math.max(3, progress.percent)}%` }} />}
@@ -202,7 +202,7 @@ export function Dashboard() {
                       <span className={`w-2 h-2 rounded-full ${st?.online ? 'bg-emerald-500' : st ? 'bg-crystal-danger' : 'bg-crystal-border'}`} />
                       {st?.online ? st.playersOnline ?? 0 : st ? 'offline' : '…'}
                     </span>
-                    <button onClick={() => launch(s.address)} className="hidden group-hover:block h-7 px-3 rounded bg-crystal-accent text-[11px] font-bold text-white">
+                    <button onClick={() => launch(s.address)} className="hidden group-hover:block h-7 px-3 rounded bg-crystal-accent text-[11px] font-bold text-on-accent">
                       Verbinden
                     </button>
                   </li>
@@ -221,7 +221,7 @@ export function Dashboard() {
         </div>
         <div className="p-3 border-t border-white/[0.05] flex items-center gap-2">
           <span className="flex-1 min-w-0 truncate text-[13px] font-semibold text-crystal-text">{username ?? 'Nicht angemeldet'}</span>
-          <button onClick={() => navigate('/cosmetics')} className="flex items-center gap-1.5 h-8 px-3 rounded-md bg-crystal-accent text-[12px] font-bold text-white hover:brightness-110">
+          <button onClick={() => navigate('/cosmetics')} className="flex items-center gap-1.5 h-8 px-3 rounded-md bg-crystal-accent text-[12px] font-bold text-on-accent hover:brightness-110">
             <Shirt size={13} /> Cosmetics
           </button>
         </div>

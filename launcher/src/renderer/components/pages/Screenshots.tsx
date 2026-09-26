@@ -175,7 +175,7 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
   return (
     <button
       onClick={onClick}
-      className={`px-2.5 py-1 rounded-md text-[12px] transition-colors ${active ? 'bg-crystal-accent text-white' : 'bg-crystal-card text-crystal-muted hover:text-crystal-text'}`}
+      className={`px-2.5 py-1 rounded-md text-[12px] transition-colors ${active ? 'bg-crystal-accent text-on-accent' : 'bg-crystal-card text-crystal-muted hover:text-crystal-text'}`}
     >
       {children}
     </button>

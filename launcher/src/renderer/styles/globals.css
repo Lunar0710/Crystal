@@ -665,3 +665,6 @@ h1, h2, h3 {
   from { transform: rotateY(0deg); }
   to { transform: rotateY(-360deg); }
 }
+
+/* Text on an accent-coloured surface: white on Nexora Rot, dark on a light accent like Void. */
+.text-on-accent { color: rgb(var(--c-on-accent, var(--c-bg))); }

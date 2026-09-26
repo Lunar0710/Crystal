@@ -150,7 +150,7 @@ export function TopBar() {
               onClick={() => api?.close()}
               aria-label="Schließen"
               title="Schließen"
-              className="w-9 h-9 flex items-center justify-center rounded-md bg-[#3a1614] text-crystal-accent hover:bg-crystal-accent hover:text-white transition-colors"
+              className="w-9 h-9 flex items-center justify-center rounded-md bg-[#3a1614] text-crystal-accent hover:bg-crystal-accent hover:text-on-accent transition-colors"
             >
               <X size={17} strokeWidth={2.2} />
             </button>
