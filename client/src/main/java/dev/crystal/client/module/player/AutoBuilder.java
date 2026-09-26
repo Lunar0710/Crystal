@@ -127,6 +127,8 @@ public class AutoBuilder extends Module {
     /** The lowest layer of the whole schematic with work left; nothing above it is placed before. */
     private int globalLayer = Integer.MAX_VALUE;
     private int scanFromY = Integer.MIN_VALUE, walkCooldown = 0, rescanCountdown = 0;
+    /** The finished layer checked again next (one per look, see findWork), and the schematic's bottom layer. */
+    private int recheckY = Integer.MIN_VALUE, bottomLayer = Integer.MIN_VALUE;
     /** Blocks no walk could get near, and since when; tried again after a while. */
     private final Map<BlockPos, Long> unreachable = new java.util.HashMap<>();
     private static final long UNREACHABLE_TICKS = 600;
@@ -196,6 +198,7 @@ public class AutoBuilder extends Module {
         unreachable.clear();
         globalLayer = Integer.MAX_VALUE;
         scanFromY = Integer.MIN_VALUE;
+        recheckY = Integer.MIN_VALUE;
         climbedFor = Integer.MIN_VALUE;
         stopPillar(mc);
         source.showAllLayers();
@@ -460,9 +463,19 @@ public class AutoBuilder extends Module {
             maxY = Math.max(maxY, box[1].getY());
         }
         topLayer = maxY;
-        // Finished layers stay finished; start where the last look found work
-        // (from the bottom again now and then, in case something was broken).
-        if (scanFromY < minY || now % 600 < 20) scanFromY = minY;
+        bottomLayer = minY;
+        // Finished layers stay finished; start where the last look found work.
+        if (scanFromY < minY) scanFromY = minY;
+        // In case something below was broken, one finished layer is checked
+        // again per look (once a second). All of them at once every 30 seconds,
+        // as before, was hundreds of thousands of lookups in one tick on a big
+        // build: a stutter you could see.
+        if (recheckY < minY || recheckY >= scanFromY) recheckY = minY;
+        else if (layerOpen(level, boxes, recheckY)) scanFromY = recheckY;
+        else recheckY++;
+        // The inventory is searched once per item, not once per open block.
+        Minecraft mc = Minecraft.getInstance();
+        Map<Item, Boolean> haveItem = new java.util.HashMap<>();
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
         for (int y = scanFromY; y <= maxY; y++) {
             Target best = null;
@@ -473,21 +486,14 @@ public class AutoBuilder extends Module {
                 for (int x = box[0].getX(); x <= box[1].getX(); x++) {
                     for (int z = box[0].getZ(); z <= box[1].getZ(); z++) {
                         pos.set(x, y, z);
-                        if (!level.hasChunkAt(pos)) continue;
-                        BlockState want = source.expected(pos);
-                        if (want == null || want.isAir() || placedWithOtherHalf(want)) continue;
-                        BlockState have = level.getBlockState(pos);
-                        if (PlacementPlanner.matches(have, want)) continue;
-                        boolean adjust = PlacementPlanner.needsAdjusting(have, want);
-                        boolean secondSlab = isDoubleSlab(want) && have.getBlock() == want.getBlock();
-                        if (!adjust && !secondSlab && !have.canBeReplaced()) continue;
-                        Item item = want.getBlock().asItem();
-                        if (!adjust && item == Items.AIR) continue;
-                        if (unreachable.containsKey(pos)) continue;
+                        if (!level.hasChunkAt(pos) || !isOpen(level, pos)) continue;
                         // Open even without the item: the build never goes on above a
                         // layer missing blocks (the report says what's missing).
                         layerOpen = true;
-                        if (!adjust && !has(Minecraft.getInstance(), player, item)) continue;
+                        BlockState want = source.expected(pos);
+                        boolean adjust = PlacementPlanner.needsAdjusting(level.getBlockState(pos), want);
+                        Item item = want.getBlock().asItem();
+                        if (!adjust && !haveItem.computeIfAbsent(item, i -> has(mc, player, i))) continue;
                         if (skip.contains(pos)) continue;
                         double distance = pos.distToCenterSqr(player.position());
                         // The spot you stand in last: it needs you to step off first.
@@ -507,6 +513,34 @@ public class AutoBuilder extends Module {
         }
         globalLayer = Integer.MAX_VALUE;
         return null;
+    }
+
+    /** A block of the schematic still to place (or turn) here, that a walk can get to. */
+    private boolean isOpen(Level level, BlockPos pos) {
+        BlockState want = source.expected(pos);
+        if (want == null || want.isAir() || placedWithOtherHalf(want)) return false;
+        BlockState have = level.getBlockState(pos);
+        if (PlacementPlanner.matches(have, want)) return false;
+        boolean adjust = PlacementPlanner.needsAdjusting(have, want);
+        boolean secondSlab = isDoubleSlab(want) && have.getBlock() == want.getBlock();
+        if (!adjust && !secondSlab && !have.canBeReplaced()) return false;
+        if (!adjust && want.getBlock().asItem() == Items.AIR) return false;
+        return !unreachable.containsKey(pos);
+    }
+
+    /** Whether this layer still has a block open; stops at the first one. */
+    private boolean layerOpen(Level level, List<BlockPos[]> boxes, int y) {
+        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+        for (BlockPos[] box : boxes) {
+            if (y < box[0].getY() || y > box[1].getY()) continue;
+            for (int x = box[0].getX(); x <= box[1].getX(); x++) {
+                for (int z = box[0].getZ(); z <= box[1].getZ(); z++) {
+                    pos.set(x, y, z);
+                    if (level.hasChunkAt(pos) && isOpen(level, pos)) return true;
+                }
+            }
+        }
+        return false;
     }
 
     /**
@@ -1101,10 +1135,18 @@ public class AutoBuilder extends Module {
             return;
         }
         if (left == 0) {
-            message(wrong > 0 ? "In Reichweite fertig, " + wrong + " Blöcke passen nicht" : "In Reichweite fertig");
+            // Nothing open in the whole schematic and no support left standing: done.
+            boolean allDone = globalLayer == Integer.MAX_VALUE && bottomLayer != Integer.MIN_VALUE
+                    && supports.isEmpty() && breaking == null && !source.bounds().isEmpty();
+            if (allDone) message(wrong > 0 ? "Alles gebaut, " + wrong + " Blöcke in Reichweite passen nicht" : "Alles gebaut");
+            else message(wrong > 0 ? "In Reichweite fertig, " + wrong + " Blöcke passen nicht" : "In Reichweite fertig");
             return;
         }
-        StringBuilder text = new StringBuilder("Schicht Y=" + layer + " · " + left + " übrig");
+        // Which layer of how many, so you see how far the build is.
+        String where = bottomLayer != Integer.MIN_VALUE && topLayer >= layer && layer >= bottomLayer
+                ? "Schicht " + (layer - bottomLayer + 1) + "/" + (topLayer - bottomLayer + 1)
+                : "Schicht Y=" + layer;
+        StringBuilder text = new StringBuilder(where + " · " + left + " übrig");
         if (!missing.isEmpty()) {
             text.append(" · fehlt: ");
             int shown = 0;
