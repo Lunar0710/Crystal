@@ -958,6 +958,7 @@ export function registerIpcHandlers(store: Store) {
   // Launcher's own logs (separate from per-instance game logs)
   // Profile card
   ipcMain.handle('stats:summary', () => stats.summary())
+  ipcMain.handle('stats:sessionsSince', (_e, since: number) => stats.sessionsSince(Number(since) || 0))
   ipcMain.handle('stats:get', () => ({
     playtimeMs: Number(store.get('stats.playtimeMs')) || 0,
     sessions: Number(store.get('stats.sessions')) || 0,

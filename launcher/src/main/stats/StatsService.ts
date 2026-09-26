@@ -126,6 +126,13 @@ export class StatsService {
     return servers
   }
 
+  /** The sessions that ended after `since`, for the Rückblick page. */
+  sessionsSince(since: number): Pick<SessionRecord, 'start' | 'end' | 'version' | 'instanceName' | 'servers'>[] {
+    return this.records()
+      .filter(r => r.end >= since)
+      .map(r => ({ start: r.start, end: r.end, version: r.version, instanceName: r.instanceName, servers: r.servers ?? {} }))
+  }
+
   summary(now = Date.now()): StatsSummary {
     const records = this.records()
     const add = (map: Map<string, number>, key: string, ms: number) => map.set(key, (map.get(key) ?? 0) + ms)

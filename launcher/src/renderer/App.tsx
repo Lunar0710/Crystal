@@ -12,6 +12,7 @@ import { Logs } from './components/pages/Logs'
 import { Screenshots } from './components/pages/Screenshots'
 import { Stats } from './components/pages/Stats'
 import { Fights } from './components/pages/Fights'
+import { Wrapped } from './components/pages/Wrapped'
 import { Servers } from './components/pages/Servers'
 import { Friends } from './components/pages/Friends'
 import { News } from './components/pages/News'
@@ -59,6 +60,7 @@ export default function App() {
             <Route path="/screenshots" element={<Screenshots />} />
             <Route path="/stats" element={<Stats />} />
             <Route path="/fights" element={<Fights />} />
+            <Route path="/wrapped" element={<Wrapped />} />
             <Route path="/friends" element={<Friends />} />
             <Route path="/news" element={<News />} />
             <Route path="/settings" element={<Settings />} />

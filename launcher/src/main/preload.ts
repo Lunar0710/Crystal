@@ -77,6 +77,7 @@ contextBridge.exposeInMainWorld('crystal', {
   getInstances:     () => ipcRenderer.invoke('instances:list'),
   getStats:         () => ipcRenderer.invoke('stats:get'),
   getStatsSummary:  () => ipcRenderer.invoke('stats:summary'),
+  statsSessionsSince: (since: number) => ipcRenderer.invoke('stats:sessionsSince', since),
   copyProfileCard:  (dataUrl: string) => ipcRenderer.invoke('profileCard:copy', dataUrl),
   saveProfileCard:  (dataUrl: string) => ipcRenderer.invoke('profileCard:save', dataUrl),
   listServers:      () => ipcRenderer.invoke('servers:list'),
