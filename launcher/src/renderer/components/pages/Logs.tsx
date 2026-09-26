@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Sparkles, RefreshCw, FolderOpen, Copy, Trash2, ChevronDown } from 'lucide-react'
 import { Page, PageHeader, EmptyState } from '../ui/Page'
 import { notify } from '../../store/notificationStore'
+import { RunningGamesPanel, useRunningGames } from '../ui/RunningGamesPanel'
 
 type Source = 'launcher' | 'client' | 'updater' | 'gameLogs' | 'crashes'
 
@@ -65,6 +66,16 @@ export function Logs() {
   }, [])
 
   useEffect(() => { load() }, [source, instanceId])
+
+  // While a game runs (or loads), its log and resources update by themselves.
+  const games = useRunningGames()
+  const loadRef = React.useRef(load)
+  loadRef.current = load
+  useEffect(() => {
+    if (!games.length) return
+    const timer = setInterval(() => loadRef.current(), 3000)
+    return () => clearInterval(timer)
+  }, [games.length])
 
   async function load() {
     setSelected(null)
@@ -154,6 +165,8 @@ export function Logs() {
           </>
         }
       />
+
+      {games.length > 0 && <div className="mb-4"><RunningGamesPanel games={games} /></div>}
 
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-crystal-border mb-4">
         <div className="flex gap-5" role="tablist">

@@ -70,28 +70,26 @@ export function TopBar() {
 
   return (
     <header
-      className={`flex items-center gap-4 h-[60px] shrink-0 pr-3 select-none ${isMac ? 'pl-[84px]' : 'pl-5'}`}
+      className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 h-[60px] shrink-0 pr-3 select-none ${isMac ? 'pl-[84px]' : 'pl-5'}`}
       style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       onDoubleClick={isMac ? () => api?.maximize() : undefined}
     >
       <button onClick={() => navigate('/dashboard')} style={noDrag} className="flex items-center shrink-0" aria-label="Zur Übersicht">
         {logo
           ? <img src={logo} alt="Logo" className="h-6 max-w-[170px] object-contain" draggable={false} />
-          : <span className="flex items-center gap-2 text-crystal-text">
-              <CrystalWordmark size={15} />
-              <span className="text-[13px] font-bold uppercase tracking-[0.12em]">Client</span>
-            </span>}
+          : <CrystalWordmark size={15} className="text-crystal-text" />}
       </button>
 
-      <div className="flex-1 flex justify-center min-w-0">
-        <nav style={noDrag} className="flex items-center gap-1 rounded-lg bg-[#1c1d1f] p-1">
+      <div className="flex justify-center min-w-0">
+        {/* Its own grid column: the tabs can never run under the logo or the account. */}
+        <nav style={noDrag} className="flex items-center gap-0.5 min-w-0 overflow-hidden rounded-lg bg-[#1c1d1f] p-1">
           {TABS.map(tab => {
             const active = location.pathname.startsWith(tab.path) || !!tab.also?.some(p => location.pathname.startsWith(p))
             return (
               <NavLink
                 key={tab.path}
                 to={tab.path}
-                className={`relative flex items-center gap-2 px-4 h-9 rounded-md text-[13px] font-semibold transition-colors ${
+                className={`relative flex items-center gap-2 px-3 h-9 rounded-md whitespace-nowrap text-[13px] font-semibold transition-colors ${
                   active ? 'text-crystal-text' : 'text-[#7d7d7f] hover:text-crystal-text'
                 }`}
               >
@@ -104,10 +102,11 @@ export function TopBar() {
         </nav>
       </div>
 
+      <div className="flex items-center gap-3">
       <button
         onClick={() => navigate('/launch')}
         style={noDrag}
-        className="flex items-center gap-2.5 h-11 pl-1.5 pr-3.5 rounded-lg bg-[#131415] hover:bg-[#1a1b1d] transition-colors shrink-0"
+        className="flex items-center gap-2.5 h-11 pl-1.5 pr-3 rounded-lg bg-[#131415] hover:bg-[#1a1b1d] transition-colors"
         title={username ? 'Konto wechseln' : 'Anmelden'}
       >
         <PlayerHead name={username} size={32} />
@@ -120,7 +119,7 @@ export function TopBar() {
         </span>
       </button>
 
-      <div className="flex items-center gap-1.5 shrink-0" style={noDrag}>
+      <div className="flex items-center gap-1.5" style={noDrag}>
         <IconButton label="Freunde" active={location.pathname.startsWith('/friends')} onClick={() => navigate('/friends')}><Users size={17} /></IconButton>
         <div className="relative" ref={moreRef}>
           <IconButton label="Mehr" active={moreActive || moreOpen} onClick={() => setMoreOpen(o => !o)}><LayoutGrid size={17} /></IconButton>
@@ -157,6 +156,7 @@ export function TopBar() {
             </button>
           </>
         )}
+      </div>
       </div>
     </header>
   )

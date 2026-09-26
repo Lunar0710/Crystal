@@ -585,7 +585,7 @@ export function registerIpcHandlers(store: Store) {
         sessionUsage = running.sessionUsage(launchId)
         running.remove(launchId)
       }
-      if (event === 'launch:started' && win && store.get('minimizeOnLaunch') !== false && !win.isMinimized()) {
+      if (event === 'launch:started' && win && store.get('minimizeOnLaunch') === true && !win.isMinimized()) {
         win.minimize()
         minimizedByLaunch = true
       }

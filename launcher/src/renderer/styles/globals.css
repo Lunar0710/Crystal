@@ -657,11 +657,11 @@ h1, h2, h3 {
   }
 }
 
-/* Start banner: the version's panorama turning slowly, like the title screen. */
-.nexora-pano {
-  animation: nexora-pano 140s linear infinite;
+/* Start banner: the version's panorama cube turning slowly, like the title screen. */
+.nexora-pano-cube {
+  animation: nexora-pano-turn 150s linear infinite;
 }
-@keyframes nexora-pano {
-  from { transform: translate(0, -50%); }
-  to { transform: translate(-50%, -50%); }
+@keyframes nexora-pano-turn {
+  from { transform: rotateY(0deg); }
+  to { transform: rotateY(-360deg); }
 }

@@ -60,12 +60,22 @@ public final class SkinCompat {
         *///?}
     }
 
-    /** `base` with another cape texture. */
+    /** The game's own elytra texture. */
+    private static final Identifier VANILLA_ELYTRA = Identifier.withDefaultNamespace("textures/entity/equipment/wings/elytra.png");
+
+    /**
+     * `base` with another cape texture. Without an elytra texture of its own,
+     * the game paints the elytra with the cape texture; a Nexora cape isn't laid
+     * out for that (it is wider, with no elytra part), so the wings came out
+     * bulky and smeared. Those get the normal elytra texture instead.
+     */
     public static PlayerSkin withCape(PlayerSkin base, Identifier cape) {
         //? if >=1.21.9 {
-        return PlayerSkin.insecure(base.body(), new Texture(cape), base.elytra(), base.model());
+        return PlayerSkin.insecure(base.body(), new Texture(cape),
+                base.elytra() != null ? base.elytra() : new Texture(VANILLA_ELYTRA), base.model());
         //?} else {
-        /*return new PlayerSkin(base.texture(), base.textureUrl(), cape, base.elytraTexture(), base.model(), false);
+        /*return new PlayerSkin(base.texture(), base.textureUrl(), cape,
+                base.elytraTexture() != null ? base.elytraTexture() : VANILLA_ELYTRA, base.model(), false);
         *///?}
     }
 

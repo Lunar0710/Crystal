@@ -31,14 +31,14 @@ export function Settings() {
   const [crystalVersions, setCrystalVersions] = useState<string[] | null>(null)
   const [dataRoot, setDataRoot] = useState<{ current?: string; default?: string }>({})
   const [systemMb, setSystemMb] = useState<number | null>(null)
-  const [minimizeOnLaunch, setMinimizeOnLaunch] = useState(true)
+  const [minimizeOnLaunch, setMinimizeOnLaunch] = useState(false)
   const [autoRam, setAutoRam] = useState(true)
   const [lowStutterGc, setLowStutterGc] = useState(false)
   const [autoWorldBackup, setAutoWorldBackup] = useState(false)
   const [autoPerformancePack, setAutoPerformancePack] = useState(true)
 
   useEffect(() => {
-    api?.getSetting('minimizeOnLaunch').then((v: boolean | undefined) => setMinimizeOnLaunch(v !== false))
+    api?.getSetting('minimizeOnLaunch').then((v: boolean | undefined) => setMinimizeOnLaunch(v === true))
     api?.getSetting('autoRam').then((v: boolean | undefined) => setAutoRam(v !== false))
     api?.getSetting('lowStutterGc').then((v: boolean | undefined) => setLowStutterGc(v === true))
     api?.getSetting('autoWorldBackup').then((v: boolean | undefined) => setAutoWorldBackup(v === true))

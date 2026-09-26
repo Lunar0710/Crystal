@@ -5,6 +5,7 @@ import { useReleases, relativeDate } from '../../hooks/useReleases'
 import { PanoramaBackdrop } from '../ui/PanoramaBackdrop'
 import { SkinPreview3D } from '../ui/SkinPreview3D'
 import { useRunningGames } from '../ui/RunningGamesPanel'
+import { notify } from '../../store/notificationStore'
 
 interface Instance {
   id: string
@@ -12,6 +13,7 @@ interface Instance {
   version: string
   loader: string
   useCrystalClient: boolean
+  gameDir: string
   createdAt: number
 }
 interface FavoriteServer { id: string; name: string; address: string }
@@ -34,6 +36,21 @@ export function Dashboard() {
   const [servers, setServers] = useState<FavoriteServer[]>([])
   const [status, setStatus] = useState<Record<string, ServerStatus>>({})
   const pickerRef = useRef<HTMLDivElement | null>(null)
+  const [progress, setProgress] = useState<{ step: string; percent: number } | null>(null)
+
+  useEffect(() => {
+    const unsubs = [
+      api?.on('launch:progress', (data: { step: string; percent: number }) => setProgress(data)),
+      api?.on('launch:started', () => setProgress(null)),
+      api?.on('launch:error', (msg: string) => {
+        setProgress(null)
+        // The start page has the crash help (which mod, what to do).
+        navigate(`/launch?instance=${encodeURIComponent(instanceIdRef.current)}`)
+        notify({ type: 'error', title: 'Start fehlgeschlagen', message: String(msg).slice(0, 200) })
+      }),
+    ]
+    return () => unsubs.forEach(u => u?.())
+  }, [])
   const news = useReleases()
   const running = useRunningGames()
 
@@ -65,6 +82,8 @@ export function Dashboard() {
   }, [pickerOpen])
 
   const instance = instances?.find(i => i.id === instanceId) ?? null
+  const instanceIdRef = useRef('')
+  instanceIdRef.current = instanceId
   const isRunning = !!instance && running.some(g => g.instanceId === instance.id)
 
   const choose = (id: string) => {
@@ -72,13 +91,27 @@ export function Dashboard() {
     setPickerOpen(false)
     api?.setSetting('lastInstance', id)
   }
-  // The start page does the rest (account, downloads, progress); autostart goes straight on.
-  const launch = (join?: string) => {
+  // Started right here; the bar shows the steps. Without an account the start page asks for one.
+  const launch = async (join?: string) => {
     if (!instance) { navigate('/instances'); return }
-    navigate(`/launch?instance=${encodeURIComponent(instance.id)}&autostart=1${join ? `&join=${encodeURIComponent(join)}` : ''}`)
+    const account = await api?.getProfile()
+    if (!account) { navigate(`/launch?instance=${encodeURIComponent(instance.id)}`); return }
+    const [saved, mem] = await Promise.all([api?.getSetting('maxRam'), api?.getSystemMemory()])
+    setProgress({ step: 'Vorbereiten', percent: 0 })
+    api?.setSetting('lastInstance', instance.id)
+    await api?.launchGame({
+      version: instance.version,
+      loader: instance.loader,
+      gameDir: instance.gameDir,
+      maxRam: saved || mem?.suggestedMb || 4096,
+      instanceId: instance.id,
+      injectCrystal: instance.useCrystalClient,
+      joinServer: join,
+    })
   }
 
-  const launchLabel = !instance ? 'Instanz anlegen' : isRunning ? 'Läuft' : `${instance.useCrystalClient ? 'Nexora' : 'Minecraft'} starten`
+  const launchLabel = progress ? `${progress.step.replace(/\.+$/, '')} ${Math.round(progress.percent)} %`
+    : !instance ? 'Instanz anlegen' : isRunning ? 'Läuft' : `${instance.useCrystalClient ? 'Nexora' : 'Minecraft'} starten`
 
   return (
     <div className="h-full px-5 pb-4 pt-1 grid grid-cols-[minmax(0,1fr)_290px] gap-4 min-h-0">
@@ -128,9 +161,11 @@ export function Dashboard() {
 
         <button
           onClick={() => launch()}
-          disabled={isRunning}
-          className="h-12 shrink-0 rounded-lg bg-crystal-accent text-white text-[14px] font-bold uppercase tracking-[0.06em] flex items-center justify-center gap-2.5 hover:brightness-110 disabled:opacity-60 transition"
+          disabled={isRunning || !!progress}
+          className="relative overflow-hidden h-12 shrink-0 rounded-lg bg-crystal-accent text-white text-[14px] font-bold uppercase tracking-[0.06em] flex items-center justify-center gap-2.5 hover:brightness-110 disabled:opacity-60 disabled:hover:brightness-100 transition"
         >
+          {/* While starting, the bar fills like Feather's. */}
+          {progress && <span className="absolute inset-y-0 left-0 bg-white/15 transition-[width] duration-300" style={{ width: `${Math.max(3, progress.percent)}%` }} />}
           {instance ? <Play size={16} fill="currentColor" /> : <Plus size={16} />}
           {launchLabel}
         </button>
