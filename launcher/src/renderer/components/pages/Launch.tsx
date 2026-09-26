@@ -252,6 +252,13 @@ export function Launch() {
   }
   const playLabel = launching ? 'Startet…' : instanceRunning ? 'Läuft' : 'Spielen'
 
+  // The title-screen panorama of the chosen version behind the banner (main/minecraft/Panorama.ts).
+  const [panorama, setPanorama] = useState<string[] | null>(null)
+  useEffect(() => {
+    setPanorama(null)
+    if (instance?.version) api?.getPanorama(instance.version).then((faces: string[] | null) => setPanorama(faces))
+  }, [instance?.version])
+
   return (
     <Page>
       <PageHeader title="Starten" description="Wähle Konto und Instanz, dann kann es losgehen." />
@@ -259,7 +266,19 @@ export function Launch() {
       {/* The start banner: version and play button on the Nexora backdrop, so
           the thing you came for is the first thing on the page. */}
       <section className="relative mb-5 overflow-hidden rounded-[18px] border border-crystal-border bg-crystal-card">
-        <div className="nexora-backdrop absolute inset-0" aria-hidden="true" />
+        {panorama ? (
+          <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
+            {/* Faces 0 to 3 twice over: sliding by half is one full turn, so the loop has no seam. */}
+            <div className="nexora-pano absolute left-0 top-1/2 flex h-[340px]">
+              {[...panorama, ...panorama].map((src, i) => (
+                <img key={i} src={src} alt="" draggable={false} className="h-full w-auto max-w-none select-none" />
+              ))}
+            </div>
+            <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/55 to-black/25" />
+          </div>
+        ) : (
+          <div className="nexora-backdrop absolute inset-0" aria-hidden="true" />
+        )}
         <div className="relative flex flex-wrap items-end gap-4 p-6">
           <div className="min-w-0 flex-1">
             <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-crystal-muted">

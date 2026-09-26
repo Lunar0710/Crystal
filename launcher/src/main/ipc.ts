@@ -35,6 +35,7 @@ import { PerfDoctor, type PerfFix } from './minecraft/PerfDoctor'
 import { FightService } from './stats/FightService'
 import { WorldBackups } from './minecraft/WorldBackups'
 import { detectClients, previewImport, applyImport, ImportSource } from './import/ClientImport'
+import { panoramaFor } from './minecraft/Panorama'
 import { crystalPath, crystalRoot, defaultCrystalRoot, setCrystalRoot, canUseAsRoot } from './paths'
 
 export function registerIpcHandlers(store: Store) {
@@ -967,6 +968,7 @@ export function registerIpcHandlers(store: Store) {
   // Moving over from Lunar or Feather (import/ClientImport.ts).
   const importSource = (s: unknown): ImportSource => (s === 'feather' ? 'feather' : 'lunar')
   ipcMain.handle('import:detect', () => detectClients())
+  ipcMain.handle('version:panorama', (_e, versionId: string) => panoramaFor(String(versionId)))
   ipcMain.handle('import:preview', (_e, source: string, profile: string, instanceId?: string) =>
     previewImport(importSource(source), String(profile), instanceId ? instances.get(instanceId)?.gameDir : undefined))
   ipcMain.handle('import:apply', async (_e, source: string, profile: string, instanceId: string) => {

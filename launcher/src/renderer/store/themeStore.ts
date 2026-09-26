@@ -42,7 +42,13 @@ export const useThemeStore = create<ThemeStore>(set => ({
 
 export async function initTheme() {
   const saved = (await api?.getSetting('theme')) as string | undefined
-  const theme = resolveTheme(saved)
+  let theme = resolveTheme(saved)
+  // 1.7 made Nexora Rot the default. Everyone still on the old default is
+  // moved once; picking Mono again afterwards sticks.
+  if (saved === 'crystal-blue' && !(await api?.getSetting('themeRedMoved'))) {
+    theme = 'nexora-red'
+    api?.setSetting('themeRedMoved', true)
+  }
 
   clearLegacyCustomColors()
   applyTheme(theme)
