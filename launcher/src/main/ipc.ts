@@ -21,6 +21,7 @@ import { LogManager, setInstanceDirResolver, instanceDir } from './logs/LogManag
 import { ClaudeService } from './claude/ClaudeService'
 import { FriendManager } from './friends/FriendManager'
 import { NexoraNet } from './friends/NexoraNet'
+import { scrubGameDir } from './util/secureStore'
 import { logger, LogCategory } from './logs/Logger'
 import { TryCrystalService } from './minecraft/TryCrystalService'
 import { CustomClientInstaller } from './minecraft/CustomClientInstaller'
@@ -37,6 +38,12 @@ import { crystalPath, crystalRoot, defaultCrystalRoot, setCrystalRoot, canUseAsR
 export function registerIpcHandlers(store: Store) {
   const minecraft = new MinecraftManager(store)
   const instances = new InstanceManager(store)
+  // Old crash reports may still hold a login token: cleaned once a little after start.
+  setTimeout(() => {
+    for (const inst of instances.list()) {
+      try { scrubGameDir(inst.gameDir || crystalPath('instances', inst.id)) } catch { /* next start */ }
+    }
+  }, 10000)
   const content = new ContentManager(instances)
   const updater = new UpdateManager(store)
   const auth = new AuthManager(store)
@@ -577,6 +584,9 @@ export function registerIpcHandlers(store: Store) {
           }
           playStartedAt = 0
         }
+        // Crash reports copy the command line, login token included: take it out.
+        const exitedDir = instances.get(opts.instanceId)?.gameDir || crystalPath('instances', String(opts.instanceId ?? ''))
+        setTimeout(() => { try { scrubGameDir(exitedDir) } catch { /* next start */ } }, 1500)
         // Another game may still run; the status only goes idle with the last one.
         if (running.list().length === 0) discord.idle()
         // After a crash this also puts the auto-fix panel in front of the user.

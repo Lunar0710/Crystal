@@ -61,15 +61,14 @@
   <div class="status" id="status">Starting...</div>
 
   <script>
-    const { ipcRenderer } = require('electron')
     const $ = id => document.getElementById(id)
 
-    ipcRenderer.on('splash:status', (_e, { text, percent }) => {
+    window.splash.onStatus(({ text, percent }) => {
       $('status').textContent = text
       if (typeof percent === 'number') $('bar').style.width = percent + '%'
     })
 
-    ipcRenderer.on('splash:update', (_e, { current, version, manual }) => {
+    window.splash.onUpdate(({ current, version, manual }) => {
       $('ver').textContent = current + ' → '
       const b = document.createElement('b')
       b.textContent = version
@@ -83,11 +82,11 @@
       document.body.classList.add('installing')
       $('status').textContent = 'Update wird geladen...'
       $('bar').style.width = '0%'
-      ipcRenderer.send('splash:choice', 'update')
+      window.splash.choose('update')
     })
     $('later').addEventListener('click', () => {
       document.body.classList.remove('has-update')
-      ipcRenderer.send('splash:choice', 'later')
+      window.splash.choose('later')
     })
   </script>
 </body>

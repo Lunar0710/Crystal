@@ -2,6 +2,7 @@ import Store from 'electron-store'
 import { BrowserWindow } from 'electron'
 import { Auth, Minecraft } from 'msmc'
 import { logger } from '../logs/Logger'
+import { seal, unseal, isSealed, canSeal } from '../util/secureStore'
 
 export interface AuthProfile {
   username: string
@@ -50,6 +51,29 @@ export class AuthManager {
   constructor(store: Store) {
     this.store = store
     this.auth = new Auth('select_account')
+    this.sealExisting()
+  }
+
+  /** Account data is stored sealed (see secureStore); plain values from older versions are sealed once. */
+  private get<T>(key: string): T | undefined {
+    return unseal<T>(this.store.get(key))
+  }
+
+  private put(key: string, value: unknown): void {
+    this.store.set(key, seal(value))
+  }
+
+  private sealExisting(): void {
+    if (!canSeal()) {
+      logger.warn('launcher', 'Keine System-Verschlüsselung verfügbar: Anmeldedaten bleiben unverschlüsselt gespeichert')
+      return
+    }
+    let sealed = 0
+    for (const key of ['auth.accounts', 'auth.profile', 'auth.xboxCache']) {
+      const raw = this.store.get(key)
+      if (raw !== undefined && raw !== null && !isSealed(raw)) { this.store.set(key, seal(raw)); sealed++ }
+    }
+    if (sealed) logger.info('launcher', 'Anmeldedaten jetzt verschlüsselt gespeichert')
   }
 
   async loginMicrosoft(win: BrowserWindow): Promise<AuthProfile | null> {
@@ -102,15 +126,15 @@ export class AuthManager {
   }
 
   private getAccounts(): StoredAccount[] {
-    const accounts = this.store.get('auth.accounts') as StoredAccount[] | undefined
+    const accounts = this.get<StoredAccount[]>('auth.accounts')
     if (accounts) return accounts
 
     // Installs from before multi-account only have the single active login —
     // carry it over so it shows up in the list instead of looking logged out.
     const legacy = this.getStoredProfile()
     if (!legacy) return []
-    const migrated: StoredAccount[] = [{ profile: legacy, xboxCache: this.store.get('auth.xboxCache') as string | undefined }]
-    this.store.set('auth.accounts', migrated)
+    const migrated: StoredAccount[] = [{ profile: legacy, xboxCache: this.get<string>('auth.xboxCache') }]
+    this.put('auth.accounts', migrated)
     return migrated
   }
 
@@ -118,10 +142,10 @@ export class AuthManager {
   private setActive(profile: AuthProfile, xboxCache?: string) {
     const accounts = this.getAccounts().filter(a => a.profile.uuid !== profile.uuid)
     accounts.push({ profile, xboxCache })
-    this.store.set('auth.accounts', accounts)
+    this.put('auth.accounts', accounts)
 
-    this.store.set('auth.profile', profile)
-    if (xboxCache) this.store.set('auth.xboxCache', xboxCache)
+    this.put('auth.profile', profile)
+    if (xboxCache) this.put('auth.xboxCache', xboxCache)
     else this.store.delete('auth.xboxCache')
   }
 
@@ -163,7 +187,7 @@ export class AuthManager {
 
   removeAccount(uuid: string): void {
     const remaining = this.getAccounts().filter(a => a.profile.uuid !== uuid)
-    this.store.set('auth.accounts', remaining)
+    this.put('auth.accounts', remaining)
 
     if (this.getStoredProfile()?.uuid !== uuid) return
 
@@ -175,7 +199,7 @@ export class AuthManager {
   }
 
   async tryAutoLogin(): Promise<AuthProfile | null> {
-    const cached = this.store.get('auth.xboxCache') as string | undefined
+    const cached = this.get<string>('auth.xboxCache')
     if (!cached) return null
 
     try {
@@ -221,7 +245,7 @@ export class AuthManager {
     const expiresAt = tokenExpiry(profile.accessToken)
     if (expiresAt !== null && expiresAt - Date.now() > 30 * 60 * 1000) return { profile }
 
-    const cached = this.store.get('auth.xboxCache') as string | undefined
+    const cached = this.get<string>('auth.xboxCache')
     if (!cached) {
       return { profile: null, error: 'Deine Microsoft-Anmeldung ist abgelaufen. Bitte melde dich neu an.' }
     }
@@ -276,7 +300,7 @@ export class AuthManager {
         type: 'microsoft',
       }
       const accounts = this.getAccounts().map(a => a.profile.uuid === uuid ? { profile: fresh, xboxCache: xboxToken.save() } : a)
-      this.store.set('auth.accounts', accounts)
+      this.put('auth.accounts', accounts)
       logger.info('launcher', `Microsoft-Sitzung für ${fresh.username} erneuert`)
       return { profile: fresh }
     } catch (err) {
@@ -286,7 +310,7 @@ export class AuthManager {
   }
 
   getStoredProfile(): AuthProfile | null {
-    return (this.store.get('auth.profile') as AuthProfile) || null
+    return this.get<AuthProfile>('auth.profile') || null
   }
 
   logout() {

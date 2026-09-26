@@ -32,8 +32,10 @@ function createSplash(): BrowserWindow {
     backgroundColor: '#0d0f14',
     show: true,
     webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
+      preload: path.join(__dirname, 'splashPreload.js'),
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
     },
   })
   win.loadFile(splashPath)
