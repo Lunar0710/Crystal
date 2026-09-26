@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('crystal', {
   minimize:  () => ipcRenderer.invoke('window:minimize'),
   maximize:  () => ipcRenderer.invoke('window:maximize'),
   close:     () => ipcRenderer.invoke('window:close'),
+  openLogsWindow: () => ipcRenderer.invoke('window:openLogs'),
 
   // Settings
   getSetting: (key: string) => ipcRenderer.invoke('settings:get', key),
@@ -183,6 +184,7 @@ contextBridge.exposeInMainWorld('crystal', {
 
   // Instance content (mods / resourcepacks / shaderpacks)
   listContent:        (instanceId: string, type: string) => ipcRenderer.invoke('content:list', instanceId, type),
+  getModMeta:         (instanceId: string) => ipcRenderer.invoke('content:modMeta', instanceId),
   installContentFile: (instanceId: string, type: string) => ipcRenderer.invoke('content:installFromDisk', instanceId, type),
   removeContent:      (instanceId: string, type: string, fileName: string) => ipcRenderer.invoke('content:remove', instanceId, type, fileName),
   toggleContent:      (instanceId: string, type: string, fileName: string) => ipcRenderer.invoke('content:toggle', instanceId, type, fileName),

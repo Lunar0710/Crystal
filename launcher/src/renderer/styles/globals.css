@@ -35,15 +35,15 @@ html, body, #root {
   --theme-pattern-size: auto;
 }
 
-/* The default since 1.7: black like Mono, with red as the second colour the
-   way Feather mixed it (play buttons, the active page, switches, focus). */
+/* The default since 1.7: black, with Feather's brick red as the second colour (play buttons, the active page, switches, focus). */
 [data-theme='nexora-red'] {
+  /* Measured off Feather's launcher: black, panels #111113, cards #17171A, brick red #C3493A. */
   --c-bg: 0 0 0;
-  --c-panel: 9 9 10;
-  --c-card: 14 14 15;
-  --c-border: 32 32 34;
-  --c-accent: 242 63 66;
-  --c-accent-2: 255 112 104;
+  --c-panel: 17 17 19;
+  --c-card: 23 23 26;
+  --c-border: 38 39 42;
+  --c-accent: 195 73 58;
+  --c-accent-2: 214 104 90;
   --c-on-accent: 255 255 255;
   --c-text: 240 240 240;
   --c-muted: 138 138 140;

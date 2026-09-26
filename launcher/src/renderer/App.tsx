@@ -1,9 +1,9 @@
 import React, { useEffect } from 'react'
 import { EquippedCosmetics, syncLoadoutToGame } from './data/cosmetics'
 import { fillCapeCache } from './data/capeCache'
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
-import { Sidebar } from './components/sidebar/Sidebar'
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { TitleBar } from './components/ui/TitleBar'
+import { TopBar } from './components/ui/TopBar'
 import { Dashboard } from './components/pages/Dashboard'
 import { Launch } from './components/pages/Launch'
 import { Instances } from './components/pages/Instances'
@@ -23,6 +23,9 @@ import { WhatsNew } from './components/ui/WhatsNew'
 
 export default function App() {
   const navigate = useNavigate()
+  const location = useLocation()
+  // The logs window (TopBar's terminal button) is this same page with ?popout=1: just the logs.
+  const popout = new URLSearchParams(location.search).get('popout') === '1'
   // A desktop shortcut: open the start page on that instance and start it.
   useEffect(() => (window as any).crystal?.on('app:quickLaunch', (id: string) => {
     navigate(`/launch?instance=${encodeURIComponent(id)}&autostart=1`)
@@ -43,11 +46,20 @@ export default function App() {
     return () => clearTimeout(timer)
   }, [])
 
+  if (popout) {
+    return (
+      <div className="relative flex flex-col h-full bg-crystal-bg">
+        <TitleBar />
+        <main className="flex-1 overflow-y-auto overflow-x-hidden"><Logs /></main>
+        <NotificationContainer />
+      </div>
+    )
+  }
+
   return (
     <div className="relative flex flex-col h-full bg-crystal-bg nexora-atmosphere">
-      <TitleBar />
+      <TopBar />
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar />
         <main className="flex-1 overflow-y-auto overflow-x-hidden" id="main">
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />

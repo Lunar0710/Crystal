@@ -547,6 +547,8 @@ function InstanceDetail({ instance, onBack }: { instance: Instance; onBack: () =
   const [view, setView] = useState<'installed' | 'browse'>('installed')
   const [files, setFiles] = useState<ContentFile[] | null>(null)
   const [identified, setIdentified] = useState<Record<string, { projectId: string; versionId: string }>>({})
+  /** Name, authors and icon from each mod's own jar (main/minecraft/ModMeta.ts). */
+  const [meta, setMeta] = useState<Record<string, { name: string; authors: string[]; icon: string | null }>>({})
   const [filter, setFilter] = useState('')
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null)
 
@@ -571,6 +573,7 @@ function InstanceDetail({ instance, onBack }: { instance: Instance; onBack: () =
     // One bulk request for the whole folder, used for both the version switcher
     // and the "already installed" state in search results.
     api?.identifyModFolder(instance.id, tab).then((map: typeof identified) => setIdentified(map || {}))
+    if (tab === 'mod') api?.getModMeta(instance.id).then((m: typeof meta) => setMeta(m || {}))
   }
 
   useEffect(() => {
@@ -587,8 +590,8 @@ function InstanceDetail({ instance, onBack }: { instance: Instance; onBack: () =
   const visibleFiles = useMemo(() => {
     const q = filter.trim().toLowerCase()
     const list = files ?? []
-    return q ? list.filter(f => f.fileName.toLowerCase().includes(q)) : list
-  }, [files, filter])
+    return q ? list.filter(f => f.fileName.toLowerCase().includes(q) || (meta[f.fileName]?.name ?? '').toLowerCase().includes(q)) : list
+  }, [files, filter, meta])
 
   async function search(q: string) {
     setSearching(true)
@@ -759,45 +762,57 @@ function InstanceDetail({ instance, onBack }: { instance: Instance; onBack: () =
           )}
 
           {visibleFiles.length > 0 && (
-            <div className="crystal-card divide-y divide-crystal-border overflow-hidden">
+            /* A grid of cards like Feather's mod manager: icon, name and author, a
+               small delete button at the top right and the switch under it. */
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-2">
               {visibleFiles.map(file => {
                 const known = identified[file.fileName]
+                const info = meta[file.fileName]
+                const title = info?.name ?? displayName(file.fileName)
                 const open = versionsFor === file.fileName
                 if (confirmRemove === file.fileName) {
                   return (
-                    <div key={file.fileName} className="flex items-center gap-3 px-4 py-2.5 bg-crystal-danger/[0.06]">
-                      <span className="flex-1 text-[13px] text-crystal-text truncate">{displayName(file.fileName)} löschen?</span>
-                      <button onClick={() => removeFile(file.fileName)} className="crystal-btn text-xs py-1.5 bg-crystal-danger text-white hover:brightness-110">Löschen</button>
+                    <div key={file.fileName} className="flex items-center gap-3 px-4 min-h-[84px] rounded-lg bg-crystal-accent/[0.08] ring-1 ring-inset ring-crystal-accent/30">
+                      <span className="flex-1 text-[13px] text-crystal-text truncate">{title} löschen?</span>
+                      <button onClick={() => removeFile(file.fileName)} className="crystal-btn text-xs py-1.5 bg-crystal-accent text-white hover:brightness-110">Löschen</button>
                       <button onClick={() => setConfirmRemove(null)} className="crystal-btn-ghost text-xs py-1.5">Abbrechen</button>
                     </div>
                   )
                 }
                 return (
-                  <div key={file.fileName} className="group">
-                    <div className="flex items-center gap-3 px-4 py-2.5">
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-[13px] truncate ${file.enabled ? 'text-crystal-text' : 'text-crystal-muted'}`}>{displayName(file.fileName)}</p>
-                        <p className="text-xs text-crystal-muted tabular">
-                          {fmtSize(file.sizeBytes)}{!file.enabled && ', deaktiviert'}
-                        </p>
+                  <div key={file.fileName} className={`rounded-lg bg-crystal-card ${open ? 'xl:col-span-2' : ''}`}>
+                    <div className="flex gap-3 p-2.5">
+                      <div className={`w-16 h-16 shrink-0 rounded-md overflow-hidden bg-black/40 flex items-center justify-center ${file.enabled ? '' : 'opacity-40 grayscale'}`}>
+                        {info?.icon
+                          ? <img src={info.icon} alt="" className="w-full h-full object-contain" style={{ imageRendering: 'pixelated' }} draggable={false} />
+                          : <span className="text-[20px] font-bold text-crystal-muted">{title.charAt(0).toUpperCase()}</span>}
                       </div>
-                      {known && (
+                      <div className="flex-1 min-w-0 pt-0.5">
+                        <p className={`text-[14px] font-semibold truncate ${file.enabled ? 'text-crystal-text' : 'text-crystal-muted'}`}>{title}</p>
+                        <p className="text-[11px] text-crystal-muted truncate">
+                          {info?.authors.length ? info.authors.slice(0, 3).join(', ') : fmtSize(file.sizeBytes)}
+                        </p>
+                        {known && (
+                          <button
+                            onClick={() => loadVersions(file.fileName, known.projectId, known.versionId)}
+                            aria-expanded={open}
+                            className="mt-1 inline-flex items-center gap-1 text-[11px] text-crystal-muted hover:text-crystal-text"
+                          >
+                            Version <ChevronDown size={11} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex flex-col items-end justify-between shrink-0">
                         <button
-                          onClick={() => loadVersions(file.fileName, known.projectId, known.versionId)}
-                          aria-expanded={open}
-                          className="inline-flex items-center gap-1 text-xs text-crystal-muted hover:text-crystal-text px-2 py-1 rounded-md hover:bg-crystal-border/50"
+                          onClick={() => setConfirmRemove(file.fileName)}
+                          aria-label={`${title} löschen`}
+                          title="Löschen"
+                          className="w-7 h-7 flex items-center justify-center rounded-md bg-[#3a1614] text-crystal-accent hover:bg-crystal-accent hover:text-white transition-colors"
                         >
-                          Version <ChevronDown size={12} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+                          <Trash2 size={13} />
                         </button>
-                      )}
-                      <Switch checked={file.enabled} onChange={() => toggleFile(file.fileName)} label={`${displayName(file.fileName)} aktiv`} />
-                      <button
-                        onClick={() => setConfirmRemove(file.fileName)}
-                        aria-label={`${displayName(file.fileName)} löschen`}
-                        className="p-1.5 rounded-md text-crystal-muted opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-crystal-danger hover:bg-crystal-border/50 transition"
-                      >
-                        <Trash2 size={13} strokeWidth={1.75} />
-                      </button>
+                        <Switch checked={file.enabled} onChange={() => toggleFile(file.fileName)} label={`${title} aktiv`} />
+                      </div>
                     </div>
                     {open && known && (
                       <VersionPicker

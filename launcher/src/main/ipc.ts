@@ -36,6 +36,7 @@ import { FightService } from './stats/FightService'
 import { WorldBackups } from './minecraft/WorldBackups'
 import { detectClients, previewImport, applyImport, ImportSource } from './import/ClientImport'
 import { panoramaFor } from './minecraft/Panorama'
+import { modMetaIn } from './minecraft/ModMeta'
 import { crystalPath, crystalRoot, defaultCrystalRoot, setCrystalRoot, canUseAsRoot } from './paths'
 
 export function registerIpcHandlers(store: Store) {
@@ -90,6 +91,24 @@ export function registerIpcHandlers(store: Store) {
     win?.isMaximized() ? win.unmaximize() : win?.maximize()
   })
   ipcMain.handle('window:close', () => BrowserWindow.getFocusedWindow()?.close())
+
+  // Logs in a window of their own (the terminal button in the top bar), like Feather.
+  let logsWindow: BrowserWindow | null = null
+  ipcMain.handle('window:openLogs', () => {
+    if (logsWindow && !logsWindow.isDestroyed()) { logsWindow.show(); logsWindow.focus(); return }
+    logsWindow = new BrowserWindow({
+      width: 960, height: 620, minWidth: 640, minHeight: 400,
+      ...(process.platform === 'darwin' ? { titleBarStyle: 'hiddenInset' as const } : { frame: false }),
+      backgroundColor: '#000000',
+      title: 'Nexora Logs',
+      webPreferences: { preload: path.join(__dirname, 'preload.js'), nodeIntegration: false, contextIsolation: true },
+    })
+    logsWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+    if (!app.isPackaged && process.env.NODE_ENV === 'development') logsWindow.loadURL('http://localhost:5173/#/logs?popout=1')
+    else logsWindow.loadFile(path.join(__dirname, '../renderer/index.html'), { hash: '/logs?popout=1' })
+    logsWindow.webContents.on('did-finish-load', () => logsWindow?.webContents.setZoomFactor(0.88))
+    logsWindow.on('closed', () => { logsWindow = null })
+  })
 
   // Settings
   ipcMain.handle('settings:get', (_e, key: string) => store.get(key))
@@ -686,6 +705,7 @@ export function registerIpcHandlers(store: Store) {
 
   // Instance content (mods / resourcepacks / shaderpacks) — read straight off disk
   ipcMain.handle('content:list', (_e, instanceId: string, type: ContentType) => content.list(instanceId, type))
+  ipcMain.handle('content:modMeta', (_e, instanceId: string) => modMetaIn(content.contentDir(instanceId, 'mod')))
   ipcMain.handle('content:installFromDisk', (_e, instanceId: string, type: ContentType) => content.installFromDisk(instanceId, type))
   ipcMain.handle('content:remove', (_e, instanceId: string, type: ContentType, fileName: string) => content.remove(instanceId, type, fileName))
   ipcMain.handle('modProfiles:list', (_e, instanceId: string) => content.listProfiles(instanceId))
