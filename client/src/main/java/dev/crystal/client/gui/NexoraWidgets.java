@@ -17,7 +17,7 @@ public final class NexoraWidgets {
     public static void button(GuiGraphics ctx, int x, int y, int width, int height,
                               Component label, boolean hovered, boolean active, float alpha) {
         int a = Math.round(Math.max(0f, Math.min(1f, alpha)) * 255f);
-        int fill = !active ? 0x08FFFFFF : hovered ? 0x1CFFFFFF : 0x0CFFFFFF;
+        int fill = !active ? 0x05FFFFFF : hovered ? 0x14FFFFFF : 0x08FFFFFF;
         int line = !active ? 0x0CFFFFFF : hovered ? 0x33FFFFFF : 0x16FFFFFF;
         int radius = Math.min(height / 2, 8);
         GuiRender.roundedRect(ctx, x, y, x + width, y + height, radius, GuiRender.withAlpha(fill, Math.round(((fill >>> 24) & 0xFF) * (a / 255f))));
@@ -69,7 +69,7 @@ public final class NexoraWidgets {
     public static void slider(GuiGraphics ctx, int x, int y, int width, int height,
                               Component label, double value, boolean hovered, boolean active) {
         int radius = Math.min(height / 2, 8);
-        GuiRender.roundedRect(ctx, x, y, x + width, y + height, radius, active ? (hovered ? 0x1CFFFFFF : 0x0CFFFFFF) : 0x08FFFFFF);
+        GuiRender.roundedRect(ctx, x, y, x + width, y + height, radius, active ? (hovered ? 0x14FFFFFF : 0x08FFFFFF) : 0x05FFFFFF);
         GuiRender.roundedOutline(ctx, x, y, x + width, y + height, radius, active ? (hovered ? 0x33FFFFFF : 0x16FFFFFF) : 0x0CFFFFFF);
         ctx.fill(x + radius, y, x + width - radius, y + 1, hovered ? 0x30FFFFFF : 0x18FFFFFF);
 

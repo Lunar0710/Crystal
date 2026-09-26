@@ -58,7 +58,7 @@ public class CrystalClientScreen extends Screen {
     private static final int TILE_GAP = 8;
     private static final int ROW_H = 24;
     private static final int OPEN_ANIM_MS = 180;
-    private static final int COL_OFF = 0xFF3A3A3F;
+    private static final int COL_OFF = 0xFF1C1C1F;
 
     private final int colPanel, colSurface, colTile, colBorder, colText, colMuted;
     // Not final: picking an accent in this menu recolours it right away.
@@ -184,7 +184,7 @@ public class CrystalClientScreen extends Screen {
      * theme's colours, with a lit top edge.
      */
     private void drawPanel(GuiGraphics ctx, int px, int py, int pw, int ph, float open) {
-        GuiRender.roundedRect(ctx, px, py, px + pw, py + ph, 10, GuiRender.withAlpha(colPanel, 0xF6));
+        GuiRender.roundedRect(ctx, px, py, px + pw, py + ph, 10, 0xFF070708);
         GuiRender.roundedOutline(ctx, px, py, px + pw, py + ph, 10, 0x14FFFFFF);
     }
 
@@ -276,7 +276,8 @@ public class CrystalClientScreen extends Screen {
                 tabPillX = GuiRender.approach(tabPillX, tx, dtab, 18f);
                 tabPillW = GuiRender.approach(tabPillW, tw, dtab, 18f);
                 int x1 = Math.round(tabPillX), x2 = Math.round(tabPillX + tabPillW);
-                GuiRender.pill(ctx, x1, py + 8, x2, py + 26, colAccent);
+                GuiRender.pill(ctx, x1, py + 8, x2, py + 26, 0x22FFFFFF);
+                GuiRender.pillOutline(ctx, x1, py + 8, x2, py + 26, 0x1AFFFFFF);
             }
             tx += tw + 2;
         }
@@ -291,7 +292,7 @@ public class CrystalClientScreen extends Screen {
             boolean hover = box.contains(mx, my);
             if (!selected && hover) GuiRender.pill(ctx, box.x1, box.y1, box.x2, box.y2, 0x12FFFFFF);
             GuiRender.scaledText(ctx, labels[i], box.x1 + Math.round(7 * fs), box.y1 + (fs < 1f ? 6 : 5), fs,
-                    selected ? onAccent() : hover ? colText : colMuted);
+                    selected ? colText : hover ? colText : colMuted);
             tx += tw + 2;
         }
     }
@@ -349,7 +350,7 @@ public class CrystalClientScreen extends Screen {
         float hover = animate(hoverAnim, module, hovered ? 1f : 0f, dt);
         float on = animate(toggleAnim, module, enabled ? 1f : 0f, dt);
 
-        GuiRender.roundedRect(ctx, box.x1, box.y1, box.x2, box.y2, 7, GuiRender.blend(0x0DFFFFFF, 0x17FFFFFF, hover));
+        GuiRender.roundedRect(ctx, box.x1, box.y1, box.x2, box.y2, 7, GuiRender.blend(0x07FFFFFF, 0x10FFFFFF, hover));
         if (hover > 0.01f) GuiRender.roundedOutline(ctx, box.x1, box.y1, box.x2, box.y2, 7, GuiRender.withAlpha(0xFFFFFF, Math.round(0x22 * hover)));
 
         int icx = x + w / 2, icy = y + 20;

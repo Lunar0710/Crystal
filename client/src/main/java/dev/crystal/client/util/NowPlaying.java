@@ -93,8 +93,16 @@ public final class NowPlaying {
         worker.start();
     }
 
+    // Half a minute before stopping: a menu or F1 hiding the HUD for a moment
+    // shouldn't restart the script each time.
     private static boolean idle() {
-        return System.currentTimeMillis() - lastAsked > 6000;
+        return System.currentTimeMillis() - lastAsked > 30000;
+    }
+
+    static {
+        // The game closing normally takes the script with it; the script itself
+        // also watches the game's process, for when the game crashes.
+        Runtime.getRuntime().addShutdownHook(new Thread(NowPlaying::stopProcess, "Nexora NowPlaying stop"));
     }
 
     private static void run() {
@@ -122,7 +130,8 @@ public final class NowPlaying {
                 Files.copy(in, script, StandardCopyOption.REPLACE_EXISTING);
             }
             process = new ProcessBuilder("powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
-                    "-WindowStyle", "Hidden", "-File", script.toString()).redirectErrorStream(true).start();
+                    "-WindowStyle", "Hidden", "-File", script.toString(), "-GamePid", String.valueOf(ProcessHandle.current().pid()))
+                    .redirectErrorStream(true).start();
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
                 String line;
                 while (!idle() && (line = reader.readLine()) != null) {

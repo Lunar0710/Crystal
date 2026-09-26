@@ -3,7 +3,7 @@ import path from 'path'
 import os from 'os'
 import https from 'https'
 import { spawn } from 'child_process'
-import extract from 'extract-zip'
+import { safeExtract } from '../util/safeExtract'
 import { AuthProfile } from '../auth/AuthManager'
 import { logger } from '../logs/Logger'
 import { crystalRoot } from '../paths'
@@ -374,7 +374,7 @@ export class LaunchPipeline {
       const marker = path.join(nativesDir, `.extracted-${path.basename(jar)}`)
       if (fs.existsSync(marker)) continue
       try {
-        await extract(jar, { dir: nativesDir })
+        await safeExtract(jar, nativesDir)
         fs.writeFileSync(marker, '')
       } catch (err) {
         // A single unreadable natives jar shouldn't abort the whole launch —

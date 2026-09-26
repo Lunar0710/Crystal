@@ -1,4 +1,5 @@
 import Store from 'electron-store'
+import { seal, unseal, isSealed, canSeal } from '../util/secureStore'
 import { logger } from '../logs/Logger'
 import type { RankGrant } from './AuthManager'
 
@@ -62,12 +63,16 @@ export class RankSyncService {
   // --- token (owner's machine only) ---------------------------------------
 
   getToken(): string | null {
-    return (this.store.get('ranks.githubToken') as string) || null
+    // Sealed like the account logins: a token with write access to the repo
+    // could otherwise be used to publish a tampered release to everyone.
+    const raw = this.store.get('ranks.githubToken')
+    if (raw && !isSealed(raw) && canSeal()) this.store.set('ranks.githubToken', seal(raw))
+    return unseal<string>(raw) || null
   }
 
   setToken(token: string): void {
     const trimmed = token.trim()
-    if (trimmed) this.store.set('ranks.githubToken', trimmed)
+    if (trimmed) this.store.set('ranks.githubToken', seal(trimmed))
     else this.store.delete('ranks.githubToken')
   }
 

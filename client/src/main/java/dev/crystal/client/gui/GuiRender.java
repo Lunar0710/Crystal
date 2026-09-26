@@ -38,7 +38,7 @@ public final class GuiRender {
     /** Colours shared by every Nexora screen. */
     public static final int INK = 0xFFF4F4F5, ASH = 0xFF9B9BA1, DIM = 0xFF5F5F66;
     public static final int HAIR = 0x14FFFFFF, HAIR_STRONG = 0x24FFFFFF;
-    public static final int CORE_TOP = 0xFF131315, CORE_BOTTOM = 0xFF0A0A0B;
+    public static final int CORE_TOP = 0xFF0C0C0D, CORE_BOTTOM = 0xFF060607;
 
     /** Text in Nexora's typeface. */
     public static Component ui(String text) {
@@ -184,24 +184,18 @@ public final class GuiRender {
                                float hover, float appear, int accent, java.util.function.BiConsumer<Integer, Integer> icon, int iconColorOut[]) {
         int a = Math.round(255 * appear);
         int x2 = x + w, y2 = y + h;
-        if (primary) {
-            // The accent a notch darker, so a white accent is not a glaring white bar.
-            int fill = blend(blend(accent, 0xFF0A0A0B, 0.14f), 0xFFFFFFFF, 0.08f * hover);
-            pill(ctx, x, y, x2, y2, withAlpha(fill, a));
-        } else {
-            pill(ctx, x, y, x2, y2, withAlpha(0xFFFFFF, Math.round((0x0C + 0x10 * hover) * appear)));
-            pillOutline(ctx, x, y, x2, y2, withAlpha(0xFFFFFF, Math.round((0x16 + 0x1A * hover) * appear)));
-            ctx.fill(x + h / 2, y, x2 - h / 2, y + 1, withAlpha(0xFFFFFF, Math.round((0x14 + 0x10 * hover) * appear)));
-        }
-        float luma = 0.299f * ((accent >> 16) & 0xFF) + 0.587f * ((accent >> 8) & 0xFF) + 0.114f * (accent & 0xFF);
-        int onAccent = luma > 150 ? 0xFF0A0A0B : 0xFFFFFFFF;
-        // The icon well: a small circle flush with the row's left end.
-        int wellR = h / 2 - 3, wellX = x + 3 + wellR, wellY = y + h / 2;
-        circle(ctx, wellX, wellY, wellR, primary ? withAlpha(onAccent, Math.round(0x1A * appear)) : withAlpha(0xFFFFFF, Math.round((0x0F + 0x0C * hover) * appear)));
-        int iconColor = primary ? withAlpha(onAccent, a) : withAlpha(blend(0xFFBEBEC2, 0xFFFFFFFF, hover), a);
+        // Every row is dark; the primary one is only a shade lighter, with a
+        // short accent mark at its left end. No bright filled bars.
+        int base = primary ? 0x10 : 0x08;
+        pill(ctx, x, y, x2, y2, withAlpha(0xFFFFFF, Math.round((base + 0x0E * hover) * appear)));
+        pillOutline(ctx, x, y, x2, y2, withAlpha(0xFFFFFF, Math.round(((primary ? 0x22 : 0x16) + 0x14 * hover) * appear)));
+        if (primary) roundedRect(ctx, x + 3, y + h / 2 - 4, x + 5, y + h / 2 + 4, 1, withAlpha(accent, Math.round(0xC0 * appear)));
+        int wellR = h / 2 - 3, wellX = x + 6 + wellR, wellY = y + h / 2;
+        int iconColor = withAlpha(blend(primary ? 0xFFE4E4E7 : 0xFFB4B4BA, 0xFFFFFFFF, hover), a);
         if (iconColorOut != null && iconColorOut.length > 0) iconColorOut[0] = iconColor;
         icon.accept(wellX, wellY);
-        int text = primary ? onAccent : blend(0xFFD9D9DC, 0xFFFFFFFF, hover);
+        int text = blend(primary ? 0xFFF1F1F3 : 0xFFD4D4D8, 0xFFFFFFFF, hover);
+        int onAccent = 0xFFFFFFFF;
         Font font = Minecraft.getInstance().font;
         ctx.drawString(font, ui(label), x + h + 4, y + (h - 8) / 2, withAlpha(text, a), false);
         // A small arrow on the right slides in under the pointer.

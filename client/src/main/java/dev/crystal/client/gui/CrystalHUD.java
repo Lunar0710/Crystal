@@ -26,11 +26,25 @@ public class CrystalHUD {
     }
 
     public void render(GuiGraphics context, float tickDelta) {
+        if (HudProfiler.ON) { renderProfiled(context); return; }
         for (dev.crystal.client.module.Module module : moduleManager.getModules()) {
             if (module.isEnabled()) drawModule(context, module);
         }
         dev.crystal.client.module.render.HitMarker marker = moduleManager.getEnabled(dev.crystal.client.module.render.HitMarker.class);
         if (marker != null) marker.draw(context, context.guiWidth(), context.guiHeight());
+    }
+
+    /** Same as render, timing each element (see HudProfiler). */
+    private void renderProfiled(GuiGraphics context) {
+        for (dev.crystal.client.module.Module module : moduleManager.getModules()) {
+            if (!module.isEnabled()) continue;
+            long t = System.nanoTime();
+            drawModule(context, module);
+            HudProfiler.add(module.getName(), System.nanoTime() - t);
+        }
+        dev.crystal.client.module.render.HitMarker marker = moduleManager.getEnabled(dev.crystal.client.module.render.HitMarker.class);
+        if (marker != null) marker.draw(context, context.guiWidth(), context.guiHeight());
+        HudProfiler.frame();
     }
 
     /**
@@ -299,7 +313,10 @@ public class CrystalHUD {
         context.pose().scale(s, s);
 
         GuiRender.shadow(context, 0, 0, SPOT_W, SPOT_H, 12, 8, 3, 0.8f);
-        GuiRender.roundedRect(context, 0, 0, SPOT_W, SPOT_H, 12, 0xE00B0B0C);
+        int text = module.getEffectiveTextColor() | 0xFF000000;
+        int muted = GuiRender.withAlpha(text, 0xA0);
+        if (module.hasBackground()) GuiRender.roundedRect(context, 0, 0, SPOT_W, SPOT_H, 12, module.getBackgroundColor());
+        else GuiRender.roundedRect(context, 0, 0, SPOT_W, SPOT_H, 12, 0xE0070708);
         GuiRender.roundedOutline(context, 0, 0, SPOT_W, SPOT_H, 12, 0x1CFFFFFF);
         context.fill(12, 0, SPOT_W - 12, 1, 0x26FFFFFF);
 
@@ -315,13 +332,13 @@ public class CrystalHUD {
         }
 
         int tx = cx + cs + 8, tw = SPOT_W - tx - 10;
-        context.drawString(font(), GuiRender.uiBold(GuiRender.trimToWidth(title, tw)), tx, 8, 0xFFF4F4F5, false);
-        GuiRender.text(context, GuiRender.trimToWidth(artist, tw - 14), tx, 19, 0xFFA1A1AA);
+        context.drawString(font(), GuiRender.uiBold(GuiRender.trimToWidth(title, tw)), tx, 8, text, false);
+        GuiRender.text(context, GuiRender.trimToWidth(artist, tw - 14), tx, 19, muted);
         // Paused: two small bars after the artist.
         if (!sample && !playing) {
             int px = SPOT_W - 14;
-            context.fill(px, 20, px + 2, 26, 0xFFA1A1AA);
-            context.fill(px + 4, 20, px + 6, 26, 0xFFA1A1AA);
+            context.fill(px, 20, px + 2, 26, muted);
+            context.fill(px + 4, 20, px + 6, 26, muted);
         }
 
         if (module.showProgress() && !sample && track.durationMs() > 0) {
@@ -380,6 +397,8 @@ public class CrystalHUD {
             return;
         }
         float s = module.getScale();
+        int text = module.getEffectiveTextColor() & 0xFFFFFF;
+        int band = module.hasBackground() ? module.getBackgroundColor() & 0xFFFFFF : 0x000000;
         context.pose().pushMatrix();
         context.pose().translate(module.getX(), module.getY());
         context.pose().scale(s, s);
@@ -392,16 +411,16 @@ public class CrystalHUD {
         int x1 = (LYR_W - w) / 2 - 10, x2 = (LYR_W + w) / 2 + 8;
         int y0 = Math.round(slide);
         // The current line: dark band, a green mark on its left, bright bold text.
-        GuiRender.roundedRect(context, x1, y0, x2, y0 + 16, 8, GuiRender.withAlpha(0x000000, Math.round(0x80 * ease + 0x30)));
+        GuiRender.roundedRect(context, x1, y0, x2, y0 + 16, 8, GuiRender.withAlpha(band, Math.round(0x80 * ease + 0x30)));
         GuiRender.pill(context, x1 + 4, y0 + 4, x1 + 6, y0 + 12, GuiRender.withAlpha(SPOTIFY_GREEN, Math.round(255 * ease)));
-        GuiRender.heading(context, shown, (LYR_W - w) / 2f + 2, y0 + 4f, 1.15f, GuiRender.withAlpha(0xFFFFFF, Math.round(255 * (0.4f + 0.6f * ease))));
+        GuiRender.heading(context, shown, (LYR_W - w) / 2f + 2, y0 + 4f, 1.15f, GuiRender.withAlpha(text, Math.round(255 * (0.4f + 0.6f * ease))));
 
         // What comes next, each line a little fainter.
         for (int k = 0; k < upcoming.size(); k++) {
             String n = GuiRender.trimToWidth(upcoming.get(k), Math.round((LYR_W - 8) / 0.85f));
             int nw = GuiRender.scaledWidth(n, 0.85f);
             int a = Math.max(0x40, 0xC0 - k * 0x28);
-            GuiRender.scaledText(context, n, (LYR_W - nw) / 2, y0 + 20 + k * 11, 0.85f, GuiRender.withAlpha(0xFFFFFF, a));
+            GuiRender.scaledText(context, n, (LYR_W - nw) / 2, y0 + 20 + k * 11, 0.85f, GuiRender.withAlpha(text, a));
         }
         context.pose().popMatrix();
     }
@@ -557,7 +576,7 @@ public class CrystalHUD {
             drawStyled(context, module, -4, -3, textWidth + 4, 11, fill);
         } else if (crystalLook) {
             // 11px tall, so HUD lines on the default 12px rows keep a 1px gap.
-            GuiRender.roundedRect(context, -3, -2, textWidth + 3, 9, 3, 0x9E0C0C0D);
+            GuiRender.roundedRect(context, -3, -2, textWidth + 3, 9, 3, 0xC0060607);
         }
 
         if (icon != null) {

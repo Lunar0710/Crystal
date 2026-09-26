@@ -3,6 +3,9 @@
 # know the song, the artist and where in the song playback is.
 # One line per second: "none", or
 # np<TAB>status<TAB>title<TAB>artist<TAB>positionMs<TAB>durationMs<TAB>positionUpdatedAtMs
+# The game passes its own process id: the script ends as soon as that game is
+# gone, even after a crash, instead of running on in the background.
+param([int]$GamePid = 0)
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 Add-Type -AssemblyName System.Runtime.WindowsRuntime
 $asTask = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object {
@@ -16,6 +19,7 @@ function Await($op, [Type]$type) {
 $null = [Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager, Windows.Media.Control, ContentType = WindowsRuntime]
 $manager = Await ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager]::RequestAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager])
 while ($true) {
+    if ($GamePid -gt 0 -and -not (Get-Process -Id $GamePid -ErrorAction SilentlyContinue)) { exit }
     try {
         $session = $null
         foreach ($s in $manager.GetSessions()) { if ($s.SourceAppUserModelId -like '*Spotify*') { $session = $s } }

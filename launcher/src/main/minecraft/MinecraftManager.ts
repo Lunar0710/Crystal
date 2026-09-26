@@ -1,5 +1,5 @@
 import { execFile, spawnSync, ChildProcess } from 'child_process'
-import extract from 'extract-zip'
+import { safeExtract } from '../util/safeExtract'
 import { app } from 'electron'
 import path from 'path'
 import fs from 'fs'
@@ -360,7 +360,7 @@ export class MinecraftManager {
       const extractDir = crystalPath('jdk', `${major}-extract`)
       fs.rmSync(extractDir, { recursive: true, force: true })
       fs.mkdirSync(extractDir, { recursive: true })
-      if (download.archive === 'zip') await extract(archivePath, { dir: extractDir })
+      if (download.archive === 'zip') await safeExtract(archivePath, extractDir)
       else extractTarGz(archivePath, extractDir)
 
       // The archive contains one top-level "jdk-21.x.y+z" folder — move its
