@@ -225,6 +225,7 @@ export class CrashDoctor {
     }
 
     this.nativeCrash(instanceId, push)
+    this.javaCrash(instanceId, push)
 
     if (/Could not reserve enough space for.*object heap/i.test(log)) {
       const lowered = Math.max(1024, Math.floor(currentRam / 2))
@@ -313,18 +314,7 @@ export class CrashDoctor {
     for (const m of javaFrames.matchAll(/^[jJ]\s+(?:\d+\s+c\d\s+)?([\w$.\/]+)\.[\w$<>]+\(/gm)) {
       if (!skip.test(m[1])) { suspectClass = m[1]; break }
     }
-    let suspectJar: string | null = null
-    if (suspectClass) {
-      const entry = suspectClass.replace(/\./g, '/') + '.class'
-      try {
-        for (const file of fs.readdirSync(this.modsDir(instanceId))) {
-          if (!file.endsWith('.jar')) continue
-          try {
-            if (new JarReader(path.join(this.modsDir(instanceId), file)).has(entry)) { suspectJar = file; break }
-          } catch { /* unreadable jar: not the one */ }
-        }
-      } catch { /* no mods folder */ }
-    }
+    const suspectJar = suspectClass ? this.jarWithClass(instanceId, suspectClass) : null
     if (suspectJar && !/^(?:nexora|crystal-client)-/i.test(suspectJar)) {
       push({
         id: `native-crash-${suspectJar}`,
@@ -345,6 +335,70 @@ export class CrashDoctor {
         fix: { kind: 'disable-zgc', label: 'Ohne ZGC starten' },
       })
     }
+  }
+
+  /** The mod jar in this instance that holds the class, or null. */
+  private jarWithClass(instanceId: string, className: string): string | null {
+    const entry = className.replace(/\./g, '/') + '.class'
+    try {
+      for (const file of fs.readdirSync(this.modsDir(instanceId))) {
+        if (!file.endsWith('.jar')) continue
+        try {
+          if (new JarReader(path.join(this.modsDir(instanceId), file)).has(entry)) return file
+        } catch { /* unreadable jar: not the one */ }
+      }
+    } catch { /* no mods folder */ }
+    return null
+  }
+
+  /**
+   * A normal Minecraft crash report (crash-reports/ from the last few
+   * minutes) whose stack runs through another mod before anything of
+   * Minecraft's: that mod crashed the game (Essential's cosmetics, say), or
+   * hung it while closing (the "Watchdog" reports). Nexora names it and offers
+   * to turn it off. Without this the crash window had nothing to say about
+   * most crashes, and they all looked like Nexora's.
+   */
+  private javaCrash(instanceId: string, push: (p: DetectedProblem) => void): void {
+    const dir = path.join(this.instances.get(instanceId)?.gameDir || crystalPath('instances', instanceId), 'crash-reports')
+    let report: string | null = null
+    try {
+      const newest = fs.readdirSync(dir)
+        .filter(f => /^crash-.*-client\.txt$/.test(f))
+        .map(f => ({ f, t: fs.statSync(path.join(dir, f)).mtimeMs }))
+        .sort((a, b) => b.t - a.t)[0]
+      if (newest && Date.now() - newest.t < 10 * 60 * 1000) report = fs.readFileSync(path.join(dir, newest.f), 'utf8')
+    } catch { return }
+    if (!report) return
+
+    // Only the top trace: the thread dump below it lists every thread, busy or not.
+    const top = report.split(/A detailed walkthrough/)[0]
+    const description = top.match(/^Description: (.+)$/m)?.[1]?.trim() ?? ''
+    const error = top.match(/^([\w.$]+(?:Exception|Error)[^\n]*)$/m)?.[1]?.trim() ?? ''
+    const skip = /^(?:java\.|jdk\.|sun\.|kotlin\.|net\.minecraft\.|com\.mojang\.|net\.fabricmc\.|org\.spongepowered\.|com\.llamalad7\.|org\.lwjgl\.|org\.objectweb\.)/
+    let suspectClass: string | null = null
+    for (const m of top.matchAll(/^\s+at (?:[\w.@\/-]+\/\/?)?([\w$.]+)\.[\w$<>-]+\(/gm)) {
+      const cls = m[1]
+      if (skip.test(cls)) continue
+      suspectClass = cls
+      break
+    }
+    // Nexora's own crashes are ours to fix, not a mod to switch off.
+    if (!suspectClass || suspectClass.startsWith('dev.crystal.')) return
+    const jar = this.jarWithClass(instanceId, suspectClass.replace(/\$.*$/, ''))
+    if (!jar || /^(?:nexora|crystal-client)-/i.test(jar)) return
+    const name = jar.replace(/\.jar$/, '')
+    const hang = /Watchdog/.test(error) || description === 'Client shutdown'
+    push({
+      id: `java-crash-${jar}`,
+      group: 'other',
+      title: hang ? `${name} hat Minecraft beim Beenden aufgehängt` : `${name} hat Minecraft abstürzen lassen`,
+      detail: (hang
+        ? 'Minecraft wartete beim Schließen auf diese Mod, bis es sich selbst beendet hat. '
+        : `Der Absturz passierte in dieser Mod${error ? ` (${error.slice(0, 120)})` : ''}. `)
+        + 'Deaktiviere sie oder hol dir eine neuere Version. Nexora selbst war nicht beteiligt.',
+      fix: { kind: 'disable-mod', label: 'Mod deaktivieren', modFile: jar, modName: name },
+    })
   }
 
   disableMod(instanceId: string, modFile: string | undefined): { ok: boolean; message: string } {
