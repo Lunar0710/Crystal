@@ -24,7 +24,7 @@ const api = (window as any).crystal
 const STATUS_LABEL: Record<Status, string> = { game: 'Spielt gerade', launcher: 'Im Launcher', offline: 'Offline' }
 const STATUS_DOT: Record<Status, string> = { game: 'bg-crystal-success', launcher: 'bg-sky-400', offline: 'bg-crystal-muted/40' }
 const STATE_TEXT: Record<Exclude<NetState, 'online'>, string> = {
-  'no-server': 'Freunde und Chat laufen über den Nexora-Server, und der ist noch nicht eingerichtet.',
+  'no-server': 'Der Nexora-Server ist gerade nicht erreichbar. Prüf deine Internetverbindung, es wird gleich erneut versucht.',
   'offline-account': 'Freunde und Chat brauchen ein Microsoft-Konto. Mit einem Offline-Konto geht das nicht.',
   'no-account': 'Melde dich an, dann siehst du hier deine Freunde.',
   connecting: 'Verbinde mit dem Nexora-Server…',

@@ -197,7 +197,7 @@ export function Cosmetics() {
     <Page wide>
       <PageHeader
         title="Cosmetics"
-        description="Alles, was du hier ausrüstest, siehst du genau so auch im Spiel. Andere Spieler sehen es nicht."
+        description="Alles, was du hier ausrüstest, siehst du genau so auch im Spiel, und andere Nexora-Spieler sehen es bei dir."
         actions={
           <button onClick={() => setShowCard(true)} className="crystal-btn-ghost text-[13px]">
             Profil-Karte

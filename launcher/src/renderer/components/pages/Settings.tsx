@@ -460,7 +460,7 @@ function CrystalPlusSection({ unlocked }: { unlocked: boolean }) {
     { title: `${plusCapes} Capes`, detail: 'Handgezeichnet, im Spiel sichtbar.' },
     { title: `${plusCosmetics} Cosmetics`, detail: 'Hüte, Masken, Flügel und mehr, auch im Spiel.' },
     { title: 'HUD-Stile', detail: 'Glass, Neon, Pill, Gradient, Split und Rainbow als Hintergrund für jedes HUD-Modul.' },
-    { title: 'Emotes', detail: 'Winken, Jubeln, Tanzen und mehr über ein Rad auf einer Taste (vorerst nur für dich sichtbar).' },
+    { title: 'Emotes', detail: 'Winken, Jubeln, Tanzen und mehr über ein Rad auf einer Taste, sichtbar für alle Nexora-Spieler um dich herum.' },
     { title: 'Chroma-Text', detail: 'Farbverlauf für HUD-Module, der langsam durchläuft.' },
     { title: 'Crosshair-Formen', detail: 'Gap Cross, Kreis, X und Klammern, auf Wunsch in Chroma.' },
     { title: 'Hauptmenü', detail: 'Nexora+-Abzeichen neben deinem Namen und ein Logo mit wechselnder Farbe.' },
