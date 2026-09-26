@@ -6,6 +6,7 @@ import { crystalPath } from '../paths'
 // Mirrors the CSS custom properties defined in globals.css for each theme id.
 // Kept in sync manually since the renderer's CSS can't be read from the main process.
 const THEME_COLORS: Record<string, Record<string, [number, number, number]>> = {
+  'nexora-red':       { bg: [0,0,0], panel: [17,17,19], card: [23,23,26], border: [38,39,42], accent: [195,73,58], accent2: [214,104,90], text: [240,240,240], muted: [138,138,140] },
   'crystal-blue':     { bg: [8,8,9], panel: [14,14,16], card: [20,20,23], border: [42,42,47], accent: [255,255,255], accent2: [190,190,196], text: [240,240,243], muted: [133,133,142] },
   'crystal-crimson':  { bg: [18,11,12], panel: [26,15,17], card: [36,19,22], border: [54,26,30], accent: [245,69,91], accent2: [245,124,61], text: [240,228,229], muted: [138,107,110] },
   'crystal-bloom':    { bg: [22,12,18], panel: [30,17,25], card: [41,22,33], border: [61,30,46], accent: [245,107,160], accent2: [245,163,199], text: [240,229,235], muted: [138,107,122] },
@@ -35,8 +36,29 @@ function rgbToArgbHex(rgb: [number, number, number], alpha = 0xFF): string {
   return '0x' + [alpha, r, g, b].map(v => v.toString(16).padStart(2, '0')).join('')
 }
 
-export function syncThemeToClient(themeId: string) {
-  const colors = THEME_COLORS[themeId] || THEME_COLORS['crystal-blue']
+/** '#rrggbb' to [r, g, b]; null for anything else. */
+function hexRgb(hex: unknown): [number, number, number] | null {
+  const m = typeof hex === 'string' ? /^#?([0-9a-f]{6})$/i.exec(hex.trim()) : null
+  if (!m) return null
+  const n = parseInt(m[1], 16)
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
+}
+
+/**
+ * Tells the game the launcher's colours (config/theme.json), so the in-game
+ * menu matches. The custom theme sends the colours the player picked.
+ */
+export function syncThemeToClient(themeId: string, custom?: unknown) {
+  let colors = THEME_COLORS[themeId] || THEME_COLORS['nexora-red']
+  if (themeId === 'custom' && custom && typeof custom === 'object') {
+    const c = custom as Record<string, unknown>
+    const pick = (key: string, fallback: [number, number, number]) => hexRgb(c[key]) ?? fallback
+    const base = THEME_COLORS['nexora-red']
+    colors = {
+      bg: pick('bg', base.bg), panel: pick('panel', base.panel), card: pick('card', base.card), border: pick('border', base.border),
+      accent: pick('accent', base.accent), accent2: pick('accent-2', base.accent2), text: pick('text', base.text), muted: pick('muted', base.muted),
+    }
+  }
 
   const payload = {
     id: themeId,

@@ -110,13 +110,19 @@ export function registerIpcHandlers(store: Store) {
     logsWindow.on('closed', () => { logsWindow = null })
   })
 
+  // The game reads its colours from theme.json; written at every start too, so a
+  // theme the file doesn't know yet (or an older launcher's file) is replaced.
+  try { syncThemeToClient(String(store.get('theme') || 'nexora-red'), store.get('customTheme')) } catch { /* no config folder yet */ }
+
   // Settings
   ipcMain.handle('settings:get', (_e, key: string) => store.get(key))
   ipcMain.handle('settings:set', (_e, key: string, value: unknown) => {
     store.set(key, value)
     if (key === 'theme' && typeof value === 'string') {
-      syncThemeToClient(value)
+      syncThemeToClient(value, store.get('customTheme'))
     }
+    // Changing a custom colour reaches the game while the custom theme is on.
+    if (key === 'customTheme' && store.get('theme') === 'custom') syncThemeToClient('custom', value)
     if (key === 'crystalServer') social.restart()
   })
 

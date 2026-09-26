@@ -63,7 +63,11 @@ public class CrystalClientScreen extends Screen {
     private final int colPanel, colSurface, colTile, colBorder, colText, colMuted;
     // Not final: picking an accent in this menu recolours it right away.
     private int colAccent;
-    private static final int COL_ON = 0xFF4FA873;
+    /** Whether a colour is light enough that text on it should be dark. */
+    private static boolean isLight(int argb) {
+        int r = (argb >> 16) & 0xFF, g = (argb >> 8) & 0xFF, b = argb & 0xFF;
+        return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255.0 > 0.6;
+    }
     private static final int COL_DANGER = 0xFFD9605A;
     private static final int COL_PLUS = 0xFFC9B27C;
 
@@ -401,11 +405,12 @@ public class CrystalClientScreen extends Screen {
 
         // Bottom: one wide button that says what the module is and switches it.
         boolean barHover = bar.contains(mx, my) && contentBox.contains(mx, my);
-        int barColor = module.isLocked() ? GuiRender.withAlpha(COL_PLUS, 0x26) : GuiRender.blend(COL_OFF, COL_ON, on);
+        int barColor = module.isLocked() ? GuiRender.withAlpha(COL_PLUS, 0x26) : GuiRender.blend(COL_OFF, colAccent, on);
         if (barHover) barColor = GuiRender.blend(barColor, 0xFFFFFFFF, 0.12f);
         GuiRender.roundedRect(ctx, bar.x1, bar.y1, bar.x2, bar.y2, 4, barColor);
         String status = module.isLocked() ? "Nur Nexora+" : enabled ? "An" : "Aus";
-        int statusColor = module.isLocked() ? COL_PLUS : on > 0.5f ? 0xFFFFFFFF : 0xFFB4B4BA;
+        // On a light accent (a white theme) the label turns dark so it stays readable.
+        int statusColor = module.isLocked() ? COL_PLUS : on > 0.5f ? (isLight(colAccent) ? 0xFF111113 : 0xFFFFFFFF) : 0xFFB4B4BA;
         GuiRender.text(ctx, status, bar.x1 + (bar.x2 - bar.x1 - GuiRender.width(status)) / 2, bar.y1 + 2, statusColor);
     }
 
@@ -534,7 +539,7 @@ public class CrystalClientScreen extends Screen {
         } else {
             drawIcon(ctx, iconFor(module), cx - 16, cy - 20, module.isEnabled() ? 0xFFFFFFFF : 0xAAFFFFFF, 4);
             String state = module.isEnabled() ? "Aktiv" : "Aus";
-            GuiRender.text(ctx, state, cx - GuiRender.width(state) / 2, cy + 18, module.isEnabled() ? COL_ON : 0xFF1E1E20);
+            GuiRender.text(ctx, state, cx - GuiRender.width(state) / 2, cy + 18, module.isEnabled() ? colAccent : 0xFF1E1E20);
         }
         ctx.disableScissor();
 
