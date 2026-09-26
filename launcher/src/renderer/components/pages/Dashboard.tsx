@@ -88,6 +88,8 @@ export function Dashboard() {
   const isRunning = !!runningGame
   // Started, but Minecraft's window isn't there yet: it is still loading.
   const isLoading = runningGame?.usage?.windowOpen === false
+  // Minutes without a window: say why that usually happens instead of leaving it at "lädt".
+  const loadingMinutes = isLoading && runningGame ? Math.floor((Date.now() - runningGame.startedAt) / 60000) : 0
 
   const choose = (id: string) => {
     setInstanceId(id)
@@ -172,6 +174,12 @@ export function Dashboard() {
           {instance ? <Play size={16} fill="currentColor" /> : <Plus size={16} />}
           {launchLabel}
         </button>
+        {loadingMinutes >= 3 && (
+          <p className="-mt-1 px-1 text-[12px] leading-snug text-crystal-muted">
+            Minecraft lädt seit {loadingMinutes} Minuten. Das liegt meist an sehr vielen Mods, an Minecraft-Dateien auf einer alten Festplatte
+            oder an einer Mod, die hängt. Unter <button onClick={() => api?.openLogsWindow?.()} className="underline hover:text-crystal-text">Logs</button> siehst du, woran es gerade lädt.
+          </p>
+        )}
 
         <div className="grid grid-cols-2 gap-3 flex-1 min-h-0">
           <Card title="Neuigkeiten von Nexora" action={<button onClick={() => navigate('/news')} className="text-[11px] font-bold uppercase tracking-wide text-crystal-muted hover:text-crystal-text">Alle</button>}>
