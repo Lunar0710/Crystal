@@ -93,9 +93,33 @@ public final class CombatTracker {
      */
     public static boolean countMobs = false;
 
+    private static double swingReach, hitReach, pendingReach;
+    private static long swingReachAt, hitReachAt;
+
+    /** Reach of your last confirmed hit (or, failing that, your last swing) in the last few seconds; -1 if none. */
+    public static double recentReach(long withinMs, boolean[] confirmed) {
+        long now = System.currentTimeMillis();
+        if (now - hitReachAt <= withinMs) { if (confirmed != null) confirmed[0] = true; return hitReach; }
+        if (now - swingReachAt <= withinMs) { if (confirmed != null) confirmed[0] = false; return swingReach; }
+        return -1;
+    }
+
     /** From MultiPlayerGameMode.attack: the player swung at an entity. */
     public static void onAttack(Entity target) {
         if (!(target instanceof LivingEntity living)) return;
+        // Reach the way the server measures it: from your eyes to the nearest
+        // point of the target's hitbox. Kept for ReachDisplay, for every target.
+        var self = Minecraft.getInstance().player;
+        if (self != null) {
+            var eye = self.getEyePosition();
+            var box = living.getBoundingBox();
+            double dx = Math.max(0, Math.max(box.minX - eye.x, eye.x - box.maxX));
+            double dy = Math.max(0, Math.max(box.minY - eye.y, eye.y - box.maxY));
+            double dz = Math.max(0, Math.max(box.minZ - eye.z, eye.z - box.maxZ));
+            swingReach = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            swingReachAt = System.currentTimeMillis();
+            pendingReach = swingReach;
+        }
         if (!countMobs && !(living instanceof net.minecraft.world.entity.player.Player)) return;
         startFightIfNeeded(living);
         swings++;
@@ -120,6 +144,8 @@ public final class CombatTracker {
         if (pendingTarget != null) {
             // The hurt animation only counts down, so a jump up means a fresh, accepted hit.
             if (pendingTarget.hurtTime > pendingHurtBefore) {
+                hitReach = pendingReach;
+                hitReachAt = System.currentTimeMillis();
                 hits++;
                 hitThisTick = true;
                 combo++;

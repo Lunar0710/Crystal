@@ -7,7 +7,7 @@ import net.minecraft.client.Minecraft;
 public class UHCOverlay extends HudModule {
 
         public UHCOverlay() {
-        super("UHCOverlay", "Replaces the hunger bar with a UHC-style health/hunger overlay", ModuleCategory.PLAYER, 4, 256);
+        super("UHCOverlay", "Your health and hunger as one line of text", ModuleCategory.PLAYER, 4, 256);
     }
 
     @Override

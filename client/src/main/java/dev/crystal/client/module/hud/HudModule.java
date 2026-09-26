@@ -144,6 +144,17 @@ public abstract class HudModule extends Module implements HudRenderable {
         return 0xFF000000 | dev.crystal.client.util.ColorUtil.hsbToRgb(hue, 0.55f, 1f);
     }
 
+    /**
+     * A colour for the value part of "Label: value" that says at a glance
+     * whether it is good (green), so-so (yellow) or bad (red), or null to use
+     * the text colour. Only used while "Ampelfarben" is on.
+     */
+    public Integer valueColor() { return null; }
+
+    private boolean trafficLight = true;
+    public boolean trafficLight() { return trafficLight; }
+    protected void setTrafficLight(boolean on) { trafficLight = on; }
+
     /** A small image drawn in front of the text (for example a server logo), or null for none. */
     public net.minecraft.resources.Identifier getIcon() {
         return null;
@@ -164,6 +175,12 @@ public abstract class HudModule extends Module implements HudRenderable {
         all.add(new SliderSetting("Scale", () -> scale, v -> scale = v, 0.5f, 2f, 0.1f, 1));
         all.add(new BooleanSetting("Shadow", () -> shadow, v -> shadow = v, true));
         all.add(new BooleanSetting("Background", () -> background, v -> background = v, false));
+        // Only for elements that have a good/bad value (Ping, FPS, TPS).
+        try {
+            if (getClass().getMethod("valueColor").getDeclaringClass() != HudModule.class) {
+                all.add(new BooleanSetting("Ampelfarben", () -> trafficLight, v -> trafficLight = v, true));
+            }
+        } catch (NoSuchMethodException ignored) { }
         all.add(new ColorSetting("BG Color", () -> backgroundColor, v -> backgroundColor = v, 0xFF000000));
         all.add(new SliderSetting("BG Opacity", () -> backgroundOpacity, v -> backgroundOpacity = v, 0f, 100f, 5f, 0));
         all.add(new EnumSetting("BG Style", () -> backgroundStyle, v -> backgroundStyle = v, List.of(STYLE_FLAT, STYLE_GLASS, STYLE_NEON, STYLE_PILL, STYLE_GRADIENT, STYLE_SPLIT, STYLE_RAINBOW)));

@@ -43,6 +43,17 @@ public class TPSDisplay extends HudModule {
     }
 
     @Override
+    public Integer valueColor() {
+        String t = getText();
+        try {
+            double tps = Double.parseDouble(t.substring(t.indexOf(' ') + 1).replace(',', '.'));
+            return tps >= 19 ? 0xFF3DBE7A : tps >= 15 ? 0xFFE8C547 : 0xFFE5484D;
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    @Override
     public String getText() {
         float tps = tps();
         return tps < 0 ? "TPS: –" : String.format("TPS: %.1f", tps);

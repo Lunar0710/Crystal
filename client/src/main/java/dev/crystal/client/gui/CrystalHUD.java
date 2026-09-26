@@ -67,6 +67,10 @@ public class CrystalHUD {
                 drawInventory(context, inventory);
             } else if (module instanceof dev.crystal.client.module.hud.KillCam cam) {
                 drawKillCam(context, cam);
+            } else if (module instanceof dev.crystal.client.module.hud.TargetHUD target) {
+                drawTarget(context, target);
+            } else if (module instanceof dev.crystal.client.module.player.PotionEffectsDisplay effects) {
+                drawEffects(context, effects);
             } else if (module instanceof dev.crystal.client.module.player.Cooldowns cooldowns) {
                 drawCooldowns(context, cooldowns);
             } else if (module instanceof dev.crystal.client.module.hud.SpotifyHUD spotify) {
@@ -102,6 +106,12 @@ public class CrystalHUD {
         float s = module.getScale();
         if (module instanceof dev.crystal.client.module.hud.InventoryHUD) {
             return new int[]{x - Math.round(2 * s), y - Math.round(2 * s), x + Math.round((INV_W + 2) * s), y + Math.round((INV_H + 2) * s)};
+        }
+        if (module instanceof dev.crystal.client.module.hud.TargetHUD) {
+            return new int[]{x, y, x + Math.round(TGT_W * s), y + Math.round(TGT_H * s)};
+        }
+        if (module instanceof dev.crystal.client.module.player.PotionEffectsDisplay) {
+            return new int[]{x, y, x + Math.round(FX_W * s), y + Math.round(Math.max(1, lastEffectCount) * FX_ROW * s)};
         }
         if (module instanceof dev.crystal.client.module.player.Cooldowns cooldowns) {
             int n = Math.max(1, lastCooldownCount);
@@ -235,6 +245,98 @@ public class CrystalHUD {
                 String count = String.valueOf(stack.getCount());
                 // Drawn on top of the item, bottom right like the vanilla slot number.
                 context.drawString(mc.font, count, sx + 17 - mc.font.width(count), sy + 9, 0xFFFFFFFF, true);
+            }
+        }
+        context.pose().popMatrix();
+    }
+
+    private static final int TGT_W = 150, TGT_H = 40, FX_W = 132, FX_ROW = 14;
+    private int lastEffectCount = 1;
+
+    /** Health from full to empty: green, then yellow, then red. */
+    private static int healthColor(float fraction) {
+        fraction = Math.max(0f, Math.min(1f, fraction));
+        return fraction > 0.5f ? GuiRender.blend(0xFFE8C547, 0xFF3DBE7A, (fraction - 0.5f) * 2f)
+                : GuiRender.blend(0xFFE5484D, 0xFFE8C547, fraction * 2f);
+    }
+
+    /**
+     * TargetHUD: the target's name, a health bar in green to red, their health
+     * and armour (and yours next to it), and how far away they are.
+     */
+    private void drawTarget(GuiGraphics context, dev.crystal.client.module.hud.TargetHUD module) {
+        Minecraft mc = Minecraft.getInstance();
+        net.minecraft.world.entity.LivingEntity target = module.target();
+        boolean sample = target == null && inEditor();
+        if (target == null && !sample) return;
+        String name = sample ? "Steve_PvP" : target.getName().getString();
+        float hp = sample ? 13f : target.getHealth() + target.getAbsorptionAmount();
+        float max = sample ? 20f : Math.max(1f, target.getMaxHealth());
+        int armor = sample ? 15 : target.getArmorValue();
+        float dist = sample ? 3.2f : (float) Math.sqrt(mc.player.distanceToSqr(target));
+        int text = module.getEffectiveTextColor() | 0xFF000000;
+        float s = module.getScale();
+        context.pose().pushMatrix();
+        context.pose().translate(module.getX(), module.getY());
+        context.pose().scale(s, s);
+        GuiRender.roundedRect(context, 0, 0, TGT_W, TGT_H, 8, module.hasBackground() ? module.getBackgroundColor() : 0xE0070708);
+        GuiRender.roundedOutline(context, 0, 0, TGT_W, TGT_H, 8, 0x14FFFFFF);
+        // Initial in a round well, then name and distance.
+        GuiRender.circle(context, 16, 16, 10, 0x14FFFFFF);
+        String initial = name.isEmpty() ? "?" : name.substring(0, 1).toUpperCase(java.util.Locale.ROOT);
+        GuiRender.boldText(context, initial, 16 - GuiRender.boldWidth(initial) / 2, 12, text);
+        context.drawString(mc.font, GuiRender.uiBold(GuiRender.trimToWidth(name, 86)), 32, 7, text, false);
+        String d = String.format(java.util.Locale.ROOT, "%.1f m", dist);
+        GuiRender.scaledText(context, d, TGT_W - 8 - GuiRender.scaledWidth(d, 0.8f), 8, 0.8f, GuiRender.withAlpha(text, 0x99));
+        // Health: bar, value; armour next to it; yours in grey for the comparison.
+        String hpText = String.format(java.util.Locale.ROOT, "%.1f", hp / 2f) + " \u2764";
+        GuiRender.scaledText(context, hpText, 32, 18, 0.85f, healthColor(hp / max));
+        String armorText = armor + " \u26E8";
+        GuiRender.scaledText(context, armorText, 32 + GuiRender.scaledWidth(hpText, 0.85f) + 8, 18, 0.85f, GuiRender.withAlpha(text, 0xB0));
+        if (module.compare() && mc.player != null && !sample) {
+            float mine = mc.player.getHealth() + mc.player.getAbsorptionAmount();
+            String you = "Du " + String.format(java.util.Locale.ROOT, "%.1f", mine / 2f);
+            int color = mine >= hp ? 0xFF3DBE7A : 0xFFE5484D;
+            GuiRender.scaledText(context, you, TGT_W - 8 - GuiRender.scaledWidth(you, 0.8f), 19, 0.8f, color);
+        }
+        int bx = 8, bw = TGT_W - 16, by = TGT_H - 8;
+        GuiRender.pill(context, bx, by, bx + bw, by + 3, 0x1FFFFFFF);
+        int fill = Math.round(bw * Math.max(0f, Math.min(1f, hp / max)));
+        if (fill > 2) GuiRender.pill(context, bx, by, bx + fill, by + 3, healthColor(hp / max));
+        context.pose().popMatrix();
+    }
+
+    /**
+     * PotionEffects: one row per effect, a dot in its colour, name and level,
+     * the time left on the right and a thin bar under it that runs down.
+     */
+    private void drawEffects(GuiGraphics context, dev.crystal.client.module.player.PotionEffectsDisplay module) {
+        List<dev.crystal.client.module.player.PotionEffectsDisplay.Entry> list = module.entries();
+        if (list.isEmpty() && inEditor()) list = List.of(new dev.crystal.client.module.player.PotionEffectsDisplay.Entry("Stärke", 2, 0xFFFFC700, 1260, 0.7f),
+                new dev.crystal.client.module.player.PotionEffectsDisplay.Entry("Schnelligkeit", 2, 0xFF33EBFF, 160, 0.1f));
+        if (list.isEmpty()) return;
+        lastEffectCount = list.size();
+        int text = module.getEffectiveTextColor() | 0xFF000000;
+        float s = module.getScale();
+        boolean blinkOn = System.currentTimeMillis() / 400 % 2 == 0;
+        context.pose().pushMatrix();
+        context.pose().translate(module.getX(), module.getY());
+        context.pose().scale(s, s);
+        String[] roman = {"", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"};
+        for (int i = 0; i < list.size(); i++) {
+            var e = list.get(i);
+            int y = i * FX_ROW;
+            boolean ending = e.ticks() >= 0 && e.ticks() < 200;
+            int alpha = ending && module.blinkEnding() && !blinkOn ? 0x70 : 0xFF;
+            GuiRender.roundedRect(context, 0, y, FX_W, y + FX_ROW - 2, 4, module.hasBackground() ? module.getBackgroundColor() : 0xB0070708);
+            GuiRender.circle(context, 6, y + 6, 3, GuiRender.withAlpha(e.color(), alpha));
+            String label = GuiRender.trimToWidth(e.name() + (e.level() > 1 ? " " + (e.level() < roman.length ? roman[e.level()] : e.level()) : ""), FX_W - 50);
+            GuiRender.scaledText(context, label, 13, y + 2, 0.85f, GuiRender.withAlpha(text, alpha));
+            String time = e.ticks() < 0 ? "\u221E" : String.format(java.util.Locale.ROOT, "%d:%02d", e.ticks() / 1200, e.ticks() / 20 % 60);
+            GuiRender.scaledText(context, time, FX_W - 5 - GuiRender.scaledWidth(time, 0.85f), y + 2, 0.85f, ending ? GuiRender.withAlpha(0xFFE5484D, alpha) : GuiRender.withAlpha(text, 0xB0));
+            if (module.showBar() && e.ticks() >= 0) {
+                int w = Math.round((FX_W - 16) * e.left());
+                if (w > 0) context.fill(13, y + FX_ROW - 4, 13 + w, y + FX_ROW - 3, GuiRender.withAlpha(e.color(), 0xC0));
             }
         }
         context.pose().popMatrix();
@@ -599,7 +701,8 @@ public class CrystalHUD {
                 context.drawString(mc.font, value, labelW + 1, 1, 0x90000000, false);
             }
             context.drawString(mc.font, label, 0, 0, accent, false);
-            context.drawString(mc.font, value, labelW, 0, color, false);
+            Integer good = module.trafficLight() ? module.valueColor() : null;
+            context.drawString(mc.font, value, labelW, 0, good != null ? good : color, false);
         } else {
             if (module.hasShadow()) {
                 context.drawString(mc.font, text, 1, 1, 0x90000000, false);

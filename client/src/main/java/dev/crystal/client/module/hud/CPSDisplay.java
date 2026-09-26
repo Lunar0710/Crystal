@@ -1,27 +1,35 @@
 package dev.crystal.client.module.hud;
 
+import dev.crystal.client.module.BooleanSetting;
+import dev.crystal.client.module.Setting;
+import dev.crystal.client.util.ClickCounter;
 
-import java.util.ArrayDeque;
-import java.util.Deque;
+import java.util.List;
 
+/**
+ * Clicks per second, left and right. It used to count through a method
+ * nothing ever called, so it always said 0; the clicks now come from
+ * ClickCounter, which sees every press.
+ */
 public class CPSDisplay extends HudModule {
 
-    private final Deque<Long> clicks = new ArrayDeque<>();
-        public CPSDisplay() {
-        super("CPS", "Displays clicks per second", 4, 28);
-        setEnabled(true);
-    }
+    private boolean showRight = true;
 
-    public void registerClick() {
-        long now = System.currentTimeMillis();
-        clicks.addLast(now);
-        clicks.removeIf(t -> now - t > 1000);
+    public CPSDisplay() {
+        super("CPS", "Displays clicks per second, left and right", 4, 28);
+        setEnabled(true);
     }
 
     @Override
     public String getText() {
-        long now = System.currentTimeMillis();
-        clicks.removeIf(t -> now - t > 1000);
-        return "CPS: " + clicks.size();
+        // HUD text is built on the render thread, where the counter can hook in.
+        ClickCounter.install();
+        int left = ClickCounter.cps(true);
+        return showRight ? "CPS: " + left + " | " + ClickCounter.cps(false) : "CPS: " + left;
+    }
+
+    @Override
+    protected List<Setting<?>> getExtraSettings() {
+        return List.of(new BooleanSetting("Rechtsklick zeigen", () -> showRight, v -> showRight = v, true));
     }
 }
