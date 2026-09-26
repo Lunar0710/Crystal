@@ -13,7 +13,9 @@ public class FPSDisplay extends HudModule {
     @Override
     public Integer valueColor() {
         int fps = Minecraft.getInstance().getFps();
-        return fps < 30 ? 0xFFE5484D : fps < 60 ? 0xFFE8C547 : null;
+        if (fps < 30) return 0xFFE5484D;
+        if (fps < 60) return 0xFFE8C547;
+        return null;
     }
 
     @Override

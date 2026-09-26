@@ -39,6 +39,7 @@ public class FightSummary extends HudModule {
         return List.of(
                 new BooleanSetting("Während des Kampfes zeigen", () -> duringFight, v -> duringFight = v, true),
                 new BooleanSetting("Mobs mitzählen", () -> CombatTracker.countMobs, v -> CombatTracker.countMobs = v, false),
+                new BooleanSetting("Kämpfe aufzeichnen (Replay und Kill-Cam)", () -> CombatTracker.recordFights, v -> CombatTracker.recordFights = v, true),
                 new SliderSetting("Ergebnis zeigen (s)", () -> showSeconds, v -> showSeconds = v, 3f, 30f, 1f, 0));
     }
 }

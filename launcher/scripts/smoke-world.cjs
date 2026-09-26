@@ -112,6 +112,11 @@ function writeTestSettings(gameDir) {
       // Shows the real song if Spotify plays on the test machine, nothing otherwise.
       Spotify: { enabled: true, settings: { X: 240, Y: 180 } },
       Lyrics: { enabled: true, settings: { X: 150, Y: 150 } },
+      TargetHUD: { enabled: true, settings: { X: 250, Y: 40 } },
+      PotionEffects: { enabled: true, settings: { X: 250, Y: 90 } },
+      Cooldowns: { enabled: true },
+      ReachDisplay: { enabled: true },
+      PerformanceMode: { enabled: true },
       ItemPhysics: { enabled: true },
       ParticleChanger: { enabled: true },
       BetterSounds: { enabled: true },

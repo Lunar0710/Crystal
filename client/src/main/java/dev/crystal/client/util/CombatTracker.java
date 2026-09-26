@@ -93,6 +93,9 @@ public final class CombatTracker {
      */
     public static boolean countMobs = false;
 
+    /** Whether fights are saved for the launcher's replay (FightSummary "Kämpfe aufzeichnen"). */
+    public static boolean recordFights = true;
+
     private static double swingReach, hitReach, pendingReach;
     private static long swingReachAt, hitReachAt;
 
@@ -225,7 +228,7 @@ public final class CombatTracker {
 
     /** One tick of the fight: me x,y,z,yaw,health, opponent x,y,z,yaw,health, then 1 for a hit landed and 2 for a hit taken. */
     private static void record(Minecraft mc) {
-        if (frames.size() >= MAX_FRAMES || opponentEntity == null) {
+        if (!recordFights || frames.size() >= MAX_FRAMES || opponentEntity == null) {
             hitThisTick = hurtThisTick = false;
             return;
         }
@@ -238,31 +241,38 @@ public final class CombatTracker {
         hitThisTick = hurtThisTick = false;
     }
 
-    /** Writes the fight for the launcher, off the game thread, and trims old ones. */
+    /**
+     * Writes the fight for the launcher and trims old ones. The JSON is built
+     * off the game thread too: a five-minute fight is 66,000 numbers, and
+     * building them on the render thread was a hitch right as the fight ended.
+     */
     private static void save(Round round) {
         if (frames.size() < 20) return; // under a second: nothing worth watching
-        com.google.gson.JsonObject json = new com.google.gson.JsonObject();
-        json.addProperty("version", 1);
-        json.addProperty("start", fightStart);
-        json.addProperty("opponent", round.opponent());
-        json.addProperty("won", round.won());
-        json.addProperty("hits", round.hits());
-        json.addProperty("swings", round.swings());
-        json.addProperty("longestCombo", round.longestCombo());
-        json.addProperty("hitsTaken", round.hitsTaken());
-        json.addProperty("durationMs", round.durationMs());
+        // A copy: the next fight clears the list while this one is still being written.
+        java.util.List<float[]> recorded = new java.util.ArrayList<>(frames);
         var server = Minecraft.getInstance().getCurrentServer();
-        json.addProperty("server", server != null ? server.ip : "Einzelspieler");
-        com.google.gson.JsonArray list = new com.google.gson.JsonArray();
-        for (float[] f : frames) {
-            com.google.gson.JsonArray row = new com.google.gson.JsonArray();
-            for (float v : f) row.add(Math.round(v * 100) / 100f);
-            list.add(row);
-        }
-        json.add("frames", list);
-        String text = json.toString();
+        String serverName = server != null ? server.ip : "Einzelspieler";
         long start = fightStart;
         Thread.ofVirtual().start(() -> {
+            com.google.gson.JsonObject json = new com.google.gson.JsonObject();
+            json.addProperty("version", 1);
+            json.addProperty("start", start);
+            json.addProperty("opponent", round.opponent());
+            json.addProperty("won", round.won());
+            json.addProperty("hits", round.hits());
+            json.addProperty("swings", round.swings());
+            json.addProperty("longestCombo", round.longestCombo());
+            json.addProperty("hitsTaken", round.hitsTaken());
+            json.addProperty("durationMs", round.durationMs());
+            json.addProperty("server", serverName);
+            com.google.gson.JsonArray list = new com.google.gson.JsonArray();
+            for (float[] f : recorded) {
+                com.google.gson.JsonArray row = new com.google.gson.JsonArray();
+                for (float v : f) row.add(Math.round(v * 100) / 100f);
+                list.add(row);
+            }
+            json.add("frames", list);
+            String text = json.toString();
             try {
                 java.nio.file.Path dir = net.fabricmc.loader.api.FabricLoader.getInstance().getGameDir().resolve(".crystal").resolve("fights");
                 java.nio.file.Files.createDirectories(dir);

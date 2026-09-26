@@ -23,7 +23,9 @@ public class MemoryUsage extends HudModule {
     @Override
     public Integer valueColor() {
         double share = usedMb() / (double) Math.max(1, maxMb());
-        return share > 0.9 ? 0xFFE5484D : share > 0.75 ? 0xFFE8C547 : null;
+        if (share > 0.9) return 0xFFE5484D;
+        if (share > 0.75) return 0xFFE8C547;
+        return null;
     }
 
     @Override
