@@ -11,6 +11,8 @@ export interface CrystalTheme {
 export const themes: CrystalTheme[] = [
   // Free
   { id: 'nexora-red',       name: 'Nexora Rot',     preview: ['#c3493a', '#111113'] },
+  // Every rank above Member: colours of your own (the editor sits under the grid in Settings).
+  { id: 'custom',           name: 'Eigenes Theme',  preview: ['#c3493a', '#3a7bd5'], requiredRank: 'crystal_plus' },
   { id: 'crystal-blue',     name: 'Nexora Mono',    preview: ['#ffffff', '#8a8a93'] },
   { id: 'crystal-crimson',  name: 'Nexora Crimson', preview: ['#f5455b', '#f57c3d'] },
   { id: 'crystal-bloom',    name: 'Nexora Bloom',   preview: ['#f56ba0', '#f5a3c7'] },

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Check, Lock, Upload, RotateCcw } from 'lucide-react'
 import { notify } from '../../store/notificationStore'
-import { useThemeStore } from '../../store/themeStore'
+import { useThemeStore, CUSTOM_KEYS, CUSTOM_DEFAULT, CustomColors, applyCustomColors, loadCustomColors } from '../../store/themeStore'
 import { themes } from '../../theme/themes'
 import { RANKS, RankId, RANK_ORDER, lockLabel, canUseTheme, hasPerks } from '../../data/ranks'
 import { BUILTIN_CAPES } from '../../data/capes'
@@ -14,6 +14,45 @@ import { displayVersion } from '../../data/displayVersion'
 import { ClientImportPanel } from '../ui/ClientImportPanel'
 
 const api = (window as any).crystal
+
+const CUSTOM_LABELS: Record<(typeof CUSTOM_KEYS)[number], string> = {
+  bg: 'Hintergrund', panel: 'Flächen', card: 'Karten', border: 'Ränder',
+  accent: 'Akzent', 'accent-2': 'Akzent 2', text: 'Text', muted: 'Nebentext',
+}
+
+/** Colour pickers for the custom theme; every change shows at once and is saved. */
+function CustomThemeEditor() {
+  const [colors, setColors] = useState<CustomColors | null>(null)
+  useEffect(() => { loadCustomColors().then(setColors) }, [])
+  if (!colors) return null
+  const change = (next: CustomColors) => {
+    setColors(next)
+    applyCustomColors(next)
+    api?.setSetting('customTheme', next)
+  }
+  return (
+    <div className="mt-4 pt-4 border-t border-crystal-border">
+      <div className="flex items-center justify-between mb-2.5">
+        <p className="text-[13px] font-semibold text-crystal-text">Deine Farben</p>
+        <button onClick={() => change({ ...CUSTOM_DEFAULT })} className="text-xs text-crystal-muted hover:text-crystal-text">Zurücksetzen</button>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {CUSTOM_KEYS.map(key => (
+          <label key={key} className="flex items-center gap-2 rounded-md bg-crystal-panel px-2 py-1.5 cursor-pointer">
+            <input
+              type="color"
+              value={colors[key]}
+              onChange={e => change({ ...colors, [key]: e.target.value })}
+              className="w-7 h-7 rounded border-0 bg-transparent p-0 cursor-pointer"
+              aria-label={CUSTOM_LABELS[key]}
+            />
+            <span className="text-xs text-crystal-text">{CUSTOM_LABELS[key]}</span>
+          </label>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 export function Settings() {
   const { theme, setTheme } = useThemeStore()
@@ -171,6 +210,7 @@ export function Settings() {
               )
             })}
           </div>
+          {theme === 'custom' && <CustomThemeEditor />}
         </div>
       </Section>
 

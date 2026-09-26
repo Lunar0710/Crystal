@@ -54,6 +54,24 @@ html, body, #root {
   --theme-pattern-size: auto;
 }
 
+/* Base for the custom theme; the chosen colours are set inline over it (themeStore). */
+[data-theme='custom'] {
+  --c-bg: 0 0 0;
+  --c-panel: 17 17 19;
+  --c-card: 23 23 26;
+  --c-border: 38 39 42;
+  --c-accent: 195 73 58;
+  --c-accent-2: 214 104 90;
+  --c-on-accent: 255 255 255;
+  --c-text: 240 240 240;
+  --c-muted: 138 138 140;
+  --c-success: 52 211 153;
+  --c-danger: 248 113 113;
+  --c-warning: 251 191 36;
+  --theme-pattern: none;
+  --theme-pattern-size: auto;
+}
+
 [data-theme='crystal-crimson'] {
   --c-bg: 18 11 12;
   --c-panel: 26 15 17;
