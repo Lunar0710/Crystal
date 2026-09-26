@@ -1,4 +1,4 @@
-import { ipcMain, BrowserWindow, dialog, shell, nativeImage, app, clipboard } from 'electron'
+import { ipcMain, BrowserWindow, dialog, shell, nativeImage, app, clipboard, screen } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import os from 'os'
@@ -34,6 +34,7 @@ import { RunningGames, gameMarkers } from './minecraft/RunningGames'
 import { PerfDoctor, type PerfFix } from './minecraft/PerfDoctor'
 import { FightService } from './stats/FightService'
 import { WorldBackups } from './minecraft/WorldBackups'
+import { detectClients, previewImport, applyImport, ImportSource } from './import/ClientImport'
 import { crystalPath, crystalRoot, defaultCrystalRoot, setCrystalRoot, canUseAsRoot } from './paths'
 
 export function registerIpcHandlers(store: Store) {
@@ -962,6 +963,21 @@ export function registerIpcHandlers(store: Store) {
   // Profile card
   ipcMain.handle('stats:summary', () => stats.summary())
   ipcMain.handle('stats:sessionsSince', (_e, since: number) => stats.sessionsSince(Number(since) || 0))
+
+  // Moving over from Lunar or Feather (import/ClientImport.ts).
+  const importSource = (s: unknown): ImportSource => (s === 'feather' ? 'feather' : 'lunar')
+  ipcMain.handle('import:detect', () => detectClients())
+  ipcMain.handle('import:preview', (_e, source: string, profile: string, instanceId?: string) =>
+    previewImport(importSource(source), String(profile), instanceId ? instances.get(instanceId)?.gameDir : undefined))
+  ipcMain.handle('import:apply', async (_e, source: string, profile: string, instanceId: string) => {
+    const instance = instances.get(instanceId)
+    if (!instance) throw new Error('Instanz nicht gefunden')
+    // The game writes its config when it closes and would undo the import.
+    if (running.isInstanceRunning(instanceId)) throw new Error('Schließ das Spiel dieser Instanz zuerst.')
+    const display = screen.getPrimaryDisplay()
+    const size = { width: Math.round(display.size.width * display.scaleFactor), height: Math.round(display.size.height * display.scaleFactor) }
+    return applyImport(importSource(source), String(profile), instance.gameDir, size)
+  })
   ipcMain.handle('stats:get', () => ({
     playtimeMs: Number(store.get('stats.playtimeMs')) || 0,
     sessions: Number(store.get('stats.sessions')) || 0,

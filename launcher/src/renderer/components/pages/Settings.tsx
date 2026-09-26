@@ -11,6 +11,7 @@ import { LogoMark, LogoVariantId } from '../../theme/logoVariants'
 import { Page, PageHeader, Section, Field, Switch } from '../ui/Page'
 import { LOGO_CHANGED } from '../ui/TitleBar'
 import { displayVersion } from '../../data/displayVersion'
+import { ClientImportPanel } from '../ui/ClientImportPanel'
 
 const api = (window as any).crystal
 
@@ -279,6 +280,8 @@ export function Settings() {
           </div>
         </Field>
       </Section>
+
+      <ClientImportPanel />
 
       <Section title="Integrationen">
         <Field
