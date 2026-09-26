@@ -226,6 +226,9 @@ export class CrashDoctor {
 
     this.nativeCrash(instanceId, push)
     this.javaCrash(instanceId, push)
+    // Neither report explained it: find out from what the game did last.
+    if (![...seen].some(id => id.startsWith('java-crash-') || id.startsWith('native-crash-'))) this.silentExit(instanceId, push)
+    this.hiddenNativeCode(instanceId, push)
 
     if (/Could not reserve enough space for.*object heap/i.test(log)) {
       const lowered = Math.max(1024, Math.floor(currentRam / 2))
@@ -399,6 +402,78 @@ export class CrashDoctor {
         + 'Deaktiviere sie oder hol dir eine neuere Version. Nexora selbst war nicht beteiligt.',
       fix: { kind: 'disable-mod', label: 'Mod deaktivieren', modFile: jar, modName: name },
     })
+  }
+
+  /**
+   * The game ended without a crash report or a Java crash file: something
+   * called exit itself, often a mod's own loader or check. The last lines of
+   * latest.log still say what was loading at that moment; a mod's mixin
+   * config ("... from mixins.foo.json into ...") leads to its jar.
+   */
+  private silentExit(instanceId: string, push: (p: DetectedProblem) => void): void {
+    const gameDir = this.instances.get(instanceId)?.gameDir || crystalPath('instances', instanceId)
+    const logFile = path.join(gameDir, 'logs', 'latest.log')
+    let tail: string[] = []
+    try {
+      if (Date.now() - fs.statSync(logFile).mtimeMs > 10 * 60 * 1000) return
+      tail = fs.readFileSync(logFile, 'utf8').split(/\r?\n/).filter(Boolean).slice(-40)
+    } catch { return }
+    // A game that reached the menu or a world didn't die while starting.
+    if (tail.some(l => /Stopping!|Sound engine started|Connecting to/.test(l))) return
+    let mixinConfig: string | null = null
+    for (let i = tail.length - 1; i >= 0 && !mixinConfig; i--) {
+      mixinConfig = tail[i].match(/from ([\w.-]+\.json) into /)?.[1] ?? null
+    }
+    if (!mixinConfig) return
+    let jar: string | null = null
+    try {
+      for (const file of fs.readdirSync(this.modsDir(instanceId))) {
+        if (!file.endsWith('.jar')) continue
+        try { if (new JarReader(path.join(this.modsDir(instanceId), file)).has(mixinConfig)) { jar = file; break } } catch { /* unreadable */ }
+      }
+    } catch { return }
+    if (!jar || /^(?:nexora|crystal-client)-/i.test(jar)) return
+    const name = jar.replace(/\.jar$/, '')
+    push({
+      id: `silent-exit-${jar}`,
+      group: 'other',
+      title: `Minecraft hat sich beim Laden von ${name} beendet`,
+      detail: 'Das Spiel hat sich ohne Fehlermeldung selbst beendet, während diese Mod als letzte geladen wurde. '
+        + 'Deaktiviere sie und starte neu; startet es dann, war sie es.',
+      fix: { kind: 'disable-mod', label: 'Mod deaktivieren', modFile: jar, modName: name },
+    })
+  }
+
+  /**
+   * Mods that bring a program of their own (a Windows .dll or similar) and
+   * hide their Java code (a handful of classes, a licence key): loaders for
+   * paid or cheat clients. They end the game without a word when their check
+   * fails and can do anything on the PC. Voice chat and the like also ship
+   * native libraries, but with hundreds of plain classes, so they aren't named.
+   */
+  private hiddenNativeCode(instanceId: string, push: (p: DetectedProblem) => void): void {
+    let files: string[] = []
+    try { files = fs.readdirSync(this.modsDir(instanceId)).filter(f => f.endsWith('.jar')) } catch { return }
+    for (const file of files) {
+      try {
+        const names = new JarReader(path.join(this.modsDir(instanceId), file)).names()
+        const natives = names.filter(n => /\.(dll|so|dylib|jnilib)$/i.test(n) || /(^|\/)natives?\/[^/]+\/[^/]+$/i.test(n))
+        if (natives.length === 0) continue
+        const classes = names.filter(n => n.endsWith('.class')).length
+        const licensed = names.some(n => /licen[cs]e.?key/i.test(n))
+        if (classes >= 25 && !licensed) continue
+        const name = file.replace(/\.jar$/, '')
+        const count = natives.length === 1 ? '1 Datei' : `${natives.length} Dateien`
+        push({
+          id: `hidden-native-${file}`,
+          group: 'other',
+          title: `${name} bringt versteckten Programmcode mit`,
+          detail: `Diese Mod enthält ein eigenes Programm (${count}) und versteckt ihren Code${licensed ? ' hinter einem Lizenzschlüssel' : ''}. `
+            + 'Solche Mods beenden Minecraft oft ohne Fehlermeldung und können auf dem PC tun, was sie wollen. Nimm sie nur aus einer Quelle, der du vertraust.',
+          fix: { kind: 'disable-mod', label: 'Mod deaktivieren', modFile: file, modName: name },
+        })
+      } catch { /* unreadable jar */ }
+    }
   }
 
   disableMod(instanceId: string, modFile: string | undefined): { ok: boolean; message: string } {
