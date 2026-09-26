@@ -102,7 +102,6 @@ public class CrystalTitleScreen extends Screen {
         // A deep vignette so the rows read over any part of the picture, and a
         // faint glow of the accent behind the logo.
         context.fillGradient(0, 0, width, height, 0x30000000, 0x90000000);
-        GuiRender.glow(context, width / 2, height / 2 - 60, 120, accent, 0.08f * appear);
 
         drawLogo(context, accent, alpha);
 

@@ -276,7 +276,6 @@ public class CrystalClientScreen extends Screen {
                 tabPillX = GuiRender.approach(tabPillX, tx, dtab, 18f);
                 tabPillW = GuiRender.approach(tabPillW, tw, dtab, 18f);
                 int x1 = Math.round(tabPillX), x2 = Math.round(tabPillX + tabPillW);
-                GuiRender.glow(ctx, (x1 + x2) / 2, py + 17, 16, colAccent, 0.12f);
                 GuiRender.pill(ctx, x1, py + 8, x2, py + 26, colAccent);
             }
             tx += tw + 2;
@@ -627,7 +626,6 @@ public class CrystalClientScreen extends Screen {
                 int fill = t1 + Math.round((t2 - t1) * Math.max(0f, Math.min(1f, fraction)));
                 if (fill > t1 + 3) GuiRender.pill(ctx, t1, cy - 2, fill, cy + 2, GuiRender.withAlpha(colAccent, alpha));
                 boolean active = draggingSlider == s || hover;
-                if (active) GuiRender.glow(ctx, fill, cy, 12, colAccent, 0.18f);
                 int knob = active ? 5 : 4;
                 GuiRender.circle(ctx, fill, cy + 1, knob, 0x55000000);
                 GuiRender.circle(ctx, fill, cy, knob, GuiRender.withAlpha(0xFFFFFFFF, alpha));
@@ -670,7 +668,6 @@ public class CrystalClientScreen extends Screen {
             case ACTION -> {
                 String label = setting.getDisplayValue();
                 int bw = Math.min(controlW, GuiRender.width(label) + 16);
-                if (hover) GuiRender.glow(ctx, control.x2 - bw / 2, (control.y1 + control.y2) / 2, bw / 2 + 4, colAccent, 0.12f);
                 GuiRender.pill(ctx, control.x2 - bw, control.y1, control.x2, control.y2, hover ? colAccent : GuiRender.withAlpha(colAccent, 0x33));
                 GuiRender.text(ctx, GuiRender.trimToWidth(label, bw - 8), control.x2 - bw + 8, y + 7, hover ? onAccent() : colText);
             }

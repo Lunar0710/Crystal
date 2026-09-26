@@ -185,9 +185,9 @@ public final class GuiRender {
         int a = Math.round(255 * appear);
         int x2 = x + w, y2 = y + h;
         if (primary) {
-            glow(ctx, x + w / 2, y + h / 2, w / 2, accent, (0.10f + 0.08f * hover) * appear);
-            pill(ctx, x, y, x2, y2, withAlpha(blend(accent, 0xFFFFFFFF, 0.12f * hover), a));
-            ctx.fill(x + h / 2, y, x2 - h / 2, y + 1, withAlpha(0xFFFFFF, Math.round(0x50 * appear)));
+            // The accent a notch darker, so a white accent is not a glaring white bar.
+            int fill = blend(blend(accent, 0xFF0A0A0B, 0.14f), 0xFFFFFFFF, 0.08f * hover);
+            pill(ctx, x, y, x2, y2, withAlpha(fill, a));
         } else {
             pill(ctx, x, y, x2, y2, withAlpha(0xFFFFFF, Math.round((0x0C + 0x10 * hover) * appear)));
             pillOutline(ctx, x, y, x2, y2, withAlpha(0xFFFFFF, Math.round((0x16 + 0x1A * hover) * appear)));

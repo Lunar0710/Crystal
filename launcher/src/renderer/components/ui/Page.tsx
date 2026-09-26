@@ -81,7 +81,7 @@ export function Switch({ checked, onChange, label }: { checked: boolean; onChang
       aria-label={label}
       onClick={() => onChange(!checked)}
       className={`relative w-9 h-5 rounded-full nexora-ease ring-1 ring-inset ${
-        checked ? 'bg-crystal-accent ring-white/20 shadow-[0_0_16px_-4px_rgb(var(--c-accent)/0.7)]' : 'bg-white/[0.08] ring-white/10'
+        checked ? 'bg-crystal-accent/90 ring-white/15' : 'bg-white/[0.08] ring-white/10'
       }`}
     >
       {/* Knob colours come from theme tokens, not white: on Void the accent

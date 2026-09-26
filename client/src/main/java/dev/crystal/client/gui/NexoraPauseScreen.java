@@ -117,7 +117,6 @@ public class NexoraPauseScreen extends Screen {
         context.pose().scale(scale, scale);
         context.pose().translate(-width / 2f, -height / 2f);
         GuiRender.shadow(context, px1, py1, px2, py2, 18, 18, 8, appear);
-        GuiRender.glow(context, width / 2, py1, (px2 - px1) / 2, accent, 0.06f * appear);
         GuiRender.bezel(context, px1 - 4, py1 - 4, px2 + 4, py2 + 4, 20, 4, appear);
 
         // Mark and name.
