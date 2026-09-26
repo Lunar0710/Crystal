@@ -6,6 +6,7 @@ import { PanoramaBackdrop } from '../ui/PanoramaBackdrop'
 import { SkinPreview3D } from '../ui/SkinPreview3D'
 import { useRunningGames } from '../ui/RunningGamesPanel'
 import { notify } from '../../store/notificationStore'
+import { useLaunchStore } from '../../store/launchStore'
 
 interface Instance {
   id: string
@@ -36,12 +37,12 @@ export function Dashboard() {
   const [servers, setServers] = useState<FavoriteServer[]>([])
   const [status, setStatus] = useState<Record<string, ServerStatus>>({})
   const pickerRef = useRef<HTMLDivElement | null>(null)
-  const [progress, setProgress] = useState<{ step: string; percent: number } | null>(null)
+  // Shared with every page (store/launchStore): leaving and coming back keeps the bar.
+  const progress = useLaunchStore(s => s.progress)
+  const setProgress = useLaunchStore(s => s.setProgress)
 
   useEffect(() => {
     const unsubs = [
-      api?.on('launch:progress', (data: { step: string; percent: number }) => setProgress(data)),
-      api?.on('launch:started', () => setProgress(null)),
       api?.on('launch:error', (msg: string) => {
         setProgress(null)
         // The start page has the crash help (which mod, what to do).
