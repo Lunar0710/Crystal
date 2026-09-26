@@ -5,10 +5,10 @@ import { logger } from '../logs/Logger'
 
 /**
  * The Nexora server the game connects to for other players' emotes and
- * cosmetics (server/ in the repo). Empty until one is running: then nothing
- * connects anywhere. Settings can point one launcher at another server.
+ * cosmetics, and the launcher for friends, chat and invites (server/worker,
+ * on Cloudflare Workers). Settings can point one launcher at another server.
  */
-export const DEFAULT_CRYSTAL_SERVER = ''
+export const DEFAULT_CRYSTAL_SERVER = 'wss://nexora-server.nexora-server-worker.workers.dev'
 
 /**
  * Only ws:// or wss:// with a plain host, port and path: the value ends up
