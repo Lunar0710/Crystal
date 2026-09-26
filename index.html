@@ -974,6 +974,22 @@
 <div class="toast" id="toast" role="status" aria-live="polite"><b id="toastTitle">Download startet</b><span id="toastText">Öffne die Datei, wenn sie fertig ist.</span></div>
 
 <script>
+// Always open at the top: no jump to a #section from an old link or a reload,
+// and no scroll position the browser remembered.
+if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+window.scrollTo(0, 0);
+// Section links scroll there without writing #section into the address,
+// so opening the page again starts at the top, not at the last section.
+document.addEventListener('click', e => {
+  const a = e.target.closest('a[href^="#"]');
+  if (!a) return;
+  const id = a.getAttribute('href').slice(1);
+  const el = id && id !== 'top' ? document.getElementById(id) : null;
+  e.preventDefault();
+  if (el) el.scrollIntoView({ behavior: 'smooth' });
+  else window.scrollTo({ top: 0, behavior: 'smooth' });
+});
 (() => {
   const $ = id => document.getElementById(id);
   const root = document.documentElement;
