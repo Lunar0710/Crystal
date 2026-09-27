@@ -1092,6 +1092,9 @@ public final class SmokeTest {
             tests.add("all off");
             // -Dcrystal.smoke.bench=onoff: only everything on against everything off, three times.
             if ("onoff".equals(System.getProperty(BENCH))) tests = java.util.List.of("all off", "all off", "all off");
+            // -Dcrystal.smoke.bench=f3: the debug screen (F3) with Nexora on and with every module off,
+            // each against the plain game: a player's frame rate fell to 2 with F3 open.
+            if ("f3".equals(System.getProperty(BENCH))) tests = java.util.List.of("F3 on", "F3 all off", "all off");
             for (String t : tests) {
                 BENCH_PHASES.add("all on");
                 BENCH_PHASES.add(t);
@@ -1129,15 +1132,26 @@ public final class SmokeTest {
     }
 
     private static void benchApply(String phase) {
+        setDebugScreen(phase.startsWith("F3"));
         for (var m : benchWasOn) {
             var c = m.getCategory();
             boolean off = switch (phase) {
                 case "HUD off" -> c == dev.crystal.client.module.ModuleCategory.HUD;
-                case "all off" -> true;
+                case "all off", "F3 all off" -> true;
                 default -> phase.equals("-" + m.getName());
             };
             if (m.isEnabled() == off) m.setEnabled(!off);
         }
+    }
+
+    /** Shows or hides the debug screen (F3); 1.21.9 moved it into the debug entry list. */
+    private static void setDebugScreen(boolean show) {
+        Minecraft mc = Minecraft.getInstance();
+        //? if >=1.21.9 {
+        mc.debugEntries.setOverlayVisible(show);
+        //?} else {
+        /*if (mc.getDebugOverlay().showDebugScreen() != show) mc.getDebugOverlay().toggleOverlay();
+        *///?}
     }
 
     private static double benchRefFps = 0;
