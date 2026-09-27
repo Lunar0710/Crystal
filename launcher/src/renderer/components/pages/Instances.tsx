@@ -792,15 +792,6 @@ function InstanceDetail({ instance, onBack }: { instance: Instance; onBack: () =
                         <p className="text-[11px] text-crystal-muted truncate">
                           {info?.authors.length ? info.authors.slice(0, 3).join(', ') : fmtSize(file.sizeBytes)}
                         </p>
-                        {known && (
-                          <button
-                            onClick={() => loadVersions(file.fileName, known.projectId, known.versionId)}
-                            aria-expanded={open}
-                            className="mt-1 inline-flex items-center gap-1 text-[11px] text-crystal-muted hover:text-crystal-text"
-                          >
-                            Version <ChevronDown size={11} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
-                          </button>
-                        )}
                       </div>
                       <div className="flex flex-col items-end justify-between shrink-0">
                         <button
@@ -811,7 +802,19 @@ function InstanceDetail({ instance, onBack }: { instance: Instance; onBack: () =
                         >
                           <Trash2 size={13} />
                         </button>
-                        <Switch checked={file.enabled} onChange={() => toggleFile(file.fileName)} label={`${title} aktiv`} />
+                        {/* The version switch right beside the on/off switch. */}
+                        <div className="flex items-center gap-2">
+                          {known && (
+                            <button
+                              onClick={() => loadVersions(file.fileName, known.projectId, known.versionId)}
+                              aria-expanded={open}
+                              className="inline-flex items-center gap-1 h-6 px-2 rounded-md bg-black/30 text-[11px] text-crystal-muted hover:text-crystal-text"
+                            >
+                              Version <ChevronDown size={11} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+                            </button>
+                          )}
+                          <Switch checked={file.enabled} onChange={() => toggleFile(file.fileName)} label={`${title} aktiv`} />
+                        </div>
                       </div>
                     </div>
                     {open && known && (
