@@ -4,7 +4,7 @@ import fs from 'fs'
 import os from 'os'
 import Store from 'electron-store'
 import { MinecraftManager } from './minecraft/MinecraftManager'
-import { InstanceManager } from './minecraft/InstanceManager'
+import { InstanceManager, cleanJvmArgs } from './minecraft/InstanceManager'
 import { ContentManager, ContentType } from './minecraft/ContentManager'
 import { UpdateManager } from './updater/UpdateManager'
 import { AuthManager } from './auth/AuthManager'
@@ -556,6 +556,12 @@ export function registerIpcHandlers(store: Store) {
     // Marks that let a later launcher recognise this game (RunningGames.adoptRunning).
     if (launchId && profile) {
       opts.extraJvmArgs = [...(opts.extraJvmArgs ?? []), ...gameMarkers(launchId, profile.uuid, profile.username, Number(opts.maxRam) || 0)]
+    }
+    // The player's own Java arguments for this instance, set on its page (checked again here).
+    const ownJvmArgs = launchId ? cleanJvmArgs(instances.get(launchId)?.jvmArgs) : []
+    if (ownJvmArgs.length) {
+      opts.extraJvmArgs = [...(opts.extraJvmArgs ?? []), ...ownJvmArgs]
+      logger.info('launcher', 'Eigene Java-Argumente der Instanz', ownJvmArgs)
     }
 
     // A launch never waits on this — an update becomes a dismissible banner

@@ -7,6 +7,7 @@ import { notify } from '../../store/notificationStore'
 import { ClientInstallPanel } from '../ui/ClientInstallPanel'
 import { ModProfileBar } from '../ui/ModProfileBar'
 import { WorldBackupsPanel } from '../ui/WorldBackupsPanel'
+import { JvmArgsPanel } from '../ui/JvmArgsPanel'
 import { ModUpdatesPanel } from '../ui/ModUpdatesPanel'
 import { Page, PageHeader, EmptyState, Switch } from '../ui/Page'
 
@@ -21,6 +22,7 @@ interface Instance {
   useCrystalClient: boolean
   imported?: boolean
   createdAt: number
+  jvmArgs?: string[]
 }
 
 interface ContentFile {
@@ -694,6 +696,8 @@ function InstanceDetail({ instance, onBack }: { instance: Instance; onBack: () =
       <ModUpdatesPanel instanceId={instance.id} onUpdated={refreshFiles} />
 
       <WorldBackupsPanel instanceId={instance.id} />
+
+      <JvmArgsPanel instanceId={instance.id} jvmArgs={instance.jvmArgs} />
 
       <div className="flex items-end justify-between gap-4 border-b border-crystal-border mb-4 mt-2">
         <div className="flex gap-5" role="tablist">

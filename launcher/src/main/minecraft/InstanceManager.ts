@@ -21,6 +21,23 @@ export interface Instance {
   /** Set when the folder lives outside ~/.crystal and must not be deleted. */
   imported?: boolean
   icon?: string
+  /** The player's own Java arguments for this instance (a mod that needs a -javaagent, say). */
+  jvmArgs?: string[]
+}
+
+/**
+ * Only what can safely go on the Java command line: options starting with "-",
+ * at most 30 of them. Classpath and heap stay Nexora's (RAM is set in the
+ * settings; a second -cp would drop the game's own classpath).
+ */
+export function cleanJvmArgs(input: unknown): string[] {
+  if (!Array.isArray(input)) return []
+  return input
+    .filter((a): a is string => typeof a === 'string')
+    .map(a => a.trim())
+    .filter(a => a.startsWith('-') && a.length <= 512 && !/[\r\n\0]/.test(a))
+    .filter(a => !/^(?:-cp|-classpath|--class-path|-Xmx|-Xms|-XX:MaxHeapSize|-XX:InitialHeapSize)(?:$|[=\d:])/i.test(a))
+    .slice(0, 30)
 }
 
 // A fresh instance starts empty; these are created so the folders exist for
@@ -142,6 +159,7 @@ export class InstanceManager {
     const index = instances.findIndex(i => i.id === id)
     if (index === -1) return null
 
+    if ('jvmArgs' in patch) patch = { ...patch, jvmArgs: cleanJvmArgs(patch.jvmArgs) }
     instances[index] = { ...instances[index], ...patch, id: instances[index].id }
     this.store.set('instances', instances)
     return instances[index]

@@ -259,7 +259,19 @@ export class CrashDoctor {
     this.javaCrash(instanceId, push)
     // Neither report explained it: find out from what the game did last.
     if (![...seen].some(id => id.startsWith('java-crash-') || id.startsWith('native-crash-'))) this.silentExit(instanceId, push)
-    this.hiddenNativeCode(instanceId, push)
+
+    // The player's own Java arguments (instance page) that Java itself rejected.
+    const ownArgs = this.instances.get(instanceId)?.jvmArgs ?? []
+    if (ownArgs.length && /Unrecognized (?:VM )?option|Error: Could not create the Java Virtual Machine|Error occurred during initialization of (?:VM|boot layer)|Error opening zip file or JAR manifest missing|agent library failed to init|Conflicting collector combinations|multiple garbage collectors/i.test(log)) {
+      push({
+        id: 'own-jvm-args',
+        group: 'other',
+        title: 'Java lehnt deine eigenen Java-Argumente ab',
+        detail: `Diese Instanz startet mit: ${ownArgs.join(' ').slice(0, 200)}. Java konnte damit nicht starten. `
+          + 'Prüfe sie auf der Seite der Instanz unter "Java-Argumente" (Tippfehler, falscher Pfad zu einem -javaagent) oder leere das Feld.',
+        fix: null,
+      })
+    }
 
     if (/Could not reserve enough space for.*object heap/i.test(log)) {
       const lowered = Math.max(1024, Math.floor(currentRam / 2))
@@ -335,6 +347,10 @@ export class CrashDoctor {
         fix: null,
       })
     }
+
+    // Only a last guess: a mod with its own native program is named when
+    // nothing above explains the crash, never next to a clear cause.
+    if (problems.length === 0) this.hiddenNativeCode(instanceId, push)
 
     return problems
   }
