@@ -121,7 +121,8 @@ export function Dashboard() {
     })
   }
 
-  const launchLabel = progress ? `${progress.step.replace(/\.+$/, '')} ${Math.round(progress.percent)} %`
+  // At 100 % the start itself is done and the game is loading: no number, it would read as stuck.
+  const launchLabel = progress ? (progress.percent >= 100 ? 'Minecraft lädt …' : `${progress.step.replace(/\.+$/, '')} ${Math.round(progress.percent)} %`)
     : !instance ? 'Instanz anlegen' : isLoading ? 'Minecraft lädt …' : isRunning ? 'Läuft' : `${instance.useCrystalClient ? 'Nexora' : 'Minecraft'} starten`
 
   return (

@@ -256,6 +256,27 @@ export class CrashDoctor {
       })
     }
 
+    // Windows swaps to the page file on the system drive; with that drive nearly
+    // full the page file can't grow, and Java is refused memory or ended without
+    // a word. Checked on every crash, since it hides behind many kinds of them.
+    const systemDrive = process.platform === 'win32' ? (process.env.SystemDrive || 'C:') + '\\' : '/'
+    try {
+      const stat = (fs as any).statfsSync?.(systemDrive) as { bavail: number; bsize: number } | undefined
+      const freeGb = stat ? (stat.bavail * stat.bsize) / 1024 ** 3 : Infinity
+      if (freeGb < 5) {
+        push({
+          id: 'system-drive-full',
+          group: 'other',
+          title: `Laufwerk ${systemDrive.replace('\\', '')} ist fast voll (${freeGb.toFixed(1)} GB frei)`,
+          detail: 'Windows lagert Arbeitsspeicher auf dieses Laufwerk aus. Ist es fast voll, bekommt Minecraft keinen Speicher mehr '
+            + 'und wird ohne Fehlermeldung beendet oder lädt ewig. Mach mindestens 10 GB frei (große Videos, alte Downloads, '
+            + 'Spiele auf ein anderes Laufwerk) oder leg die Auslagerungsdatei auf ein anderes Laufwerk ("Erweiterte Systemeinstellungen", '
+            + 'Leistung, Virtueller Arbeitsspeicher).',
+          fix: null,
+        })
+      }
+    } catch { /* no free-space reading on this system */ }
+
     // Minecraft's own heap was full. Only then can more RAM help, and never so
     // much that Windows itself runs short (at least 4 GB stay free for it).
     if (/java\.lang\.OutOfMemoryError/i.test(log) && !seen.has('system-out-of-memory')) {

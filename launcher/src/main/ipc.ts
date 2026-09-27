@@ -253,7 +253,8 @@ export function registerIpcHandlers(store: Store) {
       return {
         ok: true,
         items: releases
-          .filter(r => !r.draft)
+          // Pre-releases only for the team, who also get them as updates (UpdateManager).
+          .filter(r => !r.draft && (!r.prerelease || store.get('updater.prerelease') === true))
           .map(r => ({
             id: String(r.id),
             title: r.name || r.tag_name,
