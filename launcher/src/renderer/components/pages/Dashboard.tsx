@@ -7,6 +7,7 @@ import { SkinPreview3D } from '../ui/SkinPreview3D'
 import { useRunningGames } from '../ui/RunningGamesPanel'
 import { notify } from '../../store/notificationStore'
 import { useLaunchStore } from '../../store/launchStore'
+import { CrashDialog, type DetectedProblem } from '../ui/CrashDialog'
 
 interface Instance {
   id: string
@@ -40,14 +41,16 @@ export function Dashboard() {
   // Shared with every page (store/launchStore): leaving and coming back keeps the bar.
   const progress = useLaunchStore(s => s.progress)
   const setProgress = useLaunchStore(s => s.setProgress)
+  const [crash, setCrash] = useState<{ instanceId: string; error: string; problems: DetectedProblem[] } | null>(null)
 
   useEffect(() => {
     const unsubs = [
-      api?.on('launch:error', (msg: string) => {
+      api?.on('launch:error', async (msg: string, fromInstance?: string) => {
         setProgress(null)
-        // The start page has the crash help (which mod, what to do).
-        navigate(`/launch?instance=${encodeURIComponent(instanceIdRef.current)}`)
-        notify({ type: 'error', title: 'Start fehlgeschlagen', message: String(msg).slice(0, 200) })
+        // The crash help right here (which mod, what to do), not only a toast.
+        const target = fromInstance || instanceIdRef.current
+        const problems: DetectedProblem[] = target ? (await api?.analyzeFailure(target, msg)) || [] : []
+        setCrash({ instanceId: target, error: String(msg), problems })
       }),
     ]
     return () => unsubs.forEach(u => u?.())
@@ -123,6 +126,16 @@ export function Dashboard() {
 
   return (
     <div className="h-full px-5 pb-4 pt-1 grid grid-cols-[minmax(0,1fr)_290px] gap-4 min-h-0">
+      {crash && (
+        <CrashDialog
+          instanceId={crash.instanceId}
+          problems={crash.problems}
+          errorText={crash.error}
+          account={username}
+          onClose={() => setCrash(null)}
+          onRelaunch={() => { setCrash(null); launch() }}
+        />
+      )}
       <div className="flex flex-col gap-3 min-h-0">
         {/* The version, on its own panorama. */}
         <section className="relative h-[240px] shrink-0 overflow-hidden rounded-lg bg-crystal-panel">
