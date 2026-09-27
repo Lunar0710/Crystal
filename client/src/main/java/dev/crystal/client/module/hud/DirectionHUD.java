@@ -30,7 +30,8 @@ public class DirectionHUD extends HudModule {
         float normalized = yawDeg < 0 ? yawDeg + 360f : yawDeg;
         int index = Math.floorMod(Math.round(normalized / 45f), 8);
         String direction = (german ? KOMPASS : COMPASS)[index];
-        return showDegrees ? "Facing: " + direction + " (" + Math.round(normalized) + "°)" : "Facing: " + direction;
+        String label = german ? "Richtung: " : "Facing: ";
+        return showDegrees ? label + direction + " (" + Math.round(normalized) + "°)" : label + direction;
     }
 
     @Override
