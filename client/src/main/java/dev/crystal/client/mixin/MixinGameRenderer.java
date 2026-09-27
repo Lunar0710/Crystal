@@ -24,7 +24,19 @@ public class MixinGameRenderer {
     private void onTiltViewWhenHurt(CallbackInfo ci) {
         if (CrystalClient.getInstance() == null) return;
 
-        if (CrystalClient.getInstance().getModuleManager().getEnabled(NoHurtCam.class) != null) ci.cancel();
+        NoHurtCam noHurtCam = CrystalClient.getInstance().getModuleManager().getEnabled(NoHurtCam.class);
+        if (noHurtCam != null && noHurtCam.strength() <= 0f) ci.cancel();
+    }
+
+    /** NoHurtCam above 0 %: the tilt vanilla reads from its "damage tilt" option, scaled down. */
+    @org.spongepowered.asm.mixin.injection.Redirect(method = "bobHurt", require = 0,
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/OptionInstance;get()Ljava/lang/Object;"))
+    private Object crystal$scaleTilt(net.minecraft.client.OptionInstance<?> option) {
+        Object value = option.get();
+        if (CrystalClient.getInstance() == null) return value;
+        NoHurtCam noHurtCam = CrystalClient.getInstance().getModuleManager().getEnabled(NoHurtCam.class);
+        if (noHurtCam != null && value instanceof Double tilt) return tilt * noHurtCam.strength();
+        return value;
     }
 
     // From 26.1 on the camera computes the FOV; see MixinCamera.

@@ -78,6 +78,9 @@ public class ModuleManager {
         register(new dev.crystal.client.module.hud.TPSDisplay());
         register(new dev.crystal.client.module.hud.SessionStats());
         register(new dev.crystal.client.module.hud.OpponentArmor());
+        register(new dev.crystal.client.module.hud.HealthDisplay());
+        register(new dev.crystal.client.module.hud.ArrowCounter());
+        register(new dev.crystal.client.module.player.DeathCoords());
         register(new dev.crystal.client.module.hud.KillCam());
         register(new dev.crystal.client.module.hud.SpotifyHUD());
         register(new dev.crystal.client.module.hud.SpotifyLyrics());

@@ -18,6 +18,13 @@ public class MixinInactivityFpsLimiter {
     private void crystal$backgroundLimit(CallbackInfoReturnable<Integer> cir) {
         Minecraft mc = Minecraft.getInstance();
         if (mc == null || mc.isWindowActive() || CrystalClient.getInstance() == null) return;
+        // Minecraft loads resources a step per frame: capped while tabbed out (or
+        // minimised, where vanilla drops to 10), the start crawled for minutes. While
+        // the loading screen is up, at least 60; the caps only apply once it's done.
+        if (mc.getOverlay() != null) {
+            cir.setReturnValue(Math.max(cir.getReturnValueI(), 60));
+            return;
+        }
 
         Module module = CrystalClient.getInstance().getModuleManager().getModuleByName("BackgroundFps").orElse(null);
         if (!(module instanceof BackgroundFps background) || !module.isEnabled()) return;

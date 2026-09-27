@@ -10,6 +10,9 @@ public class DirectionHUD extends HudModule {
 
     // Minecraft yaw: 0°=South, 90°=West, 180°=North, 270°=East — increasing clockwise.
     private static final String[] COMPASS = { "S", "SW", "W", "NW", "N", "NE", "E", "SE" };
+    /** The same in German, matching the coordinates (O for Ost). */
+    private static final String[] KOMPASS = { "S", "SW", "W", "NW", "N", "NO", "O", "SO" };
+    private boolean german = true;
 
         private boolean showDegrees = true;
 
@@ -26,12 +29,14 @@ public class DirectionHUD extends HudModule {
         float yawDeg = Mth.wrapDegrees(player.getYRot());
         float normalized = yawDeg < 0 ? yawDeg + 360f : yawDeg;
         int index = Math.floorMod(Math.round(normalized / 45f), 8);
-        String direction = COMPASS[index];
+        String direction = (german ? KOMPASS : COMPASS)[index];
         return showDegrees ? "Facing: " + direction + " (" + Math.round(normalized) + "°)" : "Facing: " + direction;
     }
 
     @Override
     protected List<Setting<?>> getExtraSettings() {
-        return List.of(new BooleanSetting("Show Degrees", () -> showDegrees, v -> showDegrees = v, true));
+        return List.of(
+                new BooleanSetting("Show Degrees", () -> showDegrees, v -> showDegrees = v, true),
+                new BooleanSetting("Deutsche Himmelsrichtungen", () -> german, v -> german = v, true));
     }
 }

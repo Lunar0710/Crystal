@@ -164,7 +164,7 @@ public final class CombatTracker {
         // Taking damage breaks the combo and keeps the fight going.
         float health = mc.player.getHealth();
         boolean dead = mc.player.isDeadOrDying();
-        if (dead && !wasDead) sessionDeaths++;
+        if (dead && !wasDead) { sessionDeaths++; streak = 0; }
         if (!dead && wasDead) deathReplay = null; // respawned: the kill cam is over
         wasDead = dead;
 
@@ -202,7 +202,7 @@ public final class CombatTracker {
     }
 
     private static void endFight(boolean won) {
-        if (won) sessionKills++;
+        if (won) { sessionKills++; streak++; bestStreak = Math.max(bestStreak, streak); }
         if (won && opponentEntity != null) {
             var client = dev.crystal.client.CrystalClient.getInstance();
             var effect = client == null ? null : client.getModuleManager().getEnabled(dev.crystal.client.module.render.KillEffect.class);
@@ -307,5 +307,9 @@ public final class CombatTracker {
     public static long lastRoundAt() { return lastRoundAt; }
     public static int combo() { return inFight ? combo : 0; }
     public static int sessionKills() { return sessionKills; }
+    /** Rounds won in a row since the last death, and the most this session. */
+    private static int streak = 0, bestStreak = 0;
+    public static int streak() { return streak; }
+    public static int bestStreak() { return bestStreak; }
     public static int sessionDeaths() { return sessionDeaths; }
 }

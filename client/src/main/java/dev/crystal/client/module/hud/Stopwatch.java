@@ -1,13 +1,18 @@
 package dev.crystal.client.module.hud;
 
+import dev.crystal.client.module.BooleanSetting;
+import dev.crystal.client.module.Setting;
 
-/** Toggling this module on/off IS starting/stopping it — that's the "manually startable/stoppable" part. */
+import java.util.List;
+
+/** A stopwatch that starts when you switch the module on, with hours and, if you like, tenths. */
 public class Stopwatch extends HudModule {
 
-        private long startedAt = System.currentTimeMillis();
+    private long startedAt = System.currentTimeMillis();
+    private boolean tenths = false;
 
     public Stopwatch() {
-        super("Stopwatch", "A manually startable/stoppable on-screen stopwatch", 4, 136);
+        super("Stopwatch", "A stopwatch that starts when switched on, optionally with tenths", 4, 136);
     }
 
     @Override
@@ -17,7 +22,17 @@ public class Stopwatch extends HudModule {
 
     @Override
     public String getText() {
-        long elapsed = (System.currentTimeMillis() - startedAt) / 1000;
-        return String.format("Stopwatch: %02d:%02d", elapsed / 60, elapsed % 60);
+        long ms = System.currentTimeMillis() - startedAt;
+        long seconds = ms / 1000, minutes = seconds / 60, hours = minutes / 60;
+        String time = hours > 0
+                ? String.format("%d:%02d:%02d", hours, minutes % 60, seconds % 60)
+                : String.format("%02d:%02d", minutes, seconds % 60);
+        if (tenths) time += "." + (ms / 100) % 10;
+        return "Stoppuhr: " + time;
+    }
+
+    @Override
+    protected List<Setting<?>> getExtraSettings() {
+        return List.of(new BooleanSetting("Zehntelsekunden", () -> tenths, v -> tenths = v, false));
     }
 }

@@ -325,7 +325,58 @@ public final class CrystalNet {
         JsonObject hello = new JsonObject();
         hello.addProperty("t", "hello");
         hello.addProperty("name", user.getName());
+        JsonObject proof = proof(mc, serverId);
+        if (proof != null) hello.add("proof", proof);
         send(hello);
+    }
+
+    /**
+     * The same proof the launcher sends (see server/worker/src/proof.js): the
+     * Nexora server runs on Cloudflare, whose network Mojang's session server
+     * refuses, so it can't ask Mojang. Instead: the account's chat key, which
+     * Mojang signed, signs the challenge here, and the profile textures Mojang
+     * signed carry the name. Null when there is no key (offline accounts).
+     */
+    private static JsonObject proof(Minecraft mc, String serverId) {
+        try {
+            var pair = mc.getProfileKeyPairManager().prepareKeyPair().get(10, java.util.concurrent.TimeUnit.SECONDS).orElse(null);
+            if (pair == null) return null;
+            var data = pair.publicKey().data();
+            java.security.Signature signer = java.security.Signature.getInstance("SHA256withRSA");
+            signer.initSign(pair.privateKey());
+            signer.update(("nexora-login:" + serverId).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            String uuid = mc.getUser().getProfileId().toString().replace("-", "");
+
+            var client = java.net.http.HttpClient.newBuilder().connectTimeout(java.time.Duration.ofSeconds(8)).build();
+            var request = java.net.http.HttpRequest.newBuilder(java.net.URI.create(
+                    "https://sessionserver.mojang.com/session/minecraft/profile/" + uuid + "?unsigned=false"))
+                    .timeout(java.time.Duration.ofSeconds(8)).GET().build();
+            var response = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() != 200) return null;
+            JsonObject textures = null;
+            for (JsonElement property : com.google.gson.JsonParser.parseString(response.body()).getAsJsonObject().getAsJsonArray("properties")) {
+                JsonObject p = property.getAsJsonObject();
+                if ("textures".equals(str(p, "name")) && p.has("signature")) {
+                    textures = new JsonObject();
+                    textures.addProperty("value", str(p, "value"));
+                    textures.addProperty("signature", str(p, "signature"));
+                }
+            }
+            if (textures == null) return null;
+
+            var base64 = java.util.Base64.getEncoder();
+            JsonObject proof = new JsonObject();
+            proof.addProperty("uuid", uuid);
+            proof.addProperty("publicKey", base64.encodeToString(data.key().getEncoded()));
+            proof.addProperty("keySignature", base64.encodeToString(data.keySignature()));
+            proof.addProperty("expiresAt", data.expiresAt().toEpochMilli());
+            proof.addProperty("signature", base64.encodeToString(signer.sign()));
+            proof.add("textures", textures);
+            return proof;
+        } catch (Exception e) {
+            CrystalClient.LOGGER.info("[Nexora] Nexora-Server: kein Schlüssel-Nachweis ({})", e.toString());
+            return null;
+        }
     }
 
     private static void readPeer(JsonElement element) {

@@ -19,6 +19,22 @@ public class OpponentArmor extends HudModule {
         super("OpponentArmor", "Durability of your opponent's armour during a fight", 4, 240);
     }
 
+    /** Red or yellow by the opponent's weakest armour piece: that's where it breaks first. */
+    @Override
+    public Integer valueColor() {
+        LivingEntity opponent = CombatTracker.opponent();
+        if (opponent == null) return null;
+        int lowest = 101;
+        for (EquipmentSlot slot : SLOTS) {
+            ItemStack stack = opponent.getItemBySlot(slot);
+            if (stack.isEmpty() || stack.getMaxDamage() <= 0) continue;
+            lowest = Math.min(lowest, Math.round(100f * (stack.getMaxDamage() - stack.getDamageValue()) / stack.getMaxDamage()));
+        }
+        if (lowest <= 25) return 0xFFE5484D;
+        if (lowest <= 50) return 0xFFE8C547;
+        return null;
+    }
+
     @Override
     public String getText() {
         LivingEntity opponent = CombatTracker.opponent();
