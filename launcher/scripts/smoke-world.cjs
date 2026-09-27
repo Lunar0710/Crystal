@@ -117,6 +117,18 @@ function writeTestSettings(gameDir) {
       Cooldowns: { enabled: true },
       ReachDisplay: { enabled: true },
       PerformanceMode: { enabled: true },
+      // 1.7 wave 1: new and reworked modules, in a column of their own so the screenshot reads.
+      HealthDisplay: { enabled: true, settings: { X: 150, Y: 40 } },
+      ArrowCounter: { enabled: true, settings: { X: 150, Y: 52, 'Nur mit Bogen in der Hand': false } },
+      SessionStats: { enabled: true, settings: { X: 150, Y: 64 } },
+      DayCounter: { enabled: true, settings: { X: 150, Y: 76, 'Zeit bis Nacht/Tag': true } },
+      Saturation: { enabled: true, settings: { X: 150, Y: 88 } },
+      Stopwatch: { enabled: true, settings: { X: 150, Y: 100, Zehntelsekunden: true } },
+      DirectionHUD: { enabled: true, settings: { X: 150, Y: 112 } },
+      BiomeDisplay: { enabled: true, settings: { X: 150, Y: 124, 'Dimension zeigen': true } },
+      OpponentArmor: { enabled: true, settings: { X: 150, Y: 136 } },
+      DeathCoords: { enabled: true },
+      NoHurtCam: { enabled: true, settings: { 'Stärke (%)': 30 } },
       ItemPhysics: { enabled: true },
       ParticleChanger: { enabled: true },
       BetterSounds: { enabled: true },
@@ -135,6 +147,14 @@ function writeTestSettings(gameDir) {
   const profileDir = path.join(dataRoot, 'config')
   fs.mkdirSync(profileDir, { recursive: true })
   fs.writeFileSync(path.join(profileDir, 'profile.json'), JSON.stringify({ perks: true, rank: 'owner' }))
+  // CRYSTAL_SMOKE_THEME: the launcher theme the game should take its colours from (theme.json, as ThemeSync writes it).
+  const THEMES = {
+    'nexora-red': { accent: '0xFFC3493A', accent2: '0xFFD6685A', bg: '0xFF000000', panel: '0xFF111113', card: '0xFF17171A', border: '0xFF26272A', text: '0xFFF0F0F0', muted: '0xFF8A8A8C' },
+    void: { accent: '0xFFFFFFFF', accent2: '0xFFB4B4D2', bg: '0xFF030306', panel: '0xFF08080E', card: '0xFF0D0D16', border: '0xFF181826', text: '0xFFF0F0FA', muted: '0xFF78788C' },
+    custom: { accent: '0xFF3A7BD5', accent2: '0xFF34D399', bg: '0xFF05080F', panel: '0xFF0B1220', card: '0xFF111A2C', border: '0xFF1E2A44', text: '0xFFE8EEFA', muted: '0xFF8090A8' },
+  }
+  const theme = process.env.CRYSTAL_SMOKE_THEME
+  if (theme && THEMES[theme]) fs.writeFileSync(path.join(profileDir, 'theme.json'), JSON.stringify({ id: theme, colors: THEMES[theme] }))
 
   const cosmeticsDir = path.join(dataRoot, 'cosmetics')
   fs.mkdirSync(cosmeticsDir, { recursive: true })
