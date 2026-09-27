@@ -24,6 +24,8 @@ export interface ProblemFix {
   modName?: string
   /** Modrinth project (slug or id) to install. */
   project?: string
+  /** update-mod: exactly this version number (Fabric named it), instead of the newest. */
+  version?: string
   ram?: number
 }
 
@@ -116,7 +118,7 @@ export class CrashDoctor {
 
     // "Mod 'X' (x) 1.0 is incompatible with any version of mod 'Y' (y) ..."
     // Neither side is "the wrong one", so the player picks which to keep.
-    const incompatible = /Mod '([^']+)' \(([^)]+)\)[^\n]*?is incompatible with[^\n]*?mod '([^']+)' \(([^)]+)\)/gi
+    const incompatible = /Mod '(.+?)' \(([^)]+)\)[^\n]*?is incompatible with[^\n]*?mod '(.+?)' \(([^)]+)\)/gi
     for (const m of log.matchAll(incompatible)) {
       const [, nameA, idA, nameB, idB] = m
       const a = mods.get(idA.toLowerCase())
@@ -136,8 +138,37 @@ export class CrashDoctor {
       })
     }
 
+    // Fabric's own advice under "A potential solution has been determined":
+    // "Replace mod 'Sodium' (sodium) 0.8.15 with version 0.8.14." names the exact
+    // version that fits; "Remove mod 'X' (x)." one that has to go.
+    for (const m of log.matchAll(/Replace mod '(.+?)' \(([^)]+)\) \S+ with version ([^\s,]+?)\.?(?:\s|$)/g)) {
+      const [, name, id, version] = m
+      const installed = mods.get(id.toLowerCase())
+      if (!installed) continue
+      push({
+        id: `replace-${id.toLowerCase()}`,
+        group: 'replace',
+        title: `${name} braucht Version ${version}`,
+        detail: `Eine andere Mod verlangt genau diese Version. Nexora lädt ${name} ${version} von Modrinth und ersetzt die jetzige Datei.`,
+        fix: { kind: 'update-mod', label: `Auf ${version}`, modFile: installed.file, modName: name, version },
+        currentVersion: installed.version,
+      })
+    }
+    for (const m of log.matchAll(/Remove mod '(.+?)' \(([^)]+)\)/g)) {
+      const [, name, id] = m
+      const installed = mods.get(id.toLowerCase())
+      if (!installed) continue
+      push({
+        id: `remove-${id.toLowerCase()}`,
+        group: 'other',
+        title: `${name} muss raus`,
+        detail: 'Fabric kann das Spiel mit dieser Mod nicht starten. Deaktiviere sie; im Mods-Tab kannst du sie wieder einschalten.',
+        fix: { kind: 'disable-mod', label: 'Mod deaktivieren', modFile: installed.file, modName: name },
+      })
+    }
+
     // "Mod 'X' (x) 1.0 requires version 1.21.5 of 'Minecraft' (minecraft), but only the wrong version is present: 1.21.11!"
-    const wrongMinecraft = /Mod '([^']+)' \(([^)]+)\)[^\n]*?requires [^\n]*?of '?Minecraft'? \(minecraft\), but only the wrong version is present/gi
+    const wrongMinecraft = /Mod '(.+?)' \(([^)]+)\)[^\n]*?requires [^\n]*?of '?Minecraft'? \(minecraft\), but only the wrong version is present/gi
     for (const m of log.matchAll(wrongMinecraft)) {
       const [, name, id] = m
       const installed = mods.get(id.toLowerCase())
@@ -153,7 +184,7 @@ export class CrashDoctor {
     }
 
     // "Mod 'X' (x) requires version 0.6.x of mod 'Y' (y), but only the wrong version is present: 0.5.8!"
-    const wrongDependency = /Mod '([^']+)' \(([^)]+)\)[^\n]*?requires [^\n]*?of mod '([^']+)' \(([^)]+)\), but only the wrong version is present/gi
+    const wrongDependency = /Mod '(.+?)' \(([^)]+)\)[^\n]*?requires [^\n]*?of mod '(.+?)' \(([^)]+)\), but only the wrong version is present/gi
     for (const m of log.matchAll(wrongDependency)) {
       const [, needer, , name, id] = m
       const installed = mods.get(id.toLowerCase())
@@ -194,7 +225,7 @@ export class CrashDoctor {
     }
 
     // "requires ... of mod 'Fabric API' (fabric-api), which is missing!"
-    const missing = /requires[^\n]*?of mod '([^']+)' \(([^)]+)\)[^\n]*?which is missing/gi
+    const missing = /requires[^\n]*?of mod '(.+?)' \(([^)]+)\)[^\n]*?which is missing/gi
     for (const m of log.matchAll(missing)) {
       const [, name, id] = m
       const lower = id.toLowerCase()
@@ -213,7 +244,7 @@ export class CrashDoctor {
     }
 
     // "Mod 'X' (x) requires version (21,) of 'Java ...' (java), but only the wrong version is present: 8!"
-    const javaMatch = log.match(/Mod '([^']+)' \(([^)]+)\)[^\n]*?requires version (\d+)[^\n]*?of 'Java[^\n]*?present: (\d+)/i)
+    const javaMatch = log.match(/Mod '(.+?)' \(([^)]+)\)[^\n]*?requires version (\d+)[^\n]*?of 'Java[^\n]*?present: (\d+)/i)
     if (javaMatch) {
       push({
         id: 'java-version',

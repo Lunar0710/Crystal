@@ -93,10 +93,13 @@ function createMainWindow() {
   mainWindow.webContents.on('did-finish-load', () => mainWindow?.webContents.setZoomFactor(UI_ZOOM))
 
   mainWindow.once('ready-to-show', () => {
-    splashWindow?.close()
+    // The splash can already be gone (closed by hand, or on a very slow start);
+    // closing it again threw, and the main window was then never shown.
+    if (splashWindow && !splashWindow.isDestroyed()) splashWindow.close()
     splashWindow = null
-    new BrandingManager(store).apply(mainWindow)
-    mainWindow?.show()
+    if (!mainWindow || mainWindow.isDestroyed()) return
+    try { new BrandingManager(store).apply(mainWindow) } catch (err) { logger.warn('launcher', 'Branding nicht angewendet', String(err)) }
+    mainWindow.show()
     // Made it to a real, rendering window — this build is confirmed good.
     new UpdateGuard(store).confirmStartupSuccess()
   })

@@ -321,11 +321,16 @@ export function registerIpcHandlers(store: Store) {
 
   // The newest Modrinth version of an installed mod that fits this instance, or why there is none.
   const MODRINTH_PROJECT = /^[A-Za-z0-9_-]{1,64}$/
-  async function replacementFor(instanceId: string, modFile: string) {
+  async function replacementFor(instanceId: string, modFile: string, wanted?: string) {
     const known = await modrinth.identifyFile(instanceId, 'mod', modFile)
     if (!known) return { error: 'Nicht auf Modrinth gefunden' }
     const gameVersion = instances.get(instanceId)?.version ?? '1.21.11'
     const versions = await modrinth.getVersions(known.projectId, gameVersion, 'fabric', 'mod')
+    // The exact version Fabric asked for, when it named one.
+    if (typeof wanted === 'string' && wanted) {
+      const exact = versions.find((v: any) => v.version_number === wanted)
+      return exact ? { versionId: exact.id, label: exact.version_number } : { error: `Version ${wanted} nicht auf Modrinth gefunden` }
+    }
     const newest = versions[0]
     if (!newest) return { error: `Keine Version für ${gameVersion}` }
     if (newest.id === known.versionId) return { error: 'Schon die neueste passende Version' }
@@ -334,7 +339,7 @@ export function registerIpcHandlers(store: Store) {
 
   ipcMain.handle('autofix:preview', async (_e, instanceId: string, fix: any) => {
     if (fix?.kind !== 'update-mod' || typeof fix.modFile !== 'string') return null
-    return replacementFor(instanceId, fix.modFile)
+    return replacementFor(instanceId, fix.modFile, fix.version)
   })
 
   ipcMain.handle('autofix:apply', async (_e, instanceId: string, fix: any) => {
@@ -358,7 +363,7 @@ export function registerIpcHandlers(store: Store) {
       }
       case 'update-mod': {
         if (typeof fix.modFile !== 'string') return { ok: false, message: 'Keine Datei angegeben.' }
-        const target = await replacementFor(instanceId, fix.modFile)
+        const target = await replacementFor(instanceId, fix.modFile, fix.version)
         if (!target.versionId) return { ok: false, message: target.error }
         const result = await modrinth.switchVersion(instanceId, 'mod', fix.modFile, target.versionId)
         return result.success
