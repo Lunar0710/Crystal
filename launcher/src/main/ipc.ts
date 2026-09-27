@@ -11,6 +11,9 @@ import { AuthManager } from './auth/AuthManager'
 import { RankSyncService } from './auth/RankSyncService'
 import { DiscordPresence } from './discord/DiscordPresence'
 import { syncThemeToClient, syncProfileToClient } from './theme/ThemeSync'
+
+/** Ranks that get pre-releases: the team, not Nexora+ or members. */
+const PRERELEASE_RANKS = ['owner', 'co_owner', 'admin', 'staff', 'developer', 'media']
 import { ExternalClientManager } from './minecraft/ExternalClientManager'
 import { BrandingManager } from './branding/BrandingManager'
 import { ModrinthService } from './minecraft/ModrinthService'
@@ -59,6 +62,9 @@ export function registerIpcHandlers(store: Store) {
   rankSync.startAutoRefresh()
   const syncProfile = () => {
     try { syncProfileToClient(auth.getRank(), auth.isTester()) } catch (err) { logger.warn('launcher', 'Rang konnte nicht an den Client übergeben werden', String(err)) }
+    // Team ranks get pre-releases too (UpdateManager); kept in the store because the
+    // update check at start runs before the ranks are loaded.
+    store.set('updater.prerelease', PRERELEASE_RANKS.includes(auth.getRank()))
   }
   rankSync.ready().then(syncProfile)
   setInterval(syncProfile, 3 * 60 * 1000).unref?.()

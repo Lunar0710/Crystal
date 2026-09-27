@@ -43,6 +43,8 @@ export class UpdateManager {
 
   async check(): Promise<UpdateInfo> {
     try {
+      // Team ranks (see ipc.ts) also see pre-releases; everyone else only stable releases.
+      autoUpdater.allowPrerelease = this.store.get('updater.prerelease') === true
       const result = await autoUpdater.checkForUpdates()
       const remoteVersion = result?.updateInfo?.version
       const current = app.getVersion()

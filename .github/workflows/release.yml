@@ -112,4 +112,9 @@ jobs:
               sleep 15
             done
           done
-          gh release edit "$GITHUB_REF_NAME" --draft=false --latest
+          # A pre-release for the team first when release-notes/<version>.prerelease exists.
+          if [ -f ".github/release-notes/${VERSION}.prerelease" ]; then
+            gh release edit "$GITHUB_REF_NAME" --draft=false --prerelease
+          else
+            gh release edit "$GITHUB_REF_NAME" --draft=false --latest
+          fi
