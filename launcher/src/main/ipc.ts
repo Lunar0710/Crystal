@@ -321,6 +321,17 @@ export function registerIpcHandlers(store: Store) {
 
   // The newest Modrinth version of an installed mod that fits this instance, or why there is none.
   const MODRINTH_PROJECT = /^[A-Za-z0-9_-]{1,64}$/
+  // Fabric names the version from fabric.mod.json ("0.8.14+mc1.21.11"), Modrinth
+  // lists the same release under its own name ("mc1.21.11-0.8.14-fabric"): a
+  // match when the core number (build metadata dropped) stands on its own in both.
+  function sameVersion(modrinthName: unknown, fabricName: string): boolean {
+    if (typeof modrinthName !== 'string') return false
+    const spaced = (s: string) => s.toLowerCase().replace(/[+_\-]/g, ' ')
+    const core = spaced(fabricName.split('+')[0]).trim()
+    if (!/\d/.test(core)) return false
+    const escaped = core.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    return new RegExp(`(^|[^\\w.])${escaped}($|[^\\w.])`).test(spaced(modrinthName))
+  }
   async function replacementFor(instanceId: string, modFile: string, wanted?: string) {
     const known = await modrinth.identifyFile(instanceId, 'mod', modFile)
     if (!known) return { error: 'Nicht auf Modrinth gefunden' }
@@ -328,8 +339,10 @@ export function registerIpcHandlers(store: Store) {
     const versions = await modrinth.getVersions(known.projectId, gameVersion, 'fabric', 'mod')
     // The exact version Fabric asked for, when it named one.
     if (typeof wanted === 'string' && wanted) {
-      const exact = versions.find((v: any) => v.version_number === wanted)
-      return exact ? { versionId: exact.id, label: exact.version_number } : { error: `Version ${wanted} nicht auf Modrinth gefunden` }
+      const exact = versions.find((v: any) => v.version_number === wanted) ?? versions.find((v: any) => sameVersion(v.version_number, wanted))
+      if (!exact) return { error: `Version ${wanted} nicht auf Modrinth gefunden` }
+      if (exact.id === known.versionId) return { error: `Version ${wanted} ist schon installiert` }
+      return { versionId: exact.id, label: exact.version_number }
     }
     const newest = versions[0]
     if (!newest) return { error: `Keine Version für ${gameVersion}` }
