@@ -16,6 +16,8 @@ export interface Instance {
   createdAt: number
   /** Launch with Nexora's own mod (HUD + modules) or as a plain modded game. */
   useCrystalClient: boolean
+  /** Nexora Lite: the FPS-first module set, no cosmetics or server connection (only with useCrystalClient). */
+  lite?: boolean
   /** The account this instance always starts with; unset means the active one. */
   accountUuid?: string
   /** Set when the folder lives outside ~/.crystal and must not be deleted. */

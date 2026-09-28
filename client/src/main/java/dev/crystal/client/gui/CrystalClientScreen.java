@@ -738,7 +738,7 @@ public class CrystalClientScreen extends Screen {
     private List<Module> visibleModules() {
         String query = search.toString().trim().toLowerCase(Locale.ROOT);
         List<Module> result = new ArrayList<>();
-        for (Module m : CrystalClient.getInstance().getModuleManager().getModules()) {
+        for (Module m : CrystalClient.getInstance().getModuleManager().visibleModules()) {
             if (m.isOwnerOnly() && m.isLocked()) continue;
             if (!query.isEmpty()) {
                 if (m.getName().toLowerCase(Locale.ROOT).contains(query)

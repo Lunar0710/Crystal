@@ -29,6 +29,8 @@ public abstract class Module {
     public void onDisable() {}
 
     public void setEnabled(boolean enabled) {
+        // Nexora Lite: modules outside its set stay off, whatever the config says.
+        if (enabled && !dev.crystal.client.Lite.allows(getName())) return;
         if (this.enabled == enabled) return;
         this.enabled = enabled;
         if (enabled) onEnable(); else onDisable();

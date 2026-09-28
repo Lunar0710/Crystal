@@ -70,7 +70,7 @@ public class HudEditorScreen extends Screen {
 
     private List<HudModule> hudModules() {
         List<HudModule> list = new ArrayList<>();
-        for (Module m : CrystalClient.getInstance().getModuleManager().getModules()) {
+        for (Module m : CrystalClient.getInstance().getModuleManager().visibleModules()) {
             if (m instanceof HudModule hud && m.isEnabled()) list.add(hud);
         }
         return list;

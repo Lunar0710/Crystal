@@ -27,7 +27,7 @@ public class CrystalHUD {
 
     public void render(GuiGraphics context, float tickDelta) {
         if (HudProfiler.ON) { renderProfiled(context); return; }
-        for (dev.crystal.client.module.Module module : moduleManager.getModules()) {
+        for (dev.crystal.client.module.Module module : moduleManager.visibleModules()) {
             if (module.isEnabled()) drawModule(context, module);
         }
         dev.crystal.client.module.render.HitMarker marker = moduleManager.getEnabled(dev.crystal.client.module.render.HitMarker.class);
@@ -36,7 +36,7 @@ public class CrystalHUD {
 
     /** Same as render, timing each element (see HudProfiler). */
     private void renderProfiled(GuiGraphics context) {
-        for (dev.crystal.client.module.Module module : moduleManager.getModules()) {
+        for (dev.crystal.client.module.Module module : moduleManager.visibleModules()) {
             if (!module.isEnabled()) continue;
             long t = System.nanoTime();
             drawModule(context, module);

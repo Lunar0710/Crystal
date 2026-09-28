@@ -73,11 +73,13 @@ public class CrystalClient implements ClientModInitializer {
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             eventBus.post(new dev.crystal.client.event.events.TickEvent(client));
-            dev.crystal.client.net.CrystalNet.tick(client);
+            if (!Lite.ON) dev.crystal.client.net.CrystalNet.tick(client);
         });
 
         // Other Nexora players' emotes and cosmetics; off without a server address.
-        dev.crystal.client.net.CrystalNet.start();
+        // Nexora Lite has no cosmetics, friends or chat, so no connection either.
+        if (Lite.ON) LOGGER.info("[{}] Nexora Lite: only the FPS-first module set, no cosmetics or server connection", MOD_ID);
+        else dev.crystal.client.net.CrystalNet.start();
 
         // Drawn after every vanilla HUD element, on top of them.
         //? if >=1.21.6 {
@@ -92,10 +94,10 @@ public class CrystalClient implements ClientModInitializer {
         dev.crystal.client.render.WorldRenderHandler.register();
 
         // Hats, masks, wings etc. from the launcher's Cosmetics page, on the player model.
-        registerCosmeticsRenderer();
+        if (!Lite.ON) registerCosmeticsRenderer();
 
         // Colour grading and motion blur post effects.
-        dev.crystal.client.util.PostEffects.register();
+        if (!Lite.ON) dev.crystal.client.util.PostEffects.register();
 
         // Frame rate per session, for the launcher's performance history.
         dev.crystal.client.util.PerfRecorder.register();

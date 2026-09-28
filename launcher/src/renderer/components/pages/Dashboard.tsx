@@ -15,6 +15,7 @@ interface Instance {
   version: string
   loader: string
   useCrystalClient: boolean
+  lite?: boolean
   gameDir: string
   createdAt: number
 }
@@ -123,7 +124,7 @@ export function Dashboard() {
 
   // At 100 % the start itself is done and the game is loading: no number, it would read as stuck.
   const launchLabel = progress ? (progress.percent >= 100 ? 'Minecraft lädt …' : `${progress.step.replace(/\.+$/, '')} ${Math.round(progress.percent)} %`)
-    : !instance ? 'Instanz anlegen' : isLoading ? 'Minecraft lädt …' : isRunning ? 'Läuft' : `${instance.useCrystalClient ? 'Nexora' : 'Minecraft'} starten`
+    : !instance ? 'Instanz anlegen' : isLoading ? 'Minecraft lädt …' : isRunning ? 'Läuft' : `${instance.useCrystalClient ? (instance.lite ? 'Nexora Lite' : 'Nexora') : 'Minecraft'} starten`
 
   return (
     <div className="h-full px-5 pb-4 pt-1 grid grid-cols-[minmax(0,1fr)_290px] gap-4 min-h-0">
@@ -160,7 +161,7 @@ export function Dashboard() {
                       className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] hover:bg-white/[0.05]">
                       <span className="flex-1 min-w-0">
                         <span className="block truncate text-crystal-text">{i.name}</span>
-                        <span className="block text-[11px] text-crystal-muted">{i.version}{i.useCrystalClient ? ', Nexora' : ''}</span>
+                        <span className="block text-[11px] text-crystal-muted">{i.version}{i.useCrystalClient ? (i.lite ? ', Nexora Lite' : ', Nexora') : ''}</span>
                       </span>
                       {i.id === instanceId && <Check size={14} className="text-crystal-accent" />}
                     </button>

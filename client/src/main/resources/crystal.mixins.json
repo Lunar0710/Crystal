@@ -1,6 +1,7 @@
 {
   "required": true,
   "package": "dev.crystal.client.mixin",
+  "plugin": "dev.crystal.client.LiteMixinPlugin",
   "compatibilityLevel": "JAVA_21",
   "client": [
     "MixinMinecraftClient",

@@ -20,6 +20,7 @@ interface Instance {
   loader: string
   gameDir: string
   useCrystalClient: boolean
+  lite?: boolean
   imported?: boolean
   createdAt: number
   jvmArgs?: string[]
@@ -97,8 +98,8 @@ export function Instances() {
     }
   }
 
-  async function setMode(inst: Instance, useCrystalClient: boolean) {
-    await api?.updateInstance(inst.id, { useCrystalClient })
+  async function setMode(inst: Instance, mode: StartMode) {
+    await api?.updateInstance(inst.id, { useCrystalClient: mode !== 'vanilla', lite: mode === 'lite' })
     refresh()
   }
 
@@ -219,7 +220,7 @@ export function Instances() {
                   </span>
                 </button>
 
-                <ModeToggle value={inst.useCrystalClient} onChange={v => setMode(inst, v)} />
+                <ModeToggle value={startMode(inst)} onChange={v => setMode(inst, v)} />
 
                 <button
                   onClick={() => duplicateInstance(inst)}
@@ -256,12 +257,26 @@ export function Instances() {
 }
 
 /** Two-option segmented control: which way this instance launches. */
-function ModeToggle({ value, onChange }: { value: boolean; onChange: (useCrystal: boolean) => void }) {
+type StartMode = 'nexora' | 'lite' | 'vanilla'
+
+function startMode(inst: { useCrystalClient: boolean; lite?: boolean }): StartMode {
+  if (!inst.useCrystalClient) return 'vanilla'
+  return inst.lite ? 'lite' : 'nexora'
+}
+
+const START_MODES: { v: StartMode; label: string; title: string }[] = [
+  { v: 'nexora', label: 'Nexora', title: 'Alle Module, Cosmetics und Freunde' },
+  { v: 'lite', label: 'Lite', title: 'Nur die wichtigsten PvP-Module, dafür mehr FPS' },
+  { v: 'vanilla', label: 'Vanilla', title: 'Nur deine Mods, ohne Nexora' },
+]
+
+function ModeToggle({ value, onChange }: { value: StartMode; onChange: (mode: StartMode) => void }) {
   return (
     <div className="flex p-0.5 rounded-md bg-crystal-bg/60 border border-crystal-border text-[11px] shrink-0" role="radiogroup" aria-label="Startmodus">
-      {[{ v: true, label: 'Nexora' }, { v: false, label: 'Vanilla' }].map(opt => (
+      {START_MODES.map(opt => (
         <button
           key={opt.label}
+          title={opt.title}
           role="radio"
           aria-checked={value === opt.v}
           onClick={() => value !== opt.v && onChange(opt.v)}
@@ -676,7 +691,7 @@ function InstanceDetail({ instance, onBack }: { instance: Instance; onBack: () =
 
       <PageHeader
         title={instance.name}
-        description={`Minecraft ${instance.version} mit ${instance.loader === 'fabric' ? 'Fabric' : instance.loader}, ${instance.useCrystalClient ? 'startet mit Nexora Client' : 'startet als Vanilla mit Mods'}.`}
+        description={`Minecraft ${instance.version} mit ${instance.loader === 'fabric' ? 'Fabric' : instance.loader}, ${instance.useCrystalClient ? (instance.lite ? 'startet mit Nexora Lite (nur die wichtigsten Module, mehr FPS)' : 'startet mit Nexora Client') : 'startet als Vanilla mit Mods'}.`}
         actions={
           <>
             <button onClick={() => api?.openContentFolder(instance.id, tab)} className="crystal-btn-ghost border border-crystal-border text-crystal-text text-[13px]">

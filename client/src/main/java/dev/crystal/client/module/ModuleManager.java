@@ -194,6 +194,13 @@ public class ModuleManager {
      */
     private final List<Module> modulesView = Collections.unmodifiableList(modules);
 
+    /** The modules the menus and the HUD show: all of them, or only the Lite set in Nexora Lite. */
+    public List<Module> visibleModules() {
+        if (visible == null) visible = modules.stream().filter(m -> dev.crystal.client.Lite.allows(m.getName())).toList();
+        return visible;
+    }
+    private List<Module> visible;
+
     public List<Module> getModules() {
         return modulesView;
     }

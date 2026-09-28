@@ -558,6 +558,10 @@ export function registerIpcHandlers(store: Store) {
       opts.extraJvmArgs = [...(opts.extraJvmArgs ?? []), ...gameMarkers(launchId, profile.uuid, profile.username, Number(opts.maxRam) || 0)]
     }
     // The player's own Java arguments for this instance, set on its page (checked again here).
+    // Nexora Lite: the client only starts its FPS-first module set.
+    if (launchId && opts.injectCrystal && instances.get(launchId)?.lite) {
+      opts.extraJvmArgs = [...(opts.extraJvmArgs ?? []), '-Dnexora.lite=true']
+    }
     const ownJvmArgs = launchId ? cleanJvmArgs(instances.get(launchId)?.jvmArgs) : []
     if (ownJvmArgs.length) {
       opts.extraJvmArgs = [...(opts.extraJvmArgs ?? []), ...ownJvmArgs]
@@ -577,7 +581,9 @@ export function registerIpcHandlers(store: Store) {
     // weak). Sodium and EntityCulling close that gap, so a Nexora instance gets
     // the performance pack once. Only once: a mod the player removes afterwards
     // stays removed. A failed download never blocks the launch.
-    const perfKey = `perfPackAuto.${opts.instanceId}`
+    // Nexora Lite gets the pack again once after switching to it, even if mods were removed before.
+    const isLite = !!(opts.injectCrystal && opts.instanceId && instances.get(opts.instanceId)?.lite)
+    const perfKey = isLite ? `perfPackLite.${opts.instanceId}` : `perfPackAuto.${opts.instanceId}`
     if (opts.injectCrystal && typeof opts.version === 'string' && opts.version.startsWith('1.21') && opts.instanceId
         && store.get('autoPerformancePack') !== false && !store.get(perfKey)) {
       win?.webContents.send('launch:progress', { step: 'Performance-Mods werden installiert...', percent: 2 })
