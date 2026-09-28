@@ -350,7 +350,9 @@ export class CrashDoctor {
 
     // Only a last guess: a mod with its own native program is named when
     // nothing above explains the crash, never next to a clear cause.
-    if (problems.length === 0) this.hiddenNativeCode(instanceId, push)
+    // And only when Minecraft actually ran: a start the launcher itself refused
+    // (client mod missing, no Java) is no reason to suspect a mod.
+    if (problems.length === 0 && this.gameRanRecently(instanceId)) this.hiddenNativeCode(instanceId, push)
 
     return problems
   }
@@ -406,6 +408,12 @@ export class CrashDoctor {
         fix: { kind: 'disable-zgc', label: 'Ohne ZGC starten' },
       })
     }
+  }
+
+  /** Whether Minecraft wrote its log in the last ten minutes, i.e. the game really started. */
+  private gameRanRecently(instanceId: string): boolean {
+    const gameDir = this.instances.get(instanceId)?.gameDir || crystalPath('instances', instanceId)
+    try { return Date.now() - fs.statSync(path.join(gameDir, 'logs', 'latest.log')).mtimeMs < 10 * 60 * 1000 } catch { return false }
   }
 
   /** The mod jar in this instance that holds the class, or null. */
