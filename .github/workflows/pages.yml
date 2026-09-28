@@ -5,7 +5,7 @@ name: Website
 
 on:
   push:
-    branches: [main, update-1.6]
+    branches: [main, update-1.6, update-1.7]
     paths: ['website/**', '.github/workflows/pages.yml']
   workflow_dispatch:
 
