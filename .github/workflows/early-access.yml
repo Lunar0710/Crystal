@@ -1,0 +1,44 @@
+# Nexora+ early access: a release first goes out as a pre-release, which only
+# Nexora+ and the team get through the auto-updater. Three days after it was
+# published, this job makes it the normal release everyone updates to.
+# Team test builds (release-notes/<version>.prerelease) are never promoted here;
+# those go public by hand (promote.yml).
+name: Early access
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Promote early-access releases older than three days
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          now=$(date +%s)
+          gh release list --limit 20 --json tagName,isPrerelease,isDraft,publishedAt \
+            --jq '.[] | select(.isPrerelease and (.isDraft | not)) | "\(.tagName) \(.publishedAt)"' |
+          while read -r tag published; do
+            version="${tag#v}"
+            # A team test build stays with the team.
+            if git cat-file -e "$tag:.github/release-notes/${version}.prerelease" 2>/dev/null; then
+              echo "$tag: team build, skipped"; continue
+            fi
+            age=$(( now - $(date -d "$published" +%s) ))
+            if [ "$age" -ge $((3 * 24 * 3600)) ]; then
+              echo "$tag: early access over, now for everyone"
+              gh release edit "$tag" --prerelease=false --latest
+            else
+              echo "$tag: early access for another $(( (3 * 24 * 3600 - age) / 3600 )) h"
+            fi
+          done
