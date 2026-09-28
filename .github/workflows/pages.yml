@@ -27,7 +27,12 @@ jobs:
         run: |
           git fetch origin gh-pages
           git worktree add _site origin/gh-pages
-          cp website/index.html website/icon.png _site/
+          cp website/index.html website/icon.png website/*.jpg _site/
+          # The Lunar Optimizer downloads (built and tested on Windows by optimizer.yml).
+          if git fetch origin optimizer-dist; then
+            mkdir -p _site/optimizer
+            git archive origin/optimizer-dist | tar -x -C _site/optimizer
+          fi
           cd _site
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
