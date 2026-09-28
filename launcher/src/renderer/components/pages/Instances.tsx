@@ -4,6 +4,7 @@ import {
   Upload, FolderOpen, Check, X, ChevronDown, Share2,
 } from 'lucide-react'
 import { notify } from '../../store/notificationStore'
+import { meetsRank, type RankId } from '../../data/ranks'
 import { ClientInstallPanel } from '../ui/ClientInstallPanel'
 import { ModProfileBar } from '../ui/ModProfileBar'
 import { WorldBackupsPanel } from '../ui/WorldBackupsPanel'
@@ -83,6 +84,9 @@ export function Instances() {
   const [openInstance, setOpenInstance] = useState<Instance | null>(null)
   const [creating, setCreating] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  // Nexora Lite is a Nexora+ perk (the team has it too).
+  const [liteAllowed, setLiteAllowed] = useState(false)
+  useEffect(() => { api?.getRank().then((r: RankId) => setLiteAllowed(meetsRank(r, 'crystal_plus'))) }, [])
 
   function refresh() {
     api?.getInstances().then((list: Instance[]) => setInstances(list || []))
@@ -220,7 +224,7 @@ export function Instances() {
                   </span>
                 </button>
 
-                <ModeToggle value={startMode(inst)} onChange={v => setMode(inst, v)} />
+                <ModeToggle value={startMode(inst)} liteAllowed={liteAllowed} onChange={v => setMode(inst, v)} />
 
                 <button
                   onClick={() => duplicateInstance(inst)}
@@ -270,23 +274,29 @@ const START_MODES: { v: StartMode; label: string; title: string }[] = [
   { v: 'vanilla', label: 'Vanilla', title: 'Nur deine Mods, ohne Nexora' },
 ]
 
-function ModeToggle({ value, onChange }: { value: StartMode; onChange: (mode: StartMode) => void }) {
+function ModeToggle({ value, liteAllowed, onChange }: { value: StartMode; liteAllowed: boolean; onChange: (mode: StartMode) => void }) {
   return (
     <div className="flex p-0.5 rounded-md bg-crystal-bg/60 border border-crystal-border text-[11px] shrink-0" role="radiogroup" aria-label="Startmodus">
-      {START_MODES.map(opt => (
-        <button
-          key={opt.label}
-          title={opt.title}
-          role="radio"
-          aria-checked={value === opt.v}
-          onClick={() => value !== opt.v && onChange(opt.v)}
-          className={`px-2 py-1 rounded transition-colors ${
-            value === opt.v ? 'bg-crystal-card text-crystal-text shadow-sm' : 'text-crystal-muted hover:text-crystal-text'
-          }`}
-        >
-          {opt.label}
-        </button>
-      ))}
+      {START_MODES.map(opt => {
+        const locked = opt.v === 'lite' && !liteAllowed
+        return (
+          <button
+            key={opt.label}
+            title={locked ? 'Nexora Lite gibt es mit Nexora+' : opt.title}
+            role="radio"
+            aria-checked={value === opt.v}
+            aria-disabled={locked}
+            onClick={() => !locked && value !== opt.v && onChange(opt.v)}
+            className={`px-2 py-1 rounded transition-colors ${
+              value === opt.v ? 'bg-crystal-card text-crystal-text shadow-sm'
+                : locked ? 'text-crystal-muted/50 cursor-not-allowed'
+                : 'text-crystal-muted hover:text-crystal-text'
+            }`}
+          >
+            {opt.label}{locked && <sup className="ml-0.5 text-crystal-accent">+</sup>}
+          </button>
+        )
+      })}
     </div>
   )
 }

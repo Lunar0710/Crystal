@@ -562,8 +562,10 @@ export function registerIpcHandlers(store: Store) {
     }
     // The player's own Java arguments for this instance, set on its page (checked again here).
     // Nexora Lite: the client only starts its FPS-first module set.
+    // Nexora Lite is a Nexora+ (and team) perk; without it the instance starts as full Nexora.
     if (launchId && opts.injectCrystal && instances.get(launchId)?.lite) {
-      opts.extraJvmArgs = [...(opts.extraJvmArgs ?? []), '-Dnexora.lite=true']
+      if (PRERELEASE_RANKS.includes(auth.getRank())) opts.extraJvmArgs = [...(opts.extraJvmArgs ?? []), '-Dnexora.lite=true']
+      else logger.info('launcher', 'Nexora Lite braucht Nexora+, Start mit vollem Nexora')
     }
     const ownJvmArgs = launchId ? cleanJvmArgs(instances.get(launchId)?.jvmArgs) : []
     if (ownJvmArgs.length) {
