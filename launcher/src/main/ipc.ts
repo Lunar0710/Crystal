@@ -13,7 +13,10 @@ import { DiscordPresence } from './discord/DiscordPresence'
 import { syncThemeToClient, syncProfileToClient } from './theme/ThemeSync'
 
 /** Ranks that get pre-releases: the team, not Nexora+ or members. */
-const PRERELEASE_RANKS = ['owner', 'co_owner', 'admin', 'staff', 'developer', 'media']
+// Ranks that get pre-releases through the auto-updater: the team for test
+// builds, and Nexora+ for early access (every release reaches them three days
+// before everyone else, see .github/workflows/early-access.yml).
+const PRERELEASE_RANKS = ['owner', 'co_owner', 'admin', 'staff', 'developer', 'media', 'crystal_plus']
 import { ExternalClientManager } from './minecraft/ExternalClientManager'
 import { BrandingManager } from './branding/BrandingManager'
 import { ModrinthService } from './minecraft/ModrinthService'
