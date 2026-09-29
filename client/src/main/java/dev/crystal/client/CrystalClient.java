@@ -43,6 +43,7 @@ public class CrystalClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         instance = this;
+        dev.crystal.client.util.StartupTimer.initStarted();
         LOGGER.info("[{}] Initializing {} v{}", MOD_ID, NAME, VERSION);
 
         eventBus = new EventBus();
@@ -120,6 +121,7 @@ public class CrystalClient implements ClientModInitializer {
         // Skin preview, friend chat, invites and Hypixel quickplay: all outside Nexora Lite.
         if (!Lite.ON) registerCommands();
 
+        dev.crystal.client.util.StartupTimer.initFinished();
         LOGGER.info("[{}] {} loaded successfully!", MOD_ID, NAME);
     }
 

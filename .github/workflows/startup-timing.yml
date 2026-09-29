@@ -1,0 +1,104 @@
+# Measures how long a start takes, from the Play click to Nexora's main menu,
+# on Linux: once with the base branch's launcher and vanilla's data fixer
+# start (before), once with this branch (after). Each side runs cold (empty
+# data folder: Java, libraries and assets are downloaded) and warm (second
+# start on the same folder, what players see every day).
+#
+# The numbers land as notices on the run and in its summary. Nothing is
+# published from here.
+name: Startup timing
+
+on:
+  workflow_dispatch:
+    inputs:
+      base:
+        description: Branch to compare against
+        default: update-2.0
+  push:
+    branches: ['cloud/**']
+
+jobs:
+  timing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.base || 'update-2.0' }}
+          path: base
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      # Every version is built, so this also proves the client compiles for all of them.
+      - name: Build client mod
+        working-directory: client
+        run: |
+          chmod +x gradlew
+          ./gradlew build --no-daemon
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: launcher/package-lock.json
+
+      - name: Build launchers (this branch and base)
+        run: |
+          (cd launcher && npm ci && npm run build:main)
+          (cd base/launcher && npm ci && npm run build:main)
+          # Both launchers start the same client jar; "before" switches its data fixer change off.
+          mkdir -p base/client/build/libs
+          cp client/build/libs/*.jar base/client/build/libs/
+
+      - name: Linux display for the game window
+        run: sudo apt-get update && sudo apt-get install -y xvfb libgl1-mesa-dri libglx-mesa0
+
+      - name: Start Minecraft 1.21.11 with Nexora, before and after
+        working-directory: launcher
+        env:
+          CRYSTAL_SMOKE_UNTIL_MENU: "1"
+          CRYSTAL_SMOKE_TIMINGS_FILE: ${{ runner.temp }}/timings.jsonl
+        run: |
+          unset JAVA_HOME
+          run() { # label root launcher eagerDfu
+            mkdir -p "$2"
+            echo "::group::$1"
+            # A failed start is recorded and the next one still runs.
+            if CRYSTAL_SMOKE_LABEL="$1" CRYSTAL_SMOKE_ROOT="$2" CRYSTAL_SMOKE_LAUNCHER="$3" CRYSTAL_SMOKE_EAGER_DFU="$4" \
+              xvfb-run -a -s "-screen 0 1280x720x24" node scripts/smoke-launch.cjs; then status=0; else status=$?; fi
+            echo "::endgroup::"
+            echo "{\"label\":\"$1\",\"status\":$status}" >> "$CRYSTAL_SMOKE_TIMINGS_FILE"
+          }
+          BEFORE="$RUNNER_TEMP/root-before"; AFTER="$RUNNER_TEMP/root-after"
+          run "before cold" "$BEFORE" "$GITHUB_WORKSPACE/base/launcher" 1
+          run "before warm" "$BEFORE" "$GITHUB_WORKSPACE/base/launcher" 1
+          run "after cold"  "$AFTER"  "$GITHUB_WORKSPACE/launcher" 0
+          run "after warm"  "$AFTER"  "$GITHUB_WORKSPACE/launcher" 0
+          # Same launcher, only the data fixers differ.
+          run "after warm, vanilla DFU" "$AFTER" "$GITHUB_WORKSPACE/launcher" 1
+          run "after warm (2)" "$AFTER" "$GITHUB_WORKSPACE/launcher" 0
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo '### Startup timing (Linux runner, Minecraft 1.21.11 + Nexora)'
+            echo '```'
+            cat "$RUNNER_TEMP/timings.jsonl" 2>/dev/null
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          cat "$RUNNER_TEMP/timings.jsonl" 2>/dev/null
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: startup-timing
+          path: |
+            ${{ runner.temp }}/timings.jsonl
+            ${{ runner.temp }}/root-*/instances/smoke/crystal-launch.log
+          if-no-files-found: ignore

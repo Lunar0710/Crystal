@@ -7,7 +7,7 @@ import os from 'os'
 import https from 'https'
 import Store from 'electron-store'
 import { AuthProfile } from '../auth/AuthManager'
-import { LaunchPipeline } from './LaunchPipeline'
+import { LaunchPipeline, LaunchTimings } from './LaunchPipeline'
 import { logger } from '../logs/Logger'
 import { crystalPath, isPlainFileName } from '../paths'
 import { adoptiumJdk, extractTarGz, javaCandidates, javaInJdk } from './platform'
@@ -124,7 +124,9 @@ export class MinecraftManager {
   }
 
   async launch(opts: LaunchOptions, emit: (event: string, data: unknown) => void): Promise<boolean> {
+    const timings = new LaunchTimings()
     const javaPath = await this.ensureJava(opts.version, emit)
+    timings.mark('java')
     if (!javaPath) {
       emit('launch:error',
         `Es konnte kein Java ${downloadJavaMajor(opts.version)} für Minecraft ${opts.version} gefunden oder heruntergeladen werden.\n\n` +
@@ -172,6 +174,7 @@ export class MinecraftManager {
       // switching modes on the same instance doesn't silently keep it active.
       this.removeCrystalMod(modsDir)
     }
+    timings.mark('mods')
 
     try {
       return await this.pipeline.launch({
@@ -185,6 +188,7 @@ export class MinecraftManager {
         profile: opts.profile,
         extraJvmArgs: opts.extraJvmArgs,
         extraGameArgs: opts.extraGameArgs,
+        timings,
       }, emit)
     } catch (err) {
       emit('launch:error', err instanceof Error ? (err.message || err.stack || err.name) : 'Unbekannter Fehler beim Starten')
@@ -397,6 +401,32 @@ export class MinecraftManager {
    * `openjdk version "21.0.12" ...` (new, major = 21).
    */
   private getJavaMajorVersion(javaPath: string): number | null {
+    // Asking a Java for its version starts a whole JVM (a few hundred ms per
+    // candidate, every launch). The answer only changes when the file does,
+    // so it is remembered per path, size and modification time.
+    let key: string | null = null
+    try {
+      const stat = fs.statSync(javaPath)
+      key = `${javaPath}|${stat.size}|${stat.mtimeMs}`
+    } catch { /* "java" from PATH: nothing to stat, always asked */ }
+    const cacheFile = crystalPath('cache', 'java-versions.json')
+    let cache: Record<string, number> = {}
+    if (key) {
+      try { cache = JSON.parse(fs.readFileSync(cacheFile, 'utf8')) } catch { /* first time */ }
+      if (typeof cache[key] === 'number') return cache[key]
+    }
+    const major = this.askJavaMajorVersion(javaPath)
+    if (key && major !== null) {
+      try {
+        cache[key] = major
+        fs.mkdirSync(path.dirname(cacheFile), { recursive: true })
+        fs.writeFileSync(cacheFile, JSON.stringify(cache))
+      } catch { /* only a cache */ }
+    }
+    return major
+  }
+
+  private askJavaMajorVersion(javaPath: string): number | null {
     // "java -version" writes its output to stderr, not stdout, and exits 0 —
     // execFileSync only returns stdout, so it looked like empty output no
     // matter what Java was actually installed. spawnSync captures both.
