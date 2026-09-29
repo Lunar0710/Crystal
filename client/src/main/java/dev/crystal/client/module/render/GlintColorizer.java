@@ -47,7 +47,8 @@ public class GlintColorizer extends Module {
 
     public GlintColorizer() {
         super("GlintColorizer", "Changes the colour of the enchantment shimmer", ModuleCategory.RENDER);
-        CrystalClient.getInstance().getEventBus().subscribe(TickEvent.class, e -> sync());
+        // Not while Nexora Lite leaves this module out: its texture is never replaced there.
+        if (runsInThisMode()) CrystalClient.getInstance().getEventBus().subscribe(TickEvent.class, e -> sync());
     }
 
     private void sync() {

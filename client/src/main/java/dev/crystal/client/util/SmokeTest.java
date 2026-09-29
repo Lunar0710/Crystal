@@ -43,10 +43,13 @@ public final class SmokeTest {
         String name = System.getProperty(PROPERTY);
         if (name == null || name.isBlank()) return;
         CrystalClient.LOGGER.info("[Nexora] Smoke test active, screenshot: {}", name);
+        // Near the end of Nexora's own start, which runs inside Minecraft's constructor.
+        if (System.getProperty(BENCH) != null) clientReadyMs = sinceJvmStart();
         ClientTickEvents.END_CLIENT_TICK.register(client -> tick(client, name));
     }
 
     private static void tick(Minecraft mc, String screenshotName) {
+        if (System.getProperty(BENCH) != null) startupMarks(mc);
         // The main menu is the one screen that shows the panorama behind
         // Nexora's own. The world test starts straight in a world and never
         // sees it, so it gets a run of its own: launched without a world, this
@@ -92,6 +95,10 @@ public final class SmokeTest {
         if (mc.player == null) return;
         worldTicks++;
 
+        if (STEADY) {
+            steadyTick(mc);
+            return;
+        }
         if (System.getProperty(BENCH) != null) {
             benchTick(mc);
             return;
@@ -1068,14 +1075,7 @@ public final class SmokeTest {
 
     private static void benchTick(Minecraft mc) {
         if (worldTicks == 20) {
-            mc.options.framerateLimit().set(260);
-            mc.options.enableVsync().set(false);
-            // Minecraft drops to 30 fps after a minute without input, and BackgroundFps
-            // does too when the window loses focus; neither may cut into the numbers.
-            mc.options.inactivityFpsLimit().set(net.minecraft.client.InactivityFpsLimit.MINIMIZED);
-            CrystalClient.getInstance().getModuleManager().getModuleByName("BackgroundFps").ifPresent(m -> m.setEnabled(false));
-            // First person, the way the game is played; third person adds your own nametag.
-            mc.options.setCameraType(CameraType.FIRST_PERSON);
+            benchEnvironment(mc);
             for (var m : CrystalClient.getInstance().getModuleManager().getModules()) {
                 if (m.isEnabled()) benchWasOn.add(m);
             }
@@ -1095,16 +1095,6 @@ public final class SmokeTest {
             for (String t : tests) {
                 BENCH_PHASES.add("all on");
                 BENCH_PHASES.add(t);
-            }
-            // The flat world spawns slimes, and a dead player measures the death screen.
-            var server = mc.getSingleplayerServer();
-            if (server != null) {
-                var uuid = mc.player.getUUID();
-                server.execute(() -> {
-                    server.setDifficulty(net.minecraft.world.Difficulty.PEACEFUL, true);
-                    ServerPlayer sp = server.getPlayerList().getPlayer(uuid);
-                    if (sp != null) sp.setGameMode(net.minecraft.world.level.GameType.CREATIVE);
-                });
             }
         }
         if (mc.player.isDeadOrDying() && worldTicks % 100 == 0) CrystalClient.LOGGER.info("[Nexora] Bench: player died, numbers are off");
@@ -1126,6 +1116,100 @@ public final class SmokeTest {
         }
         // Skip the first two seconds of a phase: toggling can cost a frame or two.
         if ((worldTicks - BENCH_WARMUP) % BENCH_PHASE >= 40 && worldTicks % 20 == 0) benchSamples.add(mc.getFps());
+    }
+
+    /** Same conditions for every frame rate run: no frame cap, nothing that throttles, nothing that kills the player. */
+    private static void benchEnvironment(Minecraft mc) {
+        mc.options.framerateLimit().set(260);
+        mc.options.enableVsync().set(false);
+        // Minecraft drops to 30 fps after a minute without input, and BackgroundFps
+        // does too when the window loses focus; neither may cut into the numbers.
+        mc.options.inactivityFpsLimit().set(net.minecraft.client.InactivityFpsLimit.MINIMIZED);
+        CrystalClient.getInstance().getModuleManager().getModuleByName("BackgroundFps").ifPresent(m -> m.setEnabled(false));
+        // First person, the way the game is played; third person adds your own nametag.
+        mc.options.setCameraType(CameraType.FIRST_PERSON);
+        // The flat world spawns slimes, and a dead player measures the death screen.
+        var server = mc.getSingleplayerServer();
+        if (server != null) {
+            var uuid = mc.player.getUUID();
+            server.execute(() -> {
+                server.setDifficulty(net.minecraft.world.Difficulty.PEACEFUL, true);
+                ServerPlayer sp = server.getPlayerList().getPlayer(uuid);
+                if (sp != null) sp.setGameMode(net.minecraft.world.level.GameType.CREATIVE);
+            });
+        }
+    }
+
+    // ------------------------------------------------------- steady bench
+
+    /**
+     * -Dcrystal.smoke.bench=steady: one plain measurement of the game as it is
+     * configured, nothing toggled. Used to compare start modes (full Nexora
+     * against Nexora Lite, see launcher/scripts/smoke-lite-bench.cjs): the
+     * average frame rate and the 1% low from every single frame time, plus how
+     * long the start took. -Dcrystal.smoke.bench.seconds sets the length.
+     */
+    private static final boolean STEADY = BenchClock.ON;
+    private static final int STEADY_SECONDS = Integer.getInteger("crystal.smoke.bench.seconds", 60);
+    private static long timingSince = 0;
+    private static int steadyStartTick = -1;
+    private static long clientReadyMs = -1, loadedMs = -1, worldMs = -1;
+
+    private static long sinceJvmStart() {
+        return System.currentTimeMillis() - java.lang.management.ManagementFactory.getRuntimeMXBean().getStartTime();
+    }
+
+    /** When the resources finished loading and when the world was first ticked, counted from the JVM start. */
+    private static void startupMarks(Minecraft mc) {
+        if (loadedMs < 0 && mc.getOverlay() == null) loadedMs = sinceJvmStart();
+        if (worldMs < 0 && mc.level != null && mc.player != null) worldMs = sinceJvmStart();
+    }
+
+    private static void steadyTick(Minecraft mc) {
+        if (worldTicks == 20) {
+            benchEnvironment(mc);
+            java.util.List<String> on = new java.util.ArrayList<>();
+            for (var m : CrystalClient.getInstance().getModuleManager().getModules()) if (m.isEnabled()) on.add(m.getName());
+            CrystalClient.LOGGER.info("[Nexora] Bench steady: lite={} modules on ({}): {}", dev.crystal.client.Lite.ON, on.size(), on);
+        }
+        if (mc.player.isDeadOrDying() && worldTicks % 100 == 0) CrystalClient.LOGGER.info("[Nexora] Bench: player died, numbers are off");
+        // Turn slowly, so the run draws the same mix of near and far chunks every time.
+        mc.player.setYRot(worldTicks * 0.9f);
+        mc.player.setXRot(5f);
+        if (worldTicks < BENCH_WARMUP) return;
+        if (steadyStartTick < 0) {
+            steadyStartTick = worldTicks;
+            timingSince = System.nanoTime();
+            BenchClock.start();
+            return;
+        }
+        if (worldTicks - steadyStartTick < STEADY_SECONDS * 20) return;
+        long[] frames = BenchClock.stop();
+        steadyReport(frames, (System.nanoTime() - timingSince) / 1e9);
+        CrystalClient.LOGGER.info("CRYSTAL_SMOKE_WORLD_DONE");
+        mc.stop();
+    }
+
+    private static void steadyReport(long[] sorted, double seconds) {
+        int n = sorted.length;
+        if (n < 10) {
+            CrystalClient.LOGGER.info("[Nexora] Bench steady FAILED: only {} frames timed", n);
+            return;
+        }
+        java.util.Arrays.sort(sorted);
+        long total = 0;
+        for (long t : sorted) total += t;
+        double avgFps = n / (total / 1e9);
+        // 1% low: the frame rate of the slowest one percent of frames (their average frame time).
+        int worst = Math.max(1, n / 100);
+        long worstTotal = 0;
+        for (int i = n - worst; i < n; i++) worstTotal += sorted[i];
+        double lowFps = 1e9 / (worstTotal / (double) worst);
+        double medianFps = 1e9 / sorted[n / 2];
+        long heap = (Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()) >> 20;
+        CrystalClient.LOGGER.info(String.format(java.util.Locale.ROOT,
+                "[Nexora] BENCH_RESULT lite=%s avg=%.1f low1=%.1f median=%.1f frames=%d seconds=%.1f clientReadyMs=%d loadedMs=%d worldMs=%d heapMb=%d",
+                dev.crystal.client.Lite.ON, avgFps, lowFps, medianFps, n, seconds, clientReadyMs, loadedMs, worldMs, heap));
     }
 
     private static void benchApply(String phase) {

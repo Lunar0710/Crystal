@@ -228,7 +228,8 @@ public final class CombatTracker {
 
     /** One tick of the fight: me x,y,z,yaw,health, opponent x,y,z,yaw,health, then 1 for a hit landed and 2 for a hit taken. */
     private static void record(Minecraft mc) {
-        if (!recordFights || frames.size() >= MAX_FRAMES || opponentEntity == null) {
+        // Nexora Lite has neither the replay nor the kill cam: nothing is recorded or written.
+        if (dev.crystal.client.Lite.ON || !recordFights || frames.size() >= MAX_FRAMES || opponentEntity == null) {
             hitThisTick = hurtThisTick = false;
             return;
         }

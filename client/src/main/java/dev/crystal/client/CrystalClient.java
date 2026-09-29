@@ -91,7 +91,8 @@ public class CrystalClient implements ClientModInitializer {
         *///?}
 
         // Block outline, hitboxes and chunk borders draw in world space.
-        dev.crystal.client.render.WorldRenderHandler.register();
+        // None of them is part of Nexora Lite, so there no world pass is hooked at all.
+        if (!Lite.ON) dev.crystal.client.render.WorldRenderHandler.register();
 
         // Hats, masks, wings etc. from the launcher's Cosmetics page, on the player model.
         if (!Lite.ON) registerCosmeticsRenderer();
@@ -106,8 +107,8 @@ public class CrystalClient implements ClientModInitializer {
         dev.crystal.client.util.CombatTracker.register();
 
         // Joining a world or server: totem counts start over, and a profile
-        // tied to that server loads itself.
-        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
+        // tied to that server loads itself. Nexora Lite has none of the three.
+        if (!Lite.ON) net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
             dev.crystal.client.module.player.TotemPops.reset();
             dev.crystal.client.module.hud.TPSDisplay.reset();
             client.execute(dev.crystal.client.module.misc.Profiles::onJoin);
@@ -116,6 +117,13 @@ public class CrystalClient implements ClientModInitializer {
         // No-op unless started by the launcher's automated world test.
         dev.crystal.client.util.SmokeTest.registerIfRequested();
 
+        // Skin preview, friend chat, invites and Hypixel quickplay: all outside Nexora Lite.
+        if (!Lite.ON) registerCommands();
+
+        LOGGER.info("[{}] {} loaded successfully!", MOD_ID, NAME);
+    }
+
+    private void registerCommands() {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
             dispatcher.register(ClientCommandManager.literal("crystalskin")
                     .then(ClientCommandManager.argument("username", word())
@@ -201,8 +209,6 @@ public class CrystalClient implements ClientModInitializer {
                                 return 1;
                             })));
         });
-
-        LOGGER.info("[{}] {} loaded successfully!", MOD_ID, NAME);
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})

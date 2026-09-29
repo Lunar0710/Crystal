@@ -45,10 +45,15 @@ public class TextStyle extends Module {
 
     public TextStyle() {
         super("TextStyle", "Changes the font in the game and in the Nexora menus", ModuleCategory.RENDER);
-        CrystalClient.getInstance().getEventBus().subscribe(TickEvent.class, e -> sync());
+        // Nexora Lite never registers the font packs (see registerPacks), so there is nothing to keep in line.
+        if (runsInThisMode()) CrystalClient.getInstance().getEventBus().subscribe(TickEvent.class, e -> sync());
     }
 
     public static void registerPacks() {
+        // Nexora Lite: no TrueType fonts. Without the packs registered, a font
+        // pack still selected from a full Nexora session is dropped at startup
+        // instead of loading its TTF, and nothing reloads the resources later.
+        if (dev.crystal.client.Lite.ON) return;
         var crystal = FabricLoader.getInstance().getModContainer(CrystalClient.MOD_ID).orElseThrow();
         //? if >=1.21.11 {
         ResourceLoader.registerBuiltinPack(Identifier.fromNamespaceAndPath(CrystalClient.MOD_ID, "smooth_font"), crystal,
