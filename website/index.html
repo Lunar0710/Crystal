@@ -265,6 +265,19 @@
     box-shadow: inset 0 1px 1px rgba(255, 255, 255, .35), 0 0 0 1px rgba(255, 255, 255, .08); }
   .sw:hover { transform: scale(1.12); }
   .sw[aria-pressed="true"]::after { content: ""; position: absolute; inset: -5px; border-radius: 50%; box-shadow: 0 0 0 1.5px var(--ink); }
+  .sw .plus { position: absolute; right: -3px; top: -3px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 8px; background: var(--void); color: var(--ink);
+    font: 600 10px/15px var(--body); box-shadow: 0 0 0 1px var(--hair); pointer-events: none; }
+  .theme-btn { width: 40px; height: 40px; border-radius: 50%; border: 0; cursor: pointer; padding: 0; margin-right: 8px; flex: none;
+    background: conic-gradient(from 210deg, var(--accent), var(--glow), var(--accent)); box-shadow: inset 0 0 0 3px rgba(5, 5, 5, .55), 0 0 0 1px var(--hair);
+    transition: transform .5s var(--spring); }
+  .theme-btn:hover { transform: rotate(40deg) scale(1.06); }
+  .theme-btn:focus-visible, .sw:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+  .theme-pop { position: fixed; z-index: 45; top: calc(env(safe-area-inset-top, 0px) + 84px); left: 50%; width: min(420px, calc(100vw - 32px)); transform: translate(-50%, -8px);
+    padding: 20px; border-radius: 22px; background: rgba(11, 11, 12, .92); backdrop-filter: blur(18px); box-shadow: 0 0 0 1px var(--hair), 0 30px 80px rgba(0, 0, 0, .5);
+    opacity: 0; pointer-events: none; transition: opacity .35s var(--out), transform .5s var(--spring); }
+  .theme-pop.open { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
+  .theme-pop h4 { margin: 0 0 4px; font: 600 15px/1.3 var(--body); color: var(--ink); }
+  .theme-pop p { margin: 0 0 16px; font-size: 13px; color: var(--ash); }
   .sw-name { font-size: 13px; color: var(--ash); }
   .sw-name b { color: var(--ink); font-weight: 500; }
 
@@ -652,9 +665,16 @@
     <a href="#faq">FAQ</a>
     <a href="https://discord.gg/Jj5AK7eD7" target="_blank" rel="noopener">Discord</a>
   </nav>
+  <button class="theme-btn" id="themeBtn" type="button" aria-label="Theme wählen" aria-expanded="false" aria-controls="themePop" title="Theme wählen"></button>
   <a class="btn btn-solid btn-sm" href="#download">Download<span class="ic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v9m0 0L4.5 8M8 11.5 11.5 8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
   <button class="burger" id="burger" type="button" aria-label="Menü öffnen" aria-expanded="false"><i></i><i></i></button>
 </header>
+<div class="theme-pop" id="themePop" role="dialog" aria-label="Theme wählen">
+  <h4>Theme</h4>
+  <p>Die Themes aus dem Nexora-Launcher. Die ganze Seite folgt, mit <b>+</b> markierte gibt es mit Nexora+.</p>
+  <div class="swatches" role="group" aria-label="Theme"></div>
+  <p class="sw-name" style="margin:14px 0 0">Gewählt: <b class="sw-current">Nexora Mono</b></p>
+</div>
 <div class="overlay" id="overlay" aria-hidden="true">
   <a href="#features">Features</a>
   <a href="#versionen">Versionen</a>
@@ -668,7 +688,7 @@
 
 <main id="top">
   <div class="wrap hero">
-    <span class="eyebrow rv"><b>1.6</b> Kampf-Replay, Kill-Cam und Spotify</span>
+    <span class="eyebrow rv"><b>1.7</b> Freunde, Chat und neuer Launcher</span>
     <h1 class="rv">Jeder Kampf.<span class="soft">Aufgezeichnet.</span></h1>
     <p class="lede rv">Nexora ist ein kostenloser Minecraft-Client mit eigenem Launcher. <strong>Sieh dir jeden Kampf von oben noch einmal an</strong>, mit Laufwegen, Treffern und Leben. Dazu ein HUD, das mitkämpft, und ein FPS-Doktor, der dein Spiel schneller macht.</p>
     <div class="cta rv">
@@ -815,10 +835,10 @@
 
       <div class="cell shell rv">
         <div class="core">
-          <div><h3>Deine Farbe</h3><p>Neun Akzentfarben aus dem NexoraMenu. Probier sie aus, die ganze Seite folgt.</p></div>
+          <div><h3>Dein Theme</h3><p>Alle Themes aus dem Launcher. Probier sie aus, die ganze Seite folgt.</p></div>
           <div class="push">
-            <div class="swatches" id="swatches" role="group" aria-label="Akzentfarbe"></div>
-            <p class="sw-name" style="margin-top:14px">Gewählt: <b id="swName">Weiß</b></p>
+            <div class="swatches" role="group" aria-label="Theme"></div>
+            <p class="sw-name" style="margin-top:14px">Gewählt: <b class="sw-current">Nexora Mono</b></p>
           </div>
         </div>
       </div>
@@ -839,7 +859,7 @@
 
   <section class="wrap" id="neu">
     <div class="head">
-      <div><span class="eyebrow rv" id="neuTag"><b>1.6</b> Changelog</span><h2 class="rv" id="neuTitle">Neu in Nexora 1.6.</h2></div>
+      <div><span class="eyebrow rv" id="neuTag"><b>1.7</b> Changelog</span><h2 class="rv" id="neuTitle">Neu in Nexora 1.7.</h2></div>
       <p class="rv">Die größten Neuerungen im letzten Update. Der Launcher aktualisiert sich selbst, du musst nichts tun.</p>
     </div>
     <div class="news" id="news">
@@ -1002,30 +1022,54 @@ document.addEventListener('click', e => {
   const releases = fetch('https://api.github.com/repos/Lunar0710/Crystal/releases?per_page=100', { headers: { Accept: 'application/vnd.github+json' } })
     .then(r => r.ok ? r.json() : []).then(rs => Array.isArray(rs) ? rs.filter(x => !x.draft && !x.prerelease) : []).catch(() => []);
 
-  // ---- Accent colours: the nine from the in-game NexoraMenu ----
-  const accents = [['Weiß', '#ffffff'], ['Blau', '#4c8dff'], ['Türkis', '#3cc3c8'], ['Grün', '#3dbe7a'], ['Gold', '#d4af5a'], ['Orange', '#f08c3a'], ['Rot', '#e5484d'], ['Pink', '#e86aa6'], ['Lila', '#8e6bef']];
+  // ---- Themes: the launcher's (launcher/src/renderer/theme/themes.ts), first colour = accent, second = glow ----
+  const themes = [
+    ['crystal-blue', 'Nexora Mono', '#ffffff', '#8a8a93'], ['nexora-red', 'Nexora Rot', '#c3493a', '#e0735f'],
+    ['crystal-crimson', 'Nexora Crimson', '#f5455b', '#f57c3d'], ['crystal-bloom', 'Nexora Bloom', '#f56ba0', '#f5a3c7'],
+    ['crystal-amethyst', 'Nexora Amethyst', '#a35bf5', '#7c3df5'], ['crystal-emerald', 'Nexora Emerald', '#34d399', '#5bf5c9'],
+    ['crystal-light', 'Nexora Light', '#5b8af5', '#7c6af5'],
+    ['midnight', 'Midnight', '#3b5bdb', '#312e81', '+'], ['sunset', 'Sunset', '#f97316', '#e11d48', '+'], ['ocean', 'Ocean', '#0ea5e9', '#14b8a6', '+'],
+    ['rose', 'Rosé', '#fb7185', '#f9a8d4', '+'], ['carbon', 'Carbon', '#a1a1aa', '#52525b', '+'], ['matcha', 'Matcha', '#84cc16', '#4d7c0f', '+'],
+    ['void', 'Void', '#ffffff', '#b4b4d2', '+'], ['aurora', 'Aurora', '#34d399', '#818cf8', '+'], ['sakura', 'Sakura', '#f472b6', '#7e22ce', '+'],
+    ['terminal', 'Terminal', '#22c55e', '#15803d', '+'], ['sandstorm', 'Sandstorm', '#d97706', '#92400e', '+'], ['halloween', 'Halloween', '#f97316', '#7e22ce', '+'],
+  ];
   const inkFor = hex => { const n = parseInt(hex.slice(1), 16); return (0.299 * (n >> 16) + 0.587 * (n >> 8 & 255) + 0.114 * (n & 255)) > 150 ? '#050505' : '#ffffff'; };
-  const box = $('swatches');
   const colors = { me: '#ffffff', foe: '#e5484d' };
-  function setAccent(hex) {
-    colors.me = hex;
-    colors.foe = hex === '#e5484d' ? '#f4f4f5' : '#e5484d';
-    root.style.setProperty('--accent', hex);
-    root.style.setProperty('--accent-ink', inkFor(hex));
+  const boxes = [...document.querySelectorAll('.swatches')];
+  function setTheme(id) {
+    const t = themes.find(x => x[0] === id) || themes[0];
+    const [, name, accent, second] = t;
+    colors.me = accent;
+    colors.foe = /^#(e5484d|c3493a|f5455b)$/.test(accent) ? '#f4f4f5' : '#e5484d';
+    root.style.setProperty('--accent', accent);
+    root.style.setProperty('--accent-ink', inkFor(accent));
     root.style.setProperty('--foe', colors.foe);
-    root.style.setProperty('--glow', hex === '#ffffff' ? '#4c8dff' : hex);
-    box.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.hex === hex)));
-    $('swName').textContent = (accents.find(a => a[1] === hex) || accents[0])[0];
-    try { localStorage.setItem('nexora-accent', hex); } catch {}
+    // White accents keep the blue glow; everything else glows in its second colour.
+    root.style.setProperty('--glow', accent === '#ffffff' ? '#4c8dff' : second);
+    document.querySelectorAll('.sw').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.id === t[0])));
+    document.querySelectorAll('.sw-current').forEach(el => { el.textContent = name; });
+    try { localStorage.setItem('nexora-theme', t[0]); } catch {}
   }
-  for (const [name, hex] of accents) {
-    const b = document.createElement('button');
-    b.className = 'sw'; b.type = 'button'; b.dataset.hex = hex; b.title = name; b.setAttribute('aria-label', name); b.style.background = hex;
-    b.addEventListener('click', () => setAccent(hex));
-    box.appendChild(b);
+  for (const box of boxes) {
+    for (const [id, name, accent, second, plus] of themes) {
+      const b = document.createElement('button');
+      b.className = 'sw'; b.type = 'button'; b.dataset.id = id;
+      b.title = plus ? name + ' (Nexora+)' : name; b.setAttribute('aria-label', b.title);
+      b.style.background = `linear-gradient(135deg, ${accent} 0 50%, ${second} 50% 100%)`;
+      if (plus) { const m = document.createElement('span'); m.className = 'plus'; m.textContent = '+'; b.appendChild(m); }
+      b.addEventListener('click', () => setTheme(id));
+      box.appendChild(b);
+    }
   }
-  let saved = null; try { saved = localStorage.getItem('nexora-accent'); } catch {}
-  setAccent(accents.some(a => a[1] === saved) ? saved : '#ffffff');
+  let saved = null; try { saved = localStorage.getItem('nexora-theme'); } catch {}
+  setTheme(saved);
+
+  // The theme button opens the picker from anywhere on the page.
+  const themeBtn = $('themeBtn'), themePop = $('themePop');
+  const showThemes = open => { themePop.classList.toggle('open', open); themeBtn.setAttribute('aria-expanded', String(open)); };
+  themeBtn.addEventListener('click', e => { e.stopPropagation(); showThemes(!themePop.classList.contains('open')); });
+  document.addEventListener('click', e => { if (!themePop.contains(e.target)) showThemes(false); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') showThemes(false); });
 
   // ---- Mobile menu ----
   const burger = $('burger'), overlay = $('overlay');

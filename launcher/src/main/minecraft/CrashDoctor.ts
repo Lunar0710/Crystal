@@ -1,4 +1,5 @@
 import fs from 'fs'
+import crypto from 'crypto'
 import os from 'os'
 import path from 'path'
 import { InstanceManager } from './InstanceManager'
@@ -58,6 +59,8 @@ export interface DetectedProblem {
   sides?: [ConflictSide, ConflictSide]
   /** replace only: the installed version. */
   currentVersion?: string | null
+  /** A warning the player can dismiss for this mod ("Ich vertraue dieser Mod"). */
+  trust?: { modFile: string; modName: string }
 }
 
 interface InstalledMod {
@@ -535,6 +538,7 @@ export class CrashDoctor {
         const names = new JarReader(path.join(this.modsDir(instanceId), file)).names()
         const natives = names.filter(n => /\.(dll|so|dylib|jnilib)$/i.test(n) || /(^|\/)natives?\/[^/]+\/[^/]+$/i.test(n))
         if (natives.length === 0) continue
+        if (this.isTrusted(instanceId, file)) continue
         const classes = names.filter(n => n.endsWith('.class')).length
         const licensed = names.some(n => /licen[cs]e.?key/i.test(n))
         if (classes >= 25 && !licensed) continue
@@ -547,9 +551,43 @@ export class CrashDoctor {
           detail: `Diese Mod enthält ein eigenes Programm (${count}) und versteckt ihren Code${licensed ? ' hinter einem Lizenzschlüssel' : ''}. `
             + 'Solche Mods beenden Minecraft oft ohne Fehlermeldung und können auf dem PC tun, was sie wollen. Nimm sie nur aus einer Quelle, der du vertraust.',
           fix: { kind: 'disable-mod', label: 'Mod deaktivieren', modFile: file, modName: name },
+          trust: { modFile: file, modName: name },
         })
       } catch { /* unreadable jar */ }
     }
+  }
+
+  /**
+   * Mods the player trusts (the second button on the hidden-code warning), per
+   * instance, stored with the jar's SHA-256: a replaced file is a different mod
+   * and gets the warning once more.
+   */
+  private trustFile(instanceId: string): string {
+    return path.join(this.instances.get(instanceId)?.gameDir || crystalPath('instances', instanceId), '.nexora-trusted-mods.json')
+  }
+
+  private readTrusted(instanceId: string): Record<string, string> {
+    try { return JSON.parse(fs.readFileSync(this.trustFile(instanceId), 'utf8')) || {} } catch { return {} }
+  }
+
+  private hashOf(instanceId: string, modFile: string): string | null {
+    try { return crypto.createHash('sha256').update(fs.readFileSync(path.join(this.modsDir(instanceId), modFile))).digest('hex') } catch { return null }
+  }
+
+  private isTrusted(instanceId: string, modFile: string): boolean {
+    const saved = this.readTrusted(instanceId)[modFile]
+    return !!saved && saved === this.hashOf(instanceId, modFile)
+  }
+
+  trustMod(instanceId: string, modFile: unknown): { ok: boolean; message: string } {
+    if (typeof modFile !== 'string' || !isPlainFileName(modFile)) return { ok: false, message: 'Ungültiger Dateiname.' }
+    const hash = this.hashOf(instanceId, modFile)
+    if (!hash) return { ok: false, message: `${modFile} nicht gefunden.` }
+    const trusted = this.readTrusted(instanceId)
+    trusted[modFile] = hash
+    fs.writeFileSync(this.trustFile(instanceId), JSON.stringify(trusted, null, 2))
+    logger.info('client', `Mod als vertrauenswürdig markiert: ${modFile}`)
+    return { ok: true, message: `Nexora warnt bei ${modFile} nicht mehr.` }
   }
 
   disableMod(instanceId: string, modFile: string | undefined): { ok: boolean; message: string } {

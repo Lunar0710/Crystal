@@ -353,6 +353,8 @@ export function registerIpcHandlers(store: Store) {
     return { versionId: newest.id, label: newest.version_number }
   }
 
+  ipcMain.handle('autofix:trustMod', (_e, instanceId: string, modFile: unknown) => crashDoctor.trustMod(instanceId, modFile))
+
   ipcMain.handle('autofix:preview', async (_e, instanceId: string, fix: any) => {
     if (fix?.kind !== 'update-mod' || typeof fix.modFile !== 'string') return null
     return replacementFor(instanceId, fix.modFile, fix.version)

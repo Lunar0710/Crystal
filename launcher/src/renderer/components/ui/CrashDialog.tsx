@@ -24,6 +24,7 @@ export interface DetectedProblem {
   fix: ProblemFix | null
   sides?: [ConflictSide, ConflictSide]
   currentVersion?: string | null
+  trust?: { modFile: string; modName: string }
 }
 
 interface ConflictSide {
@@ -57,6 +58,8 @@ function crashId(): string {
  */
 export function CrashDialog({ instanceId, problems, errorText, account, onRelaunch, onClose, onRamChanged }: Props) {
   const [state, setState] = useState<Record<string, RowState>>({})
+  // Warnings the player dismissed with "Ich vertraue dieser Mod".
+  const [trusted, setTrusted] = useState<Set<string>>(new Set())
   const [previews, setPreviews] = useState<Record<string, { label?: string; error?: string } | undefined>>({})
   const [logUrl, setLogUrl] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -87,6 +90,13 @@ export function CrashDialog({ instanceId, problems, errorText, account, onRelaun
     if (!result?.ok) notify({ type: 'error', title: p.fix.modName || 'Autofix', message: result?.message || 'Fehlgeschlagen' })
     else if ((p.fix.kind === 'lower-ram' || p.fix.kind === 'raise-ram') && p.fix.ram) onRamChanged?.(p.fix.ram)
     return !!result?.ok
+  }
+
+  async function trust(p: DetectedProblem) {
+    if (!p.trust) return
+    const result = await api?.trustMod(instanceId, p.trust.modFile)
+    if (result?.ok) setTrusted(prev => new Set(prev).add(p.id))
+    notify({ type: result?.ok ? 'success' : 'error', title: p.trust.modName, message: result?.message || 'Fehlgeschlagen' })
   }
 
   async function keep(p: DetectedProblem, keepIndex: 0 | 1) {
@@ -122,7 +132,8 @@ export function CrashDialog({ instanceId, problems, errorText, account, onRelaun
     }
   }
 
-  const fixable = [...replacements, ...installs, ...others].filter(p => p.fix && state[p.id] !== 'done')
+  const fixable = [...replacements, ...installs, ...others].filter(p => p.fix && state[p.id] !== 'done' && !trusted.has(p.id))
+  const shownOthers = others.filter(p => !trusted.has(p.id))
   const unresolvedConflicts = conflicts.filter(p => state[p.id] !== 'done').length
 
   return (
@@ -210,16 +221,26 @@ export function CrashDialog({ instanceId, problems, errorText, account, onRelaun
             </Group>
           )}
 
-          {others.length > 0 && (
+          {shownOthers.length > 0 && (
             <Group title="Sonstiges">
-              {others.map(p => (
+              {shownOthers.map(p => (
                 <div key={p.id} className="flex items-start gap-3 rounded-lg border border-crystal-border bg-crystal-card px-3 py-2.5">
                   <AlertTriangle size={14} className="text-crystal-warning shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
                     <p className="text-[13px] text-crystal-text">{p.title}</p>
                     <p className="text-xs text-crystal-muted mt-0.5">{p.detail}</p>
                   </div>
-                  {p.fix && <FixButton state={state[p.id]} label={p.fix.label} onClick={() => apply(p)} />}
+                  <div className="flex flex-col items-end gap-1.5 shrink-0">
+                    {p.fix && <FixButton state={state[p.id]} label={p.fix.label} onClick={() => apply(p)} />}
+                    {p.trust && state[p.id] !== 'done' && (
+                      <button
+                        onClick={() => trust(p)}
+                        className="text-xs px-2.5 py-1 rounded-md text-crystal-muted hover:text-crystal-text hover:bg-crystal-border/40 transition-colors"
+                      >
+                        Ich vertraue dieser Mod
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </Group>
