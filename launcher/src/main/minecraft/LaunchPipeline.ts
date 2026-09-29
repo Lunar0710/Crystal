@@ -44,6 +44,45 @@ const VERSIONS_DIR = () => path.join(crystalRoot(), 'versions')
 const LIBRARIES_DIR = () => path.join(crystalRoot(), 'libraries')
 const ASSETS_DIR = () => path.join(crystalRoot(), 'assets')
 
+/** Parallel downloads: enough to hide the per-file round trip, few enough not to be throttled. */
+const LIBRARY_DOWNLOADS = 8
+const ASSET_DOWNLOADS = 16
+
+/** Runs fn over items with at most `limit` at a time; results keep the input order. */
+async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T, index: number) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(items.length)
+  let next = 0
+  const worker = async () => {
+    while (next < items.length) {
+      const i = next++
+      results[i] = await fn(items[i], i)
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
+  return results
+}
+
+/**
+ * Wall-clock time per launch step, written to the launch log header and the
+ * launcher log ("# timings: java 3ms, version-meta 12ms, ...") so a slow start
+ * shows where it went. scripts/smoke-launch.cjs prints it next to the game's own times.
+ */
+export class LaunchTimings {
+  private readonly steps: [string, number][] = []
+  private last = Date.now()
+  readonly startedAt = this.last
+
+  mark(step: string): void {
+    const now = Date.now()
+    this.steps.push([step, now - this.last])
+    this.last = now
+  }
+
+  toString(): string {
+    return this.steps.map(([step, ms]) => `${step} ${ms}ms`).join(', ') + `, total ${this.last - this.startedAt}ms`
+  }
+}
+
 export interface LaunchPipelineOptions {
   version: string
   loader: 'vanilla' | 'fabric' | 'forge'
@@ -58,6 +97,8 @@ export interface LaunchPipelineOptions {
   /** Test runs only (scripts/smoke-world.cjs); a normal launch never sets these. */
   extraJvmArgs?: string[]
   extraGameArgs?: string[]
+  /** Steps before this pipeline (Java lookup, mods) already timed by the caller. */
+  timings?: LaunchTimings
 }
 
 type Rule = OsRule
@@ -127,6 +168,22 @@ function nativeCrashReport(gameDir: string, since: number): string {
   }
 }
 
+function readJson(file: string): any | null {
+  try { return JSON.parse(fs.readFileSync(file, 'utf8')) } catch { return null }
+}
+
+/** Written to a temp file first, so a launch reading it never sees half a file. */
+function writeJsonAtomic(file: string, data: unknown): void {
+  try {
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    const tmp = `${file}.${process.pid}.tmp`
+    fs.writeFileSync(tmp, JSON.stringify(data))
+    fs.renameSync(tmp, file)
+  } catch (err) {
+    logger.warn('client', `Konnte ${file} nicht speichern`, String(err))
+  }
+}
+
 function findFatalReason(output: string): string | null {
   for (const { pattern, reason } of FATAL_PATTERNS) {
     if (pattern.test(output)) return reason
@@ -149,16 +206,14 @@ export class LaunchPipeline {
     fs.mkdirSync(LIBRARIES_DIR(), { recursive: true })
     fs.mkdirSync(ASSETS_DIR(), { recursive: true })
 
+    const timings = opts.timings ?? new LaunchTimings()
     emit('launch:progress', { step: 'Version wird geprüft...', percent: 5 })
-    const manifest = await this.getJson<{ versions: { id: string; url: string }[] }>(
-      'https://launchermeta.mojang.com/mc/game/version_manifest_v2.json'
-    )
-    const entry = manifest.versions.find(v => v.id === opts.version)
-    if (!entry) {
+    const versionJson = await this.versionJson(opts.version)
+    if (!versionJson) {
       emit('launch:error', `Unknown Minecraft version: ${opts.version}`)
       return false
     }
-    const versionJson = await this.getJson<any>(entry.url)
+    timings.mark('version-meta')
 
     let mainClass = versionJson.mainClass
     let extraLibraries: LibraryArtifact[] = []
@@ -168,20 +223,14 @@ export class LaunchPipeline {
     if (opts.loader === 'fabric') {
       emit('launch:progress', { step: 'Fabric wird vorbereitet...', percent: 12 })
       // Official Fabric from 1.14, Legacy Fabric for 1.8.9 to 1.13.2.
-      const meta = fabricMetaFor(opts.version)
-      const loaders = meta
-        ? await this.getJson<{ loader: { version: string } }[]>(`${meta}/v2/versions/loader/${opts.version}`).catch(() => [])
-        : []
-      if (!meta || loaders.length === 0) {
+      loaderProfile = await this.fabricProfile(opts.version)
+      if (!loaderProfile) {
         emit('launch:error', `Für Minecraft ${opts.version} gibt es kein Fabric. Wähle Vanilla oder eine andere Version.`)
         return false
       }
-      const loaderVersion = loaders[0].loader.version
-      loaderProfile = await this.getJson<any>(
-        `${meta}/v2/versions/loader/${opts.version}/${loaderVersion}/profile/json`
-      )
       mainClass = loaderProfile.mainClass
       extraLibraries = loaderProfile.libraries || []
+      timings.mark('fabric-meta')
     }
 
     emit('launch:progress', { step: 'Minecraft wird geladen...', percent: 18 })
@@ -189,6 +238,7 @@ export class LaunchPipeline {
     fs.mkdirSync(versionDir, { recursive: true })
     const clientJarPath = path.join(versionDir, `${opts.version}.jar`)
     await this.downloadIfMissing(versionJson.downloads.client.url, clientJarPath)
+    timings.mark('client-jar')
 
     emit('launch:progress', { step: 'Bibliotheken werden geladen...', percent: 30 })
     // A loader library replaces the game's copy of the same one: Legacy Fabric
@@ -200,17 +250,20 @@ export class LaunchPipeline {
       [...gameLibraries, ...extraLibraries],
       (done, total) => emit('launch:progress', { step: `Bibliotheken (${done}/${total})...`, percent: 30 + Math.round((done / Math.max(1, total)) * 25) })
     )
+    timings.mark('libraries')
 
     // LWJGL loads its .dll files off java.library.path, so the natives jars
     // have to be unpacked to disk — without this Minecraft dies on startup.
     const nativesDir = path.join(VERSIONS_DIR(), opts.version, 'natives')
     emit('launch:progress', { step: 'Grafik-Bibliotheken werden entpackt...', percent: 56 })
     await this.extractNatives(nativeJars, nativesDir)
+    timings.mark('natives')
 
     emit('launch:progress', { step: 'Texturen und Sounds werden geladen...', percent: 58 })
     await this.downloadAssets(versionJson.assetIndex, (done, total) => {
       if (total > 0) emit('launch:progress', { step: `Texturen und Sounds (${done}/${total})...`, percent: 58 + Math.round((done / total) * 27) })
     })
+    timings.mark('assets')
 
     // Mojang's logging config. For 1.8.9 to 1.18 it is also the Log4Shell fix:
     // without it a chat message on a server could run code on this PC.
@@ -227,6 +280,7 @@ export class LaunchPipeline {
 
     // Measured as late as possible: what is free right before the start counts.
     const free = await freeMemory
+    timings.mark('memory-check')
     const heap = opts.autoRam === false ? { heapMb: opts.maxRam, notice: undefined } : fitHeap(opts.maxRam, free)
     if (heap.notice) {
       logger.warn('client', 'RAM für diesen Start gesenkt', { requested: opts.maxRam, used: heap.heapMb, freeCommitMb: free })
@@ -268,7 +322,8 @@ export class LaunchPipeline {
       // Everything except the long classpath. Filtering by path.delimiter instead
       // hid every "-XX:..." flag on macOS/Linux, where the delimiter is ':'.
       `# jvmArgs:   ${jvmArgs.filter(a => a !== '-cp' && a !== classpath).join(' ')}\n` +
-      `# classpath: ${libPaths.length + 1} entries\n\n`
+      `# classpath: ${libPaths.length + 1} entries\n` +
+      `# timings:   ${timings}\n\n`
     logStream.write(header)
 
     logger.info('client', `Starte Minecraft ${opts.version} (${opts.loader})`, {
@@ -278,6 +333,7 @@ export class LaunchPipeline {
       maxRam: heap.heapMb,
       freeCommitMb: free,
       classpathEntries: libPaths.length + 1,
+      timings: timings.toString(),
     })
 
     // detached: without it, Node puts the game in a Windows job object that
@@ -357,7 +413,7 @@ export class LaunchPipeline {
       emit('launch:error', `Minecraft ist abgestürzt:\n${fatal}\n\nLog: ${logPath}\n\n${native || tail.slice(-1200)}`)
     })
 
-    logger.info('client', `Minecraft läuft (PID ${proc.pid})`)
+    logger.info('client', `Minecraft läuft (PID ${proc.pid}), ${outcome.kind === 'running' ? 'Lebenszeichen' : 'keine Meldung'} nach ${Date.now() - launchedAt}ms`)
     emit('launch:started', { version: opts.version, gameDir: opts.gameDir, username: opts.profile.username, pid: proc.pid })
     emit('launch:progress', { step: 'Minecraft lädt...', percent: 100 })
     return true
@@ -479,11 +535,13 @@ export class LaunchPipeline {
     onProgress: (done: number, total: number) => void
   ): Promise<{ classpath: string[]; natives: string[] }> {
     const applicable = libraries.filter(lib => this.rulesAllow(lib.rules))
-    const classpath: string[] = []
-    const natives: string[] = []
     let done = 0
 
-    for (const lib of applicable) {
+    // Checked and downloaded in parallel; each library's own jars are
+    // collected per slot so the classpath keeps the version file's order.
+    const perLibrary = await mapLimit(applicable, LIBRARY_DOWNLOADS, async lib => {
+      const classpath: string[] = []
+      const natives: string[] = []
       // Modern versions ship natives as their own library entries
       // (name ending in ":natives-windows", ":natives-macos-arm64", ...);
       // older ones use a classifiers map keyed the same way.
@@ -536,8 +594,12 @@ export class LaunchPipeline {
 
       done++
       onProgress(done, applicable.length)
+      return { classpath, natives }
+    })
+    return {
+      classpath: perLibrary.flatMap(l => l.classpath),
+      natives: perLibrary.flatMap(l => l.natives),
     }
-    return { classpath, natives }
   }
 
   /** "group:artifact:version" → "group/path/artifact/version/artifact-version.jar" */
@@ -563,17 +625,19 @@ export class LaunchPipeline {
     const entries = Object.values(index.objects)
     const objectsDir = path.join(ASSETS_DIR(), 'objects')
 
-    let done = 0
-    for (const obj of entries) {
+    // Present files are counted straight away; only the missing ones are
+    // fetched, several at a time (a first start has about 4000 of them).
+    const missing = entries.filter(obj => !fs.existsSync(path.join(objectsDir, obj.hash.slice(0, 2), obj.hash)))
+    let done = entries.length - missing.length
+    onProgress(done, entries.length)
+    await mapLimit(missing, ASSET_DOWNLOADS, async obj => {
       const sub = obj.hash.slice(0, 2)
       const dest = path.join(objectsDir, sub, obj.hash)
-      if (!fs.existsSync(dest)) {
-        fs.mkdirSync(path.dirname(dest), { recursive: true })
-        await this.downloadIfMissing(`https://resources.download.minecraft.net/${sub}/${obj.hash}`, dest)
-      }
+      fs.mkdirSync(path.dirname(dest), { recursive: true })
+      await this.downloadIfMissing(`https://resources.download.minecraft.net/${sub}/${obj.hash}`, dest)
       done++
       if (done % 25 === 0 || done === entries.length) onProgress(done, entries.length)
-    }
+    })
   }
 
   /**
@@ -581,13 +645,26 @@ export class LaunchPipeline {
    * connection is retried twice before the launch gives up: a single network
    * hiccup among thousands of asset files shouldn't cost the player the launch.
    */
-  private async downloadIfMissing(url: string, dest: string): Promise<void> {
+  private downloadIfMissing(url: string, dest: string): Promise<void> {
+    // Downloads run in parallel: a file two entries point at is fetched once,
+    // and no one takes the half-written file for a finished one.
+    const running = this.inflight.get(dest)
+    if (running) return running
+    const job = this.downloadWithRetries(url, dest).finally(() => this.inflight.delete(dest))
+    this.inflight.set(dest, job)
+    return job
+  }
+
+  private readonly inflight = new Map<string, Promise<void>>()
+
+  private async downloadWithRetries(url: string, dest: string): Promise<void> {
     for (let attempt = 1; ; attempt++) {
       try {
         return await this.downloadOnce(url, dest)
       } catch (err) {
         const message = String((err as Error)?.message ?? err)
-        if (attempt >= 3 || /HTTP 4dd/.test(message)) throw err
+        // A missing file (4xx) won't turn up by asking again.
+        if (attempt >= 3 || /HTTP 4\d\d/.test(message)) throw err
         await new Promise(resolve => setTimeout(resolve, 1500 * attempt))
       }
     }
@@ -623,6 +700,57 @@ export class LaunchPipeline {
         reject(err)
       })
     })
+  }
+
+  /**
+   * The version's JSON. Kept at versions/<id>/<id>.json (the usual launcher
+   * layout, also what Panorama reads): a start with it on disk needs no
+   * network round trip and also works offline. Mojang can still republish a
+   * version's file (the Log4Shell fix did), so a cached one is refreshed in
+   * the background for the next start.
+   */
+  private async versionJson(version: string): Promise<any | null> {
+    const file = path.join(VERSIONS_DIR(), version, `${version}.json`)
+    const fetchFresh = async () => {
+      const manifest = await this.getJson<{ versions: { id: string; url: string }[] }>(
+        'https://launchermeta.mojang.com/mc/game/version_manifest_v2.json'
+      )
+      const entry = manifest.versions.find(v => v.id === version)
+      if (!entry) return null
+      const json = await this.getJson<any>(entry.url)
+      writeJsonAtomic(file, json)
+      return json
+    }
+    const cached = readJson(file)
+    if (cached?.id === version && cached.downloads?.client?.url && cached.assetIndex) {
+      fetchFresh().catch(err => logger.warn('client', `Versionsdaten ${version} nicht aktualisiert`, String(err)))
+      return cached
+    }
+    return fetchFresh()
+  }
+
+  /**
+   * Fabric's (or Legacy Fabric's) launch profile for the newest loader, cached
+   * like versionJson: used from disk right away and refreshed in the
+   * background, so a new loader release is picked up on the start after.
+   */
+  private async fabricProfile(version: string): Promise<any | null> {
+    const meta = fabricMetaFor(version)
+    if (!meta) return null
+    const file = path.join(VERSIONS_DIR(), version, 'fabric-loader-profile.json')
+    const fetchFresh = async () => {
+      const loaders = await this.getJson<{ loader: { version: string } }[]>(`${meta}/v2/versions/loader/${version}`)
+      if (loaders.length === 0) return null
+      const profile = await this.getJson<any>(`${meta}/v2/versions/loader/${version}/${loaders[0].loader.version}/profile/json`)
+      writeJsonAtomic(file, profile)
+      return profile
+    }
+    const cached = readJson(file)
+    if (cached?.mainClass && Array.isArray(cached.libraries)) {
+      fetchFresh().catch(err => logger.warn('client', `Fabric-Daten ${version} nicht aktualisiert`, String(err)))
+      return cached
+    }
+    return fetchFresh().catch(() => null)
   }
 
   private getJson<T>(url: string, redirects = 0): Promise<T> {
