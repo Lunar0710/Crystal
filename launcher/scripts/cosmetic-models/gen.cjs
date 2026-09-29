@@ -26,7 +26,7 @@ const CLIENT_ASSETS = path.join(REPO, 'client', 'src', 'main', 'resources', 'ass
 const TS_OUT = path.join(REPO, 'launcher', 'src', 'renderer', 'data', 'cosmeticModels.generated.ts')
 const FACES = ['pz', 'nz', 'px', 'nx', 'py', 'ny']
 const ANIMS = new Set(['sway', 'swayz', 'spin', 'bob', 'bounce', 'fold', 'flicker'])
-const MAX_FALLBACK_BOXES = 64
+const MAX_FALLBACK_BOXES = 14
 
 const round = (v, n = 4) => Math.round(v * 10 ** n) / 10 ** n
 
@@ -176,9 +176,9 @@ function fallbackBoxes(def, cubes, faceAverage) {
     const m = matrixOf(bone.name)
     const [x, y, z] = e.cube.from, [w, h, d] = e.cube.size
     const [cx, cy, cz] = apply(m, [x + w / 2, y + h / 2, z + d / 2])
-    const box = { x: round(cx, 3), y: round(cy, 3), z: round(cz, 3), w, h, d, color: L.toHex(faceAverage.get(e)) }
+    const box = { x: round(cx, 2), y: round(cy, 2), z: round(cz, 2), w: round(w, 2), h: round(h, 2), d: round(d, 2), color: L.toHex(faceAverage.get(e)) }
     const rz = zAngle.get(bone.name)
-    if (Math.abs(rz) > 1e-3) box.rz = round(rz, 4)
+    if (Math.abs(rz) > 1e-3) box.rz = round(rz, 3)
     if (e.cube.glow) box.glow = true
     return box
   })

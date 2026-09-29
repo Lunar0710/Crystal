@@ -897,11 +897,12 @@ export function registerIpcHandlers(store: Store) {
   // Hats, masks, wings… for the in-game client (CosmeticLoadout.java). Only the
   // fields the Java renderer needs, and only content-changing writes, since the
   // client re-reads the file whenever its modification time changes.
-  ipcMain.handle('cosmetics:syncLoadout', (_e, items: Record<string, { color: string; secondary?: string; variant?: string; plusOnly?: boolean; anchor?: string; boxes?: unknown[] } | null>) => {
+  ipcMain.handle('cosmetics:syncLoadout', (_e, items: Record<string, { id?: string; color: string; secondary?: string; variant?: string; plusOnly?: boolean; anchor?: string; boxes?: unknown[]; model?: string; skin?: string } | null>) => {
     const dir = crystalPath('cosmetics')
     fs.mkdirSync(dir, { recursive: true })
     const target = path.join(dir, 'loadout.json')
     const isHex = (v: unknown): v is string => typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v)
+    const isModelId = (v: unknown): v is string => typeof v === 'string' && /^[a-z0-9_]{1,40}$/.test(v)
     const num = (v: unknown, limit: number) => typeof v === 'number' && Number.isFinite(v) ? Math.max(-limit, Math.min(limit, v)) : 0
     const clean: Record<string, unknown> = {}
     for (const slot of ['hat', 'bandana', 'mask', 'wings', 'backpack', 'aura', 'pet']) {
@@ -923,6 +924,10 @@ export function registerIpcHandlers(store: Store) {
         plusOnly: !!item.plusOnly,
         anchor: ['head', 'body', 'wing', 'pet'].includes(item.anchor as string) ? item.anchor : null,
         boxes,
+        // 3D model cosmetics: the model and its colour variant (texture). The
+        // boxes above stay as the fallback for older games.
+        ...(isModelId(item.model) ? { model: item.model, skin: isModelId(item.skin) ? item.skin : 'default' } : {}),
+        ...(typeof item.id === 'string' && /^[a-z0-9-]{1,40}$/.test(item.id) ? { id: item.id } : {}),
       }
     }
     const json = JSON.stringify(clean, null, 2)
@@ -932,6 +937,66 @@ export function registerIpcHandlers(store: Store) {
       return true
     } catch (err) {
       logger.warn('launcher', 'Cosmetics-Loadout konnte nicht geschrieben werden', String(err))
+      return false
+    }
+  })
+
+  // Everything the in-game Cosmetics menu offers (CosmeticsScreen.java):
+  // items resolved to what the game draws, locked flags, capes, outfits.
+  ipcMain.handle('cosmetics:syncCatalog', (_e, catalog: unknown) => {
+    try {
+      const json = JSON.stringify(catalog)
+      if (!catalog || typeof catalog !== 'object' || json.length > 8_000_000) return false
+      const dir = crystalPath('cosmetics')
+      fs.mkdirSync(dir, { recursive: true })
+      const target = path.join(dir, 'catalog.json')
+      if (fs.existsSync(target) && fs.readFileSync(target, 'utf8') === json) return true
+      fs.writeFileSync(target, json)
+      return true
+    } catch (err) {
+      logger.warn('launcher', 'Cosmetics-Katalog konnte nicht geschrieben werden', String(err))
+      return false
+    }
+  })
+
+  // The emotes on the in-game wheel, in order (EmoteWheelScreen.java).
+  ipcMain.handle('cosmetics:syncEmoteWheel', (_e, emotes: unknown) => {
+    const list = (Array.isArray(emotes) ? emotes : []).filter((v): v is string => typeof v === 'string' && /^[A-Z_]{2,20}$/.test(v)).slice(0, 8)
+    const dir = crystalPath('cosmetics')
+    fs.mkdirSync(dir, { recursive: true })
+    fs.writeFileSync(path.join(dir, 'emote-wheel.json'), JSON.stringify({ emotes: list }))
+    return list
+  })
+
+  // What was put on in the in-game menu since the launcher last looked: the
+  // game writes cosmetics/selection.json, the launcher takes it over into its
+  // own loadout, colour variants and outfits. Returns true when anything changed.
+  ipcMain.handle('cosmetics:adoptGameSelection', () => {
+    const file = crystalPath('cosmetics', 'selection.json')
+    try {
+      if (!fs.existsSync(file)) return false
+      const sel = JSON.parse(fs.readFileSync(file, 'utf8'))
+      const savedAt = Number(sel?.savedAt) || 0
+      if (savedAt <= (store.get('cosmetics.gameSelectionSeen', 0) as number)) return false
+      store.set('cosmetics.gameSelectionSeen', savedAt)
+      const idOk = (v: unknown) => v === null || (typeof v === 'string' && v.length <= 80)
+      if (sel.loadout && typeof sel.loadout === 'object') {
+        const current = (store.get('cosmetics.loadout', {}) as Record<string, unknown>) || {}
+        const next: Record<string, unknown> = { ...current }
+        for (const slot of ['cape', 'hat', 'bandana', 'mask', 'wings', 'backpack', 'aura', 'pet']) {
+          if (slot in sel.loadout && idOk(sel.loadout[slot])) next[slot] = sel.loadout[slot]
+        }
+        store.set('cosmetics.loadout', next)
+      }
+      if (sel.variants && typeof sel.variants === 'object') {
+        const current = (store.get('cosmeticVariants', {}) as Record<string, string>) || {}
+        for (const [k, v] of Object.entries(sel.variants)) if (typeof v === 'string' && k.length <= 40 && v.length <= 40) current[k] = v
+        store.set('cosmeticVariants', current)
+      }
+      if (Array.isArray(sel.outfits)) store.set('cosmeticOutfits', sel.outfits.slice(0, 10))
+      return true
+    } catch (err) {
+      logger.warn('launcher', 'Auswahl aus dem Spiel nicht lesbar', String(err))
       return false
     }
   })

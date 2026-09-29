@@ -1,5 +1,6 @@
 import { RankId } from './ranks'
-import { shapeFor } from './cosmeticShapes'
+import { shapeFor, type ShapeBox } from './cosmeticShapes'
+import { MODEL_ITEM_DATA } from './cosmeticModels.generated'
 
 export type CosmeticSlot = 'cape' | 'hat' | 'bandana' | 'mask' | 'wings' | 'backpack' | 'aura' | 'pet'
 
@@ -14,7 +15,25 @@ export interface CosmeticDef {
   variant?: string
   /** Omitted = free for everyone. */
   requiredRank?: RankId
+  /** A 3D model cosmetic (cosmeticModels.ts) instead of plain boxes. */
+  model?: string
+  /** Colour variants to choose from; the first is the default. */
+  variants?: CosmeticVariant[]
+  /** Shown with a "Neu" badge in the grid. */
+  isNew?: boolean
+  /** Model items: plain boxes per variant for games or servers without model support. */
+  fallback?: Record<string, ShapeBox[]>
 }
+
+export interface CosmeticVariant {
+  id: string
+  name: string
+  color: string
+  secondary?: string
+}
+
+/** Which colour variant each item wears, by item id. Items not listed wear their first. */
+export type CosmeticVariants = Record<string, string>
 
 export const SLOTS: { id: CosmeticSlot; label: string }[] = [
   { id: 'cape', label: 'Capes' },

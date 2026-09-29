@@ -10,7 +10,11 @@ const { meetsRank, hasPerks } = require('./ranks')
 
 const SLOTS = ['hat', 'bandana', 'mask', 'wings', 'backpack', 'aura', 'pet']
 const ANCHORS = ['head', 'body', 'wing', 'pet']
-const EMOTES = ['WAVE', 'CHEER', 'CLAP', 'DANCE', 'BOW', 'FACEPALM', 'POINT']
+const EMOTES = ['WAVE', 'CHEER', 'CLAP', 'DANCE', 'BOW', 'FACEPALM', 'POINT', 'SALUTE', 'SHRUG', 'THINK']
+// 3D model cosmetics: a model id and its colour variant (a texture in the
+// game's jar). Games that don't know a model draw the boxes sent with it.
+const MODEL_ID = /^[a-z0-9_]{1,40}$/
+const ITEM_ID = /^[a-z0-9-]{1,40}$/
 const MAX_BOXES = 64
 
 const isHex = v => typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v)
@@ -51,6 +55,11 @@ function cleanLoadout(items, rank) {
       anchor: ANCHORS.includes(item.anchor) ? item.anchor : null,
       boxes,
     }
+    if (typeof item.model === 'string' && MODEL_ID.test(item.model)) {
+      clean[slot].model = item.model
+      clean[slot].skin = typeof item.skin === 'string' && MODEL_ID.test(item.skin) ? item.skin : 'default'
+    }
+    if (typeof item.id === 'string' && ITEM_ID.test(item.id)) clean[slot].id = item.id
   }
   return clean
 }

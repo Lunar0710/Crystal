@@ -19,7 +19,8 @@ import java.util.concurrent.Executors;
  * changes; this re-reads the file off the render thread at most once a second,
  * like CosmeticCapeLoader does for the cape.
  *
- * Client-side only: other players never see these, just like the cape.
+ * Other Nexora players see them through the Nexora server (CrystalNet).
+ * The in-game Cosmetics menu (CosmeticsScreen) writes the same file.
  */
 public final class CosmeticLoadout {
 
@@ -27,8 +28,13 @@ public final class CosmeticLoadout {
      * One equipped item. Colours are ARGB. {@code anchor} ("head", "body",
      * "wing") and {@code boxes} are the shape exactly as the launcher preview
      * draws it (cosmeticShapes.ts), in skin pixels with y up.
+     *
+     * {@code model} and {@code skin} name a 3D model cosmetic and its colour
+     * variant (CosmeticModels); null for block items. The boxes then are the
+     * fallback for games that don't have the model.
      */
-    public record Item(int color, int secondary, String variant, boolean plusOnly, String anchor, List<Box> boxes) {}
+    public record Item(int color, int secondary, String variant, boolean plusOnly, String anchor, List<Box> boxes,
+                       String model, String skin) {}
 
     /** Centre, size, rotation around z (radians), ARGB colour, full-bright flag. */
     public record Box(float x, float y, float z, float w, float h, float d, float rz, int color, boolean glow) {}
@@ -54,6 +60,17 @@ public final class CosmeticLoadout {
     private static volatile boolean inFlight = false;
 
     private CosmeticLoadout() {}
+
+    /** Re-reads loadout.json on the next frame (after the in-game menu wrote it). */
+    public static void reloadSoon() {
+        lastCheck = 0;
+        lastMtime = -1;
+    }
+
+    /** Takes a loadout into effect at once, without waiting for the file check. */
+    public static void apply(Map<String, Item> next) {
+        items = Map.copyOf(next);
+    }
 
     /**
      * The equipped item in a slot, or null. Nexora+ items only come back while
@@ -126,9 +143,17 @@ public final class CosmeticLoadout {
                             b.has("glow") && b.get("glow").getAsBoolean()));
                 }
             }
-            parsed.put(slot, new Item(color, secondary, variant, plus, anchor, List.copyOf(boxes)));
+            String model = str(o, "model"), skin = str(o, "skin");
+            if (model != null && !model.matches("[a-z0-9_]{1,40}")) model = null;
+            if (skin == null || !skin.matches("[a-z0-9_]{1,40}")) skin = "default";
+            parsed.put(slot, new Item(color, secondary, variant, plus, anchor, List.copyOf(boxes), model, skin));
         }
         return Map.copyOf(parsed);
+    }
+
+    private static String str(JsonObject o, String key) {
+        JsonElement e = o.get(key);
+        return e != null && e.isJsonPrimitive() ? e.getAsString() : null;
     }
 
     private static float f(JsonObject o, String key) {
