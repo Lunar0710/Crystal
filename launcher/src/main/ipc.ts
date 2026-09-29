@@ -19,7 +19,7 @@ import { syncThemeToClient, syncProfileToClient } from './theme/ThemeSync'
 const PRERELEASE_RANKS = ['owner', 'co_owner', 'admin', 'staff', 'developer', 'media', 'crystal_plus']
 import { ExternalClientManager } from './minecraft/ExternalClientManager'
 import { BrandingManager } from './branding/BrandingManager'
-import { ModrinthService } from './minecraft/ModrinthService'
+import { ModrinthService, performancePackFits } from './minecraft/ModrinthService'
 import { CapeManager } from './cosmetics/CapeManager'
 import { crystalServerAddress, writeEquippedCapeId } from './cosmetics/CrystalServer'
 import { SkinService } from './cosmetics/SkinService'
@@ -565,9 +565,12 @@ export function registerIpcHandlers(store: Store) {
     // The player's own Java arguments for this instance, set on its page (checked again here).
     // Nexora Lite: the client only starts its FPS-first module set.
     // Nexora Lite is a Nexora+ (and team) perk; without it the instance starts as full Nexora.
-    if (launchId && opts.injectCrystal && instances.get(launchId)?.lite) {
-      if (PRERELEASE_RANKS.includes(auth.getRank())) opts.extraJvmArgs = [...(opts.extraJvmArgs ?? []), '-Dnexora.lite=true']
-      else logger.info('launcher', 'Nexora Lite braucht Nexora+, Start mit vollem Nexora')
+    const liteActive = !!(launchId && opts.injectCrystal && instances.get(launchId)?.lite && PRERELEASE_RANKS.includes(auth.getRank()))
+    if (liteActive) {
+      // Lite never connects to the Nexora server, so it doesn't get its address either.
+      opts.extraJvmArgs = [...(opts.extraJvmArgs ?? []).filter((a: string) => !a.startsWith('-Dcrystal.server=')), '-Dnexora.lite=true']
+    } else if (launchId && opts.injectCrystal && instances.get(launchId)?.lite) {
+      logger.info('launcher', 'Nexora Lite braucht Nexora+, Start mit vollem Nexora')
     }
     const ownJvmArgs = launchId ? cleanJvmArgs(instances.get(launchId)?.jvmArgs) : []
     if (ownJvmArgs.length) {
@@ -589,11 +592,12 @@ export function registerIpcHandlers(store: Store) {
     // the performance pack once. Only once: a mod the player removes afterwards
     // stays removed. A failed download never blocks the launch.
     // Nexora Lite gets the pack again once after switching to it, even if mods were removed before.
-    const isLite = !!(opts.injectCrystal && opts.instanceId && instances.get(opts.instanceId)?.lite)
-    const perfKey = isLite ? `perfPackLite.${opts.instanceId}` : `perfPackAuto.${opts.instanceId}`
-    if (opts.injectCrystal && typeof opts.version === 'string' && opts.version.startsWith('1.21') && opts.instanceId
+    // Which mods that is depends on the version (performancePackFits, PERFORMANCE_PACK); one
+    // without a build for it is not a failure, so the check is not repeated at every start.
+    const perfKey = liteActive ? `perfPackLite.${opts.instanceId}` : `perfPackAuto.${opts.instanceId}`
+    if (opts.injectCrystal && typeof opts.version === 'string' && performancePackFits(opts.version) && opts.instanceId
         && store.get('autoPerformancePack') !== false && !store.get(perfKey)) {
-      win?.webContents.send('launch:progress', { step: 'Performance-Mods werden installiert...', percent: 2 })
+      win?.webContents.send('launch:progress', { step: liteActive ? 'Performance-Mods für Nexora Lite werden installiert...' : 'Performance-Mods werden installiert...', percent: 2 })
       try {
         const result = await modrinth.installPerformancePack(opts.instanceId, opts.version)
         if (result.failed.length === 0) store.set(perfKey, true)
@@ -780,7 +784,7 @@ export function registerIpcHandlers(store: Store) {
   // Version switching for files that are already installed.
   ipcMain.handle('modrinth:identifyFile', (_e, instanceId: string, type: ContentType, fileName: string) =>
     modrinth.identifyFile(instanceId, type, fileName))
-  ipcMain.handle('perfpack:status', (_e, instanceId: string) => modrinth.performancePackStatus(instanceId))
+  ipcMain.handle('perfpack:status', (_e, instanceId: string) => modrinth.performancePackStatus(instanceId, instances.get(instanceId)?.version))
   ipcMain.handle('perfpack:install', (_e, instanceId: string) => modrinth.installPerformancePack(instanceId, instances.get(instanceId)?.version ?? '1.21.11'))
   ipcMain.handle('modrinth:checkModUpdates', (_e, instanceId: string) => {
     const instance = instances.get(String(instanceId))

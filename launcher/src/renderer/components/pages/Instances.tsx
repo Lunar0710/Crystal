@@ -990,6 +990,8 @@ interface PackEntry {
   title: string
   purpose: string
   installed: boolean
+  /** False when the mod has no build for this instance's Minecraft version. */
+  available?: boolean
 }
 
 /** Shows which performance mods this instance already has and installs the missing ones. */
@@ -999,7 +1001,8 @@ function PerformancePanel({ instanceId, onInstalled }: { instanceId: string; onI
   const [open, setOpen] = useState(false)
 
   function load() {
-    api?.performancePackStatus(instanceId).then((list: PackEntry[]) => setEntries(list || []))
+    // Mods without a build for this Minecraft version are not part of the pack here.
+    api?.performancePackStatus(instanceId).then((list: PackEntry[]) => setEntries((list || []).filter(e => e.available !== false || e.installed)))
   }
 
   useEffect(load, [instanceId])
