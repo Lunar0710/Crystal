@@ -43,6 +43,7 @@ public class CrystalClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         instance = this;
+        dev.crystal.client.util.StartupTimer.initStarted();
         LOGGER.info("[{}] Initializing {} v{}", MOD_ID, NAME, VERSION);
 
         eventBus = new EventBus();
@@ -202,6 +203,7 @@ public class CrystalClient implements ClientModInitializer {
                             })));
         });
 
+        dev.crystal.client.util.StartupTimer.initFinished();
         LOGGER.info("[{}] {} loaded successfully!", MOD_ID, NAME);
     }
 
