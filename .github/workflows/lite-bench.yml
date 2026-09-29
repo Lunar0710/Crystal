@@ -1,0 +1,88 @@
+# Nexora Lite against full Nexora on a Linux runner (Mesa software rendering
+# under Xvfb): average FPS, 1% low and start times, from
+# launcher/scripts/smoke-lite-bench.cjs. The absolute numbers are those of a
+# CPU renderer on a shared machine; the difference between the two modes is
+# what counts. Nothing is published from here.
+name: Lite bench
+
+on:
+  workflow_dispatch:
+    inputs:
+      rounds:
+        description: Runs per mode (alternating)
+        default: "2"
+      seconds:
+        description: Measured seconds per run
+        default: "60"
+  push:
+    branches: ['cloud/lite-*']
+
+jobs:
+  bench:
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ["1.21.11", "26.2"]
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Build client mod (${{ matrix.version }})
+        working-directory: client
+        run: |
+          chmod +x gradlew
+          ./gradlew ":${{ matrix.version }}:build" --no-daemon
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: launcher/package-lock.json
+
+      - name: Build launcher (main process)
+        working-directory: launcher
+        run: |
+          npm ci
+          npm run build:main
+
+      - name: Linux display for the game window
+        run: sudo apt-get update && sudo apt-get install -y xvfb libgl1-mesa-dri libglx-mesa0
+
+      - name: Full Nexora vs. Nexora Lite
+        working-directory: launcher
+        env:
+          CRYSTAL_SMOKE_VERSION: ${{ matrix.version }}
+          CRYSTAL_SMOKE_ROOT: ${{ runner.temp }}/bench
+          CRYSTAL_BENCH_ROUNDS: ${{ inputs.rounds || '2' }}
+          CRYSTAL_BENCH_SECONDS: ${{ inputs.seconds || '60' }}
+          CRYSTAL_BENCH_RESULTS: ${{ runner.temp }}/lite-bench-${{ matrix.version }}.json
+        run: |
+          mkdir -p "$CRYSTAL_SMOKE_ROOT"
+          xvfb-run -a -s "-screen 0 1280x720x24" node scripts/smoke-lite-bench.cjs
+
+      - name: Summary
+        if: always()
+        run: |
+          f="$RUNNER_TEMP/lite-bench-${{ matrix.version }}.json"
+          {
+            echo "### Nexora Lite bench, Minecraft ${{ matrix.version }}"
+            echo '```'
+            node -e "console.log(require(process.argv[1]).table)" "$f" 2>/dev/null || echo "no results"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lite-bench-${{ matrix.version }}
+          path: |
+            ${{ runner.temp }}/lite-bench-*.json
+            ${{ runner.temp }}/bench/instances/bench-*/crystal-launch.log
+            ${{ runner.temp }}/bench/instances/bench-*/crash-reports/
+          if-no-files-found: ignore
