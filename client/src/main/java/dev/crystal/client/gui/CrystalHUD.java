@@ -26,6 +26,9 @@ public class CrystalHUD {
     }
 
     public void render(GuiGraphics context, float tickDelta) {
+        // Once per frame on every version (GameRenderer.render has no hook on 26.x);
+        // a constant false outside the steady frame rate bench.
+        if (dev.crystal.client.util.BenchClock.ON) dev.crystal.client.util.BenchClock.frame();
         if (HudProfiler.ON) { renderProfiled(context); return; }
         for (dev.crystal.client.module.Module module : moduleManager.visibleModules()) {
             if (module.isEnabled()) drawModule(context, module);

@@ -17,9 +17,8 @@ public class MixinGameRenderer {
     // Optional, so a version without this method still starts (the turn then moves per tick).
     @Inject(method = "render", at = @At("HEAD"), require = 0)
     private void onRenderFrame(CallbackInfo ci) {
-        // Both flags are constants for the session, so the JIT drops what is off.
-        if (!dev.crystal.client.Lite.ON) dev.crystal.client.build.SmoothLook.frame(); // no AutoBuilder in Lite
-        if (dev.crystal.client.util.BenchClock.ON) dev.crystal.client.util.BenchClock.frame();
+        // A constant for the session, so the JIT drops the call in Lite (no AutoBuilder there).
+        if (!dev.crystal.client.Lite.ON) dev.crystal.client.build.SmoothLook.frame();
     }
 
     @Inject(method = "bobHurt", at = @At("HEAD"), cancellable = true)

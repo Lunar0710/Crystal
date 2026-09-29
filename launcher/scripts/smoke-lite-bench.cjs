@@ -65,8 +65,6 @@ async function run(mode, worldDir, round) {
     log(mode, 'performance pack', JSON.stringify(pack))
     if (pack.failed.length) throw new Error('performance pack install failed')
   }
-  const mods = fs.existsSync(path.join(gameDir, 'mods')) ? fs.readdirSync(path.join(gameDir, 'mods')).sort() : []
-
   const profile = { username: 'CrystalBench', uuid: '00196142-0019-3019-8001-00196142c1a6', accessToken: 'offline', type: 'offline' }
   const logPath = path.join(gameDir, 'crystal-launch.log')
   fs.rmSync(logPath, { force: true })
@@ -102,16 +100,18 @@ async function run(mode, worldDir, round) {
   await new Promise(r => setTimeout(r, 4000))
   if (pid) { try { process.kill(pid) } catch {} }
 
+  // After the start: the launcher adds Nexora and Fabric API while launching.
+  const mods = fs.readdirSync(path.join(gameDir, 'mods')).sort()
   const m = text.match(RESULT)
   if (!m) throw new Error(`${mode}: no BENCH_RESULT in the log\n${text.slice(-3000)}`)
   const menu = text.match(MENU)
-  const mixinsSkipped = (text.match(/Nexora Lite: only the FPS-first module set/) ? 'lite log line present' : '')
+  const modules = (text.match(/Bench steady: lite=\w+ modules on \((\d+)\)/) || [])[1]
   const result = {
     mode, round, lite: m[1] === 'true',
     avgFps: Number(m[2]), low1Fps: Number(m[3]), medianFps: Number(m[4]), frames: Number(m[5]), seconds: Number(m[6]),
     clientReadyMs: Number(m[7]), loadedMs: Number(m[8]), worldMs: Number(m[9]), heapMb: Number(m[10]),
     menuMs: menu ? Number(menu[1]) : null,
-    wallToDoneMs: Date.now() - startedAt, mods, note: mixinsSkipped,
+    wallToDoneMs: Date.now() - startedAt, modulesOn: modules ? Number(modules) : null, mods,
   }
   if ((mode === 'lite') !== result.lite) throw new Error(`${mode}: the client reported lite=${result.lite}`)
   log(JSON.stringify(result))

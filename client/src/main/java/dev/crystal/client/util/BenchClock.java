@@ -2,7 +2,7 @@ package dev.crystal.client.util;
 
 /**
  * Frame times for the steady frame rate bench (SmokeTest, -Dcrystal.smoke.bench=steady).
- * Kept apart from SmokeTest so the per-frame check in MixinGameRenderer only
+ * Kept apart from SmokeTest so the per-frame check in CrystalHUD only
  * loads this small class: outside the bench {@link #ON} is a constant false
  * and the JIT drops the call.
  */

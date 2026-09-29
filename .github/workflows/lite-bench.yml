@@ -10,7 +10,7 @@ on:
     inputs:
       rounds:
         description: Runs per mode (alternating)
-        default: "2"
+        default: "3"
       seconds:
         description: Measured seconds per run
         default: "60"
@@ -59,7 +59,7 @@ jobs:
         env:
           CRYSTAL_SMOKE_VERSION: ${{ matrix.version }}
           CRYSTAL_SMOKE_ROOT: ${{ runner.temp }}/bench
-          CRYSTAL_BENCH_ROUNDS: ${{ inputs.rounds || '2' }}
+          CRYSTAL_BENCH_ROUNDS: ${{ inputs.rounds || '3' }}
           CRYSTAL_BENCH_SECONDS: ${{ inputs.seconds || '60' }}
           CRYSTAL_BENCH_RESULTS: ${{ runner.temp }}/lite-bench-${{ matrix.version }}.json
         run: |
