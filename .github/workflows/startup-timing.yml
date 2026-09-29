@@ -15,7 +15,7 @@ on:
         description: Branch to compare against
         default: update-2.0
   push:
-    branches: [cloud/fast-startup]
+    branches: ['cloud/**']
 
 jobs:
   timing:
