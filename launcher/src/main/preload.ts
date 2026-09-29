@@ -38,6 +38,7 @@ contextBridge.exposeInMainWorld('crystal', {
   analyzeFailure: (instanceId: string, log: string) => ipcRenderer.invoke('autofix:analyze', instanceId, log),
   applyFix:       (instanceId: string, fix: unknown) => ipcRenderer.invoke('autofix:apply', instanceId, fix),
   previewFix:     (instanceId: string, fix: unknown) => ipcRenderer.invoke('autofix:preview', instanceId, fix),
+  trustMod:       (instanceId: string, modFile: string) => ipcRenderer.invoke('autofix:trustMod', instanceId, modFile),
   uploadCrashLog: (instanceId: string) => ipcRenderer.invoke('autofix:uploadLog', instanceId),
 
   // Rank management (server-side gated to the owner rank, see ipc.ts)
