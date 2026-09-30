@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react'
 import { EquippedCosmetics, syncLoadoutToGame } from './data/cosmetics'
 import { fillCapeCache } from './data/capeCache'
+import { syncCatalogToGame, loadEmoteWheel, loadVariants } from './data/gameCatalog'
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { TitleBar } from './components/ui/TitleBar'
 import { TopBar } from './components/ui/TopBar'
@@ -34,12 +35,19 @@ export default function App() {
   // Equipped cosmetics reach the game even if the Cosmetics page is never opened.
   useEffect(() => {
     const api = (window as any).crystal
-    api?.getLoadout().then((l: EquippedCosmetics | null) => {
-      if (!l) return
-      syncLoadoutToGame(l)
-      // Which built-in cape you wear, for other Nexora players (uploaded ones stay private).
-      api?.syncCapeId(l.cape?.startsWith('builtin:') ? l.cape.slice('builtin:'.length) : null)
-    })
+    ;(async () => {
+      // Whatever was put on in the in-game menu since last time becomes the launcher's loadout.
+      await api?.adoptGameSelection?.().catch(() => false)
+      const l: EquippedCosmetics | null = await api?.getLoadout()
+      if (l) {
+        syncLoadoutToGame(l, await loadVariants())
+        // Which built-in cape you wear, for other Nexora players (uploaded ones stay private).
+        api?.syncCapeId(l.cape?.startsWith('builtin:') ? l.cape.slice('builtin:'.length) : null)
+      }
+      api?.syncEmoteWheel?.(await loadEmoteWheel())
+      const rank = await api?.getRank?.()
+      if (rank) await syncCatalogToGame(rank)
+    })().catch(() => {})
     // Pictures of every built-in cape for showing other players' capes; once
     // per launcher version, a little after start so it doesn't slow it down.
     const timer = setTimeout(() => { fillCapeCache().catch(() => {}) }, 8000)

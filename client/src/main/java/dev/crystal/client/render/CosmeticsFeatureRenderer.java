@@ -22,7 +22,12 @@ import net.minecraft.util.Mth;
 
 /**
  * Draws the launcher's hats, bandanas, masks, backpacks, wings and auras on the
- * local player.
+ * local player and on other Nexora players.
+ *
+ * 3D model items (CosmeticModels) are drawn from their baked model; block
+ * items, and model items this game doesn't have, from their boxes. Hats and
+ * face items step aside for a helmet, wings and backpacks for an elytra, and
+ * a backpack moves out over a chestplate. Wings flap with the wearer's pace.
  *
  * Shapes are not defined here: the launcher sends the exact boxes its 3D
  * preview draws (cosmeticShapes.ts) in cosmetics/loadout.json, so the preview
@@ -67,27 +72,48 @@ public class CosmeticsFeatureRenderer extends RenderLayer<AvatarRenderState, Pla
 
         RenderType layer = RenderTypes.entityCutoutNoCull(WHITE);
         PlayerModel model = getParentModel();
+        float age = state.ageInTicks;
+        float move = Mth.clamp(state.walkAnimationSpeed, 0f, 1f);
+        boolean helmet = !state.headEquipment.isEmpty();
+        boolean elytra = state.chestEquipment.is(net.minecraft.world.item.Items.ELYTRA);
+        boolean chestplate = !elytra && !state.chestEquipment.isEmpty();
 
-        for (String slot : new String[]{CosmeticLoadout.HAT, CosmeticLoadout.BANDANA, CosmeticLoadout.MASK}) {
-            Item item = itemIn.apply(slot);
-            if (item == null || item.boxes().isEmpty()) continue;
-            matrices.pushPose();
-            model.head.translateAndRotate(matrices);
-            matrices.scale(1 / 16f, 1 / 16f, 1 / 16f);
-            // Head-centre space: the head cuboid spans y -8..0 in model space.
-            matrices.translate(0f, -4f, 0f);
-            submit(matrices, queue, layer, light, item.boxes(), 1);
-            matrices.popPose();
+        // A helmet covers the head: hats and face items would only poke through it.
+        if (!helmet) {
+            for (String slot : HEAD_SLOTS) {
+                Item item = itemIn.apply(slot);
+                if (item == null) continue;
+                CosmeticModels.Model m = CosmeticModels.get(item.model());
+                if (m == null && item.boxes().isEmpty()) continue;
+                matrices.pushPose();
+                model.head.translateAndRotate(matrices);
+                matrices.scale(1 / 16f, 1 / 16f, 1 / 16f);
+                // Head-centre space: the head cuboid spans y -8..0 in model space.
+                matrices.translate(0f, -4f, 0f);
+                if (m != null) CosmeticModelRenderer.render(matrices, queue, light, m, item.skin(), age, move, 0f, 1);
+                else submit(matrices, queue, layer, light, item.boxes(), 1);
+                matrices.popPose();
+            }
         }
 
-        Item backpack = itemIn.apply(CosmeticLoadout.BACKPACK);
-        Item wings = itemIn.apply(CosmeticLoadout.WINGS);
-        if ((backpack != null && !backpack.boxes().isEmpty()) || (wings != null && !wings.boxes().isEmpty())) {
+        // An elytra takes the back: no wings or backpack over it.
+        Item backpack = elytra ? null : itemIn.apply(CosmeticLoadout.BACKPACK);
+        Item wings = elytra ? null : itemIn.apply(CosmeticLoadout.WINGS);
+        CosmeticModels.Model packModel = backpack == null ? null : CosmeticModels.get(backpack.model());
+        CosmeticModels.Model wingModel = wings == null ? null : CosmeticModels.get(wings.model());
+        boolean drawPack = backpack != null && (packModel != null || !backpack.boxes().isEmpty());
+        boolean drawWings = wings != null && (wingModel != null || !wings.boxes().isEmpty());
+        if (drawPack || drawWings) {
             matrices.pushPose();
             model.body.translateAndRotate(matrices);
             matrices.scale(1 / 16f, 1 / 16f, 1 / 16f);
-            if (backpack != null) submit(matrices, queue, layer, light, backpack.boxes(), 1);
-            if (wings != null) renderWings(matrices, queue, layer, light, wings, state.ageInTicks);
+            // A chestplate is a pixel thicker than the body: the pack sits on it, not in it.
+            if (chestplate) matrices.translate(0f, 0f, 1f);
+            if (drawPack) {
+                if (packModel != null) CosmeticModelRenderer.render(matrices, queue, light, packModel, backpack.skin(), age, move, 0f, 1);
+                else submit(matrices, queue, layer, light, backpack.boxes(), 1);
+            }
+            if (drawWings) renderWings(matrices, queue, layer, light, wings, wingModel, state);
             matrices.popPose();
         }
 
@@ -97,6 +123,8 @@ public class CosmeticsFeatureRenderer extends RenderLayer<AvatarRenderState, Pla
         Item pet = itemIn.apply(CosmeticLoadout.PET);
         if (pet != null && !pet.boxes().isEmpty()) renderPet(matrices, queue, layer, light, model, pet, state.ageInTicks);
     }
+
+    private static final String[] HEAD_SLOTS = {CosmeticLoadout.HAT, CosmeticLoadout.BANDANA, CosmeticLoadout.MASK};
 
     /** Where a pet floats, in preview space (cosmeticShapes.ts PET_POS): beside the right shoulder. */
     private static final float PET_X = -10f, PET_Y = 3f, PET_Z = 0f;
@@ -118,20 +146,41 @@ public class CosmeticsFeatureRenderer extends RenderLayer<AvatarRenderState, Pla
         matrices.popPose();
     }
 
+    private static final int[] SIDES = {1, -1};
+
+    /**
+     * How far the wings swing this frame, radians around the hinge. They
+     * beat slowly while standing, faster and wider when walking, and fold in
+     * when sneaking.
+     * Same numbers as the launcher preview (SkinPreview3D).
+     */
+    static float flap(AvatarRenderState state) {
+        float move = Mth.clamp(state.walkAnimationSpeed, 0f, 1f);
+        float speed = 0.1f + move * 0.11f;
+        float amp = 0.16f + move * 0.2f;
+        if (state.isCrouching) amp *= 0.35f;
+        return Mth.sin(state.ageInTicks * speed) * amp;
+    }
+
     /**
      * Both wings from the one right-wing shape: the left is mirrored. Each is
-     * hinged on the upper back, swept backwards and flapping slowly.
+     * hinged on the upper back, swept backwards and flapping with the pace.
      */
-    private static void renderWings(PoseStack matrices, SubmitNodeCollector queue, RenderType layer, int light, Item wings, float age) {
-        float flap = Mth.sin(age * 0.12f) * 0.22f;
-        for (int side : new int[]{1, -1}) {
+    private static void renderWings(PoseStack matrices, SubmitNodeCollector queue, RenderType layer, int light,
+                                    Item wings, CosmeticModels.Model wingModel, AvatarRenderState state) {
+        float flap = flap(state);
+        // Sneaking folds them further back.
+        float rest = state.isCrouching ? 1.1f : 0.8f;
+        float move = Mth.clamp(state.walkAnimationSpeed, 0f, 1f);
+        for (int side : SIDES) {
             matrices.pushPose();
             // Hinge: upper back, just off the spine (model space: y down, +z = back).
             matrices.translate(side * 1.5f, 2.5f, 2.6f);
             // Positive x swings toward -z (front) for a positive angle, so the
             // right wing takes a negative one to sweep back, the left a positive one.
-            matrices.mulPose(Axis.YP.rotation(-side * (0.8f + flap)));
-            submit(matrices, queue, layer, light, wings.boxes(), side);
+            matrices.mulPose(Axis.YP.rotation(-side * (rest + flap)));
+            if (wingModel != null) CosmeticModelRenderer.render(matrices, queue, light, wingModel, wings.skin(), state.ageInTicks, move, flap, side);
+            else submit(matrices, queue, layer, light, wings.boxes(), side);
             matrices.popPose();
         }
     }

@@ -58,7 +58,14 @@ public class NexoraPauseScreen extends Screen {
                 () -> minecraft.setScreen(new OptionsScreen(this, minecraft.options/*? if >=26 {*//*, false*//*?}*/)), Icon.OPTIONS, false, false));
         rows.add(new Row(x, y + step * 2, ROW_W, ROW_H, Component.literal("Nexora-Menü"),
                 () -> minecraft.setScreen(new CrystalClientScreen()), Icon.MARK, false, false));
-        rows.add(new Row(x, y + step * 3 + 14, ROW_W, 11, Component.translatable("menu.returnToMenu"),
+        // The in-game Cosmetics menu; Nexora Lite has no cosmetics.
+        int extra = 0;
+        if (!dev.crystal.client.Lite.ON) {
+            rows.add(new Row(x, y + step * 3, ROW_W, ROW_H, Component.literal("Cosmetics"),
+                    () -> minecraft.setScreen(new CosmeticsScreen()), Icon.MARK, false, false));
+            extra = step;
+        }
+        rows.add(new Row(x, y + step * 3 + 14 + extra, ROW_W, 11, Component.translatable("menu.returnToMenu"),
                 this::leaveWorld, Icon.NONE, false, true));
     }
 

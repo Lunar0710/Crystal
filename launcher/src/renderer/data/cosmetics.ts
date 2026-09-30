@@ -1,5 +1,6 @@
 import { RankId } from './ranks'
-import { shapeFor } from './cosmeticShapes'
+import { shapeFor, type ShapeBox } from './cosmeticShapes'
+import { MODEL_ITEM_DATA } from './cosmeticModels.generated'
 
 export type CosmeticSlot = 'cape' | 'hat' | 'bandana' | 'mask' | 'wings' | 'backpack' | 'aura' | 'pet'
 
@@ -14,7 +15,25 @@ export interface CosmeticDef {
   variant?: string
   /** Omitted = free for everyone. */
   requiredRank?: RankId
+  /** A 3D model cosmetic (cosmeticModels.ts) instead of plain boxes. */
+  model?: string
+  /** Colour variants to choose from; the first is the default. */
+  variants?: CosmeticVariant[]
+  /** Shown with a "Neu" badge in the grid. */
+  isNew?: boolean
+  /** Model items: plain boxes per variant for games or servers without model support. */
+  fallback?: Record<string, ShapeBox[]>
 }
+
+export interface CosmeticVariant {
+  id: string
+  name: string
+  color: string
+  secondary?: string
+}
+
+/** Which colour variant each item wears, by item id. Items not listed wear their first. */
+export type CosmeticVariants = Record<string, string>
 
 export const SLOTS: { id: CosmeticSlot; label: string }[] = [
   { id: 'cape', label: 'Capes' },
@@ -114,8 +133,8 @@ const WINGS: CosmeticDef[] = [
   { id: 'wg-nightbat', name: 'Fledermaus', slot: 'wings', color: '#1c1917', secondary: '#7c2d12', variant: 'bat', requiredRank: 'crystal_plus' },
   { id: 'wg-frost',   name: 'Frost',    slot: 'wings', color: '#bae6fd', secondary: '#38bdf8', variant: 'shard', requiredRank: 'crystal_plus' },
   { id: 'wg-sakura',  name: 'Sakura',   slot: 'wings', color: '#fbcfe8', secondary: '#db2777', requiredRank: 'crystal_plus', variant: 'butterfly' },
-  { id: 'wg-dragon',   name: 'Drachenflügel', slot: 'wings', color: '#7f1d1d', secondary: '#dc2626', variant: 'dragon', requiredRank: 'crystal_plus' },
-  { id: 'wg-phoenix',  name: 'Phönix',      slot: 'wings', color: '#f97316', secondary: '#fde047', variant: 'phoenix', requiredRank: 'crystal_plus' },
+  { id: 'wg-dragonwing', name: 'Drachenflügel', slot: 'wings', color: '#7f1d1d', secondary: '#dc2626', variant: 'dragon', requiredRank: 'crystal_plus' },
+  { id: 'wg-phoenix2', name: 'Phönix',      slot: 'wings', color: '#f97316', secondary: '#fde047', variant: 'phoenix', requiredRank: 'crystal_plus' },
   { id: 'wg-fairy',    name: 'Feenflügel',  slot: 'wings', color: '#a5f3fc', secondary: '#f0abfc', variant: 'fairy', requiredRank: 'crystal_plus' },
   { id: 'wg-leaf', name: 'Blattflügel', slot: 'wings', color: '#4f7a3a', secondary: '#9cc27a', variant: 'leaf', requiredRank: 'crystal_plus' },
   { id: 'wg-bone', name: 'Knochenflügel', slot: 'wings', color: '#e8e2d4', secondary: '#bfb6a3', variant: 'bone', requiredRank: 'crystal_plus' },
@@ -177,14 +196,82 @@ const PETS: CosmeticDef[] = [
 
 export type NonCapeSlot = Exclude<CosmeticSlot, 'cape'>
 
+/**
+ * The 3D model cosmetics (defs.cjs), with their colour variants. They sit in
+ * front of the block items of their slot.
+ */
+const MODEL_ITEMS: CosmeticDef[] = MODEL_ITEM_DATA.map(m => ({
+  id: `md-${m.model.replace(/_/g, '-')}`,
+  name: m.name,
+  slot: m.slot,
+  color: m.variants[0].color,
+  secondary: m.variants[0].secondary,
+  requiredRank: 'crystal_plus' as RankId,
+  model: m.model,
+  variants: m.variants,
+  fallback: m.fallback,
+  isNew: true,
+}))
+
+/** Colour variants for some block items: the same shape in other colours. */
+const BOX_VARIANTS: Record<string, CosmeticVariant[]> = {
+  'ht-beanie': [
+    { id: 'default', name: 'Rot', color: '#ef4444', secondary: '#7f1d1d' },
+    { id: 'navy', name: 'Marine', color: '#1e3a8a', secondary: '#0f172a' },
+    { id: 'mustard', name: 'Senf', color: '#d4a017', secondary: '#7c5a06' },
+    { id: 'grey', name: 'Grau', color: '#9ca3af', secondary: '#4b5563' },
+  ],
+  'ht-cap': [
+    { id: 'default', name: 'Blau', color: '#2563eb', secondary: '#1e3a8a' },
+    { id: 'black', name: 'Schwarz', color: '#18181b', secondary: '#dc2626' },
+    { id: 'white', name: 'Weiß', color: '#f4f4f5', secondary: '#16a34a' },
+  ],
+  'ht-tophat': [
+    { id: 'default', name: 'Schwarz', color: '#18181b', secondary: '#3f3f46' },
+    { id: 'crimson', name: 'Karmesin', color: '#7f1d1d', secondary: '#fbbf24' },
+    { id: 'ivory', name: 'Elfenbein', color: '#f5f0e6', secondary: '#18181b' },
+  ],
+  'bd-headband': [
+    { id: 'default', name: 'Blau', color: '#f1f5f9', secondary: '#3b82f6' },
+    { id: 'red', name: 'Rot', color: '#f1f5f9', secondary: '#dc2626' },
+    { id: 'black', name: 'Schwarz', color: '#18181b', secondary: '#e5e7eb' },
+  ],
+  'mk-visor': [
+    { id: 'default', name: 'Cyan', color: '#22d3ee', secondary: '#0e7490' },
+    { id: 'magenta', name: 'Magenta', color: '#f472b6', secondary: '#9d174d' },
+    { id: 'lime', name: 'Lime', color: '#a3e635', secondary: '#3f6212' },
+  ],
+  'wg-angel': [
+    { id: 'default', name: 'Weiß', color: '#f8fafc', secondary: '#cbd5e1' },
+    { id: 'gold', name: 'Gold', color: '#fde68a', secondary: '#d97706' },
+    { id: 'shadow', name: 'Schatten', color: '#3f3f46', secondary: '#18181b' },
+  ],
+  'bp-hiker': [
+    { id: 'default', name: 'Grün', color: '#65a30d', secondary: '#3f6212' },
+    { id: 'orange', name: 'Orange', color: '#ea580c', secondary: '#7c2d12' },
+    { id: 'blue', name: 'Blau', color: '#2563eb', secondary: '#1e3a8a' },
+  ],
+  'pt-cat': [
+    { id: 'default', name: 'Grau', color: '#a1a1aa', secondary: '#f9a8d4' },
+    { id: 'ginger', name: 'Rot', color: '#ea8a3a', secondary: '#fde2c8' },
+    { id: 'white', name: 'Weiß', color: '#f4f4f5', secondary: '#f9a8d4' },
+  ],
+}
+
+function withBoxVariants(list: CosmeticDef[]): CosmeticDef[] {
+  return list.map(d => (BOX_VARIANTS[d.id] ? { ...d, variants: BOX_VARIANTS[d.id] } : d))
+}
+
+const modelsFor = (slot: NonCapeSlot) => MODEL_ITEMS.filter(m => m.slot === slot)
+
 export const COSMETICS_BY_SLOT: Record<NonCapeSlot, CosmeticDef[]> = {
-  hat: HATS,
-  bandana: BANDANAS,
-  mask: MASKS,
-  wings: WINGS,
-  backpack: BACKPACKS,
+  hat: [...modelsFor('hat'), ...withBoxVariants(HATS)],
+  bandana: [...modelsFor('bandana'), ...withBoxVariants(BANDANAS)],
+  mask: withBoxVariants(MASKS),
+  wings: [...modelsFor('wings'), ...withBoxVariants(WINGS)],
+  backpack: [...modelsFor('backpack'), ...withBoxVariants(BACKPACKS)],
   aura: AURAS,
-  pet: PETS,
+  pet: withBoxVariants(PETS),
 }
 
 export type EquippedCosmetics = Record<CosmeticSlot, string | null>
@@ -198,27 +285,137 @@ export function findCosmetic(slot: NonCapeSlot, id: string | null): CosmeticDef 
   return COSMETICS_BY_SLOT[slot].find(c => c.id === id) ?? null
 }
 
+/** The variant an item wears: the chosen one if it still exists, else its first. */
+export function variantOf(def: CosmeticDef, variants: CosmeticVariants | undefined): CosmeticVariant | null {
+  if (!def.variants?.length) return null
+  const chosen = variants?.[def.id]
+  return def.variants.find(v => v.id === chosen) ?? def.variants[0]
+}
+
+/** The item as it looks in its chosen variant: colours swapped in, the rest the same. */
+export function resolveCosmetic(def: CosmeticDef | null, variants: CosmeticVariants | undefined): CosmeticDef | null {
+  if (!def) return null
+  const v = variantOf(def, variants)
+  if (!v || (v.color === def.color && v.secondary === def.secondary)) return def
+  return { ...def, color: v.color, secondary: v.secondary ?? def.secondary }
+}
+
+/** One slot's item the way loadout.json, catalog.json and the Nexora server carry it. */
+export function gameItem(def: CosmeticDef, variants: CosmeticVariants | undefined) {
+  const resolved = resolveCosmetic(def, variants)!
+  const variant = variantOf(def, variants)
+  if (def.model) {
+    const skin = variant?.id ?? 'default'
+    return {
+      id: def.id,
+      color: resolved.color,
+      secondary: resolved.secondary,
+      variant: null,
+      plusOnly: !!def.requiredRank,
+      anchor: def.slot === 'wings' ? 'wing' : def.slot === 'backpack' ? 'body' : 'head',
+      // Older games and servers only know boxes: they draw these instead.
+      boxes: def.fallback?.[skin] ?? def.fallback?.default ?? [],
+      model: def.model,
+      skin,
+      vid: skin,
+    }
+  }
+  const shape = shapeFor(resolved)
+  return {
+    id: def.id,
+    color: resolved.color,
+    secondary: resolved.secondary,
+    variant: def.variant,
+    plusOnly: !!def.requiredRank,
+    // The exact boxes the preview draws, so the game renders the same shape.
+    anchor: shape?.anchor ?? null,
+    boxes: shape?.boxes ?? [],
+    // Which colour variant this is, so the in-game menu shows it chosen.
+    ...(variant ? { vid: variant.id } : {}),
+  }
+}
+
 /**
  * Sends hats, masks, wings… to the in-game client (cosmetics/loadout.json).
  * Rank-locked items are flagged so the client hides them if the rank runs out.
  * Called at launcher start and whenever the loadout changes, so equipped items
  * show in-game without having to open the Cosmetics page first.
  */
-export function syncLoadoutToGame(loadout: Partial<EquippedCosmetics>) {
+export function syncLoadoutToGame(loadout: Partial<EquippedCosmetics>, variants?: CosmeticVariants) {
   const items: Record<string, unknown> = {}
   for (const slot of Object.keys(COSMETICS_BY_SLOT) as NonCapeSlot[]) {
     const def = findCosmetic(slot, loadout[slot] ?? null)
-    if (!def) { items[slot] = null; continue }
-    const shape = shapeFor(def)
-    items[slot] = {
-      color: def.color,
-      secondary: def.secondary,
-      variant: def.variant,
-      plusOnly: !!def.requiredRank,
-      // The exact boxes the preview draws, so the game renders the same shape.
-      anchor: shape?.anchor ?? null,
-      boxes: shape?.boxes ?? [],
-    }
+    items[slot] = def ? gameItem(def, variants) : null
   }
   ;(window as any).crystal?.syncLoadout(items)
+}
+
+// ---------------------------------------------------------------- emotes
+
+export interface EmoteDef {
+  /** The name the game and the Nexora server use (Emote.java). */
+  id: string
+  name: string
+  description: string
+  isNew?: boolean
+}
+
+export const EMOTES: EmoteDef[] = [
+  { id: 'WAVE', name: 'Winken', description: 'Hallo sagen' },
+  { id: 'CHEER', name: 'Jubeln', description: 'Beide Arme hoch' },
+  { id: 'CLAP', name: 'Klatschen', description: 'Applaus' },
+  { id: 'DANCE', name: 'Tanzen', description: 'Läuft, bis du dich bewegst' },
+  { id: 'BOW', name: 'Verbeugen', description: 'Nach einem guten Kampf' },
+  { id: 'FACEPALM', name: 'Facepalm', description: 'Wenn es wieder schiefging' },
+  { id: 'POINT', name: 'Zeigen', description: 'Da drüben!' },
+  { id: 'SALUTE', name: 'Salutieren', description: 'Hand an die Stirn', isNew: true },
+  { id: 'SHRUG', name: 'Schulterzucken', description: 'Keine Ahnung', isNew: true },
+  { id: 'THINK', name: 'Nachdenken', description: 'Hand am Kinn', isNew: true },
+]
+
+/** Emotes on the in-game wheel, in order. At most this many. */
+export const MAX_WHEEL_EMOTES = 8
+export const DEFAULT_WHEEL: string[] = ['WAVE', 'CHEER', 'CLAP', 'DANCE', 'BOW', 'FACEPALM', 'POINT', 'SALUTE']
+
+// ---------------------------------------------------------------- in-game menu
+
+/**
+ * Everything the in-game Cosmetics menu (CosmeticsScreen.java) offers, written
+ * to cosmetics/catalog.json: every item already resolved to what the game
+ * draws, for each of its variants, whether it's locked for this player, and
+ * the saved outfits. The menu then equips things without the launcher.
+ */
+export function buildGameCatalog(opts: {
+  canUse: (def: CosmeticDef) => boolean
+  capes: { id: string; name: string; locked: boolean; category: string }[]
+  outfits: { name: string; loadout: Partial<EquippedCosmetics>; variants?: CosmeticVariants }[]
+}) {
+  const slots = (Object.keys(COSMETICS_BY_SLOT) as NonCapeSlot[]).map(slot => ({
+    slot,
+    items: COSMETICS_BY_SLOT[slot].map(def => {
+      const variants: CosmeticVariant[] = def.variants?.length ? def.variants : [{ id: 'default', name: 'Standard', color: def.color, secondary: def.secondary }]
+      return {
+        id: def.id,
+        name: def.name,
+        locked: !opts.canUse(def),
+        plus: !!def.requiredRank,
+        isNew: !!def.isNew,
+        model: def.model ?? null,
+        variants: variants.map(v => ({
+          id: v.id,
+          name: v.name,
+          color: v.color,
+          secondary: v.secondary ?? v.color,
+          item: gameItem(def, { [def.id]: v.id }),
+        })),
+      }
+    }),
+  }))
+  return {
+    version: 1,
+    slots,
+    capes: opts.capes,
+    emotes: EMOTES.map(e => ({ id: e.id, name: e.name })),
+    outfits: opts.outfits,
+  }
 }

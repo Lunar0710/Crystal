@@ -61,6 +61,30 @@ public enum Emote {
         @Override void pose(PlayerModel m, float t, float blend) {
             set(m.rightArm, -1.55f, -0.1f, 0f, blend);
         }
+    },
+    SALUTE("Salutieren", 2.2f, false) {
+        @Override void pose(PlayerModel m, float t, float blend) {
+            // Hand to the brow, a small snap at the start.
+            float snap = 0.08f * sin(Math.min(t, 0.5f) * 12f);
+            set(m.rightArm, -2.35f + snap, -0.6f, 0.45f, blend);
+            set(m.head, -0.08f, 0f, 0f, blend);
+        }
+    },
+    SHRUG("Schulterzucken", 2f, false) {
+        @Override void pose(PlayerModel m, float t, float blend) {
+            float lift = 0.12f * Math.abs(sin(t * 5f));
+            set(m.rightArm, -0.35f, 0f, 0.55f + lift, blend);
+            set(m.leftArm, -0.35f, 0f, -0.55f - lift, blend);
+            set(m.head, 0f, 0f, 0.18f, blend);
+        }
+    },
+    THINK("Nachdenken", 3f, false) {
+        @Override void pose(PlayerModel m, float t, float blend) {
+            // Hand at the chin, head tilted, a slow nod.
+            set(m.rightArm, -1.95f, -0.75f, 0.2f, blend);
+            set(m.leftArm, -0.45f, 0.55f, 0f, blend);
+            set(m.head, 0.15f + 0.05f * sin(t * 2f), -0.2f, -0.12f, blend);
+        }
     };
 
     /** How long it moves in and out of the pose, in seconds. */

@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react'
 import { Shirt, X } from 'lucide-react'
 import { notify } from '../../store/notificationStore'
-import { EquippedCosmetics, COSMETICS_BY_SLOT, type NonCapeSlot } from '../../data/cosmetics'
+import { EquippedCosmetics, COSMETICS_BY_SLOT, type NonCapeSlot, type CosmeticVariants } from '../../data/cosmetics'
 import { meetsRank, type RankId } from '../../data/ranks'
 
 interface Outfit {
   name: string
   loadout: EquippedCosmetics
+  /** Colour variants of the items in it (older outfits have none). */
+  variants?: CosmeticVariants
 }
 
 const api = (window as any).crystal
@@ -16,10 +18,13 @@ const MAX_OUTFITS = 10
  * Saved combinations of cape, hat, pet and the rest, put on with one click.
  * An item the rank no longer allows is left off when the outfit goes on.
  */
-export function OutfitsPanel({ loadout, rank, onApply }: {
+export function OutfitsPanel({ loadout, variants, rank, onApply, onChange }: {
   loadout: EquippedCosmetics
+  variants?: CosmeticVariants
   rank: RankId
-  onApply: (next: EquippedCosmetics) => void
+  onApply: (next: EquippedCosmetics, variants?: CosmeticVariants) => void
+  /** After outfits were saved or deleted (the in-game menu lists them too). */
+  onChange?: () => void
 }) {
   const [outfits, setOutfits] = useState<Outfit[]>([])
   const [name, setName] = useState('')
@@ -30,7 +35,7 @@ export function OutfitsPanel({ loadout, rank, onApply }: {
 
   const store = (next: Outfit[]) => {
     setOutfits(next)
-    api?.setSetting('cosmeticOutfits', next)
+    Promise.resolve(api?.setSetting('cosmeticOutfits', next)).then(() => onChange?.())
   }
 
   function save() {
@@ -41,7 +46,10 @@ export function OutfitsPanel({ loadout, rank, onApply }: {
       notify({ type: 'info', message: `Höchstens ${MAX_OUTFITS} Outfits. Lösch eins, um Platz zu machen.` })
       return
     }
-    store([...rest, { name: n, loadout }])
+    // Only the variants of what's worn, so the outfit stays small.
+    const worn: CosmeticVariants = {}
+    for (const id of Object.values(loadout)) if (id && variants?.[id]) worn[id] = variants[id]
+    store([...rest, { name: n, loadout, variants: worn }])
     setName('')
     notify({ type: 'success', message: `Outfit „${n}“ gespeichert` })
   }
@@ -57,7 +65,7 @@ export function OutfitsPanel({ loadout, rank, onApply }: {
         dropped++
       }
     }
-    onApply(next)
+    onApply(next, outfit.variants)
     notify({
       type: 'success',
       message: dropped ? `„${outfit.name}“ angelegt, ${dropped} Item(s) sind mit deinem Rang nicht verfügbar` : `„${outfit.name}“ angelegt`,

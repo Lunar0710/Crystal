@@ -12,7 +12,9 @@
     "build:main": "tsc -p tsconfig.main.json",
     "predist": "node -e \"require('fs').rmSync('release',{recursive:true,force:true})\"",
     "dist": "npm run build && electron-builder",
-    "start": "electron ."
+    "start": "electron .",
+    "gen:cosmetics": "node scripts/cosmetic-models/gen.cjs",
+    "check:cosmetics": "node scripts/cosmetic-models/gen.cjs --check"
   },
   "dependencies": {
     "@fontsource-variable/archivo": "^5.3.0",

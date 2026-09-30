@@ -163,7 +163,7 @@ function writeTestSettings(gameDir) {
   const esbuild = require(path.join(launcherRoot, 'node_modules/esbuild'))
   const out = esbuild.buildSync({
     stdin: {
-      contents: "export { COSMETICS_BY_SLOT } from './cosmetics'; export { shapeFor } from './cosmeticShapes'",
+      contents: "export { COSMETICS_BY_SLOT, gameItem } from './cosmetics'",
       resolveDir: path.join(launcherRoot, 'src/renderer/data'),
       loader: 'ts',
     },
@@ -171,17 +171,15 @@ function writeTestSettings(gameDir) {
   })
   const mod = { exports: {} }
   new Function('module', 'exports', 'require', out.outputFiles[0].text)(mod, mod.exports, require)
-  const { COSMETICS_BY_SLOT, shapeFor } = mod.exports
+  const { COSMETICS_BY_SLOT, gameItem } = mod.exports
 
-  const pick = { hat: 'ht-propeller', mask: 'mk-glasses', wings: 'wg-angel', backpack: 'bp-guitar', aura: 'au-hearts', pet: 'pt-fox' }
+  // 3D model cosmetics (hat, wings, backpack) next to block ones (mask, pet)
+  // and an aura, the way the launcher writes them.
+  const pick = { hat: 'md-wizard-hat', mask: 'mk-glasses', wings: 'md-seraph-wings', backpack: 'md-expedition-pack', aura: 'au-hearts', pet: 'pt-fox' }
   const loadout = {}
   for (const [slot, id] of Object.entries(pick)) {
     const def = COSMETICS_BY_SLOT[slot].find(d => d.id === id)
-    const shape = shapeFor(def)
-    loadout[slot] = {
-      color: def.color, secondary: def.secondary ?? null, variant: def.variant ?? null, plusOnly: !!def.requiredRank,
-      anchor: shape ? shape.anchor : null, boxes: shape ? shape.boxes : [],
-    }
+    loadout[slot] = gameItem(def, {})
   }
   fs.writeFileSync(path.join(cosmeticsDir, 'loadout.json'), JSON.stringify(loadout, null, 2))
 

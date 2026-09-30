@@ -29,7 +29,7 @@ public class Emotes extends Module {
     private final Consumer<TickEvent> tickListener = this::onTick;
 
     public Emotes() {
-        super("Emotes", "Emote wheel: wave, cheer, clap, dance and more (only you see them)", ModuleCategory.PLAYER);
+        super("Emotes", "Emote wheel: hold the key, point, let go. Other Nexora players see it", ModuleCategory.PLAYER);
     }
 
     @Override
@@ -49,7 +49,7 @@ public class Emotes extends Module {
         EmotePlayer.tick(mc);
         boolean pressed = hotkey != GLFW.GLFW_KEY_UNKNOWN && isEnabled() && mc.player != null && mc.screen == null
                 && InputConstants.isKeyDown(mc.getWindow(), hotkey);
-        if (pressed && !wasPressed) mc.setScreen(new EmoteWheelScreen(turnCamera));
+        if (pressed && !wasPressed) mc.setScreen(new EmoteWheelScreen(turnCamera, hotkey));
         wasPressed = pressed;
     }
 

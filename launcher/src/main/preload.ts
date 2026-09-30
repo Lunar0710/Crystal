@@ -147,6 +147,9 @@ contextBridge.exposeInMainWorld('crystal', {
   cacheCape: (id: string, dataUrl: string) => ipcRenderer.invoke('cosmetics:cacheCape', id, dataUrl),
   capeCacheDone: (version: string) => ipcRenderer.invoke('cosmetics:capeCacheDone', version),
   syncLoadout: (items: unknown) => ipcRenderer.invoke('cosmetics:syncLoadout', items),
+  syncCatalog: (catalog: unknown) => ipcRenderer.invoke('cosmetics:syncCatalog', catalog),
+  syncEmoteWheel: (emotes: string[]) => ipcRenderer.invoke('cosmetics:syncEmoteWheel', emotes),
+  adoptGameSelection: () => ipcRenderer.invoke('cosmetics:adoptGameSelection'),
 
   // Cosmetics / capes
   listCustomCapes: () => ipcRenderer.invoke('capes:listCustom'),

@@ -19,6 +19,9 @@ const OTHER_ROOM = 'ffffffffffffffff'
 const PLUS_CAPE = 'plus-0'
 const FREE_CAPE = Object.entries(require('./cape-ranks.json')).find(([, c]) => !c.rank)[0]
 const hat = { color: '#ff0000', plusOnly: true, anchor: 'head', boxes: [{ x: 0, y: 8, z: 0, w: 999, h: 2, d: 8, color: '#00ff00' }] }
+// A 3D model item: model + variant pass, a bad model id and junk fields are dropped.
+const wings = { id: 'md-seraph-wings', color: '#ffffff', plusOnly: true, anchor: 'wing', boxes: [], model: 'seraph_wings', skin: 'dusk', junk: 'x' }
+const pack = { color: '#ffffff', plusOnly: true, anchor: 'body', boxes: [], model: '../../etc', skin: 'x' }
 
 /** A connected, verified test client that records everything it receives. */
 function connect(port, name) {
@@ -62,7 +65,7 @@ async function check(name, fn) {
   })
   await check('UUID im Java-Format (mit Bindestrichen)', () => assert.match(plus.uuid, /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/))
 
-  send(plus, { t: 'loadout', cape: PLUS_CAPE, items: { hat } })
+  send(plus, { t: 'loadout', cape: PLUS_CAPE, items: { hat, wings, backpack: pack } })
   send(member, { t: 'loadout', cape: PLUS_CAPE, items: { hat } })
   await wait(100)
   send(plus, { t: 'where', room: ROOM })
@@ -81,6 +84,15 @@ async function check(name, fn) {
     assert.strictEqual(p.cape, PLUS_CAPE)
     assert.ok(p.items.hat, 'Hut fehlt')
     assert.strictEqual(p.items.hat.boxes[0].w, 32, 'übergroße Box nicht begrenzt')
+  })
+  await check('3D-Modell-Cosmetics: Modell und Farbvariante kommen an, Unsinn nicht', () => {
+    const p = got(member, 'peers').at(-1).peers[0]
+    assert.strictEqual(p.items.wings.model, 'seraph_wings')
+    assert.strictEqual(p.items.wings.skin, 'dusk')
+    assert.strictEqual(p.items.wings.id, 'md-seraph-wings')
+    assert.strictEqual(p.items.wings.junk, undefined)
+    assert.strictEqual(p.items.backpack.model, undefined, 'ungültige Modell-ID durchgelassen')
+    assert.strictEqual(p.items.hat.model, undefined)
   })
   await check('Ohne Rang: Plus-Cape und Plus-Hut werden entfernt', () => {
     const p = got(plus, 'peer').find(m => m.uuid === member.uuid)

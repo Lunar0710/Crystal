@@ -434,11 +434,42 @@ public final class CrystalNet {
         if (key == sentLoadoutKey) return;
         JsonObject m = new JsonObject();
         m.addProperty("t", "loadout");
-        m.add("items", readJson(loadout));
+        JsonObject items = readJson(loadout);
+        m.add("items", items);
         JsonElement cape = readJson(equipped).getAsJsonObject().get("cape");
         m.add("cape", cape == null ? JsonNull.INSTANCE : cape);
+        fitMessage(m, items);
         send(m);
         sentLoadoutKey = key;
+    }
+
+    /** The Nexora server drops messages over 16 KB, and the connection with them. */
+    private static final int MAX_LOADOUT_CHARS = 15_000;
+
+    /**
+     * Keeps a loadout message under the server's size limit. Model items give
+     * up their fallback boxes first (Nexora players with the model don't need
+     * them), then the biggest block items lose theirs.
+     */
+    static void fitMessage(JsonObject message, JsonObject items) {
+        if (message.toString().length() <= MAX_LOADOUT_CHARS) return;
+        for (var entry : items.entrySet()) {
+            if (entry.getValue().isJsonObject() && entry.getValue().getAsJsonObject().has("model")) {
+                entry.getValue().getAsJsonObject().add("boxes", new com.google.gson.JsonArray());
+            }
+        }
+        while (message.toString().length() > MAX_LOADOUT_CHARS) {
+            JsonObject biggest = null;
+            int size = 0;
+            for (var entry : items.entrySet()) {
+                if (!entry.getValue().isJsonObject()) continue;
+                JsonElement boxes = entry.getValue().getAsJsonObject().get("boxes");
+                int n = boxes == null ? 0 : boxes.toString().length();
+                if (n > size) { size = n; biggest = entry.getValue().getAsJsonObject(); }
+            }
+            if (biggest == null || size <= 2) return;
+            biggest.add("boxes", new com.google.gson.JsonArray());
+        }
     }
 
     /**
