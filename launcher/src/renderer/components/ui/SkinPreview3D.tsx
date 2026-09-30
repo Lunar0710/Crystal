@@ -62,7 +62,11 @@ export function SkinPreview3D({
   useEffect(() => {
     if (!canvasRef.current) return
 
-    const viewer = new skinview3d.SkinViewer({ canvas: canvasRef.current, width, height })
+    // Rendered at twice the screen's pixel density and scaled down: WebGL's
+    // plain output has stair-stepped edges and thin cosmetic details (halo,
+    // feathers) break up at this size; supersampling smooths both.
+    const pixelRatio = Math.min(4, (window.devicePixelRatio || 1) * 2)
+    const viewer = new skinview3d.SkinViewer({ canvas: canvasRef.current, width, height, pixelRatio })
     viewer.controls.enableZoom = true
     viewer.controls.enablePan = false
     viewer.zoom = 0.82
