@@ -897,7 +897,7 @@ export function registerIpcHandlers(store: Store) {
   // Hats, masks, wings… for the in-game client (CosmeticLoadout.java). Only the
   // fields the Java renderer needs, and only content-changing writes, since the
   // client re-reads the file whenever its modification time changes.
-  ipcMain.handle('cosmetics:syncLoadout', (_e, items: Record<string, { id?: string; color: string; secondary?: string; variant?: string; plusOnly?: boolean; anchor?: string; boxes?: unknown[]; model?: string; skin?: string } | null>) => {
+  ipcMain.handle('cosmetics:syncLoadout', (_e, items: Record<string, { id?: string; color: string; secondary?: string; variant?: string; plusOnly?: boolean; anchor?: string; boxes?: unknown[]; model?: string; skin?: string; vid?: string } | null>) => {
     const dir = crystalPath('cosmetics')
     fs.mkdirSync(dir, { recursive: true })
     const target = path.join(dir, 'loadout.json')
@@ -928,6 +928,7 @@ export function registerIpcHandlers(store: Store) {
         // boxes above stay as the fallback for older games.
         ...(isModelId(item.model) ? { model: item.model, skin: isModelId(item.skin) ? item.skin : 'default' } : {}),
         ...(typeof item.id === 'string' && /^[a-z0-9-]{1,40}$/.test(item.id) ? { id: item.id } : {}),
+        ...(typeof item.vid === 'string' && /^[a-z0-9_-]{1,40}$/.test(item.vid) ? { vid: item.vid } : {}),
       }
     }
     const json = JSON.stringify(clean, null, 2)

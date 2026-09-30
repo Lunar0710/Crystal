@@ -317,6 +317,7 @@ export function gameItem(def: CosmeticDef, variants: CosmeticVariants | undefine
       boxes: def.fallback?.[skin] ?? def.fallback?.default ?? [],
       model: def.model,
       skin,
+      vid: skin,
     }
   }
   const shape = shapeFor(resolved)
@@ -329,6 +330,8 @@ export function gameItem(def: CosmeticDef, variants: CosmeticVariants | undefine
     // The exact boxes the preview draws, so the game renders the same shape.
     anchor: shape?.anchor ?? null,
     boxes: shape?.boxes ?? [],
+    // Which colour variant this is, so the in-game menu shows it chosen.
+    ...(variant ? { vid: variant.id } : {}),
   }
 }
 

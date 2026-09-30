@@ -90,20 +90,31 @@ public class MixinCapeFeatureRenderer {
         matrices.scale(1 / 16f, 1 / 16f, 1 / 16f);
 
         RenderType layer = RenderTypes.entitySolid(cape);
-        float amplitude = flutter.getWaveAmplitude();
+        // Cloth reacts to movement: standing, it only stirs; walking and
+        // sprinting (or falling, which vanilla's lean also reports) make the
+        // waves bigger and the hem trail behind. Only the size changes with
+        // speed, never the wave's frequency, so the cloth doesn't jump when
+        // you start or stop.
+        float motion = Mth.clamp(state.walkAnimationSpeed + Math.max(0f, state.capeLean) / 40f, 0f, 1.5f);
+        float amplitude = flutter.getWaveAmplitude() * (0.45f + 0.75f * motion);
+        float drag = motion * 2.4f;
         float t = state.ageInTicks * flutter.getWaveSpeed() * 0.12f;
         float thickness = flutter.getThickness();
 
         queue.submitCustomGeometry(matrices, layer, (entry, vc) ->
-                buildMesh(entry, vc, light, amplitude, t, thickness));
+                buildMesh(entry, vc, light, amplitude, drag, t, thickness));
         matrices.popPose();
     }
 
     /** A wavy slab: outer and inner cloth surfaces plus the four edges joining them. */
-    private static void buildMesh(PoseStack.Pose entry, VertexConsumer vc, int light, float amplitude, float t, float thickness) {
-        float[][] px = new float[COLS + 1][ROWS + 1];
-        float[][] py = new float[COLS + 1][ROWS + 1];
-        float[][] pz = new float[COLS + 1][ROWS + 1];
+    // Grid scratch space, reused: meshes are built one at a time on the render
+    // thread and emitted before the next starts, so no cape allocates per frame.
+    private static final float[][] GRID_X = new float[COLS + 1][ROWS + 1];
+    private static final float[][] GRID_Y = new float[COLS + 1][ROWS + 1];
+    private static final float[][] GRID_Z = new float[COLS + 1][ROWS + 1];
+
+    private static void buildMesh(PoseStack.Pose entry, VertexConsumer vc, int light, float amplitude, float drag, float t, float thickness) {
+        float[][] px = GRID_X, py = GRID_Y, pz = GRID_Z;
         for (int c = 0; c <= COLS; c++) {
             for (int r = 0; r <= ROWS; r++) {
                 float u = c / (float) COLS, v = r / (float) ROWS;
@@ -117,7 +128,8 @@ public class MixinCapeFeatureRenderer {
                 float across = Mth.sin(u * (float) Math.PI * 1.6f + t * 1.3f - v * 2.2f);
                 px[c][r] = -CAPE_W / 2f + u * CAPE_W + pin * amplitude * 0.9f * Mth.sin(phase * 0.8f + 1.1f);
                 py[c][r] = v * CAPE_H - pin * amplitude * 0.25f * (1f - Mth.cos(phase));
-                pz[c][r] = pin * amplitude * (0.7f * Mth.sin(phase) + 0.5f * across);
+                // The hem trails further back than the shoulders when moving (drag).
+                pz[c][r] = pin * amplitude * (0.7f * Mth.sin(phase) + 0.5f * across) + v * v * drag;
             }
         }
         // Outer surface at z = -thickness, inner one at z = 0 (against the back).

@@ -292,7 +292,7 @@ const seraphWings = {
     feather: L.feather('a', 'b', 0.62),
   },
   bones: [
-    { name: 'arm', pivot: [0, 0, 0], cubes: [
+    { name: 'arm', pivot: [0, 0, 0], rotation: [0, 0, 22], cubes: [
       c([0, -1, -0.5], [7, 2, 1], 'bone'),
       c([0.4, -4.4, -0.45], [6.4, 3.6, 0.9], 'cover'),
       c([1, -8.5, -0.35], [1.7, 7.4, 0.5], 'feather'),
