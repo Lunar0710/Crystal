@@ -677,7 +677,11 @@ public class CosmeticsScreen extends Screen {
                 equipCape(c);
             } else if (o instanceof String[] e) {
                 Emote emote = Emote.byName(e[0]);
-                if (emote != null) {
+                // Emotes are the Emotes module's (Nexora+); it also ends them again.
+                var module = CrystalClient.getInstance().getModuleManager().getEnabled(dev.crystal.client.module.player.Emotes.class);
+                if (module == null) {
+                    toast("Schalte das Emotes-Modul ein (Nexora+)");
+                } else if (emote != null) {
                     onClose();
                     EmotePlayer.play(emote, true);
                 }
