@@ -120,8 +120,12 @@ public class CosmeticsFeatureRenderer extends RenderLayer<AvatarRenderState, Pla
         Item aura = itemIn.apply(CosmeticLoadout.AURA);
         if (aura != null) renderAura(matrices, queue, layer, aura, state.ageInTicks);
 
+        // Pets are textured models now; the boxes stay for games without the model.
         Item pet = itemIn.apply(CosmeticLoadout.PET);
-        if (pet != null && !pet.boxes().isEmpty()) renderPet(matrices, queue, layer, light, model, pet, state.ageInTicks);
+        CosmeticModels.Model petModel = pet == null ? null : CosmeticModels.get(pet.model());
+        if (pet != null && (petModel != null || !pet.boxes().isEmpty())) {
+            renderPet(matrices, queue, layer, light, model, pet, petModel, state.ageInTicks);
+        }
     }
 
     private static final String[] HEAD_SLOTS = {CosmeticLoadout.HAT, CosmeticLoadout.BANDANA, CosmeticLoadout.MASK};
@@ -134,7 +138,7 @@ public class CosmeticsFeatureRenderer extends RenderLayer<AvatarRenderState, Pla
      * motion as the launcher preview. It rides on the body so it turns with you.
      */
     private static void renderPet(PoseStack matrices, SubmitNodeCollector queue, RenderType layer, int light,
-                                  PlayerModel model, Item pet, float age) {
+                                  PlayerModel model, Item pet, CosmeticModels.Model petModel, float age) {
         matrices.pushPose();
         model.body.translateAndRotate(matrices);
         matrices.scale(1 / 16f, 1 / 16f, 1 / 16f);
@@ -142,7 +146,8 @@ public class CosmeticsFeatureRenderer extends RenderLayer<AvatarRenderState, Pla
         // Preview space is y up and +z forward; model space is y down and +z back.
         matrices.translate(PET_X, -(PET_Y + bob), -PET_Z);
         matrices.mulPose(Axis.YP.rotation(Mth.sin(age * 0.03f) * 0.35f));
-        submit(matrices, queue, layer, light, pet.boxes(), 1);
+        if (petModel != null) CosmeticModelRenderer.render(matrices, queue, light, petModel, pet.skin(), age, 0f, 0f, 1);
+        else submit(matrices, queue, layer, light, pet.boxes(), 1);
         matrices.popPose();
     }
 
@@ -185,8 +190,17 @@ public class CosmeticsFeatureRenderer extends RenderLayer<AvatarRenderState, Pla
         }
     }
 
-    /** A glowing ring of small cubes turning around the feet, bobbing gently. */
+    /**
+     * The aura's particles moving around the player, each style its own way.
+     * With the aura's pixel-art sprite in the jar (a snowflake, a flame, a
+     * heart...), every particle is a small cube wearing that sprite; games
+     * sent an aura they don't know draw plain coloured cubes as before.
+     */
     private static void renderAura(PoseStack matrices, SubmitNodeCollector queue, RenderType layer, Item aura, float age) {
+        Identifier sprite = CosmeticPictures.auraSprite(aura.model());
+        if (sprite != null) layer = RenderTypes.entityCutoutNoCull(sprite);
+        // A sprite needs a little more room than a plain cube to read.
+        float grow = sprite != null ? 1.7f : 1f;
         matrices.pushPose();
         matrices.scale(1 / 16f, 1 / 16f, 1 / 16f);
         // Every style moves differently, otherwise each aura is just a recolour
@@ -281,6 +295,13 @@ public class CosmeticsFeatureRenderer extends RenderLayer<AvatarRenderState, Pla
                     boxes.add(new Box(Mth.cos(a) * r, -18f + bob + (i % 3) * 2.5f, Mth.sin(a) * r, 1.3f, 1.3f, 1.3f, 0f, color, true));
                 }
             }
+        }
+        if (sprite != null) {
+            List<Box> sprites = new java.util.ArrayList<>(boxes.size());
+            for (Box b : boxes) {
+                sprites.add(new Box(b.x(), b.y(), b.z(), b.w() * grow, b.h() * grow, Math.max(b.d(), b.w()) * grow, b.rz(), 0xFFFFFFFF, true));
+            }
+            boxes = sprites;
         }
         submit(matrices, queue, layer, GLOW_LIGHT, boxes, 1);
         matrices.popPose();

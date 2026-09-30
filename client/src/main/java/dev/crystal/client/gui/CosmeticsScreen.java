@@ -8,6 +8,7 @@ import com.google.gson.JsonParser;
 import dev.crystal.client.CrystalClient;
 import dev.crystal.client.emote.Emote;
 import dev.crystal.client.emote.EmotePlayer;
+import dev.crystal.client.render.CosmeticPictures;
 import dev.crystal.client.util.CosmeticLoadout;
 import dev.crystal.client.util.CrystalPaths;
 import net.minecraft.client.gui.GuiGraphics;
@@ -15,7 +16,9 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
@@ -51,7 +54,9 @@ public class CosmeticsScreen extends Screen {
 
     private static final String[] SLOTS = {"cape", "hat", "bandana", "mask", "wings", "backpack", "aura", "pet", "emote"};
     private static final String[] LABELS = {"Capes", "Hüte", "Bandanas", "Masken", "Flügel", "Rucksäcke", "Auren", "Pets", "Emotes"};
-    private static final int TILE_W = 62, TILE_H = 54, GAP = 5;
+    private static final int TILE_W = 70, TILE_H = 64, GAP = 5;
+    /** Size of the shipped item pictures (CosmeticPictures), 4:3. */
+    private static final int PIC_W = 120, PIC_H = 90;
     private static final int MAX_OUTFITS = 10;
 
     private final Map<String, List<Entry>> items = new LinkedHashMap<>();
@@ -530,7 +535,10 @@ public class CosmeticsScreen extends Screen {
                 int w = 12 + 4 + font.width(v.name()) + 6;
                 boolean on = v == current;
                 if (on) GuiRender.roundedRect(ctx, x - 2, top, x + w - 2, top + 14, 4, 0x40FFFFFF);
-                swatch(ctx, x, top + 1, 12, 12, v.color(), v.secondary());
+                // A small picture of the item in this colour, like the launcher's picker.
+                Identifier pic = CosmeticPictures.thumb(wornEntry.id(), v.id());
+                if (pic != null) picture(ctx, pic, x - 1, top - 1, 16, 16);
+                else swatch(ctx, x, top + 1, 12, 12, v.color(), v.secondary());
                 ctx.drawString(font, v.name(), x + 16, top + 3, on ? GuiRender.INK : GuiRender.ASH, false);
                 tiles.add(new Tile(x - 2, top, w, 14, -100 - i));
                 x += w + 4;
@@ -555,11 +563,12 @@ public class CosmeticsScreen extends Screen {
             tiles.add(new Tile(x, y, TILE_W, TILE_H, i));
             if (o instanceof Entry e) {
                 Variant v = variantOf(e);
-                tile(ctx, x, y, e.name(), v.color(), v.secondary(), e.id().equals(worn.get(e.slot())), e.locked(), e.isNew(), hover, e.variants().size());
+                tile(ctx, x, y, e.name(), v.color(), v.secondary(), CosmeticPictures.thumb(e.id(), v.id()),
+                        e.id().equals(worn.get(e.slot())), e.locked(), e.isNew(), hover, e.variants().size());
             } else if (o instanceof Cape c) {
-                tile(ctx, x, y, c.name(), 0xFF2A2F3A, 0xFF1A1D24, ("builtin:" + c.id()).equals(worn.get("cape")), c.locked(), false, hover, 0);
+                tile(ctx, x, y, c.name(), 0xFF2A2F3A, 0xFF1A1D24, null, ("builtin:" + c.id()).equals(worn.get("cape")), c.locked(), false, hover, 0);
             } else if (o instanceof String[] e) {
-                tile(ctx, x, y, e[1], 0xFF232838, 0xFF1A1D28, false, false, false, hover, 0);
+                tile(ctx, x, y, e[1], 0xFF232838, 0xFF1A1D28, null, false, false, false, hover, 0);
             }
         }
         ctx.disableScissor();
@@ -569,11 +578,25 @@ public class CosmeticsScreen extends Screen {
         }
     }
 
-    private void tile(GuiGraphics ctx, int x, int y, String name, int color, int secondary, boolean selected,
+    /**
+     * One grid tile. {@code picture} is the item rendered from its model (the
+     * same picture as the launcher's tile); only an item this game has no
+     * picture of falls back to its two colours.
+     */
+    private void tile(GuiGraphics ctx, int x, int y, String name, int color, int secondary, Identifier picture, boolean selected,
                       boolean locked, boolean isNew, boolean hover, int variantCount) {
         GuiRender.roundedRect(ctx, x, y, x + TILE_W, y + TILE_H, 6, hover ? 0xFF1E222B : 0xFF16191F);
         int sx = x + 4, sy = y + 4, sw = TILE_W - 8, sh = TILE_H - 20;
-        swatch(ctx, sx, sy, sw, sh, locked ? GuiRender.blend(color, 0xFF16191F, 0.6f) : color, locked ? GuiRender.blend(secondary, 0xFF16191F, 0.6f) : secondary);
+        if (picture != null) {
+            // A soft backdrop, then the picture fitted into the image area at 4:3.
+            GuiRender.roundedRect(ctx, sx, sy, sx + sw, sy + sh, 4, hover ? 0xFF2A2F3A : 0xFF232733);
+            int ph = sh, pw = Math.round(ph * PIC_W / (float) PIC_H);
+            if (pw > sw) { pw = sw; ph = Math.round(pw * PIC_H / (float) PIC_W); }
+            picture(ctx, picture, sx + (sw - pw) / 2, sy + (sh - ph) / 2, pw, ph);
+            if (locked) ctx.fill(sx, sy, sx + sw, sy + sh, 0x9916191F);
+        } else {
+            swatch(ctx, sx, sy, sw, sh, locked ? GuiRender.blend(color, 0xFF16191F, 0.6f) : color, locked ? GuiRender.blend(secondary, 0xFF16191F, 0.6f) : secondary);
+        }
         if (isNew) {
             GuiRender.roundedRect(ctx, x + 3, y + 3, x + 23, y + 12, 3, accent);
             ctx.drawString(font, "Neu", x + 5, y + 4, 0xFF0C0C0D, false);
@@ -588,7 +611,12 @@ public class CosmeticsScreen extends Screen {
         if (selected) GuiRender.roundedOutline(ctx, x, y, x + TILE_W, y + TILE_H, 6, accent);
     }
 
-    /** A two-colour swatch split along the diagonal, like the launcher's tiles. */
+    /** A shipped item picture (120×90) drawn into w × h. */
+    private static void picture(GuiGraphics ctx, Identifier texture, int x, int y, int w, int h) {
+        ctx.blit(RenderPipelines.GUI_TEXTURED, texture, x, y, 0f, 0f, w, h, PIC_W, PIC_H, PIC_W, PIC_H);
+    }
+
+    /** A two-colour swatch split along the diagonal, for items without a picture. */
     private static void swatch(GuiGraphics ctx, int x, int y, int w, int h, int a, int b) {
         ctx.fill(x, y, x + w, y + h, b);
         for (int row = 0; row < h; row++) {
