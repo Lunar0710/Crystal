@@ -8,6 +8,9 @@ import { useRunningGames } from '../ui/RunningGamesPanel'
 import { notify } from '../../store/notificationStore'
 import { useLaunchStore } from '../../store/launchStore'
 import { CrashDialog, type DetectedProblem } from '../ui/CrashDialog'
+import { BUILTIN_CAPES, capeTextureUrl } from '../../data/capes'
+import { EMPTY_LOADOUT, findCosmetic, type EquippedCosmetics, type CosmeticVariants } from '../../data/cosmetics'
+import { loadVariants } from '../../data/gameCatalog'
 
 interface Instance {
   id: string
@@ -36,6 +39,10 @@ export function Dashboard() {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [username, setUsername] = useState<string | null>(null)
   const [skin, setSkin] = useState<{ url: string | null; slim: boolean }>({ url: null, slim: false })
+  // The side panel shows you as the game does: cape and cosmetics included.
+  const [loadout, setLoadout] = useState<EquippedCosmetics>(EMPTY_LOADOUT)
+  const [variants, setVariants] = useState<CosmeticVariants>({})
+  const [capeUrl, setCapeUrl] = useState<string | null>(null)
   const [servers, setServers] = useState<FavoriteServer[]>([])
   const [status, setStatus] = useState<Record<string, ServerStatus>>({})
   const pickerRef = useRef<HTMLDivElement | null>(null)
@@ -72,6 +79,20 @@ export function Dashboard() {
         if (r?.success) setSkin({ url: r.dataUrl ?? null, slim: !!r.slim })
       })
     })
+    ;(async () => {
+      // Things put on in the in-game menu come over first, as on the cosmetics page.
+      await api?.adoptGameSelection?.().catch(() => false)
+      setVariants(await loadVariants())
+      const l: EquippedCosmetics | null = await api?.getLoadout()
+      if (!l) return
+      setLoadout({ ...EMPTY_LOADOUT, ...l })
+      if (l.cape?.startsWith('custom:')) {
+        setCapeUrl((await api?.getCapeDataUrl(l.cape.slice(7))) ?? null)
+      } else {
+        const def = BUILTIN_CAPES.find(c => `builtin:${c.id}` === l.cape)
+        setCapeUrl(def ? capeTextureUrl(def) : null)
+      }
+    })()
     api?.listServers().then((list: FavoriteServer[]) => {
       const first = (list || []).slice(0, 5)
       setServers(first)
@@ -246,7 +267,21 @@ export function Dashboard() {
       {/* Where Feather shows an ad: your own look. */}
       <aside className="relative rounded-lg bg-crystal-panel overflow-hidden flex flex-col">
         <div className="flex-1 flex items-center justify-center min-h-0">
-          <SkinPreview3D skinDataUrl={skin.url} slim={skin.slim} width={260} height={360} />
+          <SkinPreview3D
+            skinDataUrl={skin.url}
+            slim={skin.slim}
+            capeUrl={capeUrl}
+            hat={findCosmetic('hat', loadout.hat)}
+            bandana={findCosmetic('bandana', loadout.bandana)}
+            mask={findCosmetic('mask', loadout.mask)}
+            wings={findCosmetic('wings', loadout.wings)}
+            backpack={findCosmetic('backpack', loadout.backpack)}
+            aura={findCosmetic('aura', loadout.aura)}
+            pet={findCosmetic('pet', loadout.pet)}
+            variants={variants}
+            width={260}
+            height={360}
+          />
         </div>
         <div className="p-3 border-t border-white/[0.05] flex items-center gap-2">
           <span className="flex-1 min-w-0 truncate text-[13px] font-semibold text-crystal-text">{username ?? 'Nicht angemeldet'}</span>
