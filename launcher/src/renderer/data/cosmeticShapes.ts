@@ -45,6 +45,8 @@ export interface CosmeticShape {
 const HEAD_TOP = 4
 const FACE = 4
 const BACK = -2
+/** Front of the body plus the skin's jacket layer. */
+const CHEST = 2.25
 
 export function shapeFor(def: CosmeticDef): CosmeticShape | null {
   const c = def.color
@@ -140,7 +142,7 @@ function pet(variant: string | undefined, c: string, a: string, b: B): ShapeBox[
 }
 
 function bandana(variant: string | undefined, c: string, a: string, b: B): ShapeBox[] {
-  const band = b(0, 3.2, 0, 8.7, 1.8, 8.7)
+  const band = b(0, 3.2, 0, 9.3, 1.8, 9.3)
   switch (variant) {
     // Long tails down the back.
     // Big bow on top of the head.
@@ -150,14 +152,14 @@ function bandana(variant: string | undefined, c: string, a: string, b: B): Shape
     ]
     // Bandage round the head, one loose end at the back.
     case 'wrap': return [
-      b(0, 2.2, 0, 8.7, 1.2, 8.7), b(0, 0.9, 0, 8.6, 0.8, 8.6, a, { rz: 0.08 }),
+      b(0, 2.2, 0, 9.3, 1.2, 9.3), b(0, 0.9, 0, 9.2, 0.8, 9.2, a, { rz: 0.08 }),
       b(1.4, 1.6, -4.8, 1.2, 3.4, 0.4, c, { rz: 0.3 }),
     ]
     case 'ninja': return [band, b(1.4, 0.4, -5.1, 1.4, 6.5, 0.8, a), b(-1.2, 1.4, -5.1, 1.2, 4.5, 0.8, a), b(0, 3.2, -4.8, 2, 2, 1.6, a)]
     // Thin sweatband, nothing hanging off.
-    case 'headband': return [b(0, 3.4, 0, 8.8, 1.1, 8.8), b(0, 3.4, FACE + 0.5, 3, 1.1, 0.6, a)]
+    case 'headband': return [b(0, 3.4, 0, 9.3, 1.1, 9.3), b(0, 3.4, FACE + 0.85, 3, 1.1, 0.6, a)]
     // Knot on the side, like a pirate's.
-    case 'knot': return [b(0, 3.4, 0, 8.8, 2.4, 8.8), b(4.9, 2.6, -1, 1.8, 1.8, 1.8, a), b(5.4, 1, -1.6, 0.9, 3, 0.9, a)]
+    case 'knot': return [b(0, 3.4, 0, 9.3, 2.4, 9.3), b(4.9, 2.6, -1, 1.8, 1.8, 1.8, a), b(5.4, 1, -1.6, 0.9, 3, 0.9, a)]
     default: return [band, b(0, 3.2, -5, 1.4, 1.4, 2.2, a), b(0.8, 2.2, -5.6, 1, 2.4, 0.6, a)]
   }
 }
@@ -291,8 +293,8 @@ function hat(variant: string | undefined, c: string, a: string, b: B): ShapeBox[
       const boxes: ShapeBox[] = []
       for (let i = 0; i < 10; i++) {
         const t = (i / 10) * Math.PI * 2
-        boxes.push(b(Math.cos(t) * 4.4, T + 0.3, Math.sin(t) * 4.4, 1.6, 1.4, 1.6, i % 2 ? a : c))
-        boxes.push(b(Math.cos(t + 0.3) * 4.5, T - 0.2, Math.sin(t + 0.3) * 4.5, 1, 0.6, 1, '#16a34a'))
+        boxes.push(b(Math.cos(t) * 4.8, T + 0.3, Math.sin(t) * 4.8, 1.6, 1.4, 1.6, i % 2 ? a : c))
+        boxes.push(b(Math.cos(t + 0.3) * 4.9, T - 0.2, Math.sin(t + 0.3) * 4.9, 1, 0.6, 1, '#16a34a'))
       }
       return boxes
     }
@@ -309,12 +311,13 @@ function hat(variant: string | undefined, c: string, a: string, b: B): ShapeBox[
       b(1.2, T + 1, 0, 5, 2, 5), b(1.2, T + 2.8, 0, 3.6, 1.8, 3.6, a), b(1.2, T + 4.4, 0, 2.2, 1.6, 2.2),
       b(1.2, T + 5.7, 0, 1, 1, 1, '#fde047', { glow: true }),
     ]
-    default: return [b(0, T + 1.6, 0, 8.8, 4, 8.8), b(0, T - 0.6, 0, 9, 1.4, 9, a), b(0, T + 3.9, 0, 1.8, 1.2, 1.8, a)]
+    default: return [b(0, T + 1.6, 0, 8.8, 4, 8.8), b(0, T - 0.6, 0, 9.4, 1.4, 9.4, a), b(0, T + 3.9, 0, 1.8, 1.2, 1.8, a)]
   }
 }
 
 function mask(variant: string | undefined, c: string, a: string, b: B): ShapeBox[] {
-  const F = FACE + 0.3
+  // In front of the skin's second layer (0.5 out), which would hide it otherwise.
+  const F = FACE + 0.75
   switch (variant) {
     case 'visor': return [b(0, 0.7, F, 8.6, 1.8, 0.6, c, { glow: true }), b(0, 1.8, F, 8.8, 0.4, 0.7, a), b(0, -0.4, F, 8.8, 0.4, 0.7, a)]
     // Hockey mask: pale plate with breathing holes and red chevrons.
@@ -333,7 +336,7 @@ function mask(variant: string | undefined, c: string, a: string, b: B): ShapeBox
     ]
     // Brass goggles pushed up on the forehead, lenses catching the light.
     case 'goggles': return [
-      b(0, 2.2, F - 0.1, 8.8, 1, 0.5, a), b(-4.4, 2.2, 0, 0.4, 1, 8.8, a), b(4.4, 2.2, 0, 0.4, 1, 8.8, a),
+      b(0, 2.2, F - 0.1, 9.4, 1, 0.5, a), b(-4.75, 2.2, 0, 0.4, 1, 9.4, a), b(4.75, 2.2, 0, 0.4, 1, 9.4, a),
       b(-2, 2.4, F + 0.4, 2.8, 2.8, 1), b(2, 2.4, F + 0.4, 2.8, 2.8, 1),
       b(-2, 2.4, F + 0.95, 1.8, 1.8, 0.2, '#93c5fd', { glow: true }), b(2, 2.4, F + 0.95, 1.8, 1.8, 0.2, '#93c5fd', { glow: true }),
     ]
@@ -346,11 +349,11 @@ function mask(variant: string | undefined, c: string, a: string, b: B): ShapeBox
     // VR headset: deep front block with a lit strip, strap round the head.
     case 'vr': return [
       b(0, 1, F + 1, 8.4, 3.2, 2.4), b(0, 1, F + 2.25, 6, 0.6, 0.2, a, { glow: true }),
-      b(0, 1.4, 0, 8.8, 1, 8.8, '#27272a'),
+      b(0, 1.4, 0, 9.3, 1, 9.3, '#27272a'),
     ]
     case 'shades': return [
       b(-2, 0.7, F, 3, 1.6, 0.5), b(2, 0.7, F, 3, 1.6, 0.5), b(0, 1.2, F, 2, 0.5, 0.5, a),
-      b(-4.3, 1.2, 2.2, 0.4, 0.5, 4.2, a), b(4.3, 1.2, 2.2, 0.4, 0.5, 4.2, a),
+      b(-4.75, 1.2, 2.4, 0.4, 0.5, 4.6, a), b(4.75, 1.2, 2.4, 0.4, 0.5, 4.6, a),
     ]
     case 'oni': return [
       b(0, 0, F, 8.4, 8.2, 0.6), b(-2, 1.2, F + 0.35, 1.8, 0.8, 0.2, '#fef08a', { glow: true }), b(2, 1.2, F + 0.35, 1.8, 0.8, 0.2, '#fef08a', { glow: true }),
@@ -363,7 +366,7 @@ function mask(variant: string | undefined, c: string, a: string, b: B): ShapeBox
       b(-2.6, -1.2, F + 0.35, 2.2, 0.4, 0.2, a), b(2.6, -1.2, F + 0.35, 2.2, 0.4, 0.2, a), b(0, -2.4, F + 0.5, 1, 0.8, 0.6, '#18181b'),
       b(-2.8, 5, 0.5, 1.8, 2.4, 0.8), b(2.8, 5, 0.5, 1.8, 2.4, 0.8), b(-2.8, 5, 0.95, 0.8, 1.4, 0.2, a), b(2.8, 5, 0.95, 0.8, 1.4, 0.2, a),
     ]
-    case 'scarf': return [b(0, -2.6, 0, 8.8, 3.2, 8.8), b(0, -2.6, 0, 8.9, 0.6, 8.9, a), b(-2, -5, -4.6, 1.4, 3, 0.6, a)]
+    case 'scarf': return [b(0, -2.6, 0, 9.3, 3.2, 9.3), b(0, -2.6, 0, 9.4, 0.6, 9.4, a), b(-2, -5, -4.9, 1.4, 3, 0.6, a)]
     case 'neon': return [
       b(0, 0.8, F, 8.6, 2.4, 0.4),
       ...[-3, -1, 1, 3].map(x => b(x, 0.8, F + 0.25, 0.4, 2.4, 0.2, a, { glow: true })),
@@ -371,7 +374,7 @@ function mask(variant: string | undefined, c: string, a: string, b: B): ShapeBox
     ]
     case 'glasses': return [
       ...[-2, 2].flatMap(x => [b(x, 1.9, F, 3, 0.4, 0.4), b(x, -0.1, F, 3, 0.4, 0.4), b(x - 1.3, 0.9, F, 0.4, 2, 0.4), b(x + 1.3, 0.9, F, 0.4, 2, 0.4), b(x, 0.9, F - 0.1, 2.2, 1.6, 0.1, a)]),
-      b(0, 1.2, F, 1.4, 0.4, 0.4), b(-4.3, 1.2, 2.2, 0.4, 0.4, 4.2), b(4.3, 1.2, 2.2, 0.4, 0.4, 4.2),
+      b(0, 1.2, F, 1.4, 0.4, 0.4), b(-4.75, 1.2, 2.4, 0.4, 0.4, 4.6), b(4.75, 1.2, 2.4, 0.4, 0.4, 4.6),
     ]
     case 'pixel': return [
       b(0, 1.6, F, 8.4, 0.6, 0.5, '#000000'), b(-2.2, 0.8, F, 3, 1.2, 0.5, '#000000'), b(2.2, 0.8, F, 3, 1.2, 0.5, '#000000'),
@@ -380,14 +383,14 @@ function mask(variant: string | undefined, c: string, a: string, b: B): ShapeBox
     // Gas mask: plate over the face with two filters.
     case 'gas': return [
       b(0, -0.4, FACE + 0.8, 8.4, 6.4, 1.6), b(-2.2, -2.6, FACE + 1.6, 2.6, 2.6, 2.6, a), b(2.2, -2.6, FACE + 1.6, 2.6, 2.6, 2.6, a),
-      b(0, 1.2, FACE + 1.7, 5.6, 2, 0.6, a, { glow: true }), b(0, -0.4, 0, 9, 1.4, 8.6, a),
+      b(0, 1.2, FACE + 1.7, 5.6, 2, 0.6, a, { glow: true }), b(0, -0.4, 0, 9.3, 1.4, 9.3, a),
     ]
     // Kerchief pulled over the mouth, knot at the back.
     case 'bandit': return [
-      b(0, -2.2, FACE + 0.5, 8.6, 4.4, 1), b(0, -2.2, 0, 8.8, 4.2, 8.8), b(0, -1.6, -5, 1.6, 1.6, 2, a),
+      b(0, -2.2, FACE + 0.75, 8.6, 4.4, 1), b(0, -2.2, 0, 9.3, 4.2, 9.3), b(0, -1.6, -5.2, 1.6, 1.6, 2, a),
     ]
     case 'eyepatch': return [
-      b(-2, 0.8, FACE + 0.6, 3.4, 3, 0.8), b(0, 1.6, 0, 8.8, 0.7, 8.8, a),
+      b(-2, 0.8, FACE + 0.8, 3.4, 3, 0.8), b(0, 1.6, 0, 9.3, 0.7, 9.3, a),
     ]
     // Plague doctor: long beak and round eyes.
     case 'plague': return [
@@ -404,7 +407,9 @@ function mask(variant: string | undefined, c: string, a: string, b: B): ShapeBox
 
 function backpack(variant: string | undefined, c: string, a: string, b: B): ShapeBox[] {
   const Z = BACK - 1.6
-  const straps = [1, -1].map(s => b(s * 2.6, -4.5, BACK + 0.35, 1, 7, 0.4, a))
+  // Shoulder straps down the chest. (They used to sit at z = -1.65, inside
+  // the body, where no one ever saw them.)
+  const straps = [1, -1].map(s => b(s * 2.4, -4.2, CHEST + 0.25, 1, 7.4, 0.4, a))
   switch (variant) {
     // Round shield slung on the back, boss in the middle.
     case 'shield': {
