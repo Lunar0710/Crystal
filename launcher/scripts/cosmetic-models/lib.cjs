@@ -193,6 +193,199 @@ const bright = (mat, k = 1.25) => t => {
   return c ? shade(c, k) : c
 }
 
+// ---------------------------------------------------------------- more materials
+//
+// The block cosmetics (blocks.cjs) are painted with these: every one of them
+// is a proper surface (weave, grain, plating, scales...) rather than a flat
+// colour, so the old items read like the model ones.
+
+const grain = (c, t, k = 0.08, salt = 0) => shade(c, 1 + (noise(t.seed + salt, t.x, t.y) - 0.5) * k * 2)
+const along = t => (t.w >= t.h ? { u: t.x, v: t.y, len: t.w, span: t.h } : { u: t.y, v: t.x, len: t.h, span: t.w })
+
+/** Woven cloth: a fine checker, a seam one texel inside the rim. */
+const canvas = role => t => {
+  let c = shade(t.P[role], (t.x + t.y) % 2 ? 0.95 : 1.03)
+  c = grain(c, t, 0.06)
+  if (t.face === 'py') c = shade(c, 1.06)
+  if (big(t) && edge(t)) return shade(c, 0.8)
+  if (t.w >= 7 && t.h >= 5 && (t.y === 1 || t.y === t.h - 2) && t.x % 2 === 0) return shade(c, 1.18)
+  return c
+}
+
+/** Felt: soft, lighter towards the top, a gentle dark rim. */
+const felt = role => t => {
+  const v = t.h <= 1 ? 0.5 : t.y / (t.h - 1)
+  let c = grain(shade(t.P[role], 1.1 - v * 0.2), t, 0.05)
+  if (t.face === 'py') c = shade(c, 1.1)
+  if (big(t) && edge(t)) c = shade(c, 0.82)
+  return c
+}
+
+/** Straw weave: strands crossing every two texels. */
+const straw = role => t => {
+  const cell = ((t.x >> 1) + (t.y >> 1)) % 2
+  const inStrand = cell ? t.x % 2 : t.y % 2
+  let c = shade(t.P[role], cell ? 1.06 : 0.9)
+  if (inStrand) c = shade(c, 1.1)
+  c = grain(c, t, 0.1)
+  if (big(t) && edge(t)) c = shade(c, 0.78)
+  return c
+}
+
+/** Wood: grain lines along the long side, planks, a knot now and then. */
+const wood = role => t => {
+  const { u, v } = along(t)
+  const wave = Math.sin(u * 0.45 + noise(t.seed, 0, v) * 6) * 0.5 + 0.5
+  let c = shade(t.P[role], 0.9 + wave * 0.16)
+  if ((v + 1) % 4 === 0) c = shade(c, 0.74)
+  if (noise(t.seed + 9, u >> 2, v >> 2) > 0.93 && (u + v) % 3 === 0) c = shade(c, 0.7)
+  if (big(t) && edge(t)) c = shade(c, 0.82)
+  return grain(c, t, 0.05)
+}
+
+/** Overlapping scales, row by row. */
+const scales = (role, rim = null) => t => {
+  const row = Math.floor(t.y / 2)
+  const x = t.x + (row % 2) * 2
+  const lx = x % 4, ly = t.y % 2
+  let c = shade(t.P[role], ly === 0 ? 1.12 : 0.94)
+  if (lx === 0 || (lx === 3 && ly === 1)) c = rim ? shade(t.P[rim], 0.9) : shade(c, 0.75)
+  if (lx === 1 && ly === 0) c = shade(c, 1.18)
+  return grain(c, t, 0.05)
+}
+
+/** Metal plates with seams and rivets. */
+const plating = role => t => {
+  let c = metal(role)(t)
+  const px = t.x % 6, py = t.y % 6
+  if (t.w >= 6 && px === 5) c = shade(c, 0.75)
+  if (t.h >= 6 && py === 5) c = shade(c, 0.75)
+  if (t.w >= 4 && t.h >= 4 && (t.x === 1 || t.x === t.w - 2) && (t.y === 1 || t.y === t.h - 2)) c = shade(c, 1.45)
+  return c
+}
+
+/** Smooth plastic: a highlight along the top, a shine spot, darker rim. */
+const plastic = role => t => {
+  let c = shade(t.P[role], 1.05 - (t.h <= 1 ? 0 : t.y / (t.h - 1)) * 0.12)
+  if (t.y === 0 && t.h > 2) c = shade(c, 1.22)
+  if (t.w >= 4 && t.h >= 4 && t.x === 1 && t.y === 1) c = shade(c, 1.6)
+  if (big(t) && (t.x === 0 || t.x === t.w - 1 || t.y === t.h - 1)) c = shade(c, 0.8)
+  return grain(c, t, 0.03)
+}
+
+/** A lit panel: bright core, scan lines, brighter frame. */
+const lit = role => t => {
+  let c = shade(t.P[role], 1.18)
+  if (t.y % 2 === 1 && t.h > 2) c = shade(c, 0.9)
+  if (big(t) && edge(t)) c = shade(t.P[role], 1.45)
+  const d = Math.abs(t.x - t.w / 2) / Math.max(1, t.w)
+  return shade(c, 1.05 - d * 0.2)
+}
+
+/** Glossy eye: dark, one catchlight in the upper corner. */
+const eye = role => t => {
+  const base = t.P[role]
+  if (t.w >= 2 && t.h >= 2 && t.x === 0 && t.y === 0) return [235, 240, 250, 255]
+  return shade(base, 1 - t.y * 0.05)
+}
+
+/** Hair or bristles: streaks, lighter tips. */
+const hair = role => t => {
+  const streak = noise(t.seed, t.x, 0) * 0.3 - 0.15
+  const v = t.h <= 1 ? 0.5 : t.y / (t.h - 1)
+  return shade(t.P[role], 1.12 - v * 0.2 + streak + (noise(t.seed, t.x, t.y) - 0.5) * 0.06)
+}
+
+/** A leaf: midrib down the long side, veins off it, darker edge. */
+const leaf = role => t => {
+  const { u, v, span } = along(t)
+  const mid = Math.floor(span / 2)
+  let c = shade(t.P[role], 1 + (Math.abs(v - mid) / Math.max(1, span)) * -0.2)
+  if (v === mid && span >= 3) c = shade(c, 1.35)
+  else if (span >= 4 && (u + Math.abs(v - mid)) % 4 === 0) c = shade(c, 1.15)
+  if (big(t) && edge(t)) c = shade(c, 0.76)
+  return grain(c, t, 0.05)
+}
+
+/** Old bone: off-white, cracks, darker joints at the ends. */
+const bone = role => t => {
+  const { u, len } = along(t)
+  let c = grain(t.P[role], t, 0.1)
+  if (u === 0 || u === len - 1) c = shade(c, 0.82)
+  if (noise(t.seed + 3, t.x, t.y) > 0.94) c = shade(c, 0.7)
+  return c
+}
+
+/** Bandage gauze: a loose cross weave. */
+const gauze = role => t => {
+  let c = shade(t.P[role], (t.x % 3 === 0 || t.y % 3 === 0) ? 1.06 : 0.93)
+  if (big(t) && edge(t)) c = shade(c, 0.85)
+  return grain(c, t, 0.06)
+}
+
+/** Satin: diagonal sheen bands. */
+const satin = role => t => {
+  const band = (t.x + t.y) % 6
+  const c = shade(t.P[role], band < 2 ? 1.25 : band < 3 ? 1.1 : 0.94)
+  return big(t) && edge(t) ? shade(c, 0.8) : c
+}
+
+/** Horn: ridged rings across the long side, lighter towards the tip. */
+const horn = role => t => {
+  const { u, len } = along(t)
+  let c = shade(t.P[role], 0.9 + (u / Math.max(1, len - 1)) * 0.25)
+  if (u % 3 === 2) c = shade(c, 0.8)
+  return grain(c, t, 0.05)
+}
+
+/** Slime or jelly: a lit corner, a darker lower edge, a core. */
+const gel = role => t => {
+  const fx = t.x / Math.max(1, t.w - 1), fy = t.y / Math.max(1, t.h - 1)
+  let c = shade(t.P[role], 1.2 - (fx + fy) * 0.18)
+  if (t.w >= 4 && t.h >= 4 && t.x === 1 && t.y <= 2) c = shade(c, 1.6)
+  if (big(t) && edge(t)) c = shade(c, 0.85)
+  return c
+}
+
+/** Carved pumpkin: ribs with grooves. */
+const pumpkin = role => t => {
+  let c = shade(t.P[role], 1.05 - Math.abs(((t.x % 4) - 1.5) / 1.5) * 0.12)
+  if (t.x % 4 === 3) c = shade(c, 0.72)
+  if (t.face === 'py' || t.face === 'ny') c = shade(t.P[role], 0.95)
+  return grain(c, t, 0.06)
+}
+
+/** Butterfly / moth scales: soft gradient, dark veins, a light spot. */
+const wingScale = (role, spot) => t => {
+  const fx = t.x / Math.max(1, t.w - 1), fy = t.y / Math.max(1, t.h - 1)
+  let c = shade(t.P[role], 1.12 - fx * 0.2)
+  if ((t.x + t.y * 2) % 7 === 0) c = shade(c, 0.7)
+  const dx = fx - 0.72, dy = fy - 0.35
+  if (dx * dx + dy * dy < 0.018) c = shade(t.P[spot], 1.1)
+  if (big(t) && edge(t)) c = shade(c, 0.55)
+  return grain(c, t, 0.04)
+}
+
+/** Glowing ember: white-hot at the root, the colour at the tip. */
+const ember = role => t => {
+  const { u, len } = along(t)
+  const f = u / Math.max(1, len - 1)
+  let c = mix([255, 250, 220, 255], t.P[role], Math.min(1, f * 1.6))
+  if (noise(t.seed, t.x, t.y) > 0.8) c = shade(c, 1.15)
+  return c
+}
+
+/** Speaker grille: dots on a dark base. */
+const grille = role => t => (t.x % 2 === 1 && t.y % 2 === 1 ? shade(t.P[role], 0.45) : grain(shade(t.P[role], 0.9), t, 0.05))
+
+/** Turtle shell: plates with dark seams. */
+const scute = role => t => {
+  const lx = (t.x + (Math.floor(t.y / 4) % 2) * 2) % 4, ly = t.y % 4
+  let c = shade(t.P[role], 1.08 - ly * 0.04)
+  if (lx === 0 || ly === 0) c = shade(c, 0.66)
+  return grain(c, t, 0.05)
+}
+
 // ---------------------------------------------------------------- PNG
 
 const CRC_TABLE = (() => {
@@ -243,5 +436,7 @@ function png(width, height, rgba) {
 module.exports = {
   hex, shade, mix, toHex, noise,
   plain, knit, leather, metal, gem, glass, stripes, spots, stars, feather, membrane, fur, flame, print, onFace, bright,
+  canvas, felt, straw, wood, scales, plating, plastic, lit, eye, hair, leaf, bone, gauze, satin, horn, gel, pumpkin,
+  wingScale, ember, grille, scute,
   png,
 }

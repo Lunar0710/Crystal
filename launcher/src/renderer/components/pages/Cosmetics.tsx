@@ -6,10 +6,11 @@ import { notify } from '../../store/notificationStore'
 import { BUILTIN_CAPES, CAPE_CATEGORIES, CapeCategory, capeTextureUrl, capePreviewUrl, isCapeTexture, pictureToCapeTexture, canUseCape, capeFrameUrls, capeAnimationStrip } from '../../data/capes'
 import { ANIMATION_FRAMES, ANIMATION_FPS } from '../../data/animatedCapes'
 import {
-  SLOTS, CosmeticSlot, NonCapeSlot, COSMETICS_BY_SLOT, EMPTY_LOADOUT, CosmeticDef, CosmeticVariants,
+  SLOTS, CosmeticSlot, NonCapeSlot, COSMETICS_BY_SLOT, EMPTY_LOADOUT, CosmeticDef, CosmeticVariant, CosmeticVariants,
   EquippedCosmetics, findCosmetic, syncLoadoutToGame, variantOf, EMOTES, MAX_WHEEL_EMOTES,
 } from '../../data/cosmetics'
 import { thumbnail, cachedThumbnail } from '../../data/cosmeticThumbs'
+import { pictureOf } from '../../data/cosmeticPictures'
 import { syncCatalogToGame, loadEmoteWheel, loadVariants } from '../../data/gameCatalog'
 import { SkinPreview3D } from '../ui/SkinPreview3D'
 import { ProfileCardDialog } from '../ui/ProfileCardDialog'
@@ -534,7 +535,7 @@ export function Cosmetics() {
                         aria-pressed={on}
                         className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors ${on ? 'bg-crystal-panel text-crystal-text ring-1 ring-crystal-accent' : 'text-crystal-muted hover:text-crystal-text'}`}
                       >
-                        <Swatch color={v.color} secondary={v.secondary} />
+                        <VariantPicture def={wornWithVariants} variant={v} size="md" />
                         {v.name}
                       </button>
                     )
@@ -543,7 +544,7 @@ export function Cosmetics() {
               )}
               <p className="text-xs text-crystal-muted mb-3 flex items-center gap-1.5">
                 <Sparkles size={12} className="text-crystal-accent" />
-                Die Modelle mit „Neu“ sind echte 3D-Modelle mit Animation und Farbvarianten.
+                Alle Items sind 3D-Modelle mit eigenen Texturen, die mit „Neu“ zusätzlich animiert.
               </p>
               {(() => {
                 const items = COSMETICS_BY_SLOT[tab as NonCapeSlot].filter(passes)
@@ -610,6 +611,14 @@ function EmotesTab({ wheel, onToggle, onMove }: { wheel: string[]; onToggle: (id
   )
 }
 
+/** A small picture of an item in one of its colour variants (its colours only if there is none). */
+function VariantPicture({ def, variant, size = 'sm' }: { def: CosmeticDef; variant: CosmeticVariant; size?: 'sm' | 'md' }) {
+  const url = pictureOf(def.id, variant.id)
+  const box = size === 'md' ? 'w-8 h-6' : 'w-7 h-[21px]'
+  if (!url) return <Swatch color={variant.color} secondary={variant.secondary} />
+  return <img src={url} alt="" className={`${box} object-contain shrink-0`} draggable={false} />
+}
+
 function Swatch({ color, secondary }: { color: string; secondary?: string }) {
   return (
     <span
@@ -657,7 +666,9 @@ function ItemTile({ def, variants, selected, locked, slotLabel, onClick, onVaria
     return () => { alive = false }
   }, [def.id, current?.id])
 
-  const gradient = `radial-gradient(circle at 50% 40%, ${def.color}33, transparent 70%)`
+  // A soft neutral spotlight with a hint of the item's colour: the picture is the
+  // item, the tile never paints its colours as a flat logo.
+  const backdrop = `linear-gradient(${def.color}14, ${def.color}14), radial-gradient(circle at 50% 42%, #383e4c, #16181e 72%)`
   return (
     <div
       role="button"
@@ -671,9 +682,11 @@ function ItemTile({ def, variants, selected, locked, slotLabel, onClick, onVaria
     >
       <div
         className={`relative aspect-[4/3] bg-crystal-panel flex items-center justify-center ${locked ? 'opacity-45' : ''}`}
-        style={{ background: thumb ? gradient : `linear-gradient(135deg, ${def.color} 0 50%, ${def.secondary ?? def.color} 50% 100%)` }}
+        style={{ background: backdrop }}
       >
-        {thumb && <img src={thumb} alt="" className="w-full h-full object-contain transition-transform group-hover:scale-105" draggable={false} />}
+        {thumb
+          ? <img src={thumb} alt="" className="w-full h-full object-contain transition-transform group-hover:scale-105" draggable={false} />
+          : <span className="w-5 h-5 rounded-full border-2 border-crystal-muted/30 border-t-crystal-muted animate-spin" aria-hidden />}
         {def.isNew && <span className="absolute top-1.5 left-1.5 text-[9.5px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-crystal-accent/90 text-black font-medium">Neu</span>}
         {slotLabel && <span className="absolute top-1.5 right-1.5 text-[9.5px] px-1.5 py-0.5 rounded bg-black/50 text-crystal-text">{slotLabel}</span>}
       </div>
@@ -685,9 +698,9 @@ function ItemTile({ def, variants, selected, locked, slotLabel, onClick, onVaria
               title={v.name}
               aria-label={`${def.name}: ${v.name}`}
               onClick={() => onVariant(v.id)}
-              className={`rounded-full ${current?.id === v.id ? 'ring-2 ring-crystal-accent' : 'ring-1 ring-black/30 opacity-80 hover:opacity-100'}`}
+              className={`rounded bg-black/55 ${current?.id === v.id ? 'ring-2 ring-crystal-accent' : 'ring-1 ring-white/10 opacity-85 hover:opacity-100'}`}
             >
-              <Swatch color={v.color} secondary={v.secondary} />
+              <VariantPicture def={def} variant={v} />
             </button>
           ))}
         </div>

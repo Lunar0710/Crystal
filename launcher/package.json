@@ -14,7 +14,8 @@
     "dist": "npm run build && electron-builder",
     "start": "electron .",
     "gen:cosmetics": "node scripts/cosmetic-models/gen.cjs",
-    "check:cosmetics": "node scripts/cosmetic-models/gen.cjs --check"
+    "check:cosmetics": "node scripts/cosmetic-models/gen.cjs --check",
+    "gen:thumbs": "node scripts/cosmetic-models/showcase/thumbs.cjs"
   },
   "dependencies": {
     "@fontsource-variable/archivo": "^5.3.0",
