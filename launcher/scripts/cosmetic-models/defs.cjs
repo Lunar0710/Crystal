@@ -520,15 +520,16 @@ const ninjaBand = {
   },
   bones: [
     { name: 'band', pivot: [0, 1.5, 0], cubes: [
-      c([-4.35, 0.8, -4.35], [8.7, 1.7, 8.7], 'cloth'),
-      c([-2, 0.6, 4.3], [4, 2.1, 0.35], 'plate'),
-      c([-0.8, 0.7, -4.95], [1.6, 1.8, 0.7], 'cloth'),
+      // Outside the skin's hat layer (0.5 px out), which would cover it.
+      c([-4.7, 0.8, -4.7], [9.4, 1.7, 9.4], 'cloth'),
+      c([-2, 0.6, 4.7], [4, 2.1, 0.35], 'plate'),
+      c([-0.8, 0.7, -5.3], [1.6, 1.8, 0.7], 'cloth'),
     ] },
-    { name: 'tail_a', parent: 'band', pivot: [-0.3, 1.6, -5], rotation: [28, 0, 8], anim: 'sway', amp: 14, cubes: [
-      c([-0.9, -4.2, -5.2], [1.1, 5.8, 0.25], 'cloth'),
+    { name: 'tail_a', parent: 'band', pivot: [-0.3, 1.6, -5.35], rotation: [28, 0, 8], anim: 'sway', amp: 14, cubes: [
+      c([-0.9, -4.2, -5.55], [1.1, 5.8, 0.25], 'cloth'),
     ] },
-    { name: 'tail_b', parent: 'band', pivot: [0.3, 1.6, -5], rotation: [20, 0, -12], anim: 'sway', amp: 11, speed: 1.2, cubes: [
-      c([-0.1, -3.4, -5.2], [1.1, 5, 0.25], 'cloth'),
+    { name: 'tail_b', parent: 'band', pivot: [0.3, 1.6, -5.35], rotation: [20, 0, -12], anim: 'sway', amp: 11, speed: 1.2, cubes: [
+      c([-0.1, -3.4, -5.55], [1.1, 5, 0.25], 'cloth'),
     ] },
   ],
 }
@@ -546,13 +547,14 @@ const paisleyBandana = {
   },
   bones: [
     { name: 'cloth', pivot: [0, 3, 0], cubes: [
-      c([-4.4, 1.6, -4.4], [8.8, 2.6, 8.8], 'cloth'),
-      c([-4.25, 4.2, -4.25], [8.5, 0.35, 8.5], 'cloth'),
-      c([-1, 1.4, -5], [2, 1.9, 0.8], 'cloth'),
+      // Outside the skin's hat layer (0.5 px out), which would cover it.
+      c([-4.7, 1.6, -4.7], [9.4, 2.6, 9.4], 'cloth'),
+      c([-4.55, 4.2, -4.55], [9.1, 0.45, 9.1], 'cloth'),
+      c([-1, 1.4, -5.4], [2, 1.9, 0.8], 'cloth'),
     ] },
-    { name: 'ends', parent: 'cloth', pivot: [0, 2, -5], rotation: [34, 0, 0], anim: 'sway', amp: 9, cubes: [
-      c([-1.8, -1.6, -5.3], [1.5, 3.4, 0.3], 'cloth'),
-      c([0.3, -1.2, -5.3], [1.5, 3, 0.3], 'cloth'),
+    { name: 'ends', parent: 'cloth', pivot: [0, 2, -5.4], rotation: [34, 0, 0], anim: 'sway', amp: 9, cubes: [
+      c([-1.8, -1.6, -5.7], [1.5, 3.4, 0.3], 'cloth'),
+      c([0.3, -1.2, -5.7], [1.5, 3, 0.3], 'cloth'),
     ] },
   ],
 }

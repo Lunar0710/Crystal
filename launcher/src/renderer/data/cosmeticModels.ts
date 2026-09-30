@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import type { ShapeBox } from './cosmeticShapes'
-import { MODEL_GEOMETRY, MODEL_TEXTURES } from './cosmeticModels.generated'
+import { MODEL_GEOMETRY, MODEL_TEXTURES, AURA_SPRITES } from './cosmeticModels.generated'
 
 /**
  * Nexora's 3D model cosmetics in the launcher: the same model JSON the game
@@ -37,7 +37,7 @@ export interface ModelBone {
 export interface NexoraModel {
   format: 'nexora-model/1'
   id: string
-  anchor: 'head' | 'body' | 'wing'
+  anchor: 'head' | 'body' | 'wing' | 'pet'
   texture: [number, number]
   variants: string[]
   bones: ModelBone[]
@@ -54,8 +54,8 @@ export interface ModelVariant {
 export interface ModelItemData {
   model: string
   name: string
-  slot: 'hat' | 'bandana' | 'wings' | 'backpack'
-  anchor: 'head' | 'body' | 'wing'
+  slot: 'hat' | 'bandana' | 'mask' | 'wings' | 'backpack' | 'pet'
+  anchor: 'head' | 'body' | 'wing' | 'pet'
   variants: ModelVariant[]
   /** Plain boxes per variant, for games or servers that predate model cosmetics. */
   fallback: Record<string, ShapeBox[]>
@@ -233,4 +233,9 @@ export function disposeObject(obj: THREE.Object3D) {
     if (Array.isArray(material)) material.forEach(m => m.dispose())
     else material?.dispose()
   })
+}
+
+/** An aura's particle sprite (16×16 pixel art), by its sprite id. */
+export function auraSpriteUrl(id: string | undefined): string | null {
+  return id ? AURA_SPRITES[id] ?? null : null
 }

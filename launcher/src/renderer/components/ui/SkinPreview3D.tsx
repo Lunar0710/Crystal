@@ -4,7 +4,8 @@ import * as THREE from 'three'
 import { RotateCw, Pause, Play } from 'lucide-react'
 import { CosmeticDef, CosmeticVariants, resolveCosmetic, variantOf } from '../../data/cosmetics'
 import { shapeFor, ShapeBox, PET_POS } from '../../data/cosmeticShapes'
-import { buildModel, animateModel, disposeObject, BuiltModel } from '../../data/cosmeticModels'
+import { buildModel, animateModel, disposeObject, BuiltModel, auraSpriteUrl } from '../../data/cosmeticModels'
+import { spriteTexture } from '../../data/cosmeticThumbs'
 
 const COSMETIC_GROUP = 'crystal-cosmetics'
 
@@ -253,11 +254,13 @@ export function SkinPreview3D({
       if (packShape) addBoxes(group, packShape.boxes)
     }
 
-    const petShape = pet ? shapeFor(resolveCosmetic(pet, variants)!) : null
-    if (petShape) {
+    if (pet) {
       const holder = new THREE.Group()
       holder.position.set(PET_POS.x, PET_POS.y, PET_POS.z)
-      addBoxes(holder, petShape.boxes)
+      if (!(pet.model && addModel(holder, pet))) {
+        const petShape = shapeFor(resolveCosmetic(pet, variants)!)
+        if (petShape) addBoxes(holder, petShape.boxes)
+      }
       group.add(holder)
       petRef.current = holder
     }
@@ -368,16 +371,20 @@ export function SkinPreview3D({
       const geometry = new THREE.BufferGeometry()
       geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
 
+      // Each aura's own pixel-art particle (a snowflake, a flame, a heart...), as in game.
+      const sprite = auraSpriteUrl(aura.model)
       const points = new THREE.Points(
         geometry,
-        new THREE.PointsMaterial({
-          color: new THREE.Color(aura.color),
-          size: shape.size,
-          transparent: true,
-          opacity: 0.85,
-          blending: THREE.AdditiveBlending,
-          depthWrite: false,
-        })
+        sprite
+          ? new THREE.PointsMaterial({ map: spriteTexture(sprite), size: shape.size * 2.4, alphaTest: 0.5, transparent: false })
+          : new THREE.PointsMaterial({
+            color: new THREE.Color(aura.color),
+            size: shape.size,
+            transparent: true,
+            opacity: 0.85,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+          })
       )
       points.userData.phases = phases
       points.userData.variant = aura.variant ?? 'orbit'
