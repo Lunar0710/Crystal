@@ -21,6 +21,8 @@ function skin(): string {
   const box = (x: number, y: number, w: number, h: number, col: string) => { g.fillStyle = col; g.fillRect(x, y, w, h) }
   // head
   box(0, 8, 32, 8, '#c8906a'); box(8, 0, 16, 8, '#4a3222'); box(0, 8, 32, 2, '#4a3222')
+  // hair over the back and the upper sides, so a back view reads as one
+  box(24, 8, 8, 7, '#4a3222'); box(0, 8, 8, 4, '#4a3222'); box(16, 8, 8, 4, '#4a3222')
   box(9, 12, 2, 1, '#2b2b40'); box(13, 12, 2, 1, '#2b2b40'); box(10, 14, 4, 1, '#8a5a44')
   // body + arms (shirt)
   box(16, 16, 24, 16, '#3b6fb6'); box(40, 16, 16, 16, '#3b6fb6'); box(32, 48, 16, 16, '#3b6fb6')
