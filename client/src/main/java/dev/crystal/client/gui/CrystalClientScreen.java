@@ -406,11 +406,14 @@ public class CrystalClientScreen extends Screen {
         // Bottom: one wide button that says what the module is and switches it.
         boolean barHover = bar.contains(mx, my) && contentBox.contains(mx, my);
         int barColor = module.isLocked() ? GuiRender.withAlpha(COL_PLUS, 0x26) : GuiRender.blend(COL_OFF, colAccent, on);
-        if (barHover) barColor = GuiRender.blend(barColor, 0xFFFFFFFF, 0.12f);
+        if (barHover && module.replacedBy() == null) barColor = GuiRender.blend(barColor, 0xFFFFFFFF, 0.12f);
         GuiRender.roundedRect(ctx, bar.x1, bar.y1, bar.x2, bar.y2, 4, barColor);
-        String status = module.isLocked() ? "Nur Nexora+" : enabled ? "An" : "Aus";
+        // Another mod does this module's job (ModCompat): it stays off and the bar says which.
+        String replacedBy = module.replacedBy();
+        String status = replacedBy != null ? GuiRender.trimToWidth("Über " + replacedBy, bar.x2 - bar.x1 - 6)
+                : module.isLocked() ? "Nur Nexora+" : enabled ? "An" : "Aus";
         // On a light accent (a white theme) the label turns dark so it stays readable.
-        int statusColor = module.isLocked() ? COL_PLUS : on > 0.5f ? (isLight(colAccent) ? 0xFF111113 : 0xFFFFFFFF) : 0xFFB4B4BA;
+        int statusColor = replacedBy != null ? colMuted : module.isLocked() ? COL_PLUS : on > 0.5f ? (isLight(colAccent) ? 0xFF111113 : 0xFFFFFFFF) : 0xFFB4B4BA;
         GuiRender.text(ctx, status, bar.x1 + (bar.x2 - bar.x1 - GuiRender.width(status)) / 2, bar.y1 + 2, statusColor);
     }
 
@@ -437,7 +440,14 @@ public class CrystalClientScreen extends Screen {
         roundButton(ctx, closeBox, closeHover, GuiRender.withAlpha(COL_DANGER, 0x33));
         drawIcon(ctx, ICON_CLOSE, closeBox.x1 + 5, closeBox.y1 + 5, closeHover ? COL_DANGER : colMuted, 1);
         bigToggleBox = new Box(closeBox.x1 - 40, py + 11, closeBox.x1 - 10, py + 23);
-        drawSwitch(ctx, bigToggleBox, animate(toggleAnim, module, module.isEnabled() ? 1f : 0f, dt));
+        String replacedBy = module.replacedBy();
+        if (replacedBy != null) {
+            // Off and greyed out: another mod does the job, the switch can't turn it on.
+            GuiRender.switchPill(ctx, bigToggleBox.x1, bigToggleBox.y1, bigToggleBox.x2, bigToggleBox.y2, 0f, colMuted);
+            GuiRender.roundedRect(ctx, bigToggleBox.x1, bigToggleBox.y1, bigToggleBox.x2, bigToggleBox.y2, 6, 0x66000000);
+        } else {
+            drawSwitch(ctx, bigToggleBox, animate(toggleAnim, module, module.isEnabled() ? 1f : 0f, dt));
+        }
         ctx.fill(px + 10, py + HEADER_H, px + pw - 10, py + HEADER_H + 1, 0x10FFFFFF);
 
         // Right: live preview and description
@@ -448,6 +458,15 @@ public class CrystalClientScreen extends Screen {
         List<String> desc = wrap(module.getDescription(), previewX2 - previewX1, 4);
         for (int i = 0; i < desc.size(); i++) {
             GuiRender.text(ctx, desc.get(i), previewX1, previewY2 + 8 + i * 10, colMuted);
+        }
+        if (replacedBy != null) {
+            List<String> note = wrap(replacedBy + " ist installiert und übernimmt das Culling schon. " + pretty(module.getName())
+                    + " bleibt deshalb aus, damit die Arbeit nicht doppelt läuft. Deine Einstellungen bleiben gespeichert"
+                    + " und gelten wieder, sobald " + replacedBy + " entfernt ist.", previewX2 - previewX1, 6);
+            int noteY = previewY2 + 14 + desc.size() * 10;
+            for (int i = 0; i < note.size(); i++) {
+                GuiRender.text(ctx, note.get(i), previewX1, noteY + i * 10, COL_PLUS);
+            }
         }
 
         // Left: settings list
@@ -601,7 +620,8 @@ public class CrystalClientScreen extends Screen {
         String name = setting.getName();
         boolean plusOnly = name.endsWith("(Nexora+)");
         if (plusOnly) name = name.substring(0, name.length() - 10).trim();
-        boolean locked = plusOnly && !CrystalProfile.hasPerks();
+        // Also locked while another mod does the module's job (ModCompat); the values stay saved.
+        boolean locked = plusOnly && !CrystalProfile.hasPerks() || openModule != null && openModule.replacedBy() != null;
 
         int controlW = Math.min(120, w / 2 - 4);
         String shownName = GuiRender.trimToWidth(name, w - controlW - (plusOnly ? 58 : 20));

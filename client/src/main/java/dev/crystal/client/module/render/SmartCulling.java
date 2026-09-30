@@ -25,7 +25,7 @@ public class SmartCulling extends Module {
 
     public SmartCulling() {
         super("SmartCulling", "Skips drawing mobs and block entities hidden behind walls", ModuleCategory.RENDER);
-        // Nexora Lite with EntityCulling installed leaves this module out (see Lite).
+        // Never started with EntityCulling installed (ModCompat) or outside Nexora Lite's set.
         if (runsInThisMode()) CrystalClient.getInstance().getEventBus().subscribe(TickEvent.class, e -> tick(e.getClient()));
         setEnabled(true);
     }

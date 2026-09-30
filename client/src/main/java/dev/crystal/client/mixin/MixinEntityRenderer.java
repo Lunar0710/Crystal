@@ -3,9 +3,6 @@ package dev.crystal.client.mixin;
 import dev.crystal.client.CrystalClient;
 import dev.crystal.client.module.render.CrystalLogo;
 import dev.crystal.client.module.render.NameTags;
-import dev.crystal.client.module.render.SmartCulling;
-import dev.crystal.client.util.OcclusionCuller;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.culling.Frustum;
 import dev.crystal.client.module.render.TeamView;
 import net.minecraft.client.renderer.entity.EntityRenderer;
@@ -18,30 +15,22 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-/** NameTags health, TeamView markers and the Nexora logo, added to a player's label as its render state is built. */
+/**
+ * RenderLimits for entities, and NameTags health, TeamView markers and the
+ * Nexora logo, added to a player's label as its render state is built.
+ */
 @Mixin(EntityRenderer.class)
 public class MixinEntityRenderer {
 
-    /** SmartCulling: an entity fully behind walls is not drawn. */
+    /** RenderLimits: items, orbs and decorations beyond their distance are not drawn (SmartCulling: MixinSmartCullingEntity). */
     @Inject(method = "shouldRender", at = @At("RETURN"), cancellable = true)
     private void crystal$cull(Entity entity, Frustum frustum, double camX, double camY, double camZ,
                               CallbackInfoReturnable<Boolean> cir) {
         if (!cir.getReturnValueZ()) return;
         CrystalClient client = CrystalClient.getInstance();
         if (client == null) return;
-        // RenderLimits: items, orbs and decorations beyond their distance.
         dev.crystal.client.module.render.RenderLimits limits = client.getModuleManager().getEnabled(dev.crystal.client.module.render.RenderLimits.class);
-        if (limits != null && limits.hides(entity, entity.distanceToSqr(camX, camY, camZ))) {
-            cir.setReturnValue(false);
-            return;
-        }
-        SmartCulling culling = client.getModuleManager().get(SmartCulling.class);
-        if (culling == null || !culling.cullsEntities()) return;
-        // Never the player's own entity, what they ride, or glowing (outlined) entities.
-        Minecraft mc = Minecraft.getInstance();
-        if (entity == mc.getCameraEntity() || entity.isCurrentlyGlowing()
-                || (mc.player != null && (entity.hasPassenger(mc.player) || mc.player.hasPassenger(entity)))) return;
-        if (OcclusionCuller.isEntityHidden(entity.getId(), entity.getBoundingBox())) cir.setReturnValue(false);
+        if (limits != null && limits.hides(entity, entity.distanceToSqr(camX, camY, camZ))) cir.setReturnValue(false);
     }
 
     @Inject(method = "extractRenderState", at = @At("TAIL"))
