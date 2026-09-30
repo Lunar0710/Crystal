@@ -6,10 +6,12 @@
  *
  *   launcher/src/renderer/assets/cosmetic-thumbs/<item>/<variant>.png   240×180, Cosmetics page
  *   client/.../textures/cosmetics/thumbs/<item>/<variant>.png          120×90, in-game menu
+ *   client/.../textures/cosmetics/capes/<cape>.png                     40×64, cape front for the in-game grid
  *   docs/cosmetics/contact-sheet.png, contact-sheet-variants.png       every tile, for checking
  *
  * Run from the launcher folder after `npm run gen:cosmetics`:  npm run gen:thumbs
- * (--only <text> redraws just the items whose id contains it, no sheets).
+ * (--only <text> redraws just the items whose id contains it, no sheets;
+ * --capes redraws just the cape pictures).
  * It bundles thumbs-entry.ts with esbuild and opens it in a hidden Electron window.
  */
 const { execFileSync, spawnSync } = require('child_process')
@@ -22,6 +24,7 @@ const REPO = path.resolve(LAUNCHER, '..')
 const OUT = {
   thumb: path.join(LAUNCHER, 'src', 'renderer', 'assets', 'cosmetic-thumbs'),
   small: path.join(REPO, 'client', 'src', 'main', 'resources', 'assets', 'crystal', 'textures', 'cosmetics', 'thumbs'),
+  cape: path.join(REPO, 'client', 'src', 'main', 'resources', 'assets', 'crystal', 'textures', 'cosmetics', 'capes'),
   sheet: path.join(REPO, 'docs', 'cosmetics'),
 }
 const BUILD = path.join(require('os').tmpdir(), 'nexora-thumbs')
@@ -29,9 +32,10 @@ const BUILD = path.join(require('os').tmpdir(), 'nexora-thumbs')
 if (process.argv[2] === '--electron') {
   const { app, BrowserWindow } = require('electron')
   const only = process.argv[3] || ''
+  const capesOnly = process.argv[4] === 'capes'
   app.whenReady().then(async () => {
     const win = new BrowserWindow({ show: false, width: 800, height: 600 })
-    await win.loadFile(path.join(BUILD, 'index.html'), { query: only ? { only } : {} })
+    await win.loadFile(path.join(BUILD, 'index.html'), { query: { ...(only ? { only } : {}), ...(capesOnly ? { capes: '1' } : {}) } })
     for (let i = 0; i < 3000; i++) {
       if (await win.webContents.executeJavaScript('window.done === true')) break
       await new Promise(r => setTimeout(r, 200))
@@ -40,7 +44,8 @@ if (process.argv[2] === '--electron') {
     if (error) { console.error(error); app.exit(1); return }
     const shots = await win.webContents.executeJavaScript('window.shots')
     // A full run replaces everything, so pictures of removed items go away.
-    if (!only) {
+    if (!only) fs.rmSync(OUT.cape, { recursive: true, force: true })
+    if (!only && !capesOnly) {
       fs.rmSync(OUT.thumb, { recursive: true, force: true })
       fs.rmSync(OUT.small, { recursive: true, force: true })
     }
@@ -60,6 +65,7 @@ if (process.argv[2] === '--electron') {
 
 const onlyIndex = process.argv.indexOf('--only')
 const only = onlyIndex > 0 ? process.argv[onlyIndex + 1] : ''
+const capesOnly = process.argv.includes('--capes')
 fs.mkdirSync(BUILD, { recursive: true })
 execFileSync(process.execPath, [require.resolve('esbuild/bin/esbuild', { paths: [LAUNCHER] }),
   path.join(HERE, 'thumbs-entry.ts'), '--bundle', '--format=iife', `--outfile=${path.join(BUILD, 'bundle.js')}`, '--log-level=error'], { stdio: 'inherit', cwd: LAUNCHER })
@@ -67,5 +73,5 @@ fs.writeFileSync(path.join(BUILD, 'index.html'), '<!doctype html><html><body sty
 const electron = require(require.resolve('electron', { paths: [LAUNCHER] }))
 const env = { ...process.env }
 delete env.ELECTRON_RUN_AS_NODE
-const r = spawnSync(electron, [__filename, '--electron', only], { stdio: 'inherit', env })
+const r = spawnSync(electron, [__filename, '--electron', only, capesOnly ? 'capes' : ''], { stdio: 'inherit', env })
 process.exit(r.status ?? 1)

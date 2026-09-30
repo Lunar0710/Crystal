@@ -57,6 +57,8 @@ public class CosmeticsScreen extends Screen {
     private static final int TILE_W = 70, TILE_H = 64, GAP = 5;
     /** Size of the shipped item pictures (CosmeticPictures), 4:3. */
     private static final int PIC_W = 120, PIC_H = 90;
+    /** Size of the shipped cape pictures (CosmeticPictures#cape): the front face, 10:16. */
+    private static final int CAPE_PIC_W = 40, CAPE_PIC_H = 64;
     private static final int MAX_OUTFITS = 10;
 
     private final Map<String, List<Entry>> items = new LinkedHashMap<>();
@@ -563,12 +565,14 @@ public class CosmeticsScreen extends Screen {
             tiles.add(new Tile(x, y, TILE_W, TILE_H, i));
             if (o instanceof Entry e) {
                 Variant v = variantOf(e);
-                tile(ctx, x, y, e.name(), v.color(), v.secondary(), CosmeticPictures.thumb(e.id(), v.id()),
+                tile(ctx, x, y, e.name(), v.color(), v.secondary(), CosmeticPictures.thumb(e.id(), v.id()), PIC_W, PIC_H,
                         e.id().equals(worn.get(e.slot())), e.locked(), e.isNew(), hover, e.variants().size());
             } else if (o instanceof Cape c) {
-                tile(ctx, x, y, c.name(), 0xFF2A2F3A, 0xFF1A1D24, null, ("builtin:" + c.id()).equals(worn.get("cape")), c.locked(), false, hover, 0);
+                // A tiny shipped picture of the cape's front, never the full
+                // (up to 1024x512) cape texture, so the grid costs next to no VRAM.
+                tile(ctx, x, y, c.name(), 0xFF2A2F3A, 0xFF1A1D24, CosmeticPictures.cape(c.id()), CAPE_PIC_W, CAPE_PIC_H, ("builtin:" + c.id()).equals(worn.get("cape")), c.locked(), false, hover, 0);
             } else if (o instanceof String[] e) {
-                tile(ctx, x, y, e[1], 0xFF232838, 0xFF1A1D28, null, false, false, false, hover, 0);
+                tile(ctx, x, y, e[1], 0xFF232838, 0xFF1A1D28, null, PIC_W, PIC_H, false, false, false, hover, 0);
             }
         }
         ctx.disableScissor();
@@ -583,16 +587,16 @@ public class CosmeticsScreen extends Screen {
      * same picture as the launcher's tile); only an item this game has no
      * picture of falls back to its two colours.
      */
-    private void tile(GuiGraphics ctx, int x, int y, String name, int color, int secondary, Identifier picture, boolean selected,
-                      boolean locked, boolean isNew, boolean hover, int variantCount) {
+    private void tile(GuiGraphics ctx, int x, int y, String name, int color, int secondary, Identifier picture, int picW, int picH,
+                      boolean selected, boolean locked, boolean isNew, boolean hover, int variantCount) {
         GuiRender.roundedRect(ctx, x, y, x + TILE_W, y + TILE_H, 6, hover ? 0xFF1E222B : 0xFF16191F);
         int sx = x + 4, sy = y + 4, sw = TILE_W - 8, sh = TILE_H - 20;
         if (picture != null) {
-            // A soft backdrop, then the picture fitted into the image area at 4:3.
+            // A soft backdrop, then the picture fitted into the image area at its own aspect.
             GuiRender.roundedRect(ctx, sx, sy, sx + sw, sy + sh, 4, hover ? 0xFF2A2F3A : 0xFF232733);
-            int ph = sh, pw = Math.round(ph * PIC_W / (float) PIC_H);
-            if (pw > sw) { pw = sw; ph = Math.round(pw * PIC_H / (float) PIC_W); }
-            picture(ctx, picture, sx + (sw - pw) / 2, sy + (sh - ph) / 2, pw, ph);
+            int ph = sh, pw = Math.round(ph * picW / (float) picH);
+            if (pw > sw) { pw = sw; ph = Math.round(pw * picH / (float) picW); }
+            picture(ctx, picture, sx + (sw - pw) / 2, sy + (sh - ph) / 2, pw, ph, picW, picH);
             if (locked) ctx.fill(sx, sy, sx + sw, sy + sh, 0x9916191F);
         } else {
             swatch(ctx, sx, sy, sw, sh, locked ? GuiRender.blend(color, 0xFF16191F, 0.6f) : color, locked ? GuiRender.blend(secondary, 0xFF16191F, 0.6f) : secondary);
@@ -613,7 +617,12 @@ public class CosmeticsScreen extends Screen {
 
     /** A shipped item picture (120×90) drawn into w × h. */
     private static void picture(GuiGraphics ctx, Identifier texture, int x, int y, int w, int h) {
-        ctx.blit(RenderPipelines.GUI_TEXTURED, texture, x, y, 0f, 0f, w, h, PIC_W, PIC_H, PIC_W, PIC_H);
+        picture(ctx, texture, x, y, w, h, PIC_W, PIC_H);
+    }
+
+    /** A shipped picture of texW × texH drawn into w × h. */
+    private static void picture(GuiGraphics ctx, Identifier texture, int x, int y, int w, int h, int texW, int texH) {
+        ctx.blit(RenderPipelines.GUI_TEXTURED, texture, x, y, 0f, 0f, w, h, texW, texH, texW, texH);
     }
 
     /** A two-colour swatch split along the diagonal, for items without a picture. */

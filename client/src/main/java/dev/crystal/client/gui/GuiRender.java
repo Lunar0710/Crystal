@@ -1,5 +1,6 @@
 package dev.crystal.client.gui;
 
+import dev.crystal.client.Lite;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -27,12 +28,21 @@ public final class GuiRender {
     // soft shadows and glows stacked from see-through layers, and easing curves
     // that settle like a spring instead of sliding linearly.
 
+    /**
+     * Geist lives in the ui_font pack, which Nexora Lite never registers (no TTF
+     * is loaded there). Lite draws the menu in Minecraft's own font instead;
+     * headings get its bold style so they still stand out.
+     */
+    private static Identifier uiFontId(String path) {
+        return Lite.ON ? Identifier.fromNamespaceAndPath("minecraft", "default") : Identifier.fromNamespaceAndPath("crystal", path);
+    }
+
     //? if >=1.21.9 {
-    private static final FontDescription UI_FONT = new FontDescription.Resource(Identifier.fromNamespaceAndPath("crystal", "ui"));
-    private static final FontDescription UI_BOLD = new FontDescription.Resource(Identifier.fromNamespaceAndPath("crystal", "ui_bold"));
+    private static final FontDescription UI_FONT = new FontDescription.Resource(uiFontId("ui"));
+    private static final FontDescription UI_BOLD = new FontDescription.Resource(uiFontId("ui_bold"));
     //?} else {
-    /*private static final Identifier UI_FONT = Identifier.fromNamespaceAndPath("crystal", "ui");
-    private static final Identifier UI_BOLD = Identifier.fromNamespaceAndPath("crystal", "ui_bold");
+    /*private static final Identifier UI_FONT = uiFontId("ui");
+    private static final Identifier UI_BOLD = uiFontId("ui_bold");
     *///?}
 
     /** Colours shared by every Nexora screen. */
@@ -51,7 +61,7 @@ public final class GuiRender {
 
     /** Headings: the same face, one weight up. */
     public static Component uiBold(String text) {
-        return Component.literal(text).withStyle(st -> st.withFont(UI_BOLD));
+        return Component.literal(text).withStyle(st -> Lite.ON ? st.withFont(UI_BOLD).withBold(true) : st.withFont(UI_BOLD));
     }
 
     public static void text(GuiGraphics ctx, String text, int x, int y, int color) {

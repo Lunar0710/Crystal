@@ -6,6 +6,7 @@ import { InstanceManager } from './InstanceManager'
 import { JarReader } from '../util/jarReader'
 import { logger } from '../logs/Logger'
 import { crystalPath, isPlainFileName } from '../paths'
+import { silentMemoryExit } from './SilentMemoryExit'
 
 export type FixKind =
   | 'disable-mod'
@@ -261,7 +262,19 @@ export class CrashDoctor {
     this.nativeCrash(instanceId, push)
     this.javaCrash(instanceId, push)
     // Neither report explained it: find out from what the game did last.
-    if (![...seen].some(id => id.startsWith('java-crash-') || id.startsWith('native-crash-'))) this.silentExit(instanceId, push)
+    // A silent end while loading with a big heap is most often Windows running
+    // out of memory, not the mod that happened to load last; lowering the RAM
+    // is the harmless first try, so that one is shown instead of a mod.
+    const gameDir = this.instances.get(instanceId)?.gameDir || crystalPath('instances', instanceId)
+    const memory = silentMemoryExit({
+      log,
+      currentRam,
+      totalMemMb: os.totalmem() / 1048576,
+      freshNativeCrash: this.freshFile(gameDir, /^hs_err_pid\d+\.log$/),
+      freshCrashReport: this.freshFile(path.join(gameDir, 'crash-reports'), /^crash-.*\.txt$/),
+    })
+    if (memory) push(memory)
+    else if (![...seen].some(id => id.startsWith('java-crash-') || id.startsWith('native-crash-'))) this.silentExit(instanceId, push)
 
     // The player's own Java arguments (instance page) that Java itself rejected.
     const ownArgs = this.instances.get(instanceId)?.jvmArgs ?? []
@@ -411,6 +424,13 @@ export class CrashDoctor {
         fix: { kind: 'disable-zgc', label: 'Ohne ZGC starten' },
       })
     }
+  }
+
+  /** Whether the folder holds a file matching the name from the last ten minutes. */
+  private freshFile(dir: string, name: RegExp): boolean {
+    try {
+      return fs.readdirSync(dir).some(f => name.test(f) && Date.now() - fs.statSync(path.join(dir, f)).mtimeMs < 10 * 60 * 1000)
+    } catch { return false }
   }
 
   /** Whether Minecraft wrote its log in the last ten minutes, i.e. the game really started. */

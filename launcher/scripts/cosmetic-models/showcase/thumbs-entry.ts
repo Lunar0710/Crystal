@@ -7,11 +7,40 @@
 import * as THREE from 'three'
 import { COSMETICS_BY_SLOT, SLOTS, NonCapeSlot, CosmeticDef } from '../../../src/renderer/data/cosmetics'
 import { drawPicture, THUMB_W, THUMB_H } from '../../../src/renderer/data/cosmeticThumbs'
+import { BUILTIN_CAPES } from '../../../src/renderer/data/capes'
 
 declare global { interface Window { shots: Record<string, string>; done: boolean; error?: string } }
 window.shots = {}
 
 const SMALL_W = 120, SMALL_H = 90
+/** The in-game cape grid's picture: the cape's front face (10x16 texels) at 4x. */
+const CAPE_W = 40, CAPE_H = 64
+
+/**
+ * Every built-in cape's front face as a tiny picture for the in-game grid, so
+ * the game never has to load the full (up to 1024x512) cape textures just to
+ * show the choice. Pixel capes are scaled up sharp, HD capes down smoothly;
+ * animated capes show their first frame.
+ */
+function capePictures() {
+  for (const cape of BUILTIN_CAPES) {
+    const k = cape.hd ?? 1
+    const design = document.createElement('canvas')
+    design.width = 10 * k
+    design.height = 16 * k
+    const d = design.getContext('2d')!
+    d.imageSmoothingEnabled = k > 1
+    cape.paint(d, design.width, design.height)
+    const out = document.createElement('canvas')
+    out.width = CAPE_W
+    out.height = CAPE_H
+    const g = out.getContext('2d')!
+    g.imageSmoothingEnabled = k > 1
+    g.imageSmoothingQuality = 'high'
+    g.drawImage(design, 0, 0, CAPE_W, CAPE_H)
+    window.shots[`cape/${cape.id}`] = out.toDataURL('image/png')
+  }
+}
 
 const img = (url: string) => new Promise<HTMLImageElement>((resolve, reject) => {
   const i = new Image()
@@ -42,7 +71,10 @@ async function main() {
   r.setSize(THUMB_W, THUMB_H, false)
   r.outputColorSpace = THREE.SRGBColorSpace
 
-  const only = new URLSearchParams(location.search).get('only')
+  const query = new URLSearchParams(location.search)
+  const only = query.get('only')
+  if (!only) capePictures()
+  if (query.get('capes')) { window.done = true; return }
   const slots = SLOTS.filter(s => s.id !== 'cape') as Slot[]
   const pics: Record<string, string> = {}
   for (const s of slots) {
