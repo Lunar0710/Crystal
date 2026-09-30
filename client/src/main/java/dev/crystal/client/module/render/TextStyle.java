@@ -50,18 +50,24 @@ public class TextStyle extends Module {
     }
 
     public static void registerPacks() {
-        // Nexora Lite: no TrueType fonts. Without the packs registered, a font
+        // Nexora Lite: no TrueType fonts, not even the menu's. Without the packs registered, a font
         // pack still selected from a full Nexora session is dropped at startup
         // instead of loading its TTF, and nothing reloads the resources later.
         if (dev.crystal.client.Lite.ON) return;
         var crystal = FabricLoader.getInstance().getModContainer(CrystalClient.MOD_ID).orElseThrow();
+        // The Nexora menus' own typeface (Geist, fonts crystal:ui and crystal:ui_bold,
+        // see GuiRender). A pack of its own so Lite never loads the TTF; always on.
         //? if >=1.21.11 {
+        ResourceLoader.registerBuiltinPack(Identifier.fromNamespaceAndPath(CrystalClient.MOD_ID, "ui_font"), crystal,
+                Component.literal("Nexora: Menu Font"), PackActivationType.ALWAYS_ENABLED);
         ResourceLoader.registerBuiltinPack(Identifier.fromNamespaceAndPath(CrystalClient.MOD_ID, "smooth_font"), crystal,
                 Component.literal("Nexora: Smooth Font"), PackActivationType.NORMAL);
         ResourceLoader.registerBuiltinPack(Identifier.fromNamespaceAndPath(CrystalClient.MOD_ID, "mono_font"), crystal,
                 Component.literal("Nexora: Mono Font"), PackActivationType.NORMAL);
         //?} else {
-        /*ResourceManagerHelper.registerBuiltinResourcePack(Identifier.fromNamespaceAndPath(CrystalClient.MOD_ID, "smooth_font"), crystal,
+        /*ResourceManagerHelper.registerBuiltinResourcePack(Identifier.fromNamespaceAndPath(CrystalClient.MOD_ID, "ui_font"), crystal,
+                Component.literal("Nexora: Menu Font"), ResourcePackActivationType.ALWAYS_ENABLED);
+        ResourceManagerHelper.registerBuiltinResourcePack(Identifier.fromNamespaceAndPath(CrystalClient.MOD_ID, "smooth_font"), crystal,
                 Component.literal("Nexora: Smooth Font"), ResourcePackActivationType.NORMAL);
         ResourceManagerHelper.registerBuiltinResourcePack(Identifier.fromNamespaceAndPath(CrystalClient.MOD_ID, "mono_font"), crystal,
                 Component.literal("Nexora: Mono Font"), ResourcePackActivationType.NORMAL);
