@@ -15,7 +15,8 @@
     "start": "electron .",
     "gen:cosmetics": "node scripts/cosmetic-models/gen.cjs",
     "check:cosmetics": "node scripts/cosmetic-models/gen.cjs --check",
-    "gen:thumbs": "node scripts/cosmetic-models/showcase/thumbs.cjs"
+    "gen:thumbs": "node scripts/cosmetic-models/showcase/thumbs.cjs",
+    "test:crash": "node scripts/test-silent-memory-exit.cjs"
   },
   "dependencies": {
     "@fontsource-variable/archivo": "^5.3.0",
