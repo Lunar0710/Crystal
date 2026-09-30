@@ -29,6 +29,16 @@ public final class CosmeticPictures {
         return find("textures/cosmetics/thumbs/" + itemId + "/" + v + ".png");
     }
 
+    /**
+     * A small picture (40×64) of a built-in cape's front face, or null. The grid
+     * shows these instead of the full cape textures, which take up to 2 MB of
+     * video memory each.
+     */
+    public static Identifier cape(String capeId) {
+        if (capeId == null || !capeId.matches("[a-z0-9_-]{1,40}")) return null;
+        return find("textures/cosmetics/capes/" + capeId + ".png");
+    }
+
     /** An aura's particle sprite, or null. */
     public static Identifier auraSprite(String id) {
         if (id == null || !id.matches("[a-z0-9_]{1,40}")) return null;
