@@ -12,7 +12,6 @@
 const path = require('path')
 const fs = require('fs')
 const os = require('os')
-const { spawn, spawnSync } = require('child_process')
 const Module = require('module')
 
 const launcherRoot = path.resolve(__dirname, '..')
@@ -38,48 +37,7 @@ const { MinecraftManager } = require(path.join(launcherRoot, 'dist/main/minecraf
 
 const { requiredJavaMajor } = require(path.join(launcherRoot, 'dist/main/minecraft/versions.js'))
 const log = (...a) => console.log('[smoke-world]', ...a)
-const { prepareOptions, threadDump } = require('./smoke-common.cjs')
-
-/** A Java new enough to run this version's server. */
-function findServerJava() {
-  for (const candidate of platform.javaCandidates()) {
-    if (candidate !== 'java' && !fs.existsSync(candidate)) continue
-    const out = spawnSync(candidate, ['-version'], { encoding: 'utf8' })
-    const m = ((out.stderr || '') + (out.stdout || '')).match(/version "(\d+)/)
-    if (m && parseInt(m[1], 10) >= requiredJavaMajor(VERSION)) return candidate
-  }
-  return null
-}
-
-async function generateWorld(java) {
-  const serverDir = path.join(dataRoot, 'smoke-server')
-  const worldDir = path.join(serverDir, 'world')
-  if (fs.existsSync(path.join(worldDir, 'level.dat'))) return worldDir
-
-  fs.mkdirSync(serverDir, { recursive: true })
-  const manifest = await (await fetch('https://piston-meta.mojang.com/mc/game/version_manifest_v2.json')).json()
-  const versionJson = await (await fetch(manifest.versions.find(v => v.id === VERSION).url)).json()
-  const jar = path.join(serverDir, 'server.jar')
-  if (!fs.existsSync(jar)) {
-    log('downloading server jar')
-    fs.writeFileSync(jar, Buffer.from(await (await fetch(versionJson.downloads.server.url)).arrayBuffer()))
-  }
-  fs.writeFileSync(path.join(serverDir, 'eula.txt'), 'eula=true\n')
-  fs.writeFileSync(path.join(serverDir, 'server.properties'),
-    'level-type=minecraft\\:flat\nonline-mode=false\nspawn-protection=0\ngenerate-structures=false\nspawn-monsters=false\nserver-port=25599\n')
-
-  log('generating world')
-  await new Promise((resolve, reject) => {
-    const proc = spawn(java, ['-Xmx1G', '-jar', 'server.jar', 'nogui'], { cwd: serverDir })
-    const timer = setTimeout(() => { proc.kill(); reject(new Error('server timeout')) }, 5 * 60 * 1000)
-    proc.stdout.on('data', chunk => {
-      if (/Done \(/.test(chunk.toString())) proc.stdin.write('stop\n')
-    })
-    proc.on('exit', () => { clearTimeout(timer); resolve() })
-  })
-  if (!fs.existsSync(path.join(worldDir, 'level.dat'))) throw new Error('world was not generated')
-  return worldDir
-}
+const { prepareOptions, threadDump, findServerJava, generateWorld } = require('./smoke-common.cjs')
 
 function writeTestSettings(gameDir) {
   const configDir = path.join(gameDir, '.crystal', 'config')
@@ -228,11 +186,11 @@ function stripedCapePng() {
 ;(async () => {
   log(`platform=${process.platform} dataRoot=${dataRoot} version=${VERSION}`)
   // Without a new enough Java installed, use the one the launcher downloads for this version.
-  const java = findServerJava()
+  const java = findServerJava(platform, requiredJavaMajor(VERSION))
     || await new MinecraftManager(new Store({ cwd: dataRoot, name: 'smoke-store' })).ensureJava(VERSION, () => {})
   if (!java) throw new Error(`no Java ${requiredJavaMajor(VERSION)} found for the world generator`)
 
-  const worldDir = await generateWorld(java)
+  const worldDir = await generateWorld(dataRoot, VERSION, java, log)
   const gameDir = path.join(dataRoot, 'instances', 'smoke-world')
   const saveDir = path.join(gameDir, 'saves', 'smoke')
   fs.rmSync(saveDir, { recursive: true, force: true })

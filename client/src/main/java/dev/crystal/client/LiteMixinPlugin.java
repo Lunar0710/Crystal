@@ -13,6 +13,8 @@ import java.util.Set;
  * its module is on, and several of these sit on paths that run per entity,
  * per item or per rain column every frame (weather and time overrides, the
  * enchantment glint check, name decorations, skin and cape lookups).
+ * SmartCulling's hooks are also left out in full Nexora when EntityCulling
+ * is installed (ModCompat).
  *
  * Only mixins that no other code depends on are listed here; accessors and
  * the HUD, input and camera hooks the Lite modules need always stay:
@@ -43,19 +45,22 @@ public final class LiteMixinPlugin implements IMixinConfigPlugin {
             // TotemPops and TPSDisplay packets.
             "MixinLivingEntityEvents", "MixinTimePacket",
             // World overlays (outline, hitboxes, chunk borders) on 1.21.9.
-            "MixinLevelRendererLegacy");
+            "MixinLevelRendererLegacy",
+            // RenderLimits and the NameTags/TeamView/logo label decorations.
+            "MixinEntityRenderer", "MixinBlockEntityCulling");
 
     /**
-     * SmartCulling and RenderLimits. Lite leaves them out when EntityCulling
-     * is installed (it does the same job), and then these per-entity hooks go too.
+     * SmartCulling's per-entity and per-block-entity hooks. Left out in full
+     * Nexora and in Lite when EntityCulling is installed (ModCompat): it does
+     * the same job, and SmartCulling stays off then.
      */
-    private static final Set<String> CULLING = Set.of("MixinEntityRenderer", "MixinBlockEntityCulling");
+    private static final Set<String> SMART_CULLING = Set.of("MixinSmartCullingEntity", "MixinSmartCullingBlockEntity");
 
     @Override
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
-        if (!Lite.ON) return true;
         String simple = mixinClassName.substring(mixinClassName.lastIndexOf('.') + 1);
-        if (CULLING.contains(simple)) return Lite.allows("SmartCulling");
+        if (SMART_CULLING.contains(simple)) return Lite.allows("SmartCulling") && ModCompat.replacedBy("SmartCulling") == null;
+        if (!Lite.ON) return true;
         return !SKIPPED_IN_LITE.contains(simple);
     }
 

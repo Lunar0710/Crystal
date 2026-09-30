@@ -18,13 +18,6 @@ public final class Lite {
 
     public static final boolean ON = Boolean.getBoolean("nexora.lite");
 
-    /**
-     * EntityCulling (part of the performance pack) already skips hidden mobs
-     * and block entities. Nexora's own SmartCulling would do the same work a
-     * second time on a thread of its own, so Lite only offers it without that mod.
-     */
-    public static final boolean ENTITY_CULLING_MOD = isModLoaded("entityculling");
-
     /** Module names (Module#getName) that Lite offers. */
     private static final Set<String> MODULES = modules();
 
@@ -36,20 +29,13 @@ public final class Lite {
                 "ReachDisplay", "ComboCounter", "Cooldowns", "Zoom", "Freelook", "ToggleSneakSprint",
                 "Sprint", "Crosshair", "NoHurtCam", "FOVChanger", "PerformanceMode", "BackgroundFps",
                 "NexoraMenu"));
-        if (!ENTITY_CULLING_MOD) set.add("SmartCulling");
+        // With EntityCulling installed SmartCulling is off in every mode (ModCompat), so Lite hides it.
+        if (ModCompat.replacedBy("SmartCulling") == null) set.add("SmartCulling");
         return Set.copyOf(set);
     }
 
     /** Whether this module may run: always in full Nexora, only the Lite set in Lite. */
     public static boolean allows(String moduleName) {
         return !ON || MODULES.contains(moduleName);
-    }
-
-    private static boolean isModLoaded(String id) {
-        try {
-            return net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded(id);
-        } catch (RuntimeException e) {
-            return false;
-        }
     }
 }

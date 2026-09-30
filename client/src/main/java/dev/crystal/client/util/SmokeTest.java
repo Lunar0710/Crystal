@@ -202,6 +202,13 @@ public final class SmokeTest {
         // SmartCulling: the walled-in stand must count as hidden, the open one as visible.
         // The culler answers from a background thread, so the result may take a
         // few passes; it counts as soon as it is right within the window.
+        // With EntityCulling installed SmartCulling must stay off instead: no culling thread.
+        if (cullingResult == null && worldTicks >= 100 && dev.crystal.client.ModCompat.replacedBy("SmartCulling") != null) {
+            boolean thread = Thread.getAllStackTraces().keySet().stream().anyMatch(t -> "Nexora-Culling".equals(t.getName()));
+            cullingResult = !thread;
+            CrystalClient.LOGGER.info("[Nexora] Culling test {}: EntityCulling installed, SmartCulling off, culling thread running={}",
+                    thread ? "FAILED" : "PASS", thread);
+        }
         if (cullingResult == null && worldTicks >= 100 && worldTicks <= CULLING_DEADLINE) {
             Boolean walled = null, open = null;
             for (var entity : mc.level.entitiesForRendering()) {

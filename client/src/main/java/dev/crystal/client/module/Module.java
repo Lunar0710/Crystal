@@ -20,17 +20,21 @@ public abstract class Module {
     protected final Minecraft mc = Minecraft.getInstance();
 
     /**
-     * Not part of Nexora Lite while Lite runs: never started, whatever the
-     * config says. Fixed for the session, so the hot isEnabled() check stays a
-     * field read.
+     * Not part of Nexora Lite while Lite runs, or its job is done by another
+     * installed mod (ModCompat): never started, whatever the config says.
+     * Fixed for the session, so the hot isEnabled() check stays a field read.
      */
     private final boolean liteOff;
+
+    /** The installed mod that does this module's job (ModCompat), or null. */
+    private final String replacedBy;
 
     public Module(String name, String description, ModuleCategory category) {
         this.name = name;
         this.description = description;
         this.category = category;
-        this.liteOff = !dev.crystal.client.Lite.allows(name);
+        this.replacedBy = dev.crystal.client.ModCompat.replacedBy(name);
+        this.liteOff = !dev.crystal.client.Lite.allows(name) || replacedBy != null;
     }
 
     public void onEnable() {}
@@ -39,7 +43,8 @@ public abstract class Module {
     public void setEnabled(boolean enabled) {
         // Nexora Lite: a module outside its set keeps its saved switch (so full
         // Nexora finds it the way the player left it) but never runs: no
-        // onEnable, no listeners, and isEnabled() stays false.
+        // onEnable, no listeners, and isEnabled() stays false. The same for a
+        // module another installed mod replaces (ModCompat).
         if (liteOff) {
             this.enabled = enabled;
             return;
@@ -55,8 +60,11 @@ public abstract class Module {
         setEnabled(!enabled);
     }
 
-    /** Whether this module can run at all in this session: false for the modules Nexora Lite leaves out. */
+    /** Whether this module can run at all in this session: false for the modules Nexora Lite leaves out and those another mod replaces. */
     public final boolean runsInThisMode() { return !liteOff; }
+
+    /** The installed mod that does this module's job instead (the module then stays off), or null. */
+    public final String replacedBy() { return replacedBy; }
 
     /** Switched on and allowed to run: a Nexora+ module counts as off without Nexora+, a non-Lite one in Lite. */
     public boolean isEnabled() { return enabled && !liteOff && !isLocked(); }
