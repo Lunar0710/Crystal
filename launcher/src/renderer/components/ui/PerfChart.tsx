@@ -4,7 +4,7 @@ export interface PerfPoint {
   start: number
   instanceName: string
   version: string
-  perf: { avgFps?: number; lowFps?: number; nexora?: string; cpuAvg?: number; ramAvgMb?: number; ramPeakMb?: number }
+  perf: { avgFps?: number; lowFps?: number; nexora?: string; lite?: boolean; cpuAvg?: number; ramAvgMb?: number; ramPeakMb?: number }
 }
 
 const W = 640
@@ -116,7 +116,7 @@ export function PerfChart({ points }: { points: PerfPoint[] }) {
             <p className="text-crystal-text font-medium truncate">{active.instanceName || 'Instanz'}</p>
             <p className="text-crystal-muted tabular">
               {new Date(active.start).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' })}
-              {active.perf.nexora ? `, Nexora ${active.perf.nexora}` : ''}
+              {active.perf.nexora ? `, Nexora ${active.perf.lite ? 'Lite ' : ''}${active.perf.nexora}` : ''}
             </p>
             <dl className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-0.5 tabular">
               <dt className="text-crystal-muted">Durchschnitt</dt><dd className="text-crystal-text text-right">{active.perf.avgFps ?? '–'} FPS</dd>
@@ -134,7 +134,7 @@ export function PerfChart({ points }: { points: PerfPoint[] }) {
         <tbody>
           {points.map(p => (
             <tr key={p.start}>
-              <td>{new Date(p.start).toLocaleString('de-DE')}</td><td>{p.instanceName}</td><td>{p.perf.nexora ?? ''}</td>
+              <td>{new Date(p.start).toLocaleString('de-DE')}</td><td>{p.instanceName}</td><td>{p.perf.nexora ? `${p.perf.lite ? 'Lite ' : ''}${p.perf.nexora}` : ''}</td>
               <td>{p.perf.avgFps ?? ''}</td><td>{p.perf.lowFps ?? ''}</td>
             </tr>
           ))}

@@ -29,7 +29,8 @@ public class HitColor extends Module {
 
     public HitColor() {
         super("HitColor", "Changes the colour mobs and players flash when they take damage", ModuleCategory.RENDER);
-        CrystalClient.getInstance().getEventBus().subscribe(TickEvent.class, e -> sync());
+        // Not while Nexora Lite leaves this module out: its texture is never replaced there.
+        if (runsInThisMode()) CrystalClient.getInstance().getEventBus().subscribe(TickEvent.class, e -> sync());
     }
 
     public static void attach(DynamicTexture texture) {

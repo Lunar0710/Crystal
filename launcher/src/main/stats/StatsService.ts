@@ -22,6 +22,8 @@ export interface SessionPerf {
   lowFps?: number
   /** Nexora version the session ran on, so a drop after an update shows. */
   nexora?: string
+  /** Played in Nexora Lite (the FPS-first start mode). */
+  lite?: boolean
   cpuAvg?: number
   ramAvgMb?: number
   ramPeakMb?: number
@@ -89,12 +91,17 @@ export class StatsService {
    * rewritten each session, so one that started before this launch is left
    * over from an earlier one and ignored.
    */
-  private fpsFromClient(gameDir: string, start: number): Pick<SessionPerf, 'avgFps' | 'lowFps' | 'nexora'> | null {
+  private fpsFromClient(gameDir: string, start: number): Pick<SessionPerf, 'avgFps' | 'lowFps' | 'nexora' | 'lite'> | null {
     try {
       const json = JSON.parse(fs.readFileSync(path.join(gameDir, '.crystal', 'perf-session.json'), 'utf8'))
       if (typeof json?.startedAt !== 'number' || json.startedAt < start - 60_000) return null
       if (typeof json.avgFps !== 'number') return null
-      return { avgFps: json.avgFps, lowFps: typeof json.lowFps === 'number' ? json.lowFps : undefined, nexora: typeof json.nexora === 'string' ? json.nexora : undefined }
+      return {
+        avgFps: json.avgFps,
+        lowFps: typeof json.lowFps === 'number' ? json.lowFps : undefined,
+        nexora: typeof json.nexora === 'string' ? json.nexora : undefined,
+        ...(json.lite === true ? { lite: true } : {}),
+      }
     } catch {
       return null
     }
