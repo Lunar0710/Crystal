@@ -494,7 +494,7 @@ public class CosmeticsScreen extends Screen {
         player.yHeadRot = player.getYRot();
         player.yHeadRotO = player.getYRot();
         Vector3f offset = new Vector3f(0f, player.getBbHeight() / 2f + 0.0625f, 0f);
-        //? if >=1.21.5 {
+        //? if >=1.21.6 {
         net.minecraft.client.gui.screens.inventory.InventoryScreen.renderEntityInInventory(ctx, x1, y1, x2, y2, size, offset, rotation, camera, player);
         //?} else {
         net.minecraft.client.gui.screens.inventory.InventoryScreen.renderEntityInInventory(ctx, (x1 + x2) / 2f, (y1 + y2) / 2f, size, offset, rotation, camera, player);
