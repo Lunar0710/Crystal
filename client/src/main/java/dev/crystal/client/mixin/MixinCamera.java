@@ -66,17 +66,14 @@ public class MixinCamera {
         return CrystalClient.getInstance() != null && entity == Minecraft.getInstance().player;
     }
 
+    // Twice per frame: a map probe, no Optional or lambdas.
     private static Freelook freelook() {
-        return CrystalClient.getInstance().getModuleManager().getModuleByName("Freelook")
-                .filter(m -> m.isEnabled() && ((Freelook) m).isActive())
-                .map(m -> (Freelook) m)
-                .orElse(null);
+        Freelook module = CrystalClient.getInstance().getModuleManager().getEnabled(Freelook.class);
+        return module != null && module.isActive() ? module : null;
     }
 
     private static Snaplook snaplook() {
-        return CrystalClient.getInstance().getModuleManager().getModuleByName("Snaplook")
-                .filter(m -> m.isEnabled() && ((Snaplook) m).isActive())
-                .map(m -> (Snaplook) m)
-                .orElse(null);
+        Snaplook module = CrystalClient.getInstance().getModuleManager().getEnabled(Snaplook.class);
+        return module != null && module.isActive() ? module : null;
     }
 }

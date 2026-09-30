@@ -64,6 +64,8 @@ public class WorldEditCUI extends Module {
 
     public WorldEditCUI() {
         super("WorldEditCUI", "Shows your WorldEdit selection as a box in the world", ModuleCategory.RENDER);
+        // Nexora Lite leaves this module out: no channel, no listeners.
+        if (!runsInThisMode()) return;
         PayloadTypeRegistry.playS2C().register(CuiPayload.ID, CuiPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(CuiPayload.ID, CuiPayload.CODEC);
         ClientPlayNetworking.registerGlobalReceiver(CuiPayload.ID, (payload, context) -> handle(payload.message()));

@@ -80,9 +80,17 @@ const versionByHash = new Map<string, { id: string; project_id: string } | null>
 export type ContentType = 'mod' | 'resourcepack' | 'shader'
 
 /**
- * Well-established client-side performance mods, each checked to exist for
- * 1.21.11 on Fabric. None of them change gameplay, so they are safe on any
- * server. (ModernFix was considered but has no 1.21.11 build.)
+ * Well-established client-side performance mods. None of them change
+ * gameplay, so they are safe on any server. Which ones exist differs per
+ * Minecraft version (checked on Modrinth 2026-09-29 for 1.21.4 to 26.2, Fabric):
+ * the first five have builds for every version Nexora supports (Sodium for
+ * 1.21.5 only as beta), ModernFix only up to 1.21.4. A mod without a build
+ * for the instance's version is left out quietly, not counted as a failure.
+ *
+ * Config files are not written: the defaults of the current builds (Sodium
+ * 0.8, ImmediatelyFast 1.14, EntityCulling 1.11) are already the fast
+ * settings, and their file formats change between versions, so a file written
+ * by the launcher could only break something.
  */
 export const PERFORMANCE_PACK: { slug: string; title: string; purpose: string }[] = [
   { slug: 'sodium',          title: 'Sodium',          purpose: 'Schnellere Chunk-Darstellung, meist der größte FPS-Gewinn' },
@@ -90,7 +98,13 @@ export const PERFORMANCE_PACK: { slug: string; title: string; purpose: string }[
   { slug: 'ferrite-core',    title: 'FerriteCore',     purpose: 'Deutlich weniger Arbeitsspeicher-Verbrauch' },
   { slug: 'entityculling',   title: 'EntityCulling',   purpose: 'Unsichtbare Mobs und Blöcke werden nicht gezeichnet' },
   { slug: 'immediatelyfast', title: 'ImmediatelyFast', purpose: 'Schnelleres HUD, Text und Partikel' },
+  { slug: 'modernfix',       title: 'ModernFix',       purpose: 'Schnellerer Start und weniger Arbeitsspeicher (nur bis 1.21.4)' },
 ]
+
+/** Minecraft versions the performance pack is offered for: the ones Nexora runs on. */
+export function performancePackFits(gameVersion: string): boolean {
+  return /^1\.21(\.|$)/.test(gameVersion) || /^2\d\.\d/.test(gameVersion)
+}
 
 // Resourcepacks and shaders aren't loader-specific, so the loader facet is
 // only applied to actual mods — adding it elsewhere returns zero results.
@@ -233,45 +247,77 @@ export class ModrinthService {
   async installPerformancePack(instanceId: string, gameVersion: string): Promise<{
     installed: string[]
     skipped: string[]
+    /** Pack members without a build for this Minecraft version: left out, not an error. */
+    unavailable: string[]
     failed: { title: string; error: string }[]
   }> {
     const present = new Set(Object.values(await this.identifyFolder(instanceId, 'mod')).map(i => i.projectId))
     const installed: string[] = []
     const skipped: string[] = []
+    const unavailable: string[] = []
     const failed: { title: string; error: string }[] = []
 
     for (const mod of PERFORMANCE_PACK) {
-      let projectId = mod.slug
-      try {
-        const res = await fetch(`${API_BASE}/project/${mod.slug}`, { headers: HEADERS })
-        if (res.ok) projectId = (await res.json()).id
-      } catch { /* fall back to the slug, which the version endpoint also accepts */ }
-
-      if (present.has(projectId)) {
+      const found = await this.packVersions(mod.slug, gameVersion)
+      if (found === null) {
+        failed.push({ title: mod.title, error: 'Modrinth nicht erreichbar' })
+        continue
+      }
+      if (present.has(found.projectId)) {
         skipped.push(mod.title)
         continue
       }
-      const result = await this.install(instanceId, mod.slug, gameVersion, 'fabric', 'mod')
+      // A stable build where there is one; a beta only when nothing else exists (Sodium for 1.21.5).
+      const pick = found.versions.find(v => v.version_type === 'release') ?? found.versions[0]
+      if (!pick) {
+        unavailable.push(mod.title)
+        continue
+      }
+      const result = await this.install(instanceId, mod.slug, gameVersion, 'fabric', 'mod', pick.id)
       if (result.success) installed.push(mod.title)
       else failed.push({ title: mod.title, error: result.error || 'unbekannter Fehler' })
     }
 
-    logger.info('client', `Performance-Paket: ${installed.length} installiert, ${skipped.length} vorhanden, ${failed.length} fehlgeschlagen`)
-    return { installed, skipped, failed }
+    logger.info('client', `Performance-Paket für ${gameVersion}: ${installed.length} installiert, ${skipped.length} vorhanden, `
+      + `${unavailable.length} ohne passende Version, ${failed.length} fehlgeschlagen`)
+    return { installed, skipped, unavailable, failed }
   }
 
-  /** Which pack members are already in the instance, for the UI. */
-  async performancePackStatus(instanceId: string): Promise<{ slug: string; title: string; purpose: string; installed: boolean }[]> {
+  /**
+   * A pack member's Modrinth project id and its Fabric builds for this
+   * Minecraft version (empty when there are none), or null when Modrinth
+   * could not be asked. Unlike getVersions, "none" and "no answer" differ here:
+   * only the second is worth another try at the next start.
+   */
+  private async packVersions(slug: string, gameVersion: string): Promise<{ projectId: string; versions: (ModrinthVersion & { version_type?: string })[] } | null> {
+    try {
+      const project = await fetch(`${API_BASE}/project/${slug}`, { headers: HEADERS })
+      if (!project.ok) return null
+      const projectId = (await project.json()).id as string
+      const url = `${API_BASE}/project/${slug}/version?game_versions=${encodeURIComponent(JSON.stringify([gameVersion]))}`
+        + `&loaders=${encodeURIComponent(JSON.stringify(['fabric']))}`
+      const res = await fetch(url, { headers: HEADERS })
+      if (!res.ok) return null
+      return { projectId, versions: await res.json() }
+    } catch {
+      return null
+    }
+  }
+
+  /** Which pack members are already in the instance, and which exist for its Minecraft version, for the UI. */
+  async performancePackStatus(instanceId: string, gameVersion?: string): Promise<{ slug: string; title: string; purpose: string; installed: boolean; available: boolean }[]> {
     const present = new Set(Object.values(await this.identifyFolder(instanceId, 'mod')).map(i => i.projectId))
-    const ids = await Promise.all(PERFORMANCE_PACK.map(async mod => {
-      try {
-        const res = await fetch(`${API_BASE}/project/${mod.slug}`, { headers: HEADERS })
-        return res.ok ? (await res.json()).id as string : mod.slug
-      } catch {
-        return mod.slug
-      }
+    const found = await Promise.all(PERFORMANCE_PACK.map(mod => gameVersion
+      ? this.packVersions(mod.slug, gameVersion)
+      : fetch(`${API_BASE}/project/${mod.slug}`, { headers: HEADERS })
+          .then(async res => res.ok ? { projectId: (await res.json()).id as string, versions: null } : null)
+          .catch(() => null)))
+    return PERFORMANCE_PACK.map((mod, i) => ({
+      ...mod,
+      installed: present.has(found[i]?.projectId ?? mod.slug),
+      // Unknown (no version given, Modrinth unreachable) counts as available.
+      available: !found[i]?.versions || found[i]!.versions!.length > 0,
     }))
-    return PERFORMANCE_PACK.map((mod, i) => ({ ...mod, installed: present.has(ids[i]) }))
   }
 
   /** sha1 per file, keyed by path + size + mtime so unchanged jars are never re-hashed. */

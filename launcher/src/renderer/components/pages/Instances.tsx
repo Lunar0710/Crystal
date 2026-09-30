@@ -105,6 +105,15 @@ export function Instances() {
   async function setMode(inst: Instance, mode: StartMode) {
     await api?.updateInstance(inst.id, { useCrystalClient: mode !== 'vanilla', lite: mode === 'lite' })
     refresh()
+    if (mode === 'lite' && startMode(inst) !== 'lite') {
+      notify({
+        type: 'success',
+        title: 'Nexora Lite an',
+        message: `${inst.name} startet ab jetzt nur mit den PvP-Modulen (FPS, CPS, Keystrokes, Zoom, Freelook, Crosshair …). `
+          + 'Cosmetics, Freunde, eigenes Menü und Effekte bleiben aus. Beim nächsten Start kommen fehlende Performance-Mods (Sodium und Co.) dazu. '
+          + 'Deine übrigen Module und Einstellungen bleiben gespeichert.',
+      })
+    }
   }
 
   async function duplicateInstance(inst: Instance) {
@@ -269,10 +278,35 @@ function startMode(inst: { useCrystalClient: boolean; lite?: boolean }): StartMo
 }
 
 const START_MODES: { v: StartMode; label: string; title: string }[] = [
-  { v: 'nexora', label: 'Nexora', title: 'Alle Module, Cosmetics und Freunde' },
-  { v: 'lite', label: 'Lite', title: 'Nur die wichtigsten PvP-Module, dafür mehr FPS' },
+  { v: 'nexora', label: 'Nexora', title: 'Nexora komplett: alle Module, Cosmetics, Freunde, eigenes Menü' },
+  { v: 'lite', label: 'Lite', title: 'Nexora Lite: nur die PvP-Module (FPS, CPS, Keystrokes, Zoom, Freelook …), '
+    + 'ohne Cosmetics, Freunde, eigenes Menü und Effekte. Mehr FPS, schnellerer Start.' },
   { v: 'vanilla', label: 'Vanilla', title: 'Nur deine Mods, ohne Nexora' },
 ]
+
+/** What Nexora Lite keeps and what it leaves out, for the instance page. */
+function LiteInfo() {
+  return (
+    <div className="crystal-card mb-5 px-4 py-3">
+      <p className="text-[13px] text-crystal-text">Nexora Lite: mehr FPS, weniger drumherum</p>
+      <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-xs">
+        <p className="text-crystal-muted">
+          <span className="text-crystal-text">Bleibt an:</span> FPS, CPS, Ping, Koordinaten, Rüstung, Effekte, Keystrokes,
+          Reichweite, Combo, Cooldowns, Zoom, Freelook, Toggle Sprint/Sneak, Crosshair, NoHurtCam, FOV,
+          Performance-Modus, Hintergrund-FPS und das Nexora-Menü (Rechte Umschalttaste).
+        </p>
+        <p className="text-crystal-muted">
+          <span className="text-crystal-text">Bleibt aus:</span> Cosmetics und Capes, 3D-Skins, Freunde, Chat und Emotes,
+          eigenes Hauptmenü, Schriften, Farbfilter und Bewegungsunschärfe, Himmel- und Nebelfarben, Namensschilder,
+          Welt-Anzeigen und die Kampf-Aufzeichnung. Was aus ist, läuft gar nicht erst mit.
+        </p>
+      </div>
+      <p className="mt-2 text-xs text-crystal-muted">
+        Deine übrigen Module und Einstellungen bleiben gespeichert und sind zurück, sobald du wieder auf Nexora stellst.
+      </p>
+    </div>
+  )
+}
 
 function ModeToggle({ value, liteAllowed, onChange }: { value: StartMode; liteAllowed: boolean; onChange: (mode: StartMode) => void }) {
   return (
@@ -716,6 +750,8 @@ function InstanceDetail({ instance, onBack }: { instance: Instance; onBack: () =
 
       <ClientInstallPanel instanceId={instance.id} />
 
+      {instance.useCrystalClient && instance.lite && <LiteInfo />}
+
       <PerformancePanel instanceId={instance.id} onInstalled={refreshFiles} />
 
       <ModUpdatesPanel instanceId={instance.id} onUpdated={refreshFiles} />
@@ -990,6 +1026,8 @@ interface PackEntry {
   title: string
   purpose: string
   installed: boolean
+  /** False when the mod has no build for this instance's Minecraft version. */
+  available?: boolean
 }
 
 /** Shows which performance mods this instance already has and installs the missing ones. */
@@ -999,7 +1037,8 @@ function PerformancePanel({ instanceId, onInstalled }: { instanceId: string; onI
   const [open, setOpen] = useState(false)
 
   function load() {
-    api?.performancePackStatus(instanceId).then((list: PackEntry[]) => setEntries(list || []))
+    // Mods without a build for this Minecraft version are not part of the pack here.
+    api?.performancePackStatus(instanceId).then((list: PackEntry[]) => setEntries((list || []).filter(e => e.available !== false || e.installed)))
   }
 
   useEffect(load, [instanceId])

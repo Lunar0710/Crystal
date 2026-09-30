@@ -57,6 +57,8 @@ public final class PerfRecorder {
         json.addProperty("avgFps", Math.round((double) sum / count));
         json.addProperty("lowFps", sorted[count / 100]);
         json.addProperty("nexora", CrystalClient.VERSION);
+        // So the launcher's history can tell Nexora Lite sessions apart.
+        if (dev.crystal.client.Lite.ON) json.addProperty("lite", true);
         try {
             Path dir = FabricLoader.getInstance().getGameDir().resolve(".crystal");
             Files.createDirectories(dir);
