@@ -600,14 +600,39 @@ export class CrashDoctor {
     return { ok: true, message: `${modFile} deaktiviert.` }
   }
 
+  /**
+   * Keeps this crash's launch log as crash-logs/<id>.log, since the next start
+   * overwrites crystal-launch.log: the short id the crash window shows then
+   * still leads to the log. The newest 10 stay.
+   */
+  keepCrashLog(instanceId: string, id: string): void {
+    if (!/^[0-9a-f]{12}$/.test(id)) return
+    const gameDir = this.instances.get(instanceId)?.gameDir || crystalPath('instances', instanceId)
+    const logPath = path.join(gameDir, 'crystal-launch.log')
+    if (!fs.existsSync(logPath)) return
+    try {
+      const dir = path.join(gameDir, 'crash-logs')
+      fs.mkdirSync(dir, { recursive: true })
+      fs.copyFileSync(logPath, path.join(dir, `${id}.log`))
+      const old = fs.readdirSync(dir).filter(f => f.endsWith('.log'))
+        .map(f => ({ f, t: fs.statSync(path.join(dir, f)).mtimeMs }))
+        .sort((a, b) => b.t - a.t).slice(10)
+      for (const { f } of old) fs.rmSync(path.join(dir, f), { force: true })
+      logger.info('client', `Absturz ${id}: Log gesichert unter ${path.join(dir, `${id}.log`)}`)
+    } catch (err) {
+      logger.warn('client', `Crash-Log ${id} konnte nicht gesichert werden`, String(err))
+    }
+  }
+
   /** The launch log with anything personal or secret taken out, for sharing. */
-  shareableLog(instanceId: string): string | null {
+  shareableLog(instanceId: string, id?: string): string | null {
     const gameDir = this.instances.get(instanceId)?.gameDir || crystalPath('instances', instanceId)
     const logPath = path.join(gameDir, 'crystal-launch.log')
     if (!fs.existsSync(logPath)) return null
-    const lines = fs.readFileSync(logPath, 'utf8').split('\n')
     // mclo.gs takes at most 25,000 lines; the end of the log is where crashes are.
-    return lines.slice(-25000).join('\n')
+    const lines = fs.readFileSync(logPath, 'utf8').split('\n').slice(-24999)
+    if (id && /^[0-9a-f]{12}$/.test(id)) lines.unshift(`# Nexora crash id: ${id}`)
+    return lines.join('\n')
       .replace(/(accessToken|access_token|session|token)(["'=:\s]+)[\w.\-]{20,}/gi, '$1$2<entfernt>')
       .replace(/eyJ[\w-]+\.[\w-]+\.[\w-]+/g, '<entfernt>')
       .replace(/([A-Za-z]:[\\/]+Users[\\/]+)[^\\/\s]+/gi, '$1<user>')

@@ -400,8 +400,9 @@ export function registerIpcHandlers(store: Store) {
 
   // Shares the launch log on mclo.gs (the usual Minecraft log paste site), only
   // when the player clicks it. Tokens and the Windows user name are removed first.
-  ipcMain.handle('autofix:uploadLog', async (_e, instanceId: string) => {
-    const content = crashDoctor.shareableLog(instanceId)
+  ipcMain.handle('autofix:keepCrashLog', (_e, instanceId: string, id: string) => crashDoctor.keepCrashLog(instanceId, id))
+  ipcMain.handle('autofix:uploadLog', async (_e, instanceId: string, id?: string) => {
+    const content = crashDoctor.shareableLog(instanceId, id)
     if (!content) return { ok: false, message: 'Kein Log gefunden.' }
     try {
       const res = await fetch('https://api.mclo.gs/1/log', {

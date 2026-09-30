@@ -64,6 +64,8 @@ export function CrashDialog({ instanceId, problems, errorText, account, onRelaun
   const [logUrl, setLogUrl] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const id = useMemo(crashId, [problems])
+  // The next start overwrites the launch log; this copy keeps the id useful.
+  useEffect(() => { api?.keepCrashLog?.(instanceId, id) }, [id])
 
   const conflicts = problems.filter(p => p.group === 'conflict')
   const replacements = problems.filter(p => p.group === 'replace')
@@ -122,7 +124,7 @@ export function CrashDialog({ instanceId, problems, errorText, account, onRelaun
 
   async function uploadLog() {
     setUploading(true)
-    const result = await api?.uploadCrashLog(instanceId)
+    const result = await api?.uploadCrashLog(instanceId, id)
     setUploading(false)
     if (result?.ok) {
       setLogUrl(result.url)

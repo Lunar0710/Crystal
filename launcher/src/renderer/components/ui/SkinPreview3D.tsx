@@ -399,6 +399,8 @@ export function SkinPreview3D({
     }
 
     player.add(group)
+    // Spread wings reach past the shoulders; step back so they stay in frame.
+    viewer.zoom = wings ? 0.68 : 0.82
   }, [hat, bandana, mask, wings, backpack, aura, pet, variants])
 
   return (
