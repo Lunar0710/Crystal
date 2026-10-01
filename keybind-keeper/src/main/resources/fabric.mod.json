@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "keybind-keeper",
+  "version": "${version}",
+  "name": "Keybind Keeper",
+  "description": "Keeps your key bindings across restarts, even when Feather Client resets them. / Behält deine Tastenbelegung über Neustarts hinweg, auch wenn Feather Client sie zurücksetzt.",
+  "authors": ["Lunar_cpvp"],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["dev.lunar.keybindkeeper.KeybindKeeper"]
+  },
+  "mixins": ["keybind-keeper.mixins.json"],
+  "depends": {
+    "fabricloader": ">=0.19.3",
+    "minecraft": "~1.21.11",
+    "java": ">=21"
+  }
+}

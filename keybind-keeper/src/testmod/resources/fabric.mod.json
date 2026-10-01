@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "keybind-keeper-test",
+  "version": "1.0.0",
+  "name": "Keybind Keeper restart test",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["dev.lunar.keybindkeeper.test.RestartTest"]
+  },
+  "depends": {
+    "keybind-keeper": "*"
+  }
+}

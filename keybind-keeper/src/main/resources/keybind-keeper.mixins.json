@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "package": "dev.lunar.keybindkeeper.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "KeyMappingMixin",
+    "MinecraftMixin",
+    "OptionsMixin",
+    "ClientPacketListenerMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

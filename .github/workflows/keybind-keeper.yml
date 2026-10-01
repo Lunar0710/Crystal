@@ -1,0 +1,81 @@
+# Builds the standalone Keybind Keeper mod (keybind-keeper/, Minecraft 1.21.11)
+# and checks a changed key binding survives a restart in which the options file
+# was reset to the old binding (what Feather Client does). Nothing is published.
+name: Keybind Keeper
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['cloud/**']
+    paths:
+      - 'keybind-keeper/**'
+      - '.github/workflows/keybind-keeper.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: keybind-keeper
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Build
+        run: |
+          chmod +x gradlew
+          ./gradlew build --no-daemon
+          ls -l build/libs
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: keybind-keeper-1.0.0
+          path: keybind-keeper/build/libs/keybind-keeper-1.0.0.jar
+          if-no-files-found: error
+
+      - name: Linux display for the game window
+        run: sudo apt-get update && sudo apt-get install -y xvfb libgl1-mesa-dri libglx-mesa0
+
+      - name: Start 1, rebind jump to J
+        env:
+          KK_TEST_PHASE: '1'
+        run: |
+          timeout 15m xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew runTestClient --no-daemon || true
+          cat run/kk-test-result.txt
+          grep -q '^PHASE1 jump=key.keyboard.j' run/kk-test-result.txt
+          cat run/config/keybind-keeper.json
+          grep -q '"key.jump": "key.keyboard.j"' run/config/keybind-keeper.json
+
+      - name: Reset jump to space in options.txt (like Feather)
+        run: |
+          grep 'key_key.jump' run/options.txt
+          sed -i 's/^key_key.jump:.*/key_key.jump:key.keyboard.space/' run/options.txt
+          grep -q '^key_key.jump:key.keyboard.space' run/options.txt
+          rm run/kk-test-result.txt
+
+      - name: Start 2, jump must be J again
+        env:
+          KK_TEST_PHASE: '2'
+        run: |
+          timeout 15m xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew runTestClient --no-daemon || true
+          cat run/kk-test-result.txt
+          grep -q '^PASS' run/kk-test-result.txt
+          grep '^key_key.jump' run/options.txt
+          grep -q '^key_key.jump:key.keyboard.j' run/options.txt
+          grep 'Keybind Keeper' run/logs/latest.log || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: keybind-keeper-test-logs
+          path: |
+            keybind-keeper/run/logs/
+            keybind-keeper/run/options.txt
+            keybind-keeper/run/config/keybind-keeper.json
+            keybind-keeper/run/crash-reports/
+          if-no-files-found: ignore
