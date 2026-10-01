@@ -91,6 +91,14 @@ jobs:
           mkdir -p "$CRYSTAL_SMOKE_ROOT"
           xvfb-run -a -s "-screen 0 1280x720x24" node scripts/smoke-addon.cjs
 
+      - name: Cape cloth as a GIF
+        if: always()
+        working-directory: ${{ runner.temp }}/lunar/instances/smoke-addon/screenshots
+        run: |
+          ls lunar-smoke-cape-*.png >/dev/null 2>&1 || exit 0
+          ffmpeg -loglevel error -y -framerate 10 -pattern_type glob -i 'lunar-smoke-cape-*.png' \
+            -vf "scale=640:-1:flags=lanczos,split[a][b];[a]palettegen[p];[b][p]paletteuse" cape-cloth.gif
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:

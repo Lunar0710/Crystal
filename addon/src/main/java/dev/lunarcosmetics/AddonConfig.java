@@ -23,6 +23,8 @@ public final class AddonConfig {
     public String server = DEFAULT_SERVER;
     /** Emotes switch to the front camera while they play, in first person. */
     public boolean emoteCamera = true;
+    /** Capes as simulated cloth (CapeCloth) instead of vanilla's swinging board. */
+    public boolean capePhysics = true;
 
     private transient Path file;
 

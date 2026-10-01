@@ -8,6 +8,7 @@ import dev.crystal.client.net.CrystalNet;
 import dev.crystal.client.render.CosmeticsFeatureRenderer;
 import dev.crystal.client.util.CosmeticsHooks;
 import dev.crystal.client.util.CrystalPaths;
+import dev.lunarcosmetics.cloth.CapeCloth;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
@@ -51,6 +52,7 @@ public final class LunarCosmetics implements ClientModInitializer {
         CosmeticsHooks.rankLocks = false;
         CosmeticsHooks.menuToggle = new CosmeticsHooks.Toggle("Server-Sync", () -> config.sync, LunarCosmetics::toggleSync);
         if (config.sync) CrystalNet.start(config.server);
+        CapeCloth.setEnabled(config.capePhysics);
 
         KeyMapping.Category category = KeyMapping.Category.register(Identifier.fromNamespaceAndPath(ID, "main"));
         menuKey = KeyBindingHelper.registerKeyBinding(
@@ -73,6 +75,7 @@ public final class LunarCosmetics implements ClientModInitializer {
 
     private static void tick(Minecraft mc) {
         EmotePlayer.tick(mc);
+        CapeCloth.tick(mc);
         CrystalNet.tick(mc);
         while (menuKey.consumeClick()) {
             if (mc.player != null && mc.screen == null) mc.setScreen(new CosmeticsScreen());
