@@ -55,8 +55,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: alone, mods: "" }
-          - { name: with-mods, mods: "sodium,iris,entityculling,capes,fabric-language-kotlin" }
+          # Alone on Feather's loader; with the other mods on the loader they need (Fabric Language Kotlin: 0.19.5+).
+          - { name: alone, mods: "", loader: "0.19.3" }
+          - { name: with-mods, mods: "sodium,iris,entityculling,capes,fabric-language-kotlin", loader: "0.19.5" }
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -87,6 +88,7 @@ jobs:
         env:
           CRYSTAL_SMOKE_ROOT: ${{ runner.temp }}/lunar
           LUNAR_SMOKE_MODS: ${{ matrix.mods }}
+          LUNAR_SMOKE_LOADER: ${{ matrix.loader }}
         run: |
           mkdir -p "$CRYSTAL_SMOKE_ROOT"
           xvfb-run -a -s "-screen 0 1280x720x24" node scripts/smoke-addon.cjs
