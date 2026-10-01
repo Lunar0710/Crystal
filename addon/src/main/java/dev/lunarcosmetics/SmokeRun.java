@@ -42,6 +42,9 @@ final class SmokeRun {
         if (ticks == 40) {
             mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
             mc.player.setXRot(8f);
+        }
+        // The loadout is read off the render thread on first use, so ask once it has been drawn a while.
+        if (ticks == 100) {
             CosmeticsHooks.LOGGER.info("[Lunar Cosmetics] worn: hat={} wings={} aura={} pet={}",
                     CosmeticLoadout.get(CosmeticLoadout.HAT) != null, CosmeticLoadout.get(CosmeticLoadout.WINGS) != null,
                     CosmeticLoadout.get(CosmeticLoadout.AURA) != null, CosmeticLoadout.get(CosmeticLoadout.PET) != null);

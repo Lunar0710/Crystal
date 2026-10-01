@@ -458,8 +458,11 @@ public class CosmeticsScreen extends Screen {
         }
         // Filter and outfit controls on the second row.
         int y2 = py1 + 30;
-        String filter = onlyOwned ? "[x] Nur verfügbare" : "[ ] Nur verfügbare";
-        ctx.drawString(font, filter, gridX1, y2, onlyOwned ? GuiRender.INK : GuiRender.ASH, false);
+        // Without rank locks everything is available: no filter then.
+        if (CosmeticsHooks.rankLocks) {
+            String filter = onlyOwned ? "[x] Nur verfügbare" : "[ ] Nur verfügbare";
+            ctx.drawString(font, filter, gridX1, y2, onlyOwned ? GuiRender.INK : GuiRender.ASH, false);
+        }
         String take = "Alles ablegen";
         ctx.drawString(font, take, gridX2 - font.width(take), y2, GuiRender.ASH, false);
         String toggle = toggleLabel();
@@ -477,7 +480,7 @@ public class CosmeticsScreen extends Screen {
     }
 
     private int toggleX() {
-        return gridX2 - font.width("Alles ablegen") - 14 - font.width(toggleLabel());
+        return CosmeticsHooks.rankLocks ? gridX1 + font.width("[x] Nur verfügbare") + 14 : gridX1;
     }
 
     private void renderPreview(GuiGraphics ctx, int mouseX, int mouseY) {
@@ -698,7 +701,7 @@ public class CosmeticsScreen extends Screen {
         }
         int y2 = py1 + 30;
         if (my >= y2 - 2 && my < y2 + 10) {
-            if (mx >= gridX1 && mx < gridX1 + font.width("[x] Nur verfügbare")) { onlyOwned = !onlyOwned; return true; }
+            if (CosmeticsHooks.rankLocks && mx >= gridX1 && mx < gridX1 + font.width("[x] Nur verfügbare")) { onlyOwned = !onlyOwned; return true; }
             String toggle = toggleLabel();
             if (toggle != null && mx >= toggleX() && mx < toggleX() + font.width(toggle)) {
                 CosmeticsHooks.menuToggle.flip().run();

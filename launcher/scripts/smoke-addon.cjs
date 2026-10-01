@@ -92,6 +92,9 @@ function writeLoadout(gameDir) {
   fs.mkdirSync(path.dirname(saveDir), { recursive: true })
   fs.cpSync(worldDir, saveDir, { recursive: true })
   prepareOptions(gameDir)
+  // No "Move with WASD" tutorial toast over the screenshots.
+  const options = path.join(gameDir, 'options.txt')
+  if (!/^tutorialStep:/m.test(fs.readFileSync(options, 'utf8'))) fs.appendFileSync(options, 'tutorialStep:none\n')
   writeLoadout(gameDir)
 
   // The launcher uses a cached loader profile first: pin it to Feather's loader.
@@ -154,7 +157,7 @@ function writeLoadout(gameDir) {
   const ready = /\[Lunar Cosmetics\] ready/.test(text)
   const worn = /worn: hat=true wings=true aura=true pet=true/.test(text)
   const emote = /emote playing: true/.test(text)
-  const loader = (text.match(/Loading Minecraft \S+ with Fabric Loader (\S+)/) || [])[1] || '?'
+  const loader = (text.match(/Loading Minecraft \S+ with Fabric Loader ([\d.]+)/) || [])[1] || '?'
   const missing = shots.filter(f => !fs.existsSync(f))
   const passed = done && ready && worn && emote && !missing.length
   console.log(`${passed ? 'PASS' : 'FAIL'}: addon test loader=${loader} finished=${done} ready=${ready} worn=${worn} emote=${emote} screenshots=${missing.length ? 'missing ' + missing.map(f => path.basename(f)).join(', ') : 'all'}`)
