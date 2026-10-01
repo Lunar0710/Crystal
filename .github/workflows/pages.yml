@@ -22,12 +22,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       # site.html is the page without its <head> wrapper (the Artifact preview
-      # uses it); index.html is the full page, so only that and the icon go out.
+      # uses it). index.html (Lunar's Projects) and nexora.html are the full
+      # pages, so only those, the icon and the pictures go out.
       - name: Update gh-pages
         run: |
           git fetch origin gh-pages
           git worktree add _site origin/gh-pages
-          cp website/index.html website/icon.png website/*.jpg _site/
+          cp website/index.html website/nexora.html website/icon.png website/*.jpg _site/
           # The Lunar Optimizer downloads (built and tested on Windows by optimizer.yml).
           if git fetch origin optimizer-dist; then
             mkdir -p _site/optimizer

@@ -1,13 +1,13 @@
 <meta name="theme-color" content="#050505">
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="Nexora">
-<meta property="og:title" content="Nexora Client: jeder Kampf aufgezeichnet">
-<meta property="og:description" content="Kostenloser Minecraft-Client mit eigenem Launcher: Kampf-Replays, Kill-Cam, PvP-HUD und mehr FPS. Für 1.21.4 bis 26.2.">
+<meta property="og:site_name" content="Lunar's Projects">
+<meta property="og:title" content="Lunar's Projects">
+<meta property="og:description" content="Die Projekte von Lunar_cpvp: Nexora, ein Minecraft-Client mit eigenem Launcher, der Lunar Optimizer für Windows und der Nexora-Server.">
 <meta property="og:url" content="https://lunar0710.github.io/Crystal/">
-<meta property="og:image" content="https://lunar0710.github.io/Crystal/icon.png">
-<meta name="twitter:card" content="summary">
-<title>Nexora Client</title>
-<meta name="description" content="Nexora ist ein kostenloser Minecraft-Client mit eigenem Launcher: Kampf-Replays, Kill-Cam, PvP-HUD und mehr FPS. Für Minecraft 1.21.4 bis 26.2.">
+<meta property="og:image" content="https://lunar0710.github.io/Crystal/nexora.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<title>Lunar's Projects</title>
+<meta name="description" content="Die Projekte von Lunar_cpvp: Nexora, ein kostenloser Minecraft-Client mit eigenem Launcher, der Lunar Optimizer, der Windows fürs Gaming einstellt, und der Nexora-Server.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,400..900&family=Geist:wght@300..700&family=Geist+Mono:wght@400;500&display=swap">
@@ -24,8 +24,8 @@
     --dim: #5f5f66;
     --accent: #ffffff;
     --accent-ink: #050505;
-    --foe: #e5484d;
     --glow: #4c8dff;
+    --moon: #8ea2ff;
     --display: "Archivo", "Arial Black", system-ui, sans-serif;
     --body: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
     --mono: "Geist Mono", ui-monospace, Consolas, monospace;
@@ -47,20 +47,27 @@
   p { margin: 0; }
   .wrap { max-width: 1240px; margin-inline: auto; position: relative; }
 
-  /* ---------- Atmosphere: fixed, never scrolling ---------- */
+  /* ---------- Atmosphere ---------- */
   .orbs { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
-  .orbs i { position: absolute; border-radius: 50%; filter: blur(90px); opacity: .5; transition: background 1.2s var(--spring); }
-  .orbs i:nth-child(1) { width: 60vw; height: 60vw; left: -18vw; top: -24vw; background: radial-gradient(circle, color-mix(in srgb, var(--accent) 22%, transparent), transparent 65%); }
-  .orbs i:nth-child(2) { width: 50vw; height: 50vw; right: -16vw; top: 18vh; background: radial-gradient(circle, color-mix(in srgb, var(--glow) 18%, transparent), transparent 65%); }
+  .orbs i { position: absolute; border-radius: 50%; filter: blur(90px); opacity: .5; transform: translateY(var(--py, 0px)); }
+  .orbs i:nth-child(1) { width: 60vw; height: 60vw; left: -18vw; top: -24vw; background: radial-gradient(circle, color-mix(in srgb, var(--accent) 22%, transparent), transparent 65%); animation: drift1 26s ease-in-out infinite alternate; }
+  .orbs i:nth-child(2) { width: 50vw; height: 50vw; right: -16vw; top: 18vh; background: radial-gradient(circle, color-mix(in srgb, var(--glow) 18%, transparent), transparent 65%); animation: drift2 32s ease-in-out infinite alternate; }
+  @keyframes drift1 { to { translate: 14vw 12vh; scale: 1.15; } }
+  @keyframes drift2 { to { translate: -12vw 18vh; scale: .88; } }
   .grain { position: fixed; inset: 0; pointer-events: none; z-index: 30; opacity: .05; mix-blend-mode: overlay;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+  .stars { position: fixed; inset: 0; z-index: 0; pointer-events: none; width: 100%; height: 100%; }
+  .cursor-glow { position: fixed; left: 0; top: 0; width: 560px; height: 560px; margin: -280px 0 0 -280px; border-radius: 50%; pointer-events: none; z-index: 0;
+    background: radial-gradient(circle, color-mix(in srgb, var(--accent) 8%, transparent), transparent 62%); opacity: 0; transition: opacity .8s var(--out); will-change: transform; }
+  .cursor-glow.on { opacity: 1; }
+  .progress { position: fixed; top: 0; left: 0; right: 0; height: 2px; z-index: 50; pointer-events: none; transform-origin: left; transform: scaleX(0);
+    background: linear-gradient(90deg, var(--glow), var(--accent)); box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 70%, transparent); }
   main, footer { position: relative; z-index: 1; }
 
   /* ---------- Double bezel ---------- */
   .shell { padding: 6px; border-radius: var(--r); background: rgba(255, 255, 255, .025); box-shadow: 0 0 0 1px var(--hair), 0 40px 80px -40px rgba(0, 0, 0, .8); }
   .core { border-radius: calc(var(--r) - 6px); background: linear-gradient(180deg, var(--core-2), var(--core)); box-shadow: inset 0 1px 1px rgba(255, 255, 255, .07); overflow: hidden; overflow: clip; position: relative; }
 
-  /* ---------- Eyebrow ---------- */
   .eyebrow { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 8px; border-radius: 999px; font-size: 11px; letter-spacing: .16em; text-transform: uppercase; font-weight: 500; color: var(--ash); background: rgba(255, 255, 255, .03); box-shadow: 0 0 0 1px var(--hair); }
   .eyebrow b { padding: 2px 8px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font-weight: 600; letter-spacing: .08em; }
 
@@ -68,11 +75,13 @@
   .nav { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 18px); left: 50%; transform: translateX(-50%); z-index: 40;
     display: flex; align-items: center; gap: 6px; padding: 6px; border-radius: 999px;
     background: rgba(12, 12, 13, .6); backdrop-filter: blur(20px) saturate(1.4); -webkit-backdrop-filter: blur(20px) saturate(1.4);
-    box-shadow: 0 0 0 1px var(--hair-2), 0 20px 40px -20px rgba(0, 0, 0, .8); }
-  .brand { display: flex; align-items: center; gap: 9px; padding: 0 12px 0 8px; font-family: var(--display); font-stretch: 125%; font-weight: 800; font-size: 15px; letter-spacing: -.01em; }
+    box-shadow: 0 0 0 1px var(--hair-2), 0 20px 40px -20px rgba(0, 0, 0, .8); transition: translate .7s var(--spring), background .6s var(--spring); }
+  .nav.hide { translate: 0 calc(-100% - 40px); }
+  .nav.solid { background: rgba(12, 12, 13, .82); }
+  .brand { display: flex; align-items: center; gap: 9px; padding: 0 12px 0 8px; font-family: var(--display); font-stretch: 125%; font-weight: 800; font-size: 15px; letter-spacing: -.01em; white-space: nowrap; }
   .brand svg { width: 26px; height: 26px; }
   .nav-links { display: flex; }
-  .nav-links a { padding: 8px 14px; border-radius: 999px; font-size: 14px; color: var(--ash); transition: color .4s var(--spring), background .4s var(--spring); }
+  .nav-links a { padding: 8px 14px; border-radius: 999px; font-size: 14px; color: var(--ash); white-space: nowrap; transition: color .4s var(--spring), background .4s var(--spring); }
   .nav-links a:hover { color: var(--ink); background: rgba(255, 255, 255, .05); }
   .burger { display: none; width: 40px; height: 40px; border: 0; border-radius: 50%; background: rgba(255, 255, 255, .06); position: relative; cursor: pointer; }
   .burger i { position: absolute; left: 13px; width: 14px; height: 1.5px; background: var(--ink); transition: transform .5s var(--spring), top .5s var(--spring); }
@@ -84,11 +93,34 @@
   .overlay a { font-family: var(--display); font-stretch: 125%; font-weight: 800; font-size: 40px; letter-spacing: -.03em; transform: translateY(48px); opacity: 0; transition: transform .8s var(--spring), opacity .8s var(--spring); }
   .menu-open .overlay { opacity: 1; pointer-events: auto; }
   .menu-open .overlay a { transform: none; opacity: 1; }
-  .overlay a:nth-child(2) { transition-delay: .05s; } .overlay a:nth-child(3) { transition-delay: .1s; } .overlay a:nth-child(4) { transition-delay: .15s; } .overlay a:nth-child(5) { transition-delay: .2s; } .overlay a:nth-child(6) { transition-delay: .25s; } .overlay a:nth-child(7) { transition-delay: .3s; }
+  .overlay a:nth-child(2) { transition-delay: .05s; } .overlay a:nth-child(3) { transition-delay: .1s; } .overlay a:nth-child(4) { transition-delay: .15s; } .overlay a:nth-child(5) { transition-delay: .2s; }
 
-  /* ---------- Buttons: island with nested icon ---------- */
+  /* ---------- Theme picker (the launcher's themes, shared with nexora.html) ---------- */
+  .theme-btn { width: 40px; height: 40px; border-radius: 50%; border: 0; cursor: pointer; padding: 0; margin-right: 2px; flex: none;
+    background: conic-gradient(from 210deg, var(--accent), var(--glow), var(--accent)); box-shadow: inset 0 0 0 3px rgba(5, 5, 5, .55), 0 0 0 1px var(--hair);
+    transition: transform .5s var(--spring); }
+  .theme-btn:hover { transform: rotate(40deg) scale(1.06); }
+  .theme-btn:focus-visible, .sw:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+  .theme-pop { position: fixed; z-index: 45; top: calc(env(safe-area-inset-top, 0px) + 84px); left: 50%; width: min(420px, calc(100vw - 32px)); transform: translate(-50%, -8px);
+    padding: 20px; border-radius: 22px; background: rgba(11, 11, 12, .92); backdrop-filter: blur(18px); box-shadow: 0 0 0 1px var(--hair), 0 30px 80px rgba(0, 0, 0, .5);
+    opacity: 0; pointer-events: none; transition: opacity .35s var(--out), transform .5s var(--spring); }
+  .theme-pop.open { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
+  .theme-pop h4 { margin: 0 0 4px; font: 600 15px/1.3 var(--body); color: var(--ink); }
+  .theme-pop p { margin: 0 0 16px; font-size: 13px; color: var(--ash); }
+  .swatches { display: flex; flex-wrap: wrap; gap: 10px; }
+  .sw { width: 34px; height: 34px; border-radius: 50%; border: 0; cursor: pointer; padding: 0; position: relative; transition: transform .5s var(--spring);
+    box-shadow: inset 0 1px 1px rgba(255, 255, 255, .35), 0 0 0 1px rgba(255, 255, 255, .08); }
+  .sw:hover { transform: scale(1.12); }
+  .sw[aria-pressed="true"]::after { content: ""; position: absolute; inset: -5px; border-radius: 50%; box-shadow: 0 0 0 1.5px var(--ink); }
+  .sw .plus { position: absolute; right: -3px; top: -3px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 8px; background: var(--void); color: var(--ink);
+    font: 600 10px/15px var(--body); box-shadow: 0 0 0 1px var(--hair); pointer-events: none; }
+  .sw-name { font-size: 13px; color: var(--ash); }
+  .sw-name b { color: var(--ink); font-weight: 500; }
+
+  /* ---------- Buttons ---------- */
   .btn { display: inline-flex; align-items: center; gap: 14px; padding: 7px 7px 7px 22px; border-radius: 999px; font-weight: 500; font-size: 15px; cursor: pointer; border: 0;
-    transition: transform .6s var(--spring), background .6s var(--spring), box-shadow .6s var(--spring); }
+    position: relative; overflow: hidden; overflow: clip; isolation: isolate;
+    transition: transform .6s var(--spring), translate .5s var(--spring), background .6s var(--spring), box-shadow .6s var(--spring); }
   .btn:active { transform: scale(.98); }
   .btn .ic { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; transition: transform .6s var(--spring); }
   .btn:hover .ic { transform: translate(3px, -1px) scale(1.06); }
@@ -98,284 +130,105 @@
   .btn-ghost { background: rgba(255, 255, 255, .04); box-shadow: 0 0 0 1px var(--hair-2); color: var(--ink); }
   .btn-ghost .ic { background: rgba(255, 255, 255, .07); }
   .btn-ghost:hover { background: rgba(255, 255, 255, .07); }
-  .btn-sm { padding: 5px 5px 5px 16px; font-size: 14px; gap: 10px; }
-  .btn-sm .ic { width: 30px; height: 30px; }
+  .btn::after { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; translate: -130% 0; transition: translate .9s var(--out);
+    background: linear-gradient(100deg, transparent 35%, rgba(255, 255, 255, .22) 50%, transparent 65%); }
+  .btn-solid::after { background: linear-gradient(100deg, transparent 35%, color-mix(in srgb, var(--accent-ink) 8%, transparent) 50%, transparent 65%); }
+  .btn:hover::after { translate: 130% 0; }
 
-  /* ---------- Reveal (starts visible; only below-the-fold items are primed) ---------- */
+  /* ---------- Reveal ---------- */
   .rv { transition: transform 1.1s var(--out), opacity 1.1s var(--out), filter 1.1s var(--out); }
   .rv.pre { transform: translateY(56px); opacity: 0; filter: blur(10px); }
-  @media (prefers-reduced-motion: reduce) and (max-width: 0px) { .rv, .rv.pre { transform: none; opacity: 1; filter: none; transition: none; } html { scroll-behavior: auto; } }
+  .intro { animation: fadeUp 1.1s var(--out) both; animation-delay: var(--d, 0s); }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(26px); filter: blur(8px); } }
+  .eyebrow b { animation: ping 2.6s var(--out) infinite; }
+  @keyframes ping { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); } 70%, 100% { box-shadow: 0 0 0 9px transparent; } }
 
   /* ---------- Hero ---------- */
-  .hero { padding-top: clamp(140px, 18vh, 190px); text-align: center; }
-  .hero h1 { margin-top: 28px; font-size: clamp(46px, 8.2vw, 124px); line-height: .9; font-weight: 850; }
-  .hero h1 .soft { display: block; background: linear-gradient(180deg, #8d8d94, #3b3b40); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .hero { padding-top: clamp(150px, 20vh, 210px); text-align: center; }
+  .hero h1 { margin-top: 28px; font-size: clamp(50px, 9vw, 136px); line-height: .9; font-weight: 850; }
+  .hero h1 .soft { display: block; background: linear-gradient(100deg, #4a4a50 0%, #8d8d94 38%, #f4f4f5 50%, #8d8d94 62%, #4a4a50 100%); background-size: 260% 100%; background-position: 100% 0;
+    -webkit-background-clip: text; background-clip: text; color: transparent; animation: shimmer 7s ease-in-out 1.6s infinite; }
+  @keyframes shimmer { 0%, 30% { background-position: 100% 0; } 70%, 100% { background-position: 0% 0; } }
   .hero .lede { margin: 30px auto 0; max-width: 36em; font-size: clamp(16px, 1.4vw, 19px); color: var(--ash); font-weight: 300; }
   .hero .lede strong { color: var(--ink); font-weight: 500; }
   .hero .cta { margin-top: 38px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
   .hero .meta { margin-top: 22px; font-size: 13px; color: var(--dim); }
-
-  /* Product shot */
-  .stage { margin-top: 80px; position: relative; perspective: 2200px; padding-bottom: 20px; }
-  .tilt { transform: rotateX(14deg) scale(.96); transform-origin: 50% 0; transition: transform 1.4s var(--out); will-change: transform; }
-  .stage.flat .tilt { transform: rotateX(0) scale(1); }
-  .window { --r: 1.6rem; }
-  .win { display: grid; grid-template-columns: 64px 1fr 300px; min-height: 560px; text-align: left; }
-  .side { border-right: 1px solid var(--hair); padding: 16px 0; display: flex; flex-direction: column; align-items: center; gap: 8px; }
-  .side .logo { width: 30px; height: 30px; margin-bottom: 14px; }
-  .side i { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; color: var(--dim); }
-  .side i.on { background: rgba(255, 255, 255, .06); color: var(--ink); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06); }
-  .side svg { width: 18px; height: 18px; }
-  .pane { padding: 26px 28px; display: flex; flex-direction: column; gap: 18px; min-width: 0; }
-  .pane-head { display: flex; justify-content: space-between; align-items: end; gap: 12px; }
-  .pane-head h4 { margin: 0; font-family: var(--display); font-stretch: 115%; font-size: 22px; font-weight: 750; letter-spacing: -.02em; }
-  .pane-head span { font-size: 12px; color: var(--ash); }
-  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-  .kpi { padding: 12px 14px; border-radius: 14px; background: rgba(255, 255, 255, .025); box-shadow: inset 0 0 0 1px var(--hair); }
-  .kpi small { display: block; font-size: 11px; color: var(--dim); }
-  .kpi b { font-family: var(--display); font-stretch: 110%; font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .map { position: relative; flex: 1; min-height: 260px; border-radius: 16px; background: rgba(0, 0, 0, .35); box-shadow: inset 0 0 0 1px var(--hair); overflow: hidden; }
-  .map canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-  .map .t { position: absolute; top: 12px; right: 14px; font-family: var(--mono); font-size: 11px; color: var(--ash); font-variant-numeric: tabular-nums; }
-  .map .who { position: absolute; top: 12px; left: 14px; display: flex; gap: 14px; font-size: 11px; color: var(--ash); }
-  .who i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
-  .hp { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; font-size: 11px; color: var(--ash); }
-  .hp div > span { display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; }
-  .hp .bar { margin-top: 6px; height: 4px; border-radius: 4px; background: rgba(255, 255, 255, .06); overflow: hidden; }
-  .hp .bar i { display: block; height: 100%; border-radius: 4px; transform-origin: left; transition: transform .2s var(--out); }
-  .controls { display: flex; align-items: center; gap: 8px; }
-  .controls .play { width: 34px; height: 34px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; }
-  .controls .play svg { width: 12px; height: 12px; }
-  .controls .spd { padding: 5px 10px; border-radius: 999px; font-size: 11px; color: var(--ash); box-shadow: inset 0 0 0 1px var(--hair); }
-  .controls .spd.on { color: var(--ink); background: rgba(255, 255, 255, .06); }
-  .scrub { flex: 1; height: 3px; border-radius: 3px; background: rgba(255, 255, 255, .08); position: relative; overflow: hidden; }
-  .scrub i { position: absolute; inset: 0; background: var(--accent); transform-origin: left; transform: scaleX(0); }
-  .list { border-left: 1px solid var(--hair); padding: 26px 18px; display: flex; flex-direction: column; gap: 6px; }
-  .list h5 { margin: 0 0 8px 8px; font-size: 12px; font-weight: 500; color: var(--dim); }
-  .row { display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: 12px; font-size: 13px; }
-  .row.on { background: rgba(255, 255, 255, .05); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05); }
-  .row .res { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; font-size: 11px; font-weight: 600; flex: none; }
-  .res.w { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
-  .res.l { background: rgba(229, 72, 77, .12); color: #ff7b7f; }
-  .row b { display: block; font-weight: 500; }
-  .row small { color: var(--dim); font-size: 11px; }
-
-  .chip { position: absolute; z-index: 3; display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 16px; font-size: 12.5px;
-    background: rgba(18, 18, 20, .72); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); box-shadow: 0 0 0 1px var(--hair-2), 0 24px 48px -16px rgba(0, 0, 0, .9);
-    transition: transform 1.2s var(--out); white-space: nowrap; }
-  .chip .k { font-family: var(--mono); font-size: 11.5px; color: var(--accent); }
-  .chip small { color: var(--ash); }
-  .chip.c1 { left: -3%; top: 22%; } .chip.c2 { right: -2%; top: 8%; } .chip.c3 { right: 4%; bottom: 14%; } .chip.c4 { left: 3%; bottom: 8%; }
-  .xmark { width: 18px; height: 18px; position: relative; transform: rotate(45deg); }
-  .xmark::before, .xmark::after { content: ""; position: absolute; background: var(--accent); border-radius: 1px; }
-  .xmark::before { left: 8px; top: 0; width: 2px; height: 6px; box-shadow: 0 12px 0 var(--accent); }
-  .xmark::after { top: 8px; left: 0; height: 2px; width: 6px; box-shadow: 12px 0 0 var(--accent); }
-  .pop { width: 18px; height: 18px; border-radius: 6px; background: linear-gradient(160deg, #f3d27a, #b8862c); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5); }
-
-  /* ---------- Marquee ---------- */
-  .marquee { margin-top: 110px; display: grid; gap: 14px; overflow: hidden; max-width: 100%; mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); }
-  .track { display: flex; gap: 14px; width: max-content; animation: slide 70s linear infinite; }
-  .track.rev { animation-direction: reverse; animation-duration: 85s; }
-  .track span { padding: 10px 18px; border-radius: 999px; font-size: 14px; color: var(--ash); background: rgba(255, 255, 255, .025); box-shadow: inset 0 0 0 1px var(--hair); }
-  .track span.hl { color: var(--ink); }
-  @keyframes slide { to { transform: translateX(-50%); } }
-  @media (prefers-reduced-motion: reduce) and (max-width: 0px) { .track { animation: none; } }
+  .hero .meta a { color: var(--ash); border-bottom: 1px solid var(--hair-2); transition: color .4s var(--spring); }
+  .hero .meta a:hover { color: var(--ink); }
 
   /* ---------- Sections ---------- */
-  section { padding-top: clamp(110px, 14vw, 180px); }
+  section { padding-top: clamp(110px, 14vw, 170px); }
   .head { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 40px; align-items: end; margin-bottom: 56px; }
-  .head h2 { margin-top: 20px; font-size: clamp(30px, 4.2vw, 58px); hyphens: manual; line-height: .92; font-weight: 830; }
+  .head h2 { margin-top: 20px; font-size: clamp(30px, 4.2vw, 58px); line-height: .92; font-weight: 830; }
   .head p { color: var(--ash); font-weight: 300; font-size: 17px; max-width: 30em; }
 
-  /* ---------- Bento ---------- */
-  .bento { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; }
-  .cell { grid-column: span 4; display: flex; }
-  .cell > .core { flex: 1; padding: 30px; display: flex; flex-direction: column; gap: 22px; }
-  .cell.w7 { grid-column: span 7; grid-row: span 2; } .cell.w5 { grid-column: span 5; } .cell.w6 { grid-column: span 6; } .cell.w8 { grid-column: span 8; } .cell.w12 { grid-column: span 12; }
+  /* ---------- Project cards ---------- */
+  .projects { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; }
+  .proj { grid-column: span 6; display: flex; --sx: 50%; --sy: -30%;
+    background: radial-gradient(420px circle at var(--sx) var(--sy), color-mix(in srgb, var(--accent) 30%, transparent), rgba(255, 255, 255, .025) 60%);
+    transition: translate .6s var(--spring), box-shadow .6s var(--spring); }
+  .proj:hover { translate: 0 -4px; box-shadow: 0 0 0 1px var(--hair-2), 0 50px 90px -40px rgba(0, 0, 0, .9); }
+  .proj > .core { flex: 1; display: flex; flex-direction: column; }
+  .proj > .core::before { content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none; opacity: 0; transition: opacity .6s var(--out);
+    background: radial-gradient(520px circle at var(--sx) var(--sy), color-mix(in srgb, var(--accent) 7%, transparent), transparent 55%); }
+  .proj:hover > .core::before { opacity: 1; }
+  .proj.wide { grid-column: span 12; }
+  .proj.wide > .core { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
+  .proj.wide .pic { order: 2; aspect-ratio: auto; min-height: 380px; border-left: 1px solid var(--hair); border-bottom: 0; }
 
-  /* Spotify card and lyrics, as they sit in the game */
-  .spot-stage { position: relative; min-height: 190px; border-radius: 18px; padding: 22px; display: flex; flex-direction: column; justify-content: space-between; gap: 18px; overflow: hidden;
-    background: linear-gradient(180deg, #5f86b8 0%, #8fb0d6 48%, #3b5a33 49%, #243a20 100%); box-shadow: inset 0 0 0 1px var(--hair); }
-  .spot-stage::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(5,5,5,.15), rgba(5,5,5,.5)); }
-  .lyr, .spot, .ex { position: relative; z-index: 1; }
-  .lyr { align-self: center; text-align: center; display: grid; gap: 4px; }
-  .lyr b { font-family: var(--display); font-stretch: 112%; font-weight: 700; font-size: 17px; padding: 4px 14px; border-radius: 10px; background: rgba(0,0,0,.45); transition: opacity .5s var(--out), transform .5s var(--out); }
-  .lyr span { font-size: 13px; color: rgba(255,255,255,.72); transition: opacity .5s var(--out); }
-  .lyr.swap b { opacity: 0; transform: translateY(6px); } .lyr.swap span { opacity: 0; }
-  .spot { align-self: flex-end; display: flex; align-items: center; gap: 12px; width: min(320px, 100%); padding: 9px; border-radius: 16px; background: rgba(11,11,12,.88); box-shadow: 0 0 0 1px rgba(255,255,255,.1), inset 0 1px 0 rgba(255,255,255,.12), 0 20px 40px -18px rgba(0,0,0,.9); }
-  .cover { width: 50px; height: 50px; flex: none; border-radius: 10px; background: linear-gradient(160deg, #1ed760, #0e5f2c); display: flex; align-items: flex-end; gap: 4px; padding: 0 10px 10px; }
-  .cover i { width: 4px; border-radius: 2px; background: #fff; height: 30%; animation: eq 1s ease-in-out infinite alternate; }
-  .cover i:nth-child(2) { animation-delay: -.3s; } .cover i:nth-child(3) { animation-delay: -.6s; } .cover i:nth-child(4) { animation-delay: -.15s; }
-  @keyframes eq { to { height: 85%; } }
-  .meta { flex: 1; min-width: 0; display: grid; gap: 2px; }
-  .meta b { font-weight: 600; font-size: 14px; } .meta small { color: #a1a1aa; font-size: 12px; }
-  .prog { margin-top: 6px; height: 3px; border-radius: 3px; background: rgba(255,255,255,.15); overflow: hidden; }
-  .prog i { display: block; height: 100%; width: 40%; background: #1db954; border-radius: 3px; }
-  .time { align-self: flex-start; font-family: var(--mono); font-size: 10.5px; color: #71717a; font-variant-numeric: tabular-nums; }
-  .ex { position: absolute; left: 14px; bottom: 10px; font-size: 11px; color: rgba(255,255,255,.55); }
-  @media (prefers-reduced-motion: reduce) and (max-width: 0px) { .cover i { animation: none; height: 60%; } }
-  .cell h3 { font-size: 22px; font-weight: 760; font-stretch: 118%; line-height: 1.1; }
-  .cell p { color: var(--ash); font-size: 15px; font-weight: 300; margin-top: 8px; max-width: 34em; }
-  .cell .push { margin-top: auto; }
-  .tag { display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 999px; font: 600 10px/1.6 var(--body); letter-spacing: .12em; text-transform: uppercase; vertical-align: 4px; background: var(--accent); color: var(--accent-ink); }
+  .pic { position: relative; aspect-ratio: 16 / 9; overflow: hidden; border-bottom: 1px solid var(--hair); background: #08080a; }
+  .pic img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 0 0; transition: transform 1.2s var(--out); }
+  .proj:hover .pic img { transform: scale(1.035); }
+  .pic::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, transparent 55%, rgba(5, 5, 5, .55)); }
+  .proj.wide .pic::after { background: linear-gradient(90deg, rgba(11, 11, 12, .55), transparent 22%); }
 
-  .death { position: relative; flex: 1; min-height: 340px; border-radius: 20px; overflow: hidden;
-    background: radial-gradient(90% 70% at 50% 0%, rgba(160, 20, 24, .55), rgba(60, 6, 8, .85) 55%, #1a0203); box-shadow: inset 0 0 0 1px rgba(255, 90, 90, .15); display: grid; place-items: center; padding: 24px; }
-  .death h4 { position: absolute; top: 26px; left: 0; right: 0; text-align: center; margin: 0; font-family: var(--display); font-stretch: 110%; font-weight: 700; font-size: 24px; color: #fff; text-shadow: 0 2px 0 rgba(0, 0, 0, .4); }
-  .death .by { position: absolute; top: 62px; left: 0; right: 0; text-align: center; font-size: 13px; color: rgba(255, 255, 255, .7); }
-  .cam { margin-top: 64px; width: min(300px, 100%); padding: 12px; border-radius: 14px; background: rgba(8, 8, 9, .82); box-shadow: 0 0 0 1px rgba(255, 255, 255, .08), 0 30px 60px -20px rgba(0, 0, 0, .9); }
-  .cam-top { display: flex; justify-content: space-between; font-size: 11px; color: var(--ash); font-family: var(--mono); }
-  .cam-top b { color: var(--ink); font-family: var(--body); font-weight: 600; }
-  .cam canvas { display: block; width: 100%; aspect-ratio: 1; margin-top: 8px; border-radius: 8px; background: rgba(255, 255, 255, .04); }
-  .death .btns { position: absolute; bottom: 20px; left: 0; right: 0; display: flex; justify-content: center; gap: 8px; }
-  .death .btns span { padding: 7px 16px; font-size: 12px; border-radius: 6px; background: rgba(0, 0, 0, .35); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .15); color: rgba(255, 255, 255, .85); }
+  .txt { padding: 30px; display: flex; flex-direction: column; gap: 14px; flex: 1; }
+  .proj.wide .txt { padding: 40px; justify-content: center; }
+  .kind { font: 500 12px var(--mono); letter-spacing: .08em; color: var(--dim); text-transform: uppercase; }
+  .proj h3 { font-size: clamp(26px, 2.6vw, 36px); font-weight: 800; line-height: 1; }
+  .proj.wide h3 { font-size: clamp(34px, 4vw, 58px); }
+  .proj p { color: var(--ash); font-size: 15.5px; font-weight: 300; max-width: 34em; }
+  .facts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+  .facts span { padding: 4px 11px; border-radius: 999px; font-size: 12px; color: var(--ash); background: rgba(255, 255, 255, .03); box-shadow: inset 0 0 0 1px var(--hair); white-space: nowrap; }
+  .facts span.v { font-family: var(--mono); color: var(--ink); }
+  .go { margin-top: auto; padding-top: 10px; display: inline-flex; align-items: center; gap: 12px; font-weight: 500; font-size: 15px; }
+  .go i { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, .06); box-shadow: inset 0 0 0 1px var(--hair);
+    transition: background .5s var(--spring), color .5s var(--spring), transform .6s var(--spring); }
+  .go svg { width: 14px; height: 14px; }
+  .proj:hover .go i { background: var(--accent); color: var(--accent-ink); transform: translate(3px, -1px); }
 
-  .doc { display: grid; gap: 8px; }
-  .doc div { display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 14px; border-radius: 14px; background: rgba(255, 255, 255, .025); box-shadow: inset 0 0 0 1px var(--hair); font-size: 13.5px; }
-  .doc div span { flex: 1; min-width: 0; }
-  .doc div small { display: block; color: var(--dim); font-size: 12px; }
-  .doc .sev { width: 8px; height: 8px; border-radius: 50%; flex: none; }
-  .doc em { font-style: normal; font-size: 12px; padding: 6px 12px; border-radius: 999px; background: rgba(255, 255, 255, .06); flex: none; }
+  /* Server card: no screenshot, so it shows what the service keeps track of. */
+  .srv { position: absolute; inset: 0; padding: 24px; display: flex; flex-direction: column; justify-content: center; gap: 8px;
+    background: radial-gradient(80% 90% at 85% 0%, color-mix(in srgb, var(--glow) 16%, transparent), transparent 60%), #08080a; }
+  .srv-top { display: flex; justify-content: space-between; align-items: center; font: 500 12px var(--mono); color: var(--ash); padding: 0 4px 6px; }
+  .srv-top b { color: var(--ink); font-weight: 500; }
+  .srv-row { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; padding: 11px 14px; border-radius: 14px; font-size: 13px;
+    background: rgba(255, 255, 255, .03); box-shadow: inset 0 0 0 1px var(--hair); }
+  .srv-row small { color: var(--dim); font-size: 12px; }
+  .srv-row .num { font: 500 11.5px var(--mono); color: var(--ash); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent); }
+  .dot.b { background: var(--glow); box-shadow: 0 0 0 4px color-mix(in srgb, var(--glow) 18%, transparent); }
+  .dot.g { background: var(--dim); box-shadow: 0 0 0 4px rgba(255, 255, 255, .05); }
+  .srv-row { transition: translate .6s var(--spring); }
+  .proj:hover .srv-row:nth-of-type(2) { translate: 4px 0; } .proj:hover .srv-row:nth-of-type(3) { translate: 8px 0; transition-delay: .05s; } .proj:hover .srv-row:nth-of-type(4) { translate: 12px 0; transition-delay: .1s; }
 
-  .graph { height: 120px; display: flex; align-items: flex-end; gap: 3px; padding: 12px; border-radius: 14px; background: rgba(0, 0, 0, .3); box-shadow: inset 0 0 0 1px var(--hair); }
-  .graph i { flex: 1; height: 100%; border-radius: 2px 2px 0 0; background: color-mix(in srgb, var(--accent) 55%, transparent); transform-origin: bottom; }
-  .graph i.stut { background: #f08c3a; } .graph i.hang { background: var(--foe); }
-  .gl { display: flex; gap: 18px; font-family: var(--mono); font-size: 12px; color: var(--ash); font-variant-numeric: tabular-nums; }
-  .gl b { color: var(--ink); font-weight: 500; }
+  /* ---------- Lunar Optimizer ---------- */
+  .lunar { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 56px; align-items: center; }
+  .lunar h2 { margin-top: 20px; font-size: clamp(44px, 6vw, 92px); line-height: .9; font-weight: 870;
+    background: linear-gradient(180deg, #ffffff 20%, var(--moon)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .lunar .lede { margin-top: 22px; color: var(--ash); font-weight: 300; font-size: 17px; max-width: 34em; }
+  .lunar-list { margin: 26px 0 0; padding: 0; list-style: none; }
+  .lunar-list li { display: flex; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--hair); font-size: 14.5px; transition: padding .4s var(--spring); }
+  .lunar-list li:hover { padding-left: 8px; }
+  .lunar-list li span { color: var(--ash); font-weight: 300; text-align: right; }
+  .lunar-cta { margin-top: 30px; display: flex; gap: 12px; flex-wrap: wrap; }
+  .lunar-meta { margin-top: 16px; font-size: 13px; color: var(--dim); }
+  .lunar-shot { perspective: 1600px; }
+  .lunar-shot .shell { transform: rotateY(-10deg) rotateX(4deg); transition: transform 1s var(--out); box-shadow: 0 0 0 1px var(--hair), 0 60px 120px -40px rgba(0, 0, 0, .9), 0 0 140px -40px rgba(142, 162, 255, .45); }
+  .lunar-shot:hover .shell { transform: rotateY(-3deg) rotateX(1deg); }
+  .lunar-shot img { display: block; width: 100%; height: auto; }
 
-  .file { display: flex; align-items: center; gap: 14px; padding: 14px; border-radius: 16px; background: rgba(255, 255, 255, .03); box-shadow: inset 0 0 0 1px var(--hair); }
-  .file .fi { width: 42px; height: 50px; border-radius: 8px; background: linear-gradient(160deg, #1f2a1a, #11180e); box-shadow: inset 0 0 0 1px rgba(61, 190, 122, .3); display: grid; place-items: end center; padding-bottom: 6px; font: 600 8px var(--mono); color: #3dbe7a; flex: none; }
-  .file b { display: block; font-weight: 500; font-size: 14px; }
-  .file small { color: var(--dim); font-size: 12px; }
-
-  .runs { display: grid; gap: 8px; }
-  .run { padding: 12px 14px; border-radius: 14px; background: rgba(255, 255, 255, .025); box-shadow: inset 0 0 0 1px var(--hair); display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; font-size: 13px; }
-  .run small { color: var(--dim); font-size: 12px; }
-  .run .live { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #3dbe7a; margin-right: 8px; box-shadow: 0 0 0 4px rgba(61, 190, 122, .15); }
-  .run .num { font-family: var(--mono); font-size: 12px; color: var(--ash); text-align: right; font-variant-numeric: tabular-nums; }
-
-  .swatches { display: flex; flex-wrap: wrap; gap: 10px; }
-  .sw { width: 34px; height: 34px; border-radius: 50%; border: 0; cursor: pointer; padding: 0; position: relative; transition: transform .5s var(--spring);
-    box-shadow: inset 0 1px 1px rgba(255, 255, 255, .35), 0 0 0 1px rgba(255, 255, 255, .08); }
-  .sw:hover { transform: scale(1.12); }
-  .sw[aria-pressed="true"]::after { content: ""; position: absolute; inset: -5px; border-radius: 50%; box-shadow: 0 0 0 1.5px var(--ink); }
-  .sw-name { font-size: 13px; color: var(--ash); }
-  .sw-name b { color: var(--ink); font-weight: 500; }
-
-  .tl { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); position: relative; margin-top: 10px; }
-  .tl::before { content: ""; position: absolute; top: 5px; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, var(--hair-2), color-mix(in srgb, var(--accent) 70%, transparent)); }
-  .tl div { padding-top: 26px; position: relative; }
-  .tl div::before { content: ""; position: absolute; top: 0; left: 0; width: 11px; height: 11px; border-radius: 50%; background: var(--core); box-shadow: inset 0 0 0 1.5px var(--hair-2); }
-  .tl div.new::before { background: var(--accent); box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 20%, transparent), 0 0 24px var(--accent); }
-  .tl b { font-family: var(--display); font-stretch: 112%; font-weight: 700; font-size: clamp(15px, 1.6vw, 22px); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
-  .tl small { display: block; font-size: 11px; color: var(--ash); }
-
-  /* ---------- Nexora+ ---------- */
-  .plus { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 64px; align-items: center; }
-  .plus h2 { margin-top: 20px; font-size: clamp(56px, 9vw, 140px); line-height: .85; font-weight: 880; }
-  .plus h2 sup { font-size: .5em; vertical-align: .55em; color: var(--accent); }
-  .plus .lede { margin-top: 26px; color: var(--ash); font-weight: 300; font-size: 17px; max-width: 30em; }
-  .perks { margin: 34px 0 0; padding: 0; list-style: none; display: grid; gap: 0; }
-  .perks li { display: flex; justify-content: space-between; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--hair); font-size: 15px; }
-  .perks li span { color: var(--ash); font-weight: 300; text-align: right; }
-  .card-stage { perspective: 1400px; display: grid; place-items: center; padding: 20px 0; }
-  .member { width: min(440px, 100%); aspect-ratio: 1.586; border-radius: 26px; position: relative; overflow: hidden; transform-style: preserve-3d;
-    transform: rotateY(var(--ry, -14deg)) rotateX(var(--rx, 8deg)); transition: transform .9s var(--out);
-    background: linear-gradient(135deg, #1a1a1d 0%, #0c0c0d 55%, #161618 100%);
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, .1), inset 0 1px 1px rgba(255, 255, 255, .15), 0 60px 120px -40px rgba(0, 0, 0, .95), 0 0 120px -40px color-mix(in srgb, var(--accent) 50%, transparent); }
-  .member::before { content: ""; position: absolute; inset: 0; mix-blend-mode: color-dodge; opacity: .28;
-    background: conic-gradient(from calc(var(--mx, .5) * 360deg) at calc(var(--mx, .5) * 100%) calc(var(--my, .3) * 100%), #ff6ec7, #7afcff, #feff9c, #b28dff, #ff6ec7); filter: blur(24px); }
-  .member::after { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(115deg, rgba(255, 255, 255, .035) 0 2px, transparent 2px 7px); }
-  .member .in { position: absolute; inset: 0; padding: 26px 28px; display: flex; flex-direction: column; justify-content: space-between; z-index: 1; }
-  .member .top { display: flex; justify-content: space-between; align-items: start; }
-  .member .top svg { width: 40px; height: 40px; }
-  .member .top span { font-family: var(--display); font-stretch: 125%; font-weight: 800; font-size: 20px; letter-spacing: -.02em; }
-  .member .top span i { font-style: normal; color: var(--accent); }
-  .member .chipx { width: 46px; height: 36px; border-radius: 8px; background: linear-gradient(135deg, #e8cf8a, #9c7a34); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .2); opacity: .9; }
-  .member .bot { display: flex; justify-content: space-between; align-items: end; font-family: var(--mono); font-size: 13px; letter-spacing: .08em; }
-  .member .bot small { display: block; color: var(--dim); font-size: 10px; letter-spacing: .16em; margin-bottom: 4px; }
-
-  /* ---------- Other launchers ---------- */
-  .jar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 28px; align-items: center; }
-  .jar > .core { padding: 34px 36px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 40px; align-items: center; }
-  .jar h3 { font-size: clamp(24px, 2.6vw, 34px); font-weight: 780; line-height: 1.05; }
-  .jar p { margin-top: 12px; color: var(--ash); font-weight: 300; }
-  .term { border-radius: 16px; background: #070708; box-shadow: inset 0 0 0 1px var(--hair); font-family: var(--mono); font-size: 13px; overflow: hidden; }
-  .term-top { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--hair); color: var(--dim); font-size: 11px; }
-  .term-top button { border: 0; background: rgba(255, 255, 255, .06); border-radius: 999px; padding: 4px 12px; font-size: 11px; cursor: pointer; transition: background .4s var(--spring); }
-  .term-top button:hover { background: rgba(255, 255, 255, .12); }
-  .term pre { margin: 0; padding: 16px 16px 18px; line-height: 1.9; overflow-x: auto; color: var(--ash); }
-  .term pre b { color: var(--ink); font-weight: 500; }
-  .term pre i { font-style: normal; color: var(--accent); }
-
-  /* ---------- Download ---------- */
-  .dl { --r: 2.6rem; }
-  .dl > .core { padding: clamp(40px, 7vw, 96px) clamp(24px, 6vw, 80px); text-align: center; isolation: isolate; }
-  .dl > .core::before { content: ""; position: absolute; inset: auto -20% -60% -20%; height: 120%; z-index: -1;
-    background: radial-gradient(50% 50% at 50% 50%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 70%); }
-  .dl h2 { font-size: clamp(44px, 7.4vw, 112px); line-height: .88; font-weight: 880; margin-top: 22px; }
-  .dl .lede { margin: 26px auto 0; color: var(--ash); max-width: 32em; font-weight: 300; font-size: 17px; }
-  .dl .cta { margin-top: 38px; display: flex; justify-content: center; }
-  .oses { margin-top: 26px; display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; }
-  .oses a { padding: 8px 16px; border-radius: 999px; font-size: 13px; color: var(--ash); box-shadow: inset 0 0 0 1px var(--hair); transition: color .4s var(--spring), background .4s var(--spring); }
-  .oses a:hover { color: var(--ink); background: rgba(255, 255, 255, .05); }
-
-  footer { padding-top: 120px; overflow: hidden; }
-  .foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px 32px; font-size: 13px; color: var(--dim); padding-bottom: 28px; border-bottom: 1px solid var(--hair); }
-  .foot a { color: var(--ash); transition: color .4s var(--spring); } .foot a:hover { color: var(--ink); }
-  .wordmark { font-family: var(--display); font-stretch: 125%; font-weight: 900; font-size: clamp(80px, 21vw, 330px); line-height: .78; letter-spacing: -.05em; text-align: center; margin-top: 30px;
-    background: linear-gradient(180deg, rgba(255, 255, 255, .14), rgba(255, 255, 255, 0) 85%); -webkit-background-clip: text; background-clip: text; color: transparent; user-select: none; }
-
-
-  /* ---------- Jar downloads ---------- */
-  .jars { margin-top: 24px; display: flex; flex-wrap: wrap; gap: 8px; }
-  .jars a { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px 8px 12px; border-radius: 999px; font: 500 13px var(--mono); font-variant-numeric: tabular-nums;
-    color: var(--ink); background: rgba(255, 255, 255, .04); box-shadow: inset 0 0 0 1px var(--hair-2);
-    transition: background .4s var(--spring), color .4s var(--spring), translate .4s var(--spring), box-shadow .4s var(--spring); }
-  .jars a::before { content: ""; width: 12px; height: 12px; flex: none; background: currentColor; opacity: .7;
-    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 2.5v9m0 0L4.5 8M8 11.5 11.5 8M3 14h10' fill='none' stroke='%23000' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
-    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 2.5v9m0 0L4.5 8M8 11.5 11.5 8M3 14h10' fill='none' stroke='%23000' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat; }
-  .jars a:hover { background: var(--accent); color: var(--accent-ink); translate: 0 -2px; box-shadow: 0 10px 30px -10px var(--accent); }
-  .jars a.main { background: var(--accent); color: var(--accent-ink); }
-  .jars a small { font: 400 11px var(--body); opacity: .65; }
-  .js .jars.go a { animation: fadeUp .7s var(--out) both; animation-delay: calc(var(--i) * 55ms); }
-  .jars-note { margin-top: 14px !important; font-size: 13px; }
-  .jars-note a { color: var(--ink); text-decoration: underline; text-decoration-color: var(--hair-2); text-underline-offset: 3px; }
-
-  /* ---------- What's new ---------- */
-  .news { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; counter-reset: n; }
-  .news .core { flex: 1; padding: 28px; display: flex; flex-direction: column; gap: 10px; }
-  .news article { display: flex; transition: translate .6s var(--spring); }
-  .news article:hover { translate: 0 -4px; }
-  .news .n { font: 500 12px var(--mono); color: var(--dim); letter-spacing: .1em; }
-  .news h3 { font-size: 21px; font-weight: 760; font-stretch: 118%; line-height: 1.1; }
-  .news p { color: var(--ash); font-size: 15px; font-weight: 300; }
-  .news article:hover .n { color: var(--accent); }
-  .news-all { margin-top: 26px; text-align: center; font-size: 14px; }
-  .news-all a { color: var(--ash); border-bottom: 1px solid var(--hair-2); padding-bottom: 2px; transition: color .4s var(--spring), border-color .4s var(--spring); }
-  .news-all a:hover { color: var(--ink); border-color: var(--accent); }
-
-  /* ---------- FAQ ---------- */
-  .faq { display: grid; gap: 10px; max-width: 880px; }
-  .faq details { border-radius: 20px; background: rgba(255, 255, 255, .025); box-shadow: inset 0 0 0 1px var(--hair); transition: background .5s var(--spring), box-shadow .5s var(--spring); }
-  .faq details[open] { background: rgba(255, 255, 255, .045); box-shadow: inset 0 0 0 1px var(--hair-2); }
-  .faq summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 20px 22px; font-size: 16.5px; font-weight: 500; }
-  .faq summary::-webkit-details-marker { display: none; }
-  .faq summary::after { content: ""; width: 26px; height: 26px; flex: none; border-radius: 50%; background: rgba(255, 255, 255, .06) center / 12px no-repeat
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M6 1v10M1 6h10' stroke='%23f4f4f5' stroke-width='1.4' stroke-linecap='round'/%3E%3C/svg%3E");
-    transition: transform .6s var(--spring), background-color .4s var(--spring); }
-  .faq details[open] summary::after { transform: rotate(135deg); background-color: rgba(255, 255, 255, .12); }
-  .faq .a { overflow: hidden; }
-  .faq .a p { padding: 0 22px 22px; color: var(--ash); font-weight: 300; max-width: 44em; }
-  .faq .a a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--hair-2); }
-  .live-meta { margin-left: 10px; padding: 3px 10px; border-radius: 999px; background: rgba(255, 255, 255, .04); box-shadow: inset 0 0 0 1px var(--hair); color: var(--ash); white-space: nowrap; }
-  .live-meta i { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #3dbe7a; margin-right: 6px; vertical-align: 1px; box-shadow: 0 0 0 3px rgba(61, 190, 122, .18); }
-  @media (max-width: 1080px) { .news { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-  @media (max-width: 767px) { .news { grid-template-columns: 1fr; } .faq summary { padding: 18px; } .faq .a p { padding: 0 18px 18px; } .live-meta { display: inline-block; margin: 8px 0 0; } }
-
-  /* ---------- Direct downloads ---------- */
-  .dl-size { margin-top: 16px !important; font-size: 13px; color: var(--dim); }
-  .oses a.here { color: var(--ink); box-shadow: inset 0 0 0 1px var(--hair-2); background: rgba(255, 255, 255, .05); }
+  /* ---------- Download toast ---------- */
   .toast { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 22px); z-index: 60; translate: -50% 140%; opacity: 0;
     display: grid; gap: 2px; max-width: min(460px, calc(100vw - 32px)); padding: 14px 18px 14px 50px; border-radius: 18px; font-size: 13.5px; color: var(--ash);
     background: rgba(18, 18, 20, .86) no-repeat 18px 50% / 20px; backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
@@ -384,557 +237,152 @@
   .toast.on { translate: -50% 0; opacity: 1; }
   .toast b { color: var(--ink); font-weight: 600; }
 
-  /* ---------- Lunar Optimizer ---------- */
-  .lunar { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 56px; align-items: center; }
-  .lunar h2 { margin-top: 20px; font-size: clamp(44px, 6vw, 92px); line-height: .9; font-weight: 870;
-    background: linear-gradient(180deg, #ffffff 20%, #8ea2ff); -webkit-background-clip: text; background-clip: text; color: transparent; }
-  .lunar .lede { margin-top: 22px; color: var(--ash); font-weight: 300; font-size: 17px; max-width: 34em; }
-  .lunar-list { margin: 26px 0 0; padding: 0; list-style: none; }
-  .lunar-list li { display: flex; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--hair); font-size: 14.5px; }
-  .lunar-list li span { color: var(--ash); font-weight: 300; text-align: right; }
-  .lunar-cta { margin-top: 30px; display: flex; gap: 12px; flex-wrap: wrap; }
-  .lunar-meta { margin-top: 16px; font-size: 13px; color: var(--dim); }
-  .lunar-shot { perspective: 1600px; }
-  .lunar-shot .shell { transform: rotateY(-10deg) rotateX(4deg); transition: transform 1s var(--out); box-shadow: 0 0 0 1px var(--hair), 0 60px 120px -40px rgba(0, 0, 0, .9), 0 0 140px -40px rgba(142, 162, 255, .45); }
-  .lunar-shot:hover .shell { transform: rotateY(-3deg) rotateX(1deg); }
-  .lunar-shot img { display: block; width: 100%; height: auto; }
-  @media (max-width: 1080px) { .lunar { grid-template-columns: 1fr; } .lunar-shot .shell { transform: none; } }
-
-  /* ---------- Motion ---------- */
-  @property --ang { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
-  .progress { position: fixed; top: 0; left: 0; right: 0; height: 2px; z-index: 50; pointer-events: none; transform-origin: left; transform: scaleX(0);
-    background: linear-gradient(90deg, var(--glow), var(--accent)); box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 70%, transparent); }
-  .cursor-glow { position: fixed; left: 0; top: 0; width: 560px; height: 560px; margin: -280px 0 0 -280px; border-radius: 50%; pointer-events: none; z-index: 0;
-    background: radial-gradient(circle, color-mix(in srgb, var(--accent) 8%, transparent), transparent 62%); opacity: 0; transition: opacity .8s var(--out); will-change: transform; }
-  .cursor-glow.on { opacity: 1; }
-  .orbs i:nth-child(1) { animation: drift1 26s ease-in-out infinite alternate; }
-  .orbs i:nth-child(2) { animation: drift2 32s ease-in-out infinite alternate; }
-  @keyframes drift1 { to { translate: 14vw 12vh; scale: 1.15; } }
-  @keyframes drift2 { to { translate: -12vw 18vh; scale: .88; } }
-
-  /* Nav tucks away while scrolling down, comes back on the way up. */
-  .nav { transition: translate .7s var(--spring), background .6s var(--spring); }
-  .nav.hide { translate: 0 calc(-100% - 40px); }
-  .nav.solid { background: rgba(12, 12, 13, .82); }
-
-  /* Headline: every word rises out of its own mask. */
-  .hero h1.split .soft { background: none; }
-  .hero h1 .w { display: inline-block; overflow: hidden; vertical-align: top; padding: .02em .02em .22em; margin: -.02em 0 -.22em; }
-  .hero h1 .w > span { display: inline-block; transform: translateY(115%) rotate(7deg); transform-origin: 0 100%; animation: rise 1.2s var(--out) forwards; animation-delay: calc(var(--i) * 90ms + 120ms); }
-  .hero h1 .soft .w > span { background: linear-gradient(180deg, #8d8d94, #3b3b40); -webkit-background-clip: text; background-clip: text; color: transparent; }
-  @keyframes rise { to { transform: none; } }
-  .intro { animation: fadeUp 1.1s var(--out) both; animation-delay: var(--d, 0s); }
-  @keyframes fadeUp { from { opacity: 0; transform: translateY(26px); filter: blur(8px); } }
-
-  .eyebrow b { animation: ping 2.6s var(--out) infinite; }
-  @keyframes ping { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); } 70%, 100% { box-shadow: 0 0 0 9px transparent; } }
-
-  /* Buttons: a light sweep, and they lean toward the pointer. */
-  .btn { position: relative; overflow: hidden; overflow: clip; isolation: isolate; transition: transform .6s var(--spring), translate .5s var(--spring), background .6s var(--spring), box-shadow .6s var(--spring); }
-  .btn::after { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; translate: -130% 0; transition: translate .9s var(--out);
-    background: linear-gradient(100deg, transparent 35%, rgba(255, 255, 255, .22) 50%, transparent 65%); }
-  .btn-solid::after { background: linear-gradient(100deg, transparent 35%, color-mix(in srgb, var(--accent-ink) 8%, transparent) 50%, transparent 65%); }
-  .btn:hover::after { translate: 130% 0; }
-  #heroDl::after, #mainDl::after { animation: sweep 5s var(--out) 1.8s infinite; }
-  @keyframes sweep { 0% { translate: -130% 0; } 35%, 100% { translate: 130% 0; } }
-
-  /* Product shot: chips float on their own. */
-  .chip { animation: bob 6s ease-in-out infinite; }
-  .chip.c2 { animation-delay: -1.6s; } .chip.c3 { animation-delay: -3.1s; animation-duration: 7s; } .chip.c4 { animation-delay: -4.4s; animation-duration: 5.4s; }
-  @keyframes bob { 50% { translate: 0 -10px; } }
-  .kpi b, .gl b { display: inline-block; }
-  .kpi { transition: background .5s var(--spring), translate .5s var(--spring); }
-  .kpi:hover { background: rgba(255, 255, 255, .05); translate: 0 -2px; }
-  .row { transition: background .4s var(--spring), translate .4s var(--spring); }
-  .row:hover { background: rgba(255, 255, 255, .04); translate: 3px 0; }
-
-  .marquee:hover .track { animation-play-state: paused; }
-  .track span { transition: color .4s var(--spring), background .4s var(--spring), box-shadow .4s var(--spring); }
-  .track span:hover { color: var(--accent-ink); background: var(--accent); box-shadow: 0 0 24px -4px var(--accent); }
-
-  /* Bento: the border lights up where the pointer is, the card lifts. */
-  .cell.shell { --sx: 50%; --sy: -30%; transition: translate .6s var(--spring), box-shadow .6s var(--spring);
-    background: radial-gradient(420px circle at var(--sx) var(--sy), color-mix(in srgb, var(--accent) 30%, transparent), rgba(255, 255, 255, .025) 60%); }
-  .cell > .core::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .6s var(--out);
-    background: radial-gradient(520px circle at var(--sx) var(--sy), color-mix(in srgb, var(--accent) 7%, transparent), transparent 55%); }
-  .cell:hover { translate: 0 -4px; box-shadow: 0 0 0 1px var(--hair-2), 0 50px 90px -40px rgba(0, 0, 0, .9); }
-  .cell:hover > .core::before { opacity: 1; }
-
-  /* FPS-Doktor fixes its findings one after another. */
-  .doc div { transition: opacity .6s var(--out), translate .6s var(--spring), background .6s var(--spring); }
-  .doc .sev { transition: background .4s var(--out), transform .6s var(--spring); }
-  .doc em { transition: background .4s var(--out), color .4s var(--out); }
-  .doc div.fixed { opacity: .6; translate: 4px 0; }
-  .doc div.fixed .sev { background: #3dbe7a !important; transform: scale(1.35); box-shadow: 0 0 10px #3dbe7a; }
-  .doc div.fixed em { background: rgba(61, 190, 122, .16); color: #6be3a2; }
-
-  /* Versions: the line draws itself, the dots follow. */
-  .js .tl::before { transform-origin: left; transform: scaleX(0); transition: transform 1.8s var(--out); }
-  .js .tl div { opacity: 0; translate: 0 12px; transition: opacity .7s var(--out), translate .7s var(--spring); transition-delay: calc(var(--i) * 110ms + .2s); }
-  .js .tl.go::before { transform: scaleX(1); }
-  .js .tl.go div { opacity: 1; translate: 0 0; }
-  .tl div.new::before { animation: beacon 2.2s var(--out) infinite; }
-  @keyframes beacon { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 60%, transparent), 0 0 24px var(--accent); } 100% { box-shadow: 0 0 0 12px transparent, 0 0 24px var(--accent); } }
-
-  /* Nexora+ */
-  .js .perks li { opacity: 0; translate: -18px 0; transition: opacity .8s var(--out), translate .8s var(--spring); transition-delay: calc(var(--i) * 90ms + .15s); }
-  .js .perks.go li { opacity: 1; translate: 0 0; }
-  .perks li { transition: padding .4s var(--spring); }
-  .perks li:hover { padding-left: 8px; }
-  .member { animation: hover 7s ease-in-out infinite; }
-  @keyframes hover { 50% { translate: 0 -14px; } }
-  .member .in::after { content: ""; position: absolute; inset: -60%; pointer-events: none; animation: sheen 6s var(--out) infinite;
-    background: linear-gradient(115deg, transparent 42%, rgba(255, 255, 255, .13) 50%, transparent 58%); }
-  @keyframes sheen { 0% { translate: -45% 0; } 45%, 100% { translate: 45% 0; } }
-
-  /* Terminal types its lines. */
-  .js .term .ln { display: inline-block; clip-path: inset(0 100% 0 0); }
-  .term.go .ln { animation: type .8s steps(22, end) forwards; animation-delay: calc(var(--i) * .65s + .2s); }
-  @keyframes type { to { clip-path: inset(0 0 0 0); } }
-  .caret { display: inline-block; width: 7px; height: 1.1em; margin-left: 4px; vertical-align: -.2em; background: var(--accent); animation: blink 1s steps(1) infinite; }
-  @keyframes blink { 50% { opacity: 0; } }
-
-  /* Download: a light runs around the frame. */
-  .dl { position: relative; }
-  .dl::before { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1.5px; pointer-events: none; z-index: 2;
-    background: conic-gradient(from var(--ang), transparent 0 62%, color-mix(in srgb, var(--accent) 90%, transparent) 80%, transparent 96%);
-    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; animation: spin 6s linear infinite; }
-  @keyframes spin { to { --ang: 360deg; } }
-  .dl > .core::before { animation: breathe 5s ease-in-out infinite; }
-  @keyframes breathe { 50% { opacity: .55; scale: 1.08; } }
-  .oses a { transition: color .4s var(--spring), background .4s var(--spring), translate .4s var(--spring); }
-  .oses a:hover { translate: 0 -2px; }
-
-  /* Footer wordmark: letters rise in. */
-  .wordmark.split { background: none; }
+  /* ---------- Footer ---------- */
+  footer { padding-top: 140px; overflow: hidden; }
+  .foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px 32px; font-size: 13px; color: var(--dim); padding-bottom: 28px; border-bottom: 1px solid var(--hair); }
+  .foot > span:first-child { max-width: 46em; }
+  .foot-links { display: flex; flex-wrap: wrap; gap: 12px 24px; }
+  .foot a { color: var(--ash); transition: color .4s var(--spring); } .foot a:hover { color: var(--ink); }
+  .wordmark { font-family: var(--display); font-stretch: 125%; font-weight: 900; font-size: clamp(80px, 20vw, 300px); line-height: .78; letter-spacing: -.05em; text-align: center; margin-top: 30px; user-select: none; }
   .wordmark span { display: inline-block; background: linear-gradient(180deg, rgba(255, 255, 255, .16), rgba(255, 255, 255, 0) 85%); -webkit-background-clip: text; background-clip: text; color: transparent;
     transition: transform 1.2s var(--out), opacity 1.2s var(--out); transition-delay: calc(var(--i) * 70ms); }
-  .js .wordmark.split:not(.go) span { transform: translateY(45%); opacity: 0; }
-  .wordmark span:hover { transform: translateY(-6%); transition-delay: 0s; transition-duration: .5s; }
-
-  @media (prefers-reduced-motion: reduce) and (max-width: 0px) {
-    *, *::before, *::after { animation: none !important; }
-    .hero h1 .w > span { transform: none; }
-    .cursor-glow, .cursor-ring, .stars, .intro-screen { display: none; }
-    .js h2.split .w > span { transform: none; }
-  }
-
-  /* ---------- Motion, part two ---------- */
-  /* Intro: the logo draws itself once per visit. */
-  .intro-screen { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: var(--void); pointer-events: none;
-    animation: introOut .7s var(--spring) 1.05s forwards; }
-  .intro-screen svg { width: 84px; height: 84px; overflow: visible; }
-  .intro-screen .ring { stroke-dasharray: 130; stroke-dashoffset: 130; animation: draw .8s var(--out) .05s forwards; }
-  .intro-screen .n { opacity: 0; transform-origin: 50% 50%; animation: pop .6s var(--spring) .45s forwards; }
-  .intro-screen .star { opacity: 0; transform-origin: 51px 13.8px; animation: spark .7s var(--spring) .6s forwards; }
-  @keyframes draw { to { stroke-dashoffset: 0; } }
-  @keyframes pop { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: none; } }
-  @keyframes spark { 0% { opacity: 0; transform: scale(0) rotate(-90deg); } 60% { opacity: 1; transform: scale(1.4) rotate(10deg); } 100% { opacity: 1; transform: none; } }
-  @keyframes introOut { to { opacity: 0; clip-path: inset(0 0 100% 0); } }
-
-  /* Constellation behind the hero; fades out as you scroll away. */
-  .stars { position: fixed; inset: 0; z-index: 0; pointer-events: none; width: 100%; height: 100%; transition: opacity .4s linear; }
-  .orbs i { transform: translateY(var(--py, 0px)); }
-
-  /* Pointer ring (mouse only). */
-  .cursor-ring { position: fixed; left: 0; top: 0; z-index: 70; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%; pointer-events: none;
-    box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--accent) 55%, transparent); opacity: 0;
-    transition: opacity .3s var(--out), width .45s var(--spring), height .45s var(--spring), margin .45s var(--spring), background .45s var(--spring); }
-  .cursor-ring.on { opacity: 1; }
-  .cursor-ring.big { width: 58px; height: 58px; margin: -29px 0 0 -29px; background: color-mix(in srgb, var(--accent) 7%, transparent); }
-  .cursor-ring.down { width: 24px; height: 24px; margin: -12px 0 0 -12px; }
-
-  /* Nav: a pill slides under the hovered or current section. */
-  .nav-links { position: relative; }
-  .nav-links .pill { position: absolute; top: 0; left: 0; height: 100%; border-radius: 999px; background: rgba(255, 255, 255, .07); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06);
-    opacity: 0; transition: transform .55s var(--spring), width .55s var(--spring), opacity .3s var(--out); pointer-events: none; }
-  .nav-links a { position: relative; z-index: 1; white-space: nowrap; }
-  @media (max-width: 1180px) { .nav-links a[href="#versionen"], .nav-links a[href="#faq"] { display: none; } }
-  .nav-links a.cur { color: var(--ink); }
-  .nav-links a:hover { background: none; }
-
-  /* The grey half of the headline catches a light now and then. */
-  .hero h1 .soft .w > span { background: linear-gradient(100deg, #4a4a50 0%, #8d8d94 38%, #f4f4f5 50%, #8d8d94 62%, #4a4a50 100%); background-size: 260% 100%; background-position: 100% 0;
-    -webkit-background-clip: text; background-clip: text; color: transparent;
-    animation: rise 1.2s var(--out) forwards, shimmer 7s ease-in-out 2.2s infinite; animation-delay: calc(var(--i) * 90ms + 120ms), 2.2s; }
-  @keyframes shimmer { 0%, 30% { background-position: 100% 0; } 70%, 100% { background-position: 0% 0; } }
-
-  /* Section headings: words rise when the heading is reached. */
-  .js h2.split .w { display: inline-block; overflow: hidden; vertical-align: top; padding: .02em .02em .18em; margin: -.02em 0 -.18em; }
-  .js h2.split .w > span { display: inline-block; transform: translateY(112%) rotate(5deg); transform-origin: 0 100%; transition: transform 1.1s var(--out); transition-delay: calc(var(--i) * 65ms); }
-  .js h2.split.in .w > span { transform: none; }
-
-  /* Bento: cards tip toward the pointer. */
-  .cell { perspective: 1100px; }
-  .cell > .core { transition: transform .8s var(--spring); transform-style: preserve-3d; }
-  .cell.tilting > .core { transition: transform .12s linear; }
-
-  /* Button ripple and download burst. */
-  .ripple { position: absolute; border-radius: 50%; pointer-events: none; z-index: -1; width: 12px; height: 12px; margin: -6px 0 0 -6px;
-    background: color-mix(in srgb, var(--accent-ink) 22%, transparent); animation: ripple .75s var(--out) forwards; }
-  .btn-ghost .ripple, .oses .ripple, .jars .ripple { background: rgba(255, 255, 255, .25); }
-  .oses a, .jars a { position: relative; overflow: hidden; overflow: clip; }
-  @keyframes ripple { to { transform: scale(40); opacity: 0; } }
-  .spark { position: fixed; z-index: 80; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; border-radius: 2px; pointer-events: none; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
-
-  /* Chips also drift with the scroll. */
-  .chip { margin-top: calc(var(--sp, 0) * var(--dp, 0) * 1px); }
-
-  /* Marquee leans with scroll speed. */
-  .marquee { transform: skewX(var(--skew, 0deg)); transition: transform .25s var(--out); }
-
-  /* Footer letters swell toward the pointer. */
-  .wordmark span { scale: var(--mag, 1); transition: transform 1.2s var(--out), opacity 1.2s var(--out), scale .35s var(--spring); transform-origin: 50% 100%; }
-
-  /* Nexora+ card: a slow spin of its holo foil when idle. */
-  .member::before { animation: foil 9s linear infinite; }
-  @keyframes foil { to { filter: blur(24px) hue-rotate(360deg); } }
+  .js .wordmark:not(.go) span { transform: translateY(45%); opacity: 0; }
 
   /* ---------- Responsive ---------- */
   @media (max-width: 1080px) {
-    .win { grid-template-columns: 56px 1fr; }
-    .list { display: none; }
-    .cell, .cell.w7, .cell.w5, .cell.w6, .cell.w8 { grid-column: span 6; grid-row: auto; }
-    .cell.w8 { grid-column: span 12; }
-    .cell.w7 { grid-column: span 12; }
+    .proj.wide > .core { grid-template-columns: 1fr; }
+    .proj.wide .pic { order: 0; aspect-ratio: 1240 / 573; min-height: 0; border-left: 0; border-bottom: 1px solid var(--hair); }
+    .proj.wide .pic::after { background: linear-gradient(180deg, transparent 55%, rgba(5, 5, 5, .55)); }
+    .proj.wide .txt { padding: 30px; }
+    .lunar { grid-template-columns: 1fr; }
+    .lunar-shot .shell { transform: none; }
   }
+  @media (max-width: 900px) { .nav-links a.opt { display: none; } }
   @media (max-width: 767px) {
     body { padding-inline: 16px; }
-    .nav { left: 16px; right: 16px; transform: none; justify-content: space-between; }
-    .nav-links, .nav .btn { display: none; }
+    .nav { left: 16px; right: 16px; transform: none; }
+    .nav .brand { margin-right: auto; }
+    .nav-links { display: none; }
     .burger { display: block; }
     .hero { text-align: left; }
     .hero .cta { justify-content: flex-start; }
-    .stage { margin-top: 56px; perspective: none; }
-    .tilt, .stage.flat .tilt { transform: none; }
-    .win { grid-template-columns: 1fr; min-height: 0; }
-    .side { display: none; }
-    .pane { padding: 18px; }
-    .kpis { grid-template-columns: repeat(2, 1fr); }
-    .chip { display: none; }
-    .head, .plus, .jar > .core { grid-template-columns: 1fr; }
-    .head { gap: 20px; }
-    .bento { grid-template-columns: 1fr; }
-    .cell, .cell.w7, .cell.w5, .cell.w6, .cell.w8, .cell.w12 { grid-column: 1 / -1; }
-    .spot { align-self: stretch; width: auto; }
-    .cell > .core { padding: 22px; }
-    .tl { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 26px; }
-    .tl::before { display: none; }
-    .member { transform: none; }
-    .dl .cta .btn { width: 100%; justify-content: space-between; }
+    .head { grid-template-columns: 1fr; gap: 20px; }
+    .projects { grid-template-columns: 1fr; }
+    .proj, .proj.wide { grid-column: 1 / -1; }
+    .txt, .proj.wide .txt { padding: 24px; }
+    .srv { padding: 16px; gap: 6px; }
+    .srv-row { padding: 9px 12px; }
+    .srv-row small { display: none; }
+    .lunar-list li { flex-direction: column; gap: 2px; }
+    .lunar-list li span { text-align: left; }
+    .lunar-cta .btn { width: 100%; justify-content: space-between; }
   }
 </style>
-
 <div class="orbs" aria-hidden="true"><i></i><i></i></div>
 <div class="grain" aria-hidden="true"></div>
 <div class="cursor-glow" id="cursorGlow" aria-hidden="true"></div>
 <div class="progress" id="progress" aria-hidden="true"></div>
 
 <header class="nav" id="nav">
-  <a class="brand" href="#top" aria-label="Nexora, nach oben">
-    <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M45.5 13.2A22 22 0 1 0 53.6 26" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round"/><path d="M22 44V20h5.6l10 14.6V20H43v24h-5.4L27.4 29.4V44z" fill="currentColor"/><path d="M51 6l2.2 5.6L59 13.8l-5.8 2.2L51 21.6 48.8 16 43 13.8l5.8-2.2z" fill="var(--accent)"/></svg>
-    Nexora
+  <a class="brand" href="#top" aria-label="Lunar's Projects, nach oben">
+    <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M27.9 13A22 22 0 1 0 50.8 38.2A17 17 0 0 1 27.9 13Z" fill="currentColor"/><path d="M51 6l2.2 5.6L59 13.8l-5.8 2.2L51 21.6 48.8 16 43 13.8l5.8-2.2z" fill="var(--accent)"/></svg>
+    Lunar's Projects
   </a>
   <nav class="nav-links" aria-label="Seiten">
-    <a href="#features">Features</a>
-    <a href="#versionen">Versionen</a>
-    <a href="#neu">Neu</a>
-    <a href="#plus">Nexora+</a>
-    <a href="#jar">Mod-Datei</a>
-    <a href="#faq">FAQ</a>
+    <a href="#projekte">Projekte</a>
+    <a href="nexora.html">Nexora</a>
+    <a class="opt" href="#lunar">Lunar Optimizer</a>
+    <a href="https://github.com/Lunar0710" target="_blank" rel="noopener">GitHub</a>
   </nav>
-  <a class="btn btn-solid btn-sm" href="#download">Download<span class="ic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v9m0 0L4.5 8M8 11.5 11.5 8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+  <button class="theme-btn" id="themeBtn" type="button" aria-label="Theme wählen" aria-expanded="false" aria-controls="themePop" title="Theme wählen"></button>
   <button class="burger" id="burger" type="button" aria-label="Menü öffnen" aria-expanded="false"><i></i><i></i></button>
 </header>
+<div class="theme-pop" id="themePop" role="dialog" aria-label="Theme wählen">
+  <h4>Theme</h4>
+  <p>Die Themes aus dem Nexora-Launcher. Die ganze Seite folgt, mit <b>+</b> markierte gibt es mit Nexora+.</p>
+  <div class="swatches" role="group" aria-label="Theme"></div>
+  <p class="sw-name" style="margin:14px 0 0">Gewählt: <b class="sw-current">Nexora Mono</b></p>
+</div>
 <div class="overlay" id="overlay" aria-hidden="true">
-  <a href="#features">Features</a>
-  <a href="#versionen">Versionen</a>
-  <a href="#plus">Nexora+</a>
-  <a href="#neu">Neu</a>
-  <a href="#jar">Mod-Datei</a>
-  <a href="#faq">FAQ</a>
-  <a href="#download">Download</a>
+  <a href="#projekte">Projekte</a>
+  <a href="nexora.html">Nexora</a>
+  <a href="#lunar">Lunar Optimizer</a>
+  <a href="https://github.com/Lunar0710/Crystal/tree/main/server" target="_blank" rel="noopener">Nexora-Server</a>
+  <a href="https://github.com/Lunar0710" target="_blank" rel="noopener">GitHub</a>
 </div>
 
 <main id="top">
   <div class="wrap hero">
-    <span class="eyebrow rv"><b>1.6</b> Kampf-Replay, Kill-Cam und Spotify</span>
-    <h1 class="rv">Jeder Kampf.<span class="soft">Aufgezeichnet.</span></h1>
-    <p class="lede rv">Nexora ist ein kostenloser Minecraft-Client mit eigenem Launcher. <strong>Sieh dir jeden Kampf von oben noch einmal an</strong>, mit Laufwegen, Treffern und Leben. Dazu ein HUD, das mitkämpft, und ein FPS-Doktor, der dein Spiel schneller macht.</p>
+    <span class="eyebrow rv"><b>3</b> Projekte von Lunar_cpvp</span>
+    <h1 class="rv">Lunar's<span class="soft">Projects.</span></h1>
+    <p class="lede rv">Hier liegt, was ich gebaut habe: <strong>Nexora</strong>, einen Minecraft-Client mit eigenem Launcher, den <strong>Lunar Optimizer</strong>, der Windows fürs Gaming einstellt, und den Server, über den sich Nexora-Spieler sehen und schreiben. Alles kostenlos.</p>
     <div class="cta rv">
-      <a class="btn btn-solid" data-dl href="https://github.com/Lunar0710/Crystal/releases/download/v1.5.1/Nexora-Launcher-Setup-1.5.1.exe" id="heroDl">Nexora herunterladen<span class="ic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v9m0 0L4.5 8M8 11.5 11.5 8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
-      <a class="btn btn-ghost" href="#features">Alle Features<span class="ic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 11.5l7-7m0 0H6m5.5 0V10" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+      <a class="btn btn-solid" href="#projekte">Projekte ansehen<span class="ic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v9m0 0L4.5 8M8 11.5 11.5 8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+      <a class="btn btn-ghost" href="https://github.com/Lunar0710/Crystal" target="_blank" rel="noopener">Code auf GitHub<span class="ic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 11.5l7-7m0 0H6m5.5 0V10" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
     </div>
-    <p class="meta rv">Windows, macOS, Linux. Minecraft 1.21.4 bis 26.2 mit Fabric.<span id="liveMeta"></span></p>
-
-    <div class="stage rv" id="stage">
-      <div class="tilt" id="tilt">
-        <div class="shell window">
-          <div class="core">
-            <div class="win">
-              <aside class="side" aria-hidden="true">
-                <svg class="logo" viewBox="0 0 64 64"><path d="M45.5 13.2A22 22 0 1 0 53.6 26" fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round"/><path d="M22 44V20h5.6l10 14.6V20H43v24h-5.4L27.4 29.4V44z" fill="#fff"/><path d="M51 6l2.2 5.6L59 13.8l-5.8 2.2L51 21.6 48.8 16 43 13.8l5.8-2.2z" fill="var(--accent)"/></svg>
-                <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M5 12l7-7 7 7M7 10v9h10v-9"/></svg></i>
-                <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg></i>
-                <i class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M5 19L15 9m0 0l-2-4 6-1-1 6-4-2zM5 15l4 4"/></svg></i>
-                <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M12 3l2.5 5.5L20 9l-4 4 1 6-5-3-5 3 1-6-4-4 5.5-.5z"/></svg></i>
-                <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="9" cy="9" r="3.5"/><path d="M3.5 19c.8-3 3-4.5 5.5-4.5s4.7 1.5 5.5 4.5M16 6.5a3 3 0 010 5.5M18 14.5c1.4.6 2.3 2 2.6 4"/></svg></i>
-              </aside>
-              <div class="pane">
-                <div class="pane-head"><h4>Kämpfe</h4><span>Heute, 21:14 · Hypixel Duels</span></div>
-                <div class="kpis">
-                  <div class="kpi"><small>Kämpfe</small><b data-count>48</b></div>
-                  <div class="kpi"><small>Siege</small><b data-count>31</b></div>
-                  <div class="kpi"><small>Trefferquote</small><b><span data-count>68</span> %</b></div>
-                  <div class="kpi"><small>Beste Combo</small><b data-count>7</b></div>
-                </div>
-                <div class="map">
-                  <canvas id="heroMap" role="img" aria-label="Replay: zwei Spieler umkreisen sich, Treffer blinken auf, der Gegner fällt."></canvas>
-                  <div class="who"><span><i style="background:var(--accent)"></i>Du</span><span><i style="background:var(--foe)"></i>Steve_PvP</span></div>
-                  <div class="t" id="heroTime">-5.0s</div>
-                </div>
-                <div class="hp">
-                  <div><span><span>Du</span><span id="hpMe">20.0</span></span><div class="bar"><i id="barMe" style="background:var(--accent)"></i></div></div>
-                  <div><span><span>Steve_PvP</span><span id="hpFoe">20.0</span></span><div class="bar"><i id="barFoe" style="background:var(--foe)"></i></div></div>
-                </div>
-                <div class="controls" aria-hidden="true">
-                  <span class="play"><svg viewBox="0 0 12 12"><path d="M3 1.5v9l7.5-4.5z" fill="currentColor"/></svg></span>
-                  <div class="scrub"><i id="scrub"></i></div>
-                  <span class="spd">0.25x</span><span class="spd">0.5x</span><span class="spd on">1x</span><span class="spd">2x</span>
-                </div>
-              </div>
-              <aside class="list">
-                <h5>Letzte Kämpfe</h5>
-                <div class="row on"><span class="res w">S</span><span><b>Steve_PvP</b><small>12 Treffer · 0:48</small></span></div>
-                <div class="row"><span class="res w">S</span><span><b>xNotch</b><small>9 Treffer · 0:31</small></span></div>
-                <div class="row"><span class="res l">N</span><span><b>Technoblade_Fan</b><small>6 Treffer · 1:12</small></span></div>
-                <div class="row"><span class="res w">S</span><span><b>kiwi_pvp</b><small>14 Treffer · 0:57</small></span></div>
-                <div class="row"><span class="res w">S</span><span><b>Dreamless</b><small>11 Treffer · 0:44</small></span></div>
-                <div class="row"><span class="res l">N</span><span><b>obsidian_ov</b><small>4 Treffer · 0:22</small></span></div>
-              </aside>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="chip c1" data-depth="26" style="--dp:0.65"><span class="xmark"></span><span>HitMarker <small>Treffer zählt</small></span></div>
-      <div class="chip c2" data-depth="40" style="--dp:1.00"><span class="k">FPS <span data-count>412</span></span><small>1%-Low 238</small></div>
-      <div class="chip c3" data-depth="34" style="--dp:0.85"><span class="pop"></span><span>Steve_PvP <small>2 Totems gepoppt</small></span></div>
-      <div class="chip c4" data-depth="18" style="--dp:0.45"><span class="k">K/D 3.50</span><small>Kills 7 · Tode 2</small></div>
-    </div>
+    <p class="meta rv">Auf GitHub als <a href="https://github.com/Lunar0710" target="_blank" rel="noopener">Lunar0710</a>, in Minecraft als Lunar_cpvp.</p>
   </div>
 
-  <div class="marquee" aria-label="Einige der 115 Module">
-    <div class="track" id="t1"></div>
-    <div class="track rev" id="t2"></div>
-  </div>
-
-  <section class="wrap" id="features">
+  <section class="wrap" id="projekte">
     <div class="head">
-      <div><span class="eyebrow rv"><span data-count>115</span> Module</span><h2 class="rv">Alles drin. Nichts zusammensuchen.</h2></div>
-      <p class="rv">Was du sonst aus zehn Mods baust, steckt in einem Client. Jedes Modul lässt sich einzeln schalten und im HUD-Editor frei platzieren.</p>
+      <div><span class="eyebrow rv">Übersicht</span><h2 class="rv">Was ich gebaut habe.</h2></div>
+      <p class="rv">Drei Projekte, die zusammengehören: ein Client zum Spielen, eine App für einen schnelleren PC und der Dienst dazwischen.</p>
     </div>
 
-    <div class="bento">
-      <div class="cell w7 shell rv">
+    <div class="projects">
+      <a class="proj wide shell rv" href="nexora.html">
         <div class="core">
-          <div><h3>Kill-Cam</h3><p>Stirbst du im Kampf, zeigt der Todesbildschirm die letzten fünf Sekunden von oben. Du siehst, wie er dich erwischt hat.</p></div>
-          <div class="death">
-            <h4>Du bist gestorben!</h4>
-            <div class="by">Steve_PvP hat dich getötet</div>
-            <div class="cam">
-              <div class="cam-top"><b>Kill-Cam: Steve_PvP</b><span id="camTime">-5.0s</span></div>
-              <canvas id="camMap" role="img" aria-label="Kill-Cam: die letzten fünf Sekunden vor dem Tod von oben"></canvas>
+          <div class="pic"><img src="nexora.jpg" alt="Nexora-Launcher: Kampf-Replay von oben mit Leben, Trefferquote und den letzten Kämpfen" width="1240" height="573"></div>
+          <div class="txt">
+            <span class="kind">Minecraft-Client und Launcher</span>
+            <h3>Nexora</h3>
+            <p>Ein kostenloser Minecraft-Client mit eigenem Launcher. Kampf-Replays von oben, Kill-Cam, PvP-HUD, FPS-Doktor und über hundert Module, für Minecraft 1.21.4 bis 26.2 mit Fabric.</p>
+            <div class="facts"><span class="v" id="nexoraVersion">Version 1.7.1</span><span>Windows · macOS · Linux</span><span>Auch als Mod-Datei</span></div>
+            <span class="go">Zur Nexora-Seite<i><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h9.5m0 0L8.5 4M12.5 8l-4 4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></i></span>
+          </div>
+        </div>
+      </a>
+
+      <a class="proj shell rv" href="#lunar">
+        <div class="core">
+          <div class="pic"><img src="lunar-optimizer.jpg" alt="Lunar Optimizer: Übersicht mit Gaming-Score, Live-Werten und gefundenen Problemen" width="1320" height="840" loading="lazy"></div>
+          <div class="txt">
+            <span class="kind">Windows-App</span>
+            <h3>Lunar Optimizer</h3>
+            <p>Stellt Windows fürs Gaming ein: prüft die Hardware, zeigt live, was Leistung frisst, misst den Ping und nimmt jede Änderung auf Wunsch zurück.</p>
+            <div class="facts"><span class="v" id="optVersion">Kostenlos</span><span>Windows 10 und 11</span></div>
+            <span class="go">Mehr erfahren<i><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v9m0 0L4.5 8M8 11.5 11.5 8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></i></span>
+          </div>
+        </div>
+      </a>
+
+      <a class="proj shell rv" href="https://github.com/Lunar0710/Crystal/tree/main/server" target="_blank" rel="noopener">
+        <div class="core">
+          <div class="pic" aria-hidden="true">
+            <div class="srv">
+              <div class="srv-top"><b>nexora-server</b><span>Cloudflare Workers</span></div>
+              <div class="srv-row"><i class="dot"></i><span>Freunde<small> · Anfragen und Online-Status</small></span><span class="num">200 max.</span></div>
+              <div class="srv-row"><i class="dot b"></i><span>Chat<small> · erreicht auch Offline-Freunde</small></span><span class="num">500 Zeichen</span></div>
+              <div class="srv-row"><i class="dot g"></i><span>Emotes und Cosmetics<small> · pro Minecraft-Server</small></span><span class="num">Hash</span></div>
             </div>
-            <div class="btns" aria-hidden="true"><span>Wiederbeleben</span><span>Hauptmenü</span></div>
+          </div>
+          <div class="txt">
+            <span class="kind">Dienst hinter Nexora</span>
+            <h3>Nexora-Server</h3>
+            <p>Lässt Nexora-Spieler auf demselben Minecraft-Server die Emotes und Cosmetics der anderen sehen und verbindet Freunde mit Chat. Wer sich anmeldet, beweist es über Mojang; die Serveradresse verlässt den PC nur als Hash.</p>
+            <div class="facts"><span class="v">Open Source</span><span>Node.js und Cloudflare</span></div>
+            <span class="go">Code ansehen<i><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 11.5l7-7m0 0H6m5.5 0V10" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></i></span>
           </div>
         </div>
-      </div>
-
-      <div class="cell w5 shell rv">
-        <div class="core">
-          <div><h3>FPS-Doktor</h3><p>Prüft Mods, Arbeitsspeicher und Einstellungen. Ein Klick behebt jeden Fund.</p></div>
-          <div class="doc push">
-            <div><i class="sev" style="background:var(--foe)"></i><span>Zwei Mods für dieselbe Aufgabe<small>Sodium und Embeddium</small></span><em>Beheben</em></div>
-            <div><i class="sev" style="background:#f08c3a"></i><span>Sichtweite 32 Chunks<small>12 reichen für PvP</small></span><em>Beheben</em></div>
-            <div><i class="sev" style="background:#d4af5a"></i><span>Nur 2 GB Arbeitsspeicher<small>Empfohlen: 4 GB</small></span><em>Beheben</em></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="cell w5 shell rv">
-        <div class="core">
-          <div><h3>FrameGraph</h3><p>Jeder Frame als Balken. Ruckler orange, Hänger rot.</p></div>
-          <div class="push">
-            <div class="graph" id="graph" aria-hidden="true"></div>
-            <div class="gl" style="margin-top:12px"><span>FPS <b id="gFps">412</b></span><span>1%-Low <b>238</b></span><span>Frame <b id="gMs">2.4 ms</b></span></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="cell w6 shell rv">
-        <div class="core">
-          <div><h3>Instanz teilen</h3><p>Dein Setup als .mrpack. Ein Freund importiert es und hat genau deine Mods und Einstellungen.</p></div>
-          <div class="file push"><span class="fi">MRPACK</span><span><b>PvP Setup.mrpack</b><small>55 Mods von Modrinth, 2 mitgepackt</small></span></div>
-        </div>
-      </div>
-
-      <div class="cell w6 shell rv">
-        <div class="core">
-          <div><h3>Mehrere Spiele</h3><p>Jede Instanz mit eigenem Konto. CPU und RAM immer im Blick.</p></div>
-          <div class="runs push">
-            <div class="run"><span><span class="live"></span>PvP 1.21.11</span><span class="num">CPU 18 %</span><small>Main · seit 42 min</small><span class="num">3.1 GB</span></div>
-            <div class="run"><span><span class="live"></span>Farm 26.2</span><span class="num">CPU 9 %</span><small>Zweitkonto · seit 2 h</small><span class="num">2.4 GB</span></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="cell w8 shell rv">
-        <div class="core">
-          <div><h3>Spotify und Lyrics <span class="tag">Neu</span></h3><p>Der Song aus Spotify im HUD, und darüber der Songtext, Zeile für Zeile im Takt, zwei Sekunden vorab. Beides verschiebst du getrennt. Ohne Spotify-Login.</p></div>
-          <div class="spot-stage push" aria-label="Beispiel: Spotify-Karte und Songtext im Spiel">
-            <div class="lyr"><b id="lyrNow">Die Stadt schläft, wir fahren weiter</b><span id="lyrNext">Neonlicht auf nassem Asphalt</span></div>
-            <div class="spot">
-              <span class="cover" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-              <span class="meta"><b>Nachtfahrt</b><small>Beispiel-Band</small><span class="prog"><i id="spotBar"></i></span></span>
-              <span class="time" id="spotTime">1:14 / 3:05</span>
-            </div>
-            <span class="ex">Beispiel, kein echter Song</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="cell shell rv">
-        <div class="core">
-          <div><h3>Deine Farbe</h3><p>Neun Akzentfarben aus dem NexoraMenu. Probier sie aus, die ganze Seite folgt.</p></div>
-          <div class="push">
-            <div class="swatches" id="swatches" role="group" aria-label="Akzentfarbe"></div>
-            <p class="sw-name" style="margin-top:14px">Gewählt: <b id="swName">Weiß</b></p>
-          </div>
-        </div>
-      </div>
-
-      <div class="cell w12 shell rv" id="versionen">
-        <div class="core">
-          <div style="display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;align-items:end">
-            <div><h3>Ein Client, neun Versionen</h3><p>Wähl die Version im Launcher, Nexora bringt die passende Mod mit. Vor jedem Release läuft auf jeder Version ein Test in einer echten Welt.</p></div>
-          </div>
-          <div class="tl">
-            <div><b>1.21.4</b></div><div><b>1.21.5</b></div><div><b>1.21.6</b></div><div><b>1.21.7</b></div><div><b>1.21.8</b></div>
-            <div><b>1.21.9</b></div><div><b>1.21.10</b></div><div><b>1.21.11</b></div><div class="new"><b>26.2</b><small>neueste</small></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section class="wrap" id="neu">
-    <div class="head">
-      <div><span class="eyebrow rv" id="neuTag"><b>1.6</b> Changelog</span><h2 class="rv" id="neuTitle">Neu in Nexora 1.6.</h2></div>
-      <p class="rv">Die größten Neuerungen im letzten Update. Der Launcher aktualisiert sich selbst, du musst nichts tun.</p>
-    </div>
-    <div class="news" id="news">
-      <article class="shell rv"><div class="core"><span class="n">01</span><h3>Kampf-Replay</h3><p>Jeder Kampf wird aufgezeichnet. Im Launcher siehst du ihn von oben noch einmal, mit Laufwegen, Treffern und Leben.</p></div></article>
-      <article class="shell rv"><div class="core"><span class="n">02</span><h3>Kill-Cam</h3><p>Der Todesbildschirm zeigt die letzten fünf Sekunden vor deinem Tod von oben.</p></div></article>
-      <article class="shell rv"><div class="core"><span class="n">03</span><h3>HitMarker</h3><p>Ein kurzes Kreuz am Fadenkreuz, wenn ein Treffer wirklich zählt.</p></div></article>
-      <article class="shell rv"><div class="core"><span class="n">04</span><h3>TotemPops</h3><p>Wie viele Totems jeder Spieler seit seinem letzten Tod verloren hat, am Namensschild und im Chat.</p></div></article>
-      <article class="shell rv"><div class="core"><span class="n">05</span><h3>Instanz teilen</h3><p>Dein Setup als .mrpack-Datei, mit Mods, Resource Packs, Shadern und Einstellungen.</p></div></article>
-      <article class="shell rv"><div class="core"><span class="n">06</span><h3>Mehr FPS</h3><p>3D Skins bis zu viermal leichter, schnellerer Start und ein Leistungsmodus, der die teuersten Optionen zurückdreht.</p></div></article>
-    </div>
-    <p class="news-all rv"><a href="https://github.com/Lunar0710/Crystal/releases" id="newsAll">Alle Änderungen ansehen</a></p>
-  </section>
-
-  <section class="wrap" id="plus">
-    <div class="plus">
-      <div>
-        <span class="eyebrow rv">Mitgliedschaft</span>
-        <h2 class="rv">Nexora<sup>+</sup></h2>
-        <p class="lede rv">Cosmetics, die jeder Nexora-Spieler sieht, mehr Launcher-Themes und ein Effekt, wenn dein Gegner fällt. Capes bleiben für alle kostenlos.</p>
-        <ul class="perks rv">
-          <li>Pets<span>Drache, Axolotl, Pinguin, Roboter und sieben mehr</span></li>
-          <li>Hüte und Flügel<span>Samurai-Helm, Motten-Flügel, Laterne, Sombrero</span></li>
-          <li>Halloween-Paket<span>Kürbiskopf, Fledermausflügel, Herbstlaub-Aura</span></li>
-          <li>KillEffect<span>Totem-, Funken-, Seelen- oder Herz-Explosion</span></li>
-          <li>Outfits<span>Kombinationen speichern und per Klick wechseln</span></li>
-          <li>Themes<span>Halloween, Midnight, Sakura und mehr für den Launcher</span></li>
-        </ul>
-      </div>
-      <div class="card-stage rv" id="cardStage">
-        <div class="member" id="member" aria-label="Nexora+ Mitgliedskarte, Beispiel">
-          <div class="in">
-            <div class="top">
-              <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M45.5 13.2A22 22 0 1 0 53.6 26" fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round"/><path d="M22 44V20h5.6l10 14.6V20H43v24h-5.4L27.4 29.4V44z" fill="#fff"/><path d="M51 6l2.2 5.6L59 13.8l-5.8 2.2L51 21.6 48.8 16 43 13.8l5.8-2.2z" fill="var(--accent)"/></svg>
-              <span>Nexora<i>+</i></span>
-            </div>
-            <span class="chipx" aria-hidden="true"></span>
-            <div class="bot"><div><small>SPIELER</small>STEVE_PVP</div><div style="text-align:right"><small>RANG</small>NEXORA+</div></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section class="wrap" id="jar">
-    <div class="shell jar rv" style="display:block">
-      <div class="core">
-        <div>
-          <span class="eyebrow">Mod-Datei</span>
-          <h3 style="margin-top:18px">Lieber dein eigener Launcher?</h3>
-          <p>Jedes Release hat Nexora auch als einzelne Jar, eine pro Minecraft-Version. Sie läuft in Prism, MultiMC und dem normalen Launcher. Nexora+ gibt es nur mit Anmeldung im Nexora-Launcher.</p>
-          <div class="jars" id="jars" role="list" aria-label="Mod-Datei pro Minecraft-Version">
-            <a role="listitem" href="https://github.com/Lunar0710/Crystal/releases/latest">1.21.11</a><a role="listitem" href="https://github.com/Lunar0710/Crystal/releases/latest">26.2</a><a role="listitem" href="https://github.com/Lunar0710/Crystal/releases/latest">1.21.10</a><a role="listitem" href="https://github.com/Lunar0710/Crystal/releases/latest">1.21.9</a><a role="listitem" href="https://github.com/Lunar0710/Crystal/releases/latest">1.21.8</a><a role="listitem" href="https://github.com/Lunar0710/Crystal/releases/latest">1.21.7</a><a role="listitem" href="https://github.com/Lunar0710/Crystal/releases/latest">1.21.6</a><a role="listitem" href="https://github.com/Lunar0710/Crystal/releases/latest">1.21.5</a><a role="listitem" href="https://github.com/Lunar0710/Crystal/releases/latest">1.21.4</a>
-          </div>
-          <p class="jars-note" id="jarsNote">Wähl deine Minecraft-Version. Dazu gehört die <a href="https://modrinth.com/mod/fabric-api/versions">Fabric API</a> in denselben mods-Ordner.</p>
-        </div>
-        <div class="term">
-          <div class="term-top"><span>.minecraft/mods</span><button type="button" id="copyJar">Name kopieren</button></div>
-<pre><i>+</i> <b id="jarName">nexora-1.6.0+1.21.11.jar</b>
-<i>+</i> <b>fabric-api.jar</b>
-  sodium.jar
-  iris.jar</pre>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section class="wrap" id="faq">
-    <div class="head">
-      <div><span class="eyebrow rv">Fragen</span><h2 class="rv">Kurz beantwortet.</h2></div>
-      <p class="rv">Was Spieler vor dem ersten Start am häufigsten wissen wollen.</p>
-    </div>
-    <div class="faq rv">
-      <details><summary>Kostet Nexora etwas?</summary><div class="a"><p>Nein. Launcher, Client, alle Module und Capes sind kostenlos. Nur Nexora+ mit Pets, Hüten, KillEffect und mehr Themes ist eine freiwillige Mitgliedschaft.</p></div></details>
-      <details><summary>Brauche ich Java oder Fabric?</summary><div class="a"><p>Nein. Der Launcher lädt die passende Java-Version, Fabric und Nexora selbst herunter. Du meldest dich nur mit deinem Microsoft-Konto an.</p></div></details>
-      <details><summary>Läuft Nexora auf meinem PC?</summary><div class="a"><p>Auf Windows 10 und 11, macOS (Intel und Apple Silicon) und Linux. Der Launcher installiert beim ersten Start Sodium und weitere Leistungs-Mods, und der FPS-Doktor schlägt passende Einstellungen für schwächere Rechner vor.</p></div></details>
-      <details><summary>Kann ich meine eigenen Mods und Shader nutzen?</summary><div class="a"><p>Ja. Jede Instanz hat ihren eigenen mods-Ordner, Mods von Modrinth installierst du direkt im Launcher. Shader laufen über Iris.</p></div></details>
-      <details><summary>Ich nutze Prism, MultiMC oder den normalen Launcher.</summary><div class="a"><p>Dann nimm die <a href="#jar">Mod-Datei</a> für deine Minecraft-Version und leg sie zusammen mit der Fabric API in den mods-Ordner. Nexora+ gibt es nur mit Anmeldung im Nexora-Launcher.</p></div></details>
-      <details><summary>Wie bekomme ich Updates?</summary><div class="a"><p>Automatisch. Der Launcher prüft beim Start auf eine neue Version und bietet sie dir an, der Client wird beim nächsten Spielstart mit aktualisiert.</p></div></details>
-    </div>
-  </section>
-
-  <section class="wrap" id="download">
-    <div class="shell dl rv">
-      <div class="core">
-        <span class="eyebrow">Kostenlos</span>
-        <h2>Bereit für den nächsten Kampf?</h2>
-        <p class="lede">Der Launcher richtet Java, Fabric und Nexora selbst ein und hält sich danach automatisch aktuell. Anmelden mit deinem Microsoft-Konto.</p>
-        <div class="cta"><a class="btn btn-solid" id="mainDl" data-dl href="https://github.com/Lunar0710/Crystal/releases/download/v1.5.1/Nexora-Launcher-Setup-1.5.1.exe"><span id="mainDlText">Für Windows herunterladen</span><span class="ic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v9m0 0L4.5 8M8 11.5 11.5 8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a></div>
-        <p class="dl-size" id="dlSize">Version 1.5.1 · Windows 10 und 11</p>
-        <div class="oses">
-          <a data-dl data-os="win" href="https://github.com/Lunar0710/Crystal/releases/download/v1.5.1/Nexora-Launcher-Setup-1.5.1.exe">Windows .exe</a>
-          <a data-dl data-os="mac-arm64" href="https://github.com/Lunar0710/Crystal/releases/download/v1.5.1/Nexora-Launcher-1.5.1-mac-arm64.dmg">macOS Apple Silicon</a>
-          <a data-dl data-os="mac-x64" href="https://github.com/Lunar0710/Crystal/releases/download/v1.5.1/Nexora-Launcher-1.5.1-mac-x64.dmg">macOS Intel</a>
-          <a data-dl data-os="linux" href="https://github.com/Lunar0710/Crystal/releases/download/v1.5.1/Nexora-Launcher-1.5.1-linux-x86_64.AppImage">Linux .AppImage</a>
-          <a href="#jar">Nur die Mod .jar</a>
-        </div>
-      </div>
+      </a>
     </div>
   </section>
 
   <section class="wrap" id="lunar">
     <div class="lunar">
       <div class="lunar-text">
-        <span class="eyebrow rv"><b>Neu</b> Auch von uns</span>
-        <h2 class="rv no-split">Lunar Optimizer.</h2>
+        <span class="eyebrow rv">Projekt</span>
+        <h2 class="rv">Lunar Optimizer.</h2>
         <p class="lede rv">Die App, die Windows fürs Gaming einstellt. Sie prüft deine Hardware, zeigt live, was Leistung frisst, misst deinen Ping und stellt mit einem Klick alles auf Spielen. Jede Änderung lässt sich zurücknehmen.</p>
         <ul class="lunar-list rv">
           <li><b>Gaming-Score</b><span>Findet alte Treiber, 60-Hz-Bildschirme, volle Platten und mehr</span></li>
@@ -944,10 +392,10 @@
           <li><b>Autostart und Aufräumen</b><span>Schneller hochfahren, Platz schaffen</span></li>
         </ul>
         <div class="cta rv lunar-cta">
-          <a class="btn btn-solid" data-dl data-os="lunar" href="optimizer/Lunar-Optimizer-Setup.zip">Lunar Optimizer laden<span class="ic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v9m0 0L4.5 8M8 11.5 11.5 8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
-          <a class="btn btn-ghost" data-dl data-os="lunar" href="optimizer/Lunar-Optimizer.zip">Ohne Installation<span class="ic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v9m0 0L4.5 8M8 11.5 11.5 8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+          <a class="btn btn-solid" data-dl href="optimizer/Lunar-Optimizer-Setup.zip">Lunar Optimizer laden<span class="ic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v9m0 0L4.5 8M8 11.5 11.5 8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+          <a class="btn btn-ghost" data-dl href="optimizer/Lunar-Optimizer.zip">Ohne Installation<span class="ic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v9m0 0L4.5 8M8 11.5 11.5 8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
         </div>
-        <p class="meta lunar-meta rv">Kostenlos · Windows 10 und 11 · Defender, Updates und Firewall bleiben an</p>
+        <p class="lunar-meta rv" id="optMeta">Kostenlos · Windows 10 und 11 · Defender, Updates und Firewall bleiben an</p>
       </div>
       <div class="lunar-shot rv">
         <div class="shell"><div class="core"><img src="lunar-optimizer.jpg" alt="Lunar Optimizer: Übersicht mit Gaming-Score, Live-Werten und gefundenen Problemen" width="1320" height="840" loading="lazy"></div></div>
@@ -958,21 +406,17 @@
 
 <footer class="wrap">
   <div class="foot">
-    <span>Nexora ist kein offizielles Minecraft-Produkt und nicht mit Mojang oder Microsoft verbunden.</span>
-    <span style="display:flex;gap:24px"><a href="#lunar">Lunar Optimizer</a><a href="https://github.com/Lunar0710/Crystal/releases">Alle Versionen</a><a href="#top">Nach oben</a></span>
+    <span>Lunar's Projects von Lunar_cpvp. Nexora ist kein offizielles Minecraft-Produkt und nicht mit Mojang oder Microsoft verbunden.</span>
+    <span class="foot-links"><a href="nexora.html">Nexora</a><a href="#lunar">Lunar Optimizer</a><a href="https://github.com/Lunar0710" target="_blank" rel="noopener">GitHub</a><a href="https://discord.gg/Jj5AK7eD7" target="_blank" rel="noopener">Discord</a><a href="#top">Nach oben</a></span>
   </div>
-  <div class="wordmark" aria-hidden="true">Nexora</div>
+  <div class="wordmark" aria-hidden="true">Lunar</div>
 </footer>
-<div class="toast" id="toast" role="status" aria-live="polite"><b id="toastTitle">Download startet</b><span id="toastText">Öffne die Datei, wenn sie fertig ist.</span></div>
+<div class="toast" id="toast" role="status" aria-live="polite"><b>Download startet</b><span>ZIP öffnen und die .exe darin starten. Meldet Windows „Der Computer wurde geschützt“: „Weitere Informationen“, dann „Trotzdem ausführen“.</span></div>
 
 <script>
-// Always open at the top: no jump to a #section from an old link or a reload,
-// and no scroll position the browser remembered.
-if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
-if (location.hash) history.replaceState(null, '', location.pathname + location.search);
-window.scrollTo(0, 0);
-// Section links scroll there without writing #section into the address,
-// so opening the page again starts at the top, not at the last section.
+// Old links to the Nexora page (lunar0710.github.io/Crystal/#download and the like)
+// now belong to nexora.html; #lunar stays here, the Lunar Optimizer links to it.
+if (/^#(features|versionen|neu|plus|jar|faq|download)$/.test(location.hash)) location.replace('nexora.html');
 document.addEventListener('click', e => {
   const a = e.target.closest('a[href^="#"]');
   if (!a) return;
@@ -985,36 +429,50 @@ document.addEventListener('click', e => {
 (() => {
   const $ = id => document.getElementById(id);
   const root = document.documentElement;
-  // The site always moves, whatever the system's animation setting says (the owner's choice).
-  const still = false;
-  // Published releases, newest first; [] when GitHub can't be reached (the links then stay as written).
-  const releases = fetch('https://api.github.com/repos/Lunar0710/Crystal/releases?per_page=100', { headers: { Accept: 'application/vnd.github+json' } })
-    .then(r => r.ok ? r.json() : []).then(rs => Array.isArray(rs) ? rs.filter(x => !x.draft && !x.prerelease) : []).catch(() => []);
+  const fine = matchMedia('(pointer: fine)').matches;
 
-  // ---- Accent colours: the nine from the in-game NexoraMenu ----
-  const accents = [['Weiß', '#ffffff'], ['Blau', '#4c8dff'], ['Türkis', '#3cc3c8'], ['Grün', '#3dbe7a'], ['Gold', '#d4af5a'], ['Orange', '#f08c3a'], ['Rot', '#e5484d'], ['Pink', '#e86aa6'], ['Lila', '#8e6bef']];
+  // ---- Themes: the same list and storage key as nexora.html, so a choice carries over ----
+  const themes = [
+    ['crystal-blue', 'Nexora Mono', '#ffffff', '#8a8a93'], ['nexora-red', 'Nexora Rot', '#c3493a', '#e0735f'],
+    ['crystal-crimson', 'Nexora Crimson', '#f5455b', '#f57c3d'], ['crystal-bloom', 'Nexora Bloom', '#f56ba0', '#f5a3c7'],
+    ['crystal-amethyst', 'Nexora Amethyst', '#a35bf5', '#7c3df5'], ['crystal-emerald', 'Nexora Emerald', '#34d399', '#5bf5c9'],
+    ['crystal-light', 'Nexora Light', '#5b8af5', '#7c6af5'],
+    ['midnight', 'Midnight', '#3b5bdb', '#312e81', '+'], ['sunset', 'Sunset', '#f97316', '#e11d48', '+'], ['ocean', 'Ocean', '#0ea5e9', '#14b8a6', '+'],
+    ['rose', 'Rosé', '#fb7185', '#f9a8d4', '+'], ['carbon', 'Carbon', '#a1a1aa', '#52525b', '+'], ['matcha', 'Matcha', '#84cc16', '#4d7c0f', '+'],
+    ['void', 'Void', '#ffffff', '#b4b4d2', '+'], ['aurora', 'Aurora', '#34d399', '#818cf8', '+'], ['sakura', 'Sakura', '#f472b6', '#7e22ce', '+'],
+    ['terminal', 'Terminal', '#22c55e', '#15803d', '+'], ['sandstorm', 'Sandstorm', '#d97706', '#92400e', '+'], ['halloween', 'Halloween', '#f97316', '#7e22ce', '+'],
+  ];
   const inkFor = hex => { const n = parseInt(hex.slice(1), 16); return (0.299 * (n >> 16) + 0.587 * (n >> 8 & 255) + 0.114 * (n & 255)) > 150 ? '#050505' : '#ffffff'; };
-  const box = $('swatches');
-  const colors = { me: '#ffffff', foe: '#e5484d' };
-  function setAccent(hex) {
-    colors.me = hex;
-    colors.foe = hex === '#e5484d' ? '#f4f4f5' : '#e5484d';
-    root.style.setProperty('--accent', hex);
-    root.style.setProperty('--accent-ink', inkFor(hex));
-    root.style.setProperty('--foe', colors.foe);
-    root.style.setProperty('--glow', hex === '#ffffff' ? '#4c8dff' : hex);
-    box.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.hex === hex)));
-    $('swName').textContent = (accents.find(a => a[1] === hex) || accents[0])[0];
-    try { localStorage.setItem('nexora-accent', hex); } catch {}
+  let accentRgb = '255,255,255';
+  function setTheme(id) {
+    const t = themes.find(x => x[0] === id) || themes[0];
+    const [, name, accent, second] = t;
+    root.style.setProperty('--accent', accent);
+    root.style.setProperty('--accent-ink', inkFor(accent));
+    root.style.setProperty('--glow', accent === '#ffffff' ? '#4c8dff' : second);
+    const n = parseInt(accent.slice(1), 16); accentRgb = `${n >> 16},${n >> 8 & 255},${n & 255}`;
+    document.querySelectorAll('.sw').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.id === t[0])));
+    document.querySelectorAll('.sw-current').forEach(el => { el.textContent = name; });
+    try { localStorage.setItem('nexora-theme', t[0]); } catch {}
   }
-  for (const [name, hex] of accents) {
-    const b = document.createElement('button');
-    b.className = 'sw'; b.type = 'button'; b.dataset.hex = hex; b.title = name; b.setAttribute('aria-label', name); b.style.background = hex;
-    b.addEventListener('click', () => setAccent(hex));
-    box.appendChild(b);
+  for (const box of document.querySelectorAll('.swatches')) {
+    for (const [id, name, accent, second, plus] of themes) {
+      const b = document.createElement('button');
+      b.className = 'sw'; b.type = 'button'; b.dataset.id = id;
+      b.title = plus ? name + ' (Nexora+)' : name; b.setAttribute('aria-label', b.title);
+      b.style.background = `linear-gradient(135deg, ${accent} 0 50%, ${second} 50% 100%)`;
+      if (plus) { const m = document.createElement('span'); m.className = 'plus'; m.textContent = '+'; b.appendChild(m); }
+      b.addEventListener('click', () => setTheme(id));
+      box.appendChild(b);
+    }
   }
-  let saved = null; try { saved = localStorage.getItem('nexora-accent'); } catch {}
-  setAccent(accents.some(a => a[1] === saved) ? saved : '#ffffff');
+  let saved = null; try { saved = localStorage.getItem('nexora-theme'); } catch {}
+  setTheme(saved);
+  const themeBtn = $('themeBtn'), themePop = $('themePop');
+  const showThemes = open => { themePop.classList.toggle('open', open); themeBtn.setAttribute('aria-expanded', String(open)); };
+  themeBtn.addEventListener('click', e => { e.stopPropagation(); showThemes(!themePop.classList.contains('open')); });
+  document.addEventListener('click', e => { if (!themePop.contains(e.target)) showThemes(false); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') showThemes(false); });
 
   // ---- Mobile menu ----
   const burger = $('burger'), overlay = $('overlay');
@@ -1022,237 +480,96 @@ document.addEventListener('click', e => {
   burger.addEventListener('click', () => toggle(!document.body.classList.contains('menu-open')));
   overlay.querySelectorAll('a').forEach(a => a.addEventListener('click', () => toggle(false)));
 
-  // ---- Module marquee ----
-  const mods = ['Kampf-Replay', 'Kill-Cam', 'Spotify', 'Lyrics', 'HitMarker', 'TotemPops', 'PotCounter', 'FightSummary', 'Gegner-Rüstung', 'SessionStats', 'TPSDisplay', 'InventoryHUD', 'KillEffect', 'LowFire', 'Keystrokes', 'CPS', 'Zoom', 'Minimap', 'Waypoints', 'FreeLook', 'ToggleSprint', 'FrameGraph', 'RenderLimits', 'MotionBlur', 'ColorSaturation', 'SkyColor', 'FogCustomizer', 'NameTags', 'Profiles', 'Crosshair', 'HitSound', 'Emotes', 'Pets', 'Capes'];
-  const fill = (el, list) => { const html = list.map((m, i) => `<span${i % 5 === 0 ? ' class="hl"' : ''}>${m}</span>`).join(''); el.innerHTML = html + html; };
-  fill($('t1'), mods); fill($('t2'), mods.slice().reverse());
+  // ---- Live facts: newest Nexora release, newest Lunar Optimizer ----
+  fetch('https://api.github.com/repos/Lunar0710/Crystal/releases/latest', { headers: { Accept: 'application/vnd.github+json' } })
+    .then(r => r.ok ? r.json() : null).then(r => { if (r && r.tag_name) $('nexoraVersion').textContent = `Version ${r.tag_name.replace(/^v/, '')}`; }).catch(() => {});
+  fetch('optimizer/version.json').then(r => r.ok ? r.json() : null).then(v => {
+    if (!v || !v.version) return;
+    $('optVersion').textContent = `Version ${v.version}`;
+    $('optMeta').textContent = `Version ${v.version} · Kostenlos · Windows 10 und 11 · Defender, Updates und Firewall bleiben an`;
+  }).catch(() => {});
 
-  // ---- Reveal: only elements below the first screen are primed, and all show within 3s regardless ----
+  // A short note once the download starts.
+  const toast = $('toast'); let toastTimer = 0;
+  document.querySelectorAll('[data-dl]').forEach(a => a.addEventListener('click', () => {
+    toast.classList.add('on'); clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('on'), 9000);
+  }));
+
+  // ---- Motion ----
+  root.classList.add('js');
+  const seen = (el, fn, margin = '0px 0px -10% 0px') => {
+    if (!('IntersectionObserver' in window)) { fn(); return; }
+    const o = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { o.disconnect(); fn(); } }, { rootMargin: margin });
+    o.observe(el);
+  };
+
+  // Below-the-fold items rise in; all show within 3 s regardless.
   const rv = [...document.querySelectorAll('.rv')].filter(el => el.getBoundingClientRect().top > innerHeight * .92);
-  if (!still && 'IntersectionObserver' in window) {
+  if ('IntersectionObserver' in window) {
     rv.forEach(el => el.classList.add('pre'));
     const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.remove('pre'); io.unobserve(e.target); } }), { rootMargin: '0px 0px -8% 0px' });
     rv.forEach(el => io.observe(el));
     setTimeout(() => rv.forEach(el => el.classList.remove('pre')), 3000);
   }
+  [...document.querySelectorAll('.hero > .rv')].forEach((el, i) => { el.classList.add('intro'); el.style.setProperty('--d', `${i * .12}s`); });
+  document.querySelectorAll('.projects .rv').forEach((el, i) => { el.style.transitionDelay = `${(i % 2) * 110}ms`; el.addEventListener('transitionend', () => { el.style.transitionDelay = ''; }, { once: true }); });
 
-  // ---- Product shot: flattens as it scrolls in, chips drift with the pointer ----
-  const stage = $('stage');
-  if (still) stage.classList.add('flat');
-  const chips = [...stage.querySelectorAll('.chip')];
-  if (!still && matchMedia('(pointer: fine)').matches) {
-    addEventListener('pointermove', e => {
-      const x = e.clientX / innerWidth - .5, y = e.clientY / innerHeight - .5;
-      chips.forEach(c => { const d = +c.dataset.depth; c.style.transform = `translate3d(${x * d}px, ${y * d}px, 0)`; });
-    }, { passive: true });
-    const card = $('member'), cs = $('cardStage');
-    cs.addEventListener('pointermove', e => {
-      const r = cs.getBoundingClientRect(); const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
-      card.style.setProperty('--ry', `${(x - .5) * 26}deg`); card.style.setProperty('--rx', `${(.5 - y) * 18}deg`);
-      card.style.setProperty('--mx', x.toFixed(3)); card.style.setProperty('--my', y.toFixed(3));
-    });
-    cs.addEventListener('pointerleave', () => { card.style.removeProperty('--ry'); card.style.removeProperty('--rx'); });
-  }
+  // Footer letters rise in.
+  const mark = document.querySelector('.wordmark');
+  mark.innerHTML = [...mark.textContent].map((c, i) => `<span style="--i:${i}">${c}</span>`).join('');
+  seen(mark, () => mark.classList.add('go'), '0px');
 
-  // ---- Fight recording: 20 frames per second, like Nexora's CombatTracker ----
-  // [meX, meZ, meYaw, meHp, foeX, foeZ, foeYaw, foeHp, flags(1 landed, 2 taken)]
-  function fight(seed, win) {
-    const f = []; let me = 20, foe = 20; const N = 100;
-    for (let i = 0; i < N; i++) {
-      const t = i / 20, a = t * 1.3 + seed, r = 2.5 - t * .16;
-      const mx = Math.cos(a) * r + Math.sin(t * 2.3 + seed) * .4, mz = Math.sin(a) * r * .8 + .5;
-      const fx = -Math.cos(a - .4) * (r - .3) + Math.sin(t * 1.7) * .45 + t * .12, fz = -Math.sin(a - .4) * (r - .3) * .8 + .3 - t * .1;
-      let fl = 0;
-      if (win) {
-        if (i % 9 === 4 && i < N - 4) { fl |= 1; foe = Math.max(.5, foe - (2.1 + (i % 3) * .35)); }
-        if (i % 17 === 11) { fl |= 2; me -= 2.4; }
-        if (i === N - 3) { fl |= 1; foe = 0; }
-      } else {
-        if (i % 13 === 6) { fl |= 1; foe -= 2.2; }
-        if (i % 8 === 3 && i < N - 4) { fl |= 2; me = Math.max(.5, me - (2.3 + (i % 3) * .3)); }
-        if (i === N - 3) { fl |= 2; me = 0; }
-      }
-      const yaw = (x1, z1, x2, z2) => Math.atan2(-(x2 - x1), z2 - z1);
-      f.push([mx, mz, yaw(mx, mz, fx, fz), me, fx, fz, yaw(fx, fz, mx, mz), foe, fl]);
-    }
-    let a = Infinity, b = -Infinity, c = Infinity, d = -Infinity;
-    for (const k of f) { a = Math.min(a, k[0], k[4]); b = Math.max(b, k[0], k[4]); c = Math.min(c, k[1], k[5]); d = Math.max(d, k[1], k[5]); }
-    return { f, N, span: Math.max(b - a, d - c) * 1.4, cx: (a + b) / 2, cz: (c + d) / 2 };
-  }
-
-  function replay(canvas, data, hooks) {
-    const ctx = canvas.getContext('2d'); let W = 0, H = 0;
-    const size = () => { const dpr = Math.min(2, devicePixelRatio || 1); const r = canvas.getBoundingClientRect(); W = r.width; H = r.height; canvas.width = W * dpr; canvas.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); };
-    function draw(index) {
-      const { f, span, cx, cz, N } = data; const s = Math.min(W, H) / span;
-      const px = x => W / 2 + (x - cx) * s, pz = z => H / 2 + (z - cz) * s;
-      ctx.clearRect(0, 0, W, H);
-      ctx.strokeStyle = 'rgba(255,255,255,.045)'; ctx.lineWidth = 1;
-      for (let x = ((W / 2 - cx * s) % s + s) % s; x < W; x += s) { ctx.beginPath(); ctx.moveTo(x + .5, 0); ctx.lineTo(x + .5, H); ctx.stroke(); }
-      for (let y = ((H / 2 - cz * s) % s + s) % s; y < H; y += s) { ctx.beginPath(); ctx.moveTo(0, y + .5); ctx.lineTo(W, y + .5); ctx.stroke(); }
-      for (const [ix, iz, col] of [[0, 1, colors.me], [4, 5, colors.foe]]) {
-        ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.lineCap = 'round';
-        for (let i = 1; i <= index; i++) { ctx.globalAlpha = .05 + .6 * (i / Math.max(1, index)) ** 2; ctx.beginPath(); ctx.moveTo(px(f[i - 1][ix]), pz(f[i - 1][iz])); ctx.lineTo(px(f[i][ix]), pz(f[i][iz])); ctx.stroke(); }
-      }
-      ctx.globalAlpha = 1;
-      let landed = 0, taken = 0;
-      for (let i = Math.max(0, index - 5); i <= index; i++) { if (f[i][8] & 1) landed = Math.max(landed, 1 - (index - i) / 6); if (f[i][8] & 2) taken = Math.max(taken, 1 - (index - i) / 6); }
-      const k = f[index];
-      dot(px(k[0]), pz(k[1]), k[2], colors.me, taken, k[3] > 0);
-      dot(px(k[4]), pz(k[5]), k[6], colors.foe, landed, k[7] > 0);
-      hooks && hooks(k, index, N);
-    }
-    function dot(x, y, yaw, col, hit, alive) {
-      ctx.strokeStyle = col; ctx.fillStyle = col;
-      if (hit > 0) { ctx.globalAlpha = hit; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y, 9 + (1 - hit) * 14, 0, 7); ctx.stroke(); ctx.globalAlpha = 1; }
-      if (!alive) { ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(x - 6, y - 6); ctx.lineTo(x + 6, y + 6); ctx.moveTo(x + 6, y - 6); ctx.lineTo(x - 6, y + 6); ctx.stroke(); return; }
-      ctx.shadowColor = col; ctx.shadowBlur = 14; ctx.beginPath(); ctx.arc(x, y, 5.5, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
-      ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - Math.sin(yaw) * 9, y + Math.cos(yaw) * 9); ctx.lineTo(x - Math.sin(yaw) * 17, y + Math.cos(yaw) * 17); ctx.stroke();
-    }
-    size(); addEventListener('resize', () => { size(); draw(last); });
-    let last = data.N - 1, visible = true;
-    new IntersectionObserver(es => { visible = es[0].isIntersecting; }).observe(canvas);
-    draw(last);
-    if (still) return;
-    const HOLD = 30, t0 = performance.now();
-    (function tick(now) {
-      if (visible) { const fr = Math.max(0, Math.floor((now - t0) / 50)) % (data.N + HOLD); const i = Math.min(fr, data.N - 1); if (i !== last) { last = i; draw(i); } }
-      requestAnimationFrame(tick);
-    })(t0);
-    box.addEventListener('click', () => draw(last));
-  }
-
-  const hero = fight(0, true);
-  replay($('heroMap'), hero, (k, i, N) => {
-    $('heroTime').textContent = '-' + ((N - 1 - i) / 20).toFixed(1) + 's';
-    $('hpMe').textContent = k[3].toFixed(1); $('hpFoe').textContent = k[7].toFixed(1);
-    $('barMe').style.transform = `scaleX(${k[3] / 20})`; $('barFoe').style.transform = `scaleX(${k[7] / 20})`;
-    $('scrub').style.transform = `scaleX(${i / (N - 1)})`;
-  });
-  const cam = fight(1.7, false);
-  replay($('camMap'), cam, (k, i, N) => { $('camTime').textContent = '-' + ((N - 1 - i) / 20).toFixed(1) + 's'; });
-
-  // ---- FrameGraph ----
-  const g = $('graph'), bars = [];
-  for (let i = 0; i < 48; i++) { const b = document.createElement('i'); g.appendChild(b); bars.push(b); }
-  const sample = i => { const r = Math.sin(i * 1.7) * .5 + Math.sin(i * .37) * .5; return i % 23 === 17 ? 3.1 : i % 41 === 29 ? 6.5 : 1 + r * .25 + (i % 7) * .03; };
-  let off = 0;
-  function paint() {
-    let sum = 0;
-    bars.forEach((b, i) => { const v = sample(i + off); sum += v; b.style.transform = `scaleY(${Math.min(1, v / 7) * .9 + .06})`; b.className = v > 5 ? 'hang' : v > 2.5 ? 'stut' : ''; });
-    const ms = 2.4 * sample(off + 47); $('gMs').textContent = ms.toFixed(1) + ' ms'; $('gFps').textContent = Math.round(1000 / (sum / bars.length * 2.4));
-  }
-  paint();
-  if (!still) setInterval(() => { off++; paint(); }, 120);
-
-  // ---- Download: the file itself for the viewer's platform, no detour via GitHub ----
-  const ua = navigator.userAgent;
-  const os = /Mac/i.test(ua) ? 'macOS' : /Linux|X11/i.test(ua) && !/Android/i.test(ua) ? 'Linux' : 'Windows';
-  // Browsers don't tell Apple Silicon from Intel reliably; almost every Mac sold since 2021 is Apple Silicon.
-  const myKey = os === 'macOS' ? 'mac-arm64' : os === 'Linux' ? 'linux' : 'win';
-  $('mainDlText').textContent = `Für ${os} herunterladen`;
-  const osLinks = [...document.querySelectorAll('.oses a[data-os]')];
-  const mine = () => osLinks.find(a => a.dataset.os === myKey);
-  const syncMain = () => {
-    const a = mine(); if (!a) return;
-    $('mainDl').href = a.href; $('heroDl').href = a.href;
-    osLinks.forEach(l => l.classList.toggle('here', l === a));
-  };
-  syncMain();
-  const assetFor = (assets, key) => assets.find(a => ({
-    'win': /Setup.*\.exe$/, 'mac-arm64': /arm64\.dmg$/, 'mac-x64': /x64\.dmg$/, 'linux': /\.AppImage$/,
-  })[key].test(a.name));
-  releases.then(rs => {
-    const r = rs.find(x => x.assets.some(a => /\.exe$/.test(a.name)));
-    if (!r) return;
-    osLinks.forEach(l => { const a = assetFor(r.assets, l.dataset.os); if (a) { l.href = a.browser_download_url; l.dataset.size = (a.size / 1048576).toFixed(0); } });
-    syncMain();
-    const a = mine(), v = r.tag_name.replace(/^v/, '');
-    const where = os === 'Windows' ? 'Windows 10 und 11' : os === 'macOS' ? 'Apple Silicon, für Intel-Macs unten wählen' : 'x86_64';
-    $('dlSize').textContent = `Version ${v}` + (a && a.dataset.size ? ` · ${a.dataset.size} MB` : '') + ` · ${where}`;
-  });
-
-  // A short note once the download starts, with what to do next.
-  const toast = $('toast'); let toastTimer = 0;
-  const steps = {
-    win: 'Öffne die .exe. Meldet Windows „Der Computer wurde geschützt“, klick auf „Weitere Informationen“ und dann „Trotzdem ausführen“.',
-    'mac-arm64': 'Öffne die .dmg und zieh Nexora in „Programme“. Beim ersten Start mit Rechtsklick auf die App „Öffnen“ wählen.',
-    'mac-x64': 'Öffne die .dmg und zieh Nexora in „Programme“. Beim ersten Start mit Rechtsklick auf die App „Öffnen“ wählen.',
-    lunar: 'ZIP öffnen und die .exe darin starten. Meldet Windows „Der Computer wurde geschützt“: „Weitere Informationen“, dann „Trotzdem ausführen“.',
-    linux: 'Mach die .AppImage ausführbar (Rechtsklick, Eigenschaften, „Als Programm ausführen“) und starte sie per Doppelklick.',
-  };
-  document.querySelectorAll('[data-dl]').forEach(a => a.addEventListener('click', () => {
-    const key = a.dataset.os || myKey;
-    $('toastText').textContent = steps[key] || '';
-    toast.classList.add('on'); clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => toast.classList.remove('on'), 9000);
-  }));
-
-
-  // ---- Motion ----
-  root.classList.add('js');
-  const seen = (el, fn, margin = '0px 0px -10% 0px') => {
-    if (still || !('IntersectionObserver' in window)) { fn(); return; }
-    const o = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { o.disconnect(); fn(); } }, { rootMargin: margin });
-    o.observe(el);
-  };
-
-  // Headline words rise one after another; the rest of the hero follows.
-  const h1 = document.querySelector('.hero h1');
-  if (!still) {
-    let n = 0;
-    const words = node => node.textContent.split(/(\s+)/).map(t => /^\s+$/.test(t) || !t ? t : `<span class="w"><span style="--i:${n++}">${t}</span></span>`).join('');
-    const soft = h1.querySelector('.soft');
-    const first = h1.firstChild.textContent;
-    h1.innerHTML = words({ textContent: first }) + `<span class="soft">${words(soft)}</span>`;
-    h1.classList.add('split');
-    // A long word ("Aufgezeichnet.") must not run off a narrow phone screen.
-    const fit = () => {
-      h1.style.fontSize = '';
-      const room = h1.getBoundingClientRect().right;
-      const widest = Math.max(...[...h1.querySelectorAll('.w')].map(w => w.getBoundingClientRect().right));
-      if (widest > room + 1) {
-        const left = h1.getBoundingClientRect().left;
-        h1.style.fontSize = `${parseFloat(getComputedStyle(h1).fontSize) * (room - left) / (widest - left) * .98}px`;
-      }
-    };
-    fit(); addEventListener('resize', fit); document.fonts && document.fonts.ready.then(fit);
-    [...document.querySelectorAll('.hero > .rv')].filter(el => el !== h1).forEach((el, i) => {
-      el.classList.add('intro'); el.style.setProperty('--d', `${i === 0 ? 0 : .25 + i * .12}s`);
-    });
-  }
-
-  // Numbers count up the first time they come into view.
-  document.querySelectorAll('[data-count]').forEach(el => {
-    const end = parseFloat(el.textContent);
-    if (!isFinite(end) || still) return;
-    el.textContent = '0';
-    seen(el, () => {
-      const t0 = performance.now(), dur = 1400 + Math.min(900, end * 4);
-      (function step(now) {
-        const p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 4);
-        el.textContent = Math.round(end * e);
-        if (p < 1) requestAnimationFrame(step);
-      })(t0);
-    }, '0px');
-  });
-
-  // Scroll: progress bar, nav tucks away going down.
-  const bar = $('progress'), nav = $('nav');
+  // Scroll: progress bar, nav tucks away going down, orbs drift.
+  const bar = $('progress'), nav = $('nav'), orbs = document.querySelector('.orbs');
   let lastY = scrollY, ticking = false;
   addEventListener('scroll', () => {
     if (ticking) return; ticking = true;
     requestAnimationFrame(() => {
       const y = scrollY, max = document.documentElement.scrollHeight - innerHeight;
       bar.style.transform = `scaleX(${max > 0 ? y / max : 0})`;
-      if (!still && !document.body.classList.contains('menu-open')) nav.classList.toggle('hide', y > lastY && y > 260);
+      if (!document.body.classList.contains('menu-open')) nav.classList.toggle('hide', y > lastY && y > 260);
       nav.classList.toggle('solid', y > 40);
+      orbs.style.setProperty('--py', `${-y * .12}px`);
       lastY = y; ticking = false;
     });
   }, { passive: true });
 
-  if (!still && matchMedia('(pointer: fine)').matches) {
-    // A soft light follows the pointer across the page.
+  // Constellation behind the hero, fading out as you scroll away.
+  const cv = document.createElement('canvas'); cv.className = 'stars'; cv.setAttribute('aria-hidden', 'true');
+  document.body.insertBefore(cv, document.body.firstChild);
+  const cx = cv.getContext('2d'); let W = 0, H = 0;
+  const pts = [], mouse = { x: -1e4, y: -1e4 };
+  const resize = () => { const dpr = Math.min(2, devicePixelRatio || 1); W = innerWidth; H = innerHeight; cv.width = W * dpr; cv.height = H * dpr; cx.setTransform(dpr, 0, 0, dpr, 0, 0); };
+  resize(); addEventListener('resize', resize);
+  for (let i = 0, n = Math.round(Math.min(90, W * H / 16000)); i < n; i++) pts.push({ x: Math.random() * W, y: Math.random() * H, vx: (Math.random() - .5) * .25, vy: (Math.random() - .5) * .25, r: Math.random() * 1.3 + .4 });
+  addEventListener('pointermove', e => { mouse.x = e.clientX; mouse.y = e.clientY; }, { passive: true });
+  (function frame() {
+    const fade = Math.max(0, 1 - scrollY / (innerHeight * 1.1));
+    cv.style.opacity = fade;
+    if (fade > .01 && !document.hidden) {
+      cx.clearRect(0, 0, W, H);
+      for (const p of pts) {
+        const dx = mouse.x - p.x, dy = mouse.y - p.y;
+        if (dx * dx + dy * dy < 32000) { p.vx += dx * .00002; p.vy += dy * .00002; }
+        p.vx *= .995; p.vy *= .995; p.x += p.vx; p.y += p.vy;
+        if (p.x < -10) p.x = W + 10; if (p.x > W + 10) p.x = -10; if (p.y < -10) p.y = H + 10; if (p.y > H + 10) p.y = -10;
+      }
+      cx.lineWidth = 1;
+      for (let i = 0; i < pts.length; i++) {
+        const a = pts[i];
+        for (let j = i + 1; j < pts.length; j++) {
+          const b = pts[j], d2 = (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
+          if (d2 < 15000) { cx.strokeStyle = `rgba(${accentRgb},${(1 - d2 / 15000) * .16})`; cx.beginPath(); cx.moveTo(a.x, a.y); cx.lineTo(b.x, b.y); cx.stroke(); }
+        }
+        cx.fillStyle = `rgba(${accentRgb},${.35 + a.r * .25})`; cx.beginPath(); cx.arc(a.x, a.y, a.r, 0, 7); cx.fill();
+      }
+    }
+    requestAnimationFrame(frame);
+  })();
+
+  if (fine) {
+    // A soft light follows the pointer.
     const glow = $('cursorGlow');
     let gx = innerWidth / 2, gy = innerHeight / 3, tx = gx, ty = gy, running = false;
     const follow = () => {
@@ -1262,13 +579,11 @@ document.addEventListener('click', e => {
     };
     addEventListener('pointermove', e => { tx = e.clientX; ty = e.clientY; glow.classList.add('on'); if (!running) { running = true; requestAnimationFrame(follow); } }, { passive: true });
     document.addEventListener('pointerleave', () => glow.classList.remove('on'));
-
-    // Bento cards: the border lights up under the pointer.
-    document.querySelectorAll('.cell.shell').forEach(c => c.addEventListener('pointermove', e => {
+    // Project cards: the border lights up under the pointer.
+    document.querySelectorAll('.proj').forEach(c => c.addEventListener('pointermove', e => {
       const r = c.getBoundingClientRect();
       c.style.setProperty('--sx', `${e.clientX - r.left}px`); c.style.setProperty('--sy', `${e.clientY - r.top}px`);
     }));
-
     // Buttons lean toward the pointer.
     document.querySelectorAll('.btn').forEach(b => {
       b.addEventListener('pointermove', e => {
@@ -1278,319 +593,5 @@ document.addEventListener('click', e => {
       b.addEventListener('pointerleave', () => { b.style.translate = ''; });
     });
   }
-
-  // Cards revealed together come in one after another, not all at once.
-  document.querySelectorAll('.bento .rv').forEach((el, i) => { el.style.transitionDelay = `${(i % 3) * 110}ms`; });
-  setTimeout(() => document.querySelectorAll('.bento .rv').forEach(el => { el.style.transitionDelay = ''; }), 4000);
-  document.querySelectorAll('.bento .rv').forEach(el => el.addEventListener('transitionend', () => { el.style.transitionDelay = ''; }, { once: true }));
-
-  // Version timeline, perks, terminal and footer: each plays once when reached.
-  const tl = document.querySelector('.tl');
-  tl.querySelectorAll('div').forEach((d, i) => d.style.setProperty('--i', i));
-  seen(tl, () => tl.classList.add('go'));
-  const perks = document.querySelector('.perks');
-  perks.querySelectorAll('li').forEach((li, i) => li.style.setProperty('--i', i));
-  seen(perks, () => perks.classList.add('go'));
-
-  const term = document.querySelector('.term'), pre = term.querySelector('pre');
-  pre.innerHTML = pre.innerHTML.split('\n').map((l, i) => `<span class="ln" style="--i:${i}">${l}</span>`).join('\n') + '<span class="caret"></span>';
-  seen(term, () => term.classList.add('go'));
-
-  const mark = document.querySelector('.wordmark');
-  mark.innerHTML = [...mark.textContent].map((c, i) => `<span style="--i:${i}">${c}</span>`).join('');
-  mark.classList.add('split');
-  seen(mark, () => mark.classList.add('go'), '0px');
-
-  // FPS-Doktor: works through its findings, then starts over.
-  const doc = [...document.querySelectorAll('.doc div')];
-  if (!still) seen(doc[0].parentElement, () => {
-    let i = 0;
-    const next = () => {
-      if (i < doc.length) {
-        doc[i].classList.add('fixed'); doc[i].querySelector('em').textContent = 'Behoben';
-        i++; setTimeout(next, 1100);
-      } else {
-        setTimeout(() => { doc.forEach(d => { d.classList.remove('fixed'); d.querySelector('em').textContent = 'Beheben'; }); i = 0; setTimeout(next, 1600); }, 3200);
-      }
-    };
-    setTimeout(next, 900);
-  });
-
-
-  // ---- Mod jars: straight from the newest release that has them ----
-  const jars = $('jars');
-  const mcOrder = v => v.split('.').map(Number).reduce((a, n, i) => a + n * [1e6, 1e3, 1][i], 0);
-  const showJars = (release) => {
-    const list = release.assets
-      .filter(a => /\+[\d.]+\.jar$/.test(a.name) && !/-sources/.test(a.name))
-      .map(a => ({ mc: a.name.match(/\+([\d.]+)\.jar$/)[1], url: a.browser_download_url, name: a.name, mb: (a.size / 1048576).toFixed(1) }))
-      .sort((x, y) => mcOrder(y.mc) - mcOrder(x.mc));
-    if (!list.length) return false;
-    // The version most players are on first; the rest newest to oldest.
-    const pick = list.find(j => j.mc === '1.21.11') || list[0];
-    const ordered = [pick, ...list.filter(j => j !== pick)];
-    jars.innerHTML = ordered.map((j, i) => `<a role="listitem" href="${j.url}" download class="${i === 0 ? 'main' : ''}" style="--i:${i}" title="${j.name}">${j.mc}<small>${j.mb} MB</small></a>`).join('');
-    $('jarName').textContent = pick.name;
-    $('jarsNote').innerHTML = `Nexora ${release.tag_name.replace(/^v/, '')}. Wähl deine Minecraft-Version. Dazu gehört die <a href="https://modrinth.com/mod/fabric-api/versions">Fabric API</a> in denselben mods-Ordner.`;
-    return true;
-  };
-  releases
-    .then(rs => { const r = rs.find(x => x.assets.some(a => /\+[\d.]+\.jar$/.test(a.name))); if (r) showJars(r); })
-    .finally(() => seen(jars, () => jars.classList.add('go')));
-
-  // ---- Live: newest version and total downloads ----
-  const semver = v => v.replace(/^v/, '').split(/[.-]/).slice(0, 3).map(Number);
-  const newer = (a, b) => { const x = semver(a), y = semver(b); for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); return false; };
-  releases.then(rs => {
-    if (!rs.length) return;
-    const latest = rs[0], v = latest.tag_name.replace(/^v/, '');
-    const total = rs.reduce((n, r) => n + r.assets.reduce((m, a) => m + (/\.(exe|dmg|AppImage|jar)$/.test(a.name) ? a.download_count : 0), 0), 0);
-    const meta = $('liveMeta');
-    meta.className = 'live-meta';
-    meta.innerHTML = `<i></i>Version ${v}` + (total >= 100 ? ` · ${total.toLocaleString('de-DE')} Downloads` : '');
-
-    // What's new: from the release notes, once a release is at least as new as this page.
-    if (newer('1.6.0', v)) return;
-    const neu = (latest.body || '').split(/^## /m).find(part => /^Neu\b/.test(part));
-    const items = (neu || '').split('\n').map(l => l.match(/^- \*\*(.+?):?\*\*:?\s*(.+)$/)).filter(m => m && !/^Website$/i.test(m[1])).slice(0, 6);
-    if (items.length < 3) return;
-    const esc = t => t.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-    const first = t => { const m = t.match(/^.+?[.!?](\s|$)/); const f = m ? m[0].trim() : t; return f.length > 150 ? f.slice(0, f.lastIndexOf(' ', 145)) + ' …' : f; };
-    $('news').innerHTML = items.map((m, i) => `<article class="shell"><div class="core"><span class="n">${String(i + 1).padStart(2, '0')}</span><h3>${esc(m[1])}</h3><p>${esc(first(m[2]))}</p></div></article>`).join('');
-    $('neuTitle').textContent = `Neu in Nexora ${v.replace(/\.0$/, '')}.`;
-    $('neuTag').innerHTML = `<b>${esc(v.replace(/\.0$/, ''))}</b> Changelog`;
-    $('newsAll').href = latest.html_url;
-  });
-
-  // ---- FAQ: open and close with a height animation ----
-  document.querySelectorAll('.faq details').forEach(d => {
-    const sum = d.querySelector('summary'), body = d.querySelector('.a');
-    sum.addEventListener('click', e => {
-      if (still) return;
-      e.preventDefault();
-      if (d.open) {
-        const a = body.animate([{ height: body.offsetHeight + 'px', opacity: 1 }, { height: '0px', opacity: 0 }], { duration: 380, easing: 'cubic-bezier(.32,.72,0,1)' });
-        a.onfinish = () => { d.open = false; };
-      } else {
-        d.open = true;
-        body.animate([{ height: '0px', opacity: 0 }, { height: body.offsetHeight + 'px', opacity: 1 }], { duration: 520, easing: 'cubic-bezier(.32,.72,0,1)' });
-      }
-    });
-  });
-
-
-  // ================= Motion, part two =================
-  const fine = matchMedia('(pointer: fine)').matches;
-
-  // Intro: the logo draws itself, once per visit.
-  let introSeen = false; try { introSeen = sessionStorage.getItem('nexora-intro') === '1'; sessionStorage.setItem('nexora-intro', '1'); } catch {}
-  if (!still && !introSeen) {
-    const intro = document.createElement('div');
-    intro.className = 'intro-screen'; intro.setAttribute('aria-hidden', 'true');
-    intro.innerHTML = '<svg viewBox="0 0 64 64"><path class="ring" d="M45.5 13.2A22 22 0 1 0 53.6 26" fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round"/><path class="n" d="M22 44V20h5.6l10 14.6V20H43v24h-5.4L27.4 29.4V44z" fill="#fff"/><path class="star" d="M51 6l2.2 5.6L59 13.8l-5.8 2.2L51 21.6 48.8 16 43 13.8l5.8-2.2z" fill="var(--accent)"/></svg>';
-    document.body.appendChild(intro);
-    document.querySelectorAll('.hero h1 .w > span, .intro').forEach(el => { el.style.animationDelay = `calc(${getComputedStyle(el).animationDelay.split(',')[0]} + 1.1s)`; });
-    setTimeout(() => intro.remove(), 2000);
-  }
-
-  // Constellation: drifting points, linked when close, pulled a little toward the pointer.
-  if (!still) {
-    const cv = document.createElement('canvas'); cv.className = 'stars'; cv.setAttribute('aria-hidden', 'true');
-    document.body.insertBefore(cv, document.body.firstChild);
-    const cx = cv.getContext('2d'); let W = 0, H = 0, dpr = 1;
-    const pts = []; const mouse = { x: -1e4, y: -1e4 };
-    const resize = () => { dpr = Math.min(2, devicePixelRatio || 1); W = innerWidth; H = innerHeight; cv.width = W * dpr; cv.height = H * dpr; cx.setTransform(dpr, 0, 0, dpr, 0, 0); };
-    resize(); addEventListener('resize', resize);
-    const count = Math.round(Math.min(90, W * H / 16000));
-    for (let i = 0; i < count; i++) pts.push({ x: Math.random() * W, y: Math.random() * H, vx: (Math.random() - .5) * .25, vy: (Math.random() - .5) * .25, r: Math.random() * 1.3 + .4 });
-    addEventListener('pointermove', e => { mouse.x = e.clientX; mouse.y = e.clientY; }, { passive: true });
-    let accentRgb = '255,255,255';
-    const readAccent = () => { const h = getComputedStyle(root).getPropertyValue('--accent').trim(); const n = parseInt(h.slice(1), 16); if (h.length === 7) accentRgb = `${n >> 16},${n >> 8 & 255},${n & 255}`; };
-    readAccent(); box.addEventListener('click', readAccent);
-    let visibleStars = true;
-    (function frame() {
-      const fade = Math.max(0, 1 - scrollY / (innerHeight * 1.1));
-      cv.style.opacity = fade;
-      visibleStars = fade > 0.01 && !document.hidden;
-      if (visibleStars) {
-        cx.clearRect(0, 0, W, H);
-        for (const p of pts) {
-          const dx = mouse.x - p.x, dy = mouse.y - p.y, d2 = dx * dx + dy * dy;
-          if (d2 < 32000) { p.vx += dx * 0.00002; p.vy += dy * 0.00002; }
-          p.vx *= .995; p.vy *= .995;
-          p.x += p.vx + (Math.random() - .5) * .02; p.y += p.vy + (Math.random() - .5) * .02;
-          if (p.x < -10) p.x = W + 10; if (p.x > W + 10) p.x = -10; if (p.y < -10) p.y = H + 10; if (p.y > H + 10) p.y = -10;
-        }
-        cx.lineWidth = 1;
-        for (let i = 0; i < pts.length; i++) {
-          const a = pts[i];
-          for (let j = i + 1; j < pts.length; j++) {
-            const b = pts[j], dx = a.x - b.x, dy = a.y - b.y, d2 = dx * dx + dy * dy;
-            if (d2 < 15000) { cx.strokeStyle = `rgba(${accentRgb},${(1 - d2 / 15000) * .16})`; cx.beginPath(); cx.moveTo(a.x, a.y); cx.lineTo(b.x, b.y); cx.stroke(); }
-          }
-          const md = (mouse.x - a.x) ** 2 + (mouse.y - a.y) ** 2;
-          if (md < 26000) { cx.strokeStyle = `rgba(${accentRgb},${(1 - md / 26000) * .35})`; cx.beginPath(); cx.moveTo(a.x, a.y); cx.lineTo(mouse.x, mouse.y); cx.stroke(); }
-          cx.fillStyle = `rgba(${accentRgb},${.35 + a.r * .25})`; cx.beginPath(); cx.arc(a.x, a.y, a.r, 0, 7); cx.fill();
-        }
-      }
-      requestAnimationFrame(frame);
-    })();
-  }
-
-  // Scroll-linked: orbs parallax, product shot flattens, chips drift, marquee leans.
-  const tilt = $('tilt'), orbs = document.querySelector('.orbs'), marquee = document.querySelector('.marquee');
-  let prevY = scrollY, skew = 0;
-  if (!still) {
-    tilt.style.transition = 'none';
-    (function scrollFrame() {
-      const y = scrollY;
-      orbs.style.setProperty('--py', `${-y * .12}px`);
-      const r = stage.getBoundingClientRect();
-      const p = Math.max(0, Math.min(1, (innerHeight - r.top) / (innerHeight * .75)));
-      if (innerWidth > 767) tilt.style.transform = `rotateX(${(1 - p) * 16}deg) scale(${.94 + p * .06})`;
-      stage.style.setProperty('--sp', ((r.top + r.height / 2 - innerHeight / 2) / 12).toFixed(1));
-      const v = y - prevY; prevY = y;
-      skew += (Math.max(-6, Math.min(6, v * .12)) - skew) * .15;
-      marquee.style.setProperty('--skew', `${skew.toFixed(2)}deg`);
-      requestAnimationFrame(scrollFrame);
-    })();
-  }
-
-  // Section headings split into words that rise on reveal (plain-text headings only).
-  document.querySelectorAll('main h2').forEach(h => {
-    if (still || h.children.length || h.closest('.hero') || h.classList.contains('no-split')) return;
-    let n = 0;
-    h.innerHTML = h.textContent.split(/(\s+)/).map(t => /^\s+$/.test(t) || !t ? t : `<span class="w"><span style="--i:${n++}">${t}</span></span>`).join('');
-    h.classList.add('split');
-    // A word wider than the column (long German words on a phone) can't break inside its mask: keep that heading plain.
-    const room = h.getBoundingClientRect().right + 1;
-    if ([...h.querySelectorAll('.w')].some(w => w.getBoundingClientRect().right > room)) { h.textContent = h.textContent; h.classList.remove('split'); return; }
-    seen(h, () => h.classList.add('in'), '0px 0px -12% 0px');
-  });
-  // The changelog title can be replaced from the release notes later; keep it whole then.
-  const neuTitle = $('neuTitle');
-  new MutationObserver(() => { if (!neuTitle.querySelector('.w')) neuTitle.classList.remove('split'); }).observe(neuTitle, { childList: true });
-
-  // Nav: sliding pill, and the section you're in stays marked.
-  const links = [...document.querySelectorAll('.nav-links a')], navBox = document.querySelector('.nav-links');
-  const pill = document.createElement('span'); pill.className = 'pill'; navBox.prepend(pill);
-  let current = null;
-  const pillTo = a => {
-    if (!a) { pill.style.opacity = 0; return; }
-    pill.style.opacity = 1; pill.style.width = `${a.offsetWidth}px`; pill.style.transform = `translateX(${a.offsetLeft}px)`;
-  };
-  links.forEach(a => a.addEventListener('pointerenter', () => pillTo(a)));
-  navBox.addEventListener('pointerleave', () => pillTo(current));
-  const spy = new IntersectionObserver(es => es.forEach(e => {
-    if (!e.isIntersecting) return;
-    current = links.find(a => a.getAttribute('href') === '#' + e.target.id) || null;
-    links.forEach(a => a.classList.toggle('cur', a === current));
-    if (!navBox.matches(':hover')) pillTo(current);
-  }), { rootMargin: '-45% 0px -50% 0px' });
-  links.forEach(a => { const t = document.querySelector(a.getAttribute('href')); if (t) spy.observe(t); });
-  addEventListener('scroll', () => { if (scrollY < innerHeight * .5 && current) { current = null; links.forEach(a => a.classList.remove('cur')); pillTo(null); } }, { passive: true });
-
-  if (!still && fine) {
-    // Pointer ring that grows over anything clickable.
-    const ring = document.createElement('div'); ring.className = 'cursor-ring'; document.body.appendChild(ring);
-    let rx = 0, ry = 0, mx = 0, my = 0, ringOn = false;
-    addEventListener('pointermove', e => {
-      mx = e.clientX; my = e.clientY; ring.classList.add('on');
-      ring.classList.toggle('big', !!e.target.closest('a, button, summary, .sw'));
-      if (!ringOn) { ringOn = true; rx = mx; ry = my; requestAnimationFrame(follow); }
-    }, { passive: true });
-    const follow = () => {
-      rx += (mx - rx) * .22; ry += (my - ry) * .22;
-      ring.style.transform = `translate3d(${rx}px, ${ry}px, 0)`;
-      if (Math.abs(mx - rx) + Math.abs(my - ry) > .3) requestAnimationFrame(follow); else ringOn = false;
-    };
-    addEventListener('pointerdown', () => ring.classList.add('down'));
-    addEventListener('pointerup', () => ring.classList.remove('down'));
-    document.addEventListener('pointerleave', () => ring.classList.remove('on'));
-
-    // Bento cards tip toward the pointer.
-    document.querySelectorAll('.cell').forEach(c => {
-      const core = c.querySelector(':scope > .core');
-      c.addEventListener('pointermove', e => {
-        const r = c.getBoundingClientRect(), x = (e.clientX - r.left) / r.width - .5, y = (e.clientY - r.top) / r.height - .5;
-        c.classList.add('tilting'); core.style.transform = `rotateX(${(-y * 5).toFixed(2)}deg) rotateY(${(x * 6).toFixed(2)}deg)`;
-      });
-      c.addEventListener('pointerleave', () => { c.classList.remove('tilting'); core.style.transform = ''; });
-    });
-
-    // Footer letters swell toward the pointer.
-    const letters = [...mark.querySelectorAll('span')];
-    mark.addEventListener('pointermove', e => letters.forEach(l => {
-      const r = l.getBoundingClientRect(), d = Math.abs(e.clientX - (r.left + r.width / 2)) / r.width;
-      l.style.setProperty('--mag', (1 + Math.max(0, .18 - d * .07)).toFixed(3));
-    }));
-    mark.addEventListener('pointerleave', () => letters.forEach(l => l.style.removeProperty('--mag')));
-  }
-
-  if (!still) {
-    // Ripple wherever a button is pressed.
-    document.addEventListener('pointerdown', e => {
-      const b = e.target.closest('.btn, .oses a, .jars a'); if (!b) return;
-      const r = b.getBoundingClientRect(), s = document.createElement('span');
-      s.className = 'ripple'; s.style.left = `${e.clientX - r.left}px`; s.style.top = `${e.clientY - r.top}px`;
-      b.appendChild(s); setTimeout(() => s.remove(), 800);
-    });
-    // A burst of sparks from a download button.
-    document.querySelectorAll('[data-dl], .jars').forEach(el => el.addEventListener('click', e => {
-      const b = e.target.closest('a'); if (!b) return;
-      const r = b.getBoundingClientRect(), x0 = r.left + r.width / 2, y0 = r.top + r.height / 2;
-      for (let i = 0; i < 22; i++) {
-        const s = document.createElement('i'); s.className = 'spark'; s.style.left = `${x0}px`; s.style.top = `${y0}px`;
-        document.body.appendChild(s);
-        const a = Math.random() * Math.PI * 2, d = 60 + Math.random() * 110;
-        s.animate([{ transform: 'translate(0,0) rotate(0) scale(1)', opacity: 1 },
-          { transform: `translate(${Math.cos(a) * d}px, ${Math.sin(a) * d - 30}px) rotate(${Math.random() * 540}deg) scale(.3)`, opacity: 0 }],
-          { duration: 700 + Math.random() * 500, easing: 'cubic-bezier(.16,1,.3,1)' }).onfinish = () => s.remove();
-      }
-    }));
-    // "Aufgezeichnet." decodes once the words are up.
-    const target = h1.querySelector('.soft .w > span');
-    if (target) setTimeout(() => {
-      const final = target.textContent, glyphs = 'abcdefghijklmnopqrstuvxyz0123456789#%&*+=<>/';
-      // Held at its real width, so wider random glyphs can't push the line or the page sideways.
-      target.style.width = `${target.getBoundingClientRect().width}px`; target.style.whiteSpace = 'nowrap'; target.style.overflow = 'hidden';
-      let frame = 0;
-      const iv = setInterval(() => {
-        target.textContent = [...final].map((c, i) => i < frame / 2 ? c : glyphs[Math.floor(Math.random() * glyphs.length)]).join('');
-        if (++frame > final.length * 2) { clearInterval(iv); target.textContent = final; target.style.width = target.style.whiteSpace = target.style.overflow = ''; }
-      }, 32);
-    }, introSeen ? 1100 : 2200);
-  }
-
-  // ---- Spotify example: the progress runs, the lyric lines move on ----
-  const lyric = [
-    ['Die Stadt schläft, wir fahren weiter', 'Neonlicht auf nassem Asphalt'],
-    ['Neonlicht auf nassem Asphalt', 'Das Radio spielt nur für uns zwei'],
-    ['Das Radio spielt nur für uns zwei', 'Bis der Morgen uns einholt'],
-    ['Bis der Morgen uns einholt', 'Die Stadt schläft, wir fahren weiter'],
-  ];
-  let li = 0, songPos = 74;
-  const lyrBox = document.querySelector('.lyr');
-  const spotTick = () => {
-    songPos = songPos >= 185 ? 0 : songPos + 1;
-    $('spotBar').style.width = (songPos / 185 * 100).toFixed(1) + '%';
-    $('spotTime').textContent = Math.floor(songPos / 60) + ':' + String(songPos % 60).padStart(2, '0') + ' / 3:05';
-  };
-  spotTick();
-  if (!still) {
-    setInterval(spotTick, 1000);
-    setInterval(() => {
-      lyrBox.classList.add('swap');
-      setTimeout(() => { li = (li + 1) % lyric.length; $('lyrNow').textContent = lyric[li][0]; $('lyrNext').textContent = lyric[li][1]; lyrBox.classList.remove('swap'); }, 450);
-    }, 3200);
-  }
-
-  // ---- Copy the jar name ----
-  $('copyJar').addEventListener('click', async e => {
-    const b = e.currentTarget;
-    try { await navigator.clipboard.writeText($('jarName').textContent); b.textContent = 'Kopiert'; }
-    catch { const r = document.createRange(); r.selectNodeContents($('jarName')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent = 'Markiert'; }
-    setTimeout(() => { b.textContent = 'Name kopieren'; }, 1600);
-  });
 })();
 </script>
