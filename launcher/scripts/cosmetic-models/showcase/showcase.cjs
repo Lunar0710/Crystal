@@ -21,7 +21,8 @@ if (process.argv[2] === '--electron') {
   const { app, BrowserWindow } = require('electron')
   app.whenReady().then(async () => {
     const win = new BrowserWindow({ show: false, width: 800, height: 600, webPreferences: { offscreen: false } })
-    await win.loadFile(path.join(BUILD, 'index.html'))
+    // SHOWCASE_PREMIUM=1: only the premium sheet, for a quick look while designing.
+    await win.loadFile(path.join(BUILD, 'index.html'), { query: process.env.SHOWCASE_PREMIUM ? { premium: '1' } : {} })
     for (let i = 0; i < 600; i++) {
       if (await win.webContents.executeJavaScript('window.done === true')) break
       await new Promise(r => setTimeout(r, 200))

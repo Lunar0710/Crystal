@@ -62,7 +62,7 @@ function writeLoadout(gameDir) {
   // No server connection from CI.
   fs.writeFileSync(path.join(root, 'settings.json'), JSON.stringify({ sync: false }))
   const catalog = JSON.parse(fs.readFileSync(path.join(ADDON_ASSETS, 'cosmetics', 'catalog.json'), 'utf8'))
-  const want = { hat: 'md-wizard-hat', wings: 'md-seraph-wings', backpack: 'md-expedition-pack', pet: null, aura: null }
+  const want = { hat: 'md-royal-crown', wings: 'md-phoenix-wings', backpack: 'md-arcane-tome', pet: 'md-baby-dragon', aura: null }
   const loadout = {}
   for (const s of catalog.slots) {
     if (!(s.slot in want)) continue

@@ -33,14 +33,16 @@ public final class CosmeticModels {
     /** Vertex layout in {@link Bone#solid} / {@link Bone#glow}: x, y, z, u, v, nx, ny, nz. */
     public static final int STRIDE = 8;
 
-    public enum Anim { NONE, SWAY, SWAYZ, SPIN, BOB, BOUNCE, FOLD, FLICKER }
+    public enum Anim { NONE, SWAY, SWAYZ, SPIN, BOB, BOUNCE, FOLD, FLICKER, DRIFT, LOOK }
 
     /**
      * A bone, positions relative to its pivot. {@code parent} indexes
      * {@link Model#bones}; parents always come before their children.
+     * {@code phase} (0..1) offsets a bone's animation cycle, so the particles
+     * of one model don't all move in step.
      */
     public record Bone(String name, int parent, float px, float py, float pz,
-                       float rx, float ry, float rz, Anim anim, float amp, float speed,
+                       float rx, float ry, float rz, Anim anim, float amp, float speed, float phase,
                        float[] solid, float[] glow) {}
 
     public record Model(String id, String anchor, Bone[] bones, List<String> variants) {}
@@ -110,6 +112,7 @@ public final class CosmeticModels {
             Anim anim = b.has("anim") ? anim(b.get("anim").getAsString()) : Anim.NONE;
             float amp = b.has("amp") ? b.get("amp").getAsFloat() : Float.NaN;
             float speed = b.has("speed") ? b.get("speed").getAsFloat() : Float.NaN;
+            float phase = b.has("phase") ? b.get("phase").getAsFloat() : 0f;
 
             List<Float> solid = new ArrayList<>(), glow = new ArrayList<>();
             for (JsonElement ce : b.getAsJsonArray("cubes")) {
@@ -138,7 +141,7 @@ public final class CosmeticModels {
             }
             float rad = (float) (Math.PI / 180.0);
             bones[i] = new Bone(name, parent, pivot[0], pivot[1], pivot[2], rot[0] * rad, rot[1] * rad, rot[2] * rad,
-                    anim, amp, speed, floats(solid), floats(glow));
+                    anim, amp, speed, phase, floats(solid), floats(glow));
             index.put(name, i);
         }
         String anchor = root.has("anchor") ? root.get("anchor").getAsString() : "head";

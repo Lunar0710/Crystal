@@ -386,6 +386,166 @@ const scute = role => t => {
   return grain(c, t, 0.05)
 }
 
+// ---------------------------------------------------------------- premium materials
+//
+// Painted at four texels per skin pixel (def.density 4) for the premium
+// models in premium.cjs: smooth gradients and real detail instead of blocks.
+
+const uv = t => ({ u: (t.x + 0.5) / t.w, v: (t.y + 0.5) / t.h })
+const front = t => t.face === 'pz' || t.face === 'nz'
+
+/**
+ * A feather: dark shaft down the middle, barbs slanting off it, the vane
+ * darker towards its edges, colour running from `a` at the root to `b` at the
+ * tip and a rounded tip. `tipFrom` is where the tip colour starts (0..1).
+ */
+const plume = (a, b, tipFrom = 0.5) => t => {
+  const { v } = uv(t)
+  const mid = (t.w - 1) / 2, dx = Math.abs(t.x - mid)
+  if (front(t) && t.w >= 4) {
+    const round = Math.min(t.h, Math.round(t.w * 0.6))
+    const fromEnd = t.h - 1 - t.y
+    if (fromEnd < round) {
+      const k = (round - fromEnd) / (round + 0.5)
+      if (dx > mid * Math.sqrt(Math.max(0, 1 - k * k)) + 0.35) return null
+    }
+  }
+  let c = v > tipFrom ? mix(t.P[a], t.P[b], Math.min(1, (v - tipFrom) / (1 - tipFrom))) : t.P[a]
+  if (front(t) && t.w >= 4) {
+    if (dx < 0.6) return shade(c, 1.2)
+    const barb = (t.y + dx * 1.3 + noise(t.seed, Math.round(dx), 7) * 3) % 4
+    c = shade(c, barb < 1 ? 0.95 : 1.03)
+    c = shade(c, 1.06 - (dx / Math.max(1, mid)) * 0.12)
+  }
+  return grain(c, t, 0.03)
+}
+
+/**
+ * A flat shape cut out of a thin plane: `inside(px, py)` (skin pixels from
+ * the face's top left) decides which texels exist, `paint(t, px, py)` colours
+ * them. The plane's edges are left out, so only the shape shows, from both sides.
+ */
+const cutout = (inside, paint) => t => {
+  if (!front(t)) return null
+  const d = t.density ?? 4
+  // Mirror the back face so the shape lines up seen from behind.
+  const x = t.face === 'nz' ? t.w - 1 - t.x : t.x
+  const px = (x + 0.5) / d, py = (t.y + 0.5) / d
+  return inside(px, py, t) ? paint(t, px, py) : null
+}
+
+/** Polished gold or silver: brushed, a bright specular band near the top, darker below. */
+const gilded = role => t => {
+  const { u, v } = uv(t)
+  let k = 1.22 - v * 0.42
+  const band = Math.abs(v - 0.28)
+  if (band < 0.1) k += 0.38 * (1 - band / 0.1)
+  if (t.face === 'py') k = 1.35 - Math.hypot(u - 0.3, v - 0.3) * 0.3
+  if (t.face === 'ny') k = 0.72
+  return grain(shade(t.P[role], k), t, 0.025)
+}
+
+/** A cut gem: a bright table in the middle, light and dark facets around it, one sparkle. */
+const facet = role => t => {
+  const { u, v } = uv(t)
+  const x = u - 0.5, y = v - 0.5
+  let k
+  if (Math.abs(x) + Math.abs(y) < 0.24) k = 1.42
+  else if (x < 0 && y < 0) k = 1.22
+  else if (y < 0) k = 1.02
+  else if (x < 0) k = 0.84
+  else k = 0.68
+  if (Math.abs(Math.abs(x) - Math.abs(y)) < 0.05) k += 0.16
+  if (t.w >= 4 && t.h >= 4 && t.x === 1 && t.y === 1) return [255, 255, 255, 255]
+  return shade(t.P[role], k)
+}
+
+/** Velvet: soft folds and a lighter nap on top. */
+const velvet = role => t => {
+  const fold = Math.sin(t.x * 0.8 + noise(t.seed, 0, t.y >> 2) * 2.5) * 0.09
+  return grain(shade(t.P[role], 0.96 + fold + (t.face === 'py' ? 0.1 : 0)), t, 0.05)
+}
+
+/** Ermine: white fur with the little black tails. */
+const ermine = (fur, tail) => t => {
+  const cell = 6
+  const lx = t.x % cell, ly = (t.y + (Math.floor(t.x / cell) % 2) * 3) % cell
+  if (lx === 3 && ly >= 1 && ly <= 3) return t.P[tail]
+  if (ly === 1 && (lx === 2 || lx === 4)) return shade(t.P[tail], 1.3)
+  return grain(shade(t.P[fur], 1 - noise(t.seed, t.x, 0) * 0.08), t, 0.06)
+}
+
+/** Dark rock with glowing cracks running through it (horns, embers). */
+const cracked = (rock, hot) => t => {
+  const w = Math.sin(t.x * 0.9 + noise(t.seed, t.x >> 2, t.y >> 2) * 4) + Math.sin(t.y * 0.55 - t.x * 0.35)
+  if (Math.abs(w) < 0.12) return shade(t.P[hot], 1.25)
+  if (Math.abs(w) < 0.3) return mix(t.P[rock], t.P[hot], 0.35)
+  return grain(shade(t.P[rock], 0.9 + noise(t.seed, t.x >> 1, t.y >> 1) * 0.22), t, 0.04)
+}
+
+/** Fur in strands: streaks along the length, lighter tips, soft noise. */
+const pelt = role => t => {
+  const { v } = uv(t)
+  const strand = noise(t.seed, t.x, t.y >> 2) * 0.22 - 0.11
+  return grain(shade(t.P[role], 1.04 + strand - v * 0.1), t, 0.05)
+}
+
+/** Belly plates: wide bands with a dark seam between them. */
+const plates = role => t => {
+  const band = t.y % 4
+  return grain(shade(t.P[role], band === 3 ? 0.72 : 1.08 - band * 0.06), t, 0.04)
+}
+
+/** Book pages: the paper with lines of writing on top, stacked page edges on the sides. */
+const pages = (paper, ink) => t => {
+  if (t.face === 'py' || front(t)) {
+    if (t.y % 3 === 1 && t.x > 1 && t.x < t.w - 2 && noise(t.seed, t.x >> 1, t.y) > 0.3) return shade(t.P[ink], 1.05)
+    return grain(shade(t.P[paper], 1.02), t, 0.03)
+  }
+  return shade(t.P[paper], t.y % 2 || t.x % 2 ? 0.92 : 0.8)
+}
+
+/** Carbon weave for machined parts. */
+const carbon = role => t => {
+  const cell = ((t.x >> 1) + (t.y >> 1)) % 2
+  return grain(shade(t.P[role], cell ? 1.12 : 0.88), t, 0.03)
+}
+
+/** A glowing strip, hottest along its middle. */
+const neon = role => t => {
+  const { u, v } = uv(t)
+  const d = t.w >= t.h ? Math.abs(v - 0.5) : Math.abs(u - 0.5)
+  return shade(t.P[role], 1.45 - d * 1.1)
+}
+
+// ---------------------------------------------------------------- finish
+
+/**
+ * The pass every texel goes through after its material (gen.cjs), at the
+ * texture's full resolution: light falling from above across each face, a
+ * bevel one texel wide (lit top edge, shaded lower edge and sides) and a soft
+ * highlight on top faces, so every cube reads as a lit, slightly rounded
+ * solid instead of a flat sticker. Glowing cubes get a hot core instead.
+ */
+function finish(c, { face, x, y, w, h, glow, density }) {
+  if (c[3] === 0) return c
+  const u = (x + 0.5) / w, v = (y + 0.5) / h
+  if (glow) {
+    const d = Math.max(Math.abs(u - 0.5), Math.abs(v - 0.5)) * 2
+    return shade(c, 1.16 - 0.2 * d)
+  }
+  let k
+  if (face === 'py') k = 1.1 - 0.12 * Math.hypot(u - 0.3, v - 0.3)
+  else if (face === 'ny') k = 0.86
+  else k = 1.08 - 0.2 * v
+  if (density >= 3) {
+    if (h >= density && y === 0) k *= 1.14
+    else if (h >= density && y === h - 1) k *= 0.8
+    if (w >= density && (x === 0 || x === w - 1)) k *= 0.9
+  }
+  return shade(c, k)
+}
+
 // ---------------------------------------------------------------- PNG
 
 const CRC_TABLE = (() => {
@@ -438,5 +598,6 @@ module.exports = {
   plain, knit, leather, metal, gem, glass, stripes, spots, stars, feather, membrane, fur, flame, print, onFace, bright,
   canvas, felt, straw, wood, scales, plating, plastic, lit, eye, hair, leaf, bone, gauze, satin, horn, gel, pumpkin,
   wingScale, ember, grille, scute,
-  png,
+  plume, cutout, gilded, facet, velvet, ermine, cracked, pelt, plates, pages, carbon, neon,
+  finish, png,
 }

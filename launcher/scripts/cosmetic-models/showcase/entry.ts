@@ -7,6 +7,7 @@ import * as skinview3d from 'skinview3d'
 import * as THREE from 'three'
 import { buildModel, animateModel, BuiltModel, modelGeometry } from '../../../src/renderer/data/cosmeticModels'
 import { MODEL_ITEM_DATA } from '../../../src/renderer/data/cosmeticModels.generated'
+import { PET_POS } from '../../../src/renderer/data/cosmeticShapes'
 
 declare global { interface Window { shots: Record<string, string>; done: boolean } }
 window.shots = {}
@@ -69,7 +70,9 @@ async function main() {
         }
       } else {
         const holder = new THREE.Group()
-        if (geo.anchor === 'head') { holder.position.y = 4; head.add(holder) } else body.add(holder)
+        if (geo.anchor === 'head') { holder.position.y = 4; head.add(holder) }
+        else if (geo.anchor === 'pet') { holder.position.set(PET_POS.x, PET_POS.y, PET_POS.z); body.add(holder) }
+        else body.add(holder)
         const b = buildModel(model, variant)!
         holder.add(b.root)
         holders.push(holder); built.push(b)
@@ -95,6 +98,30 @@ async function main() {
     { name: 'outfit-toadstool', items: [{ model: 'toadstool_cap' }, { model: 'prism_wings', variant: 'rose' }] },
     { name: 'outfit-paisley', items: [{ model: 'paisley_bandana', variant: 'navy' }, { model: 'jetpack_mk2', variant: 'rocket' }] },
   ]
+  // The premium models (premium.cjs), front and back.
+  const premium: typeof outfits = [
+    { name: 'premium-phoenix', items: [{ model: 'royal_crown' }, { model: 'phoenix_wings' }, { model: 'baby_dragon' }] },
+    { name: 'premium-phoenix-back', items: [{ model: 'royal_crown' }, { model: 'phoenix_wings' }, { model: 'baby_dragon' }], back: true },
+    { name: 'premium-halo', items: [{ model: 'celestial_halo' }, { model: 'aurora_wings' }, { model: 'spirit_fox' }] },
+    { name: 'premium-halo-back', items: [{ model: 'celestial_halo' }, { model: 'aurora_wings' }, { model: 'spirit_fox' }], back: true },
+    { name: 'premium-horns', items: [{ model: 'ember_horns' }, { model: 'cyber_wings' }, { model: 'baby_dragon', variant: 'sapphire' }] },
+    { name: 'premium-horns-back', items: [{ model: 'ember_horns' }, { model: 'cyber_wings' }], back: true },
+    { name: 'premium-kitsune', items: [{ model: 'kitsune_mask' }, { model: 'arcane_tome' }, { model: 'spirit_fox', variant: 'spirit' }] },
+    { name: 'premium-kitsune-back', items: [{ model: 'kitsune_mask' }, { model: 'arcane_tome' }], back: true },
+    { name: 'premium-variants-1', items: [{ model: 'royal_crown', variant: 'obsidian' }, { model: 'phoenix_wings', variant: 'frost' }], back: true },
+    { name: 'premium-variants-2', items: [{ model: 'celestial_halo', variant: 'void' }, { model: 'aurora_wings', variant: 'monarch' }], back: true },
+    { name: 'premium-variants-3', items: [{ model: 'ember_horns', variant: 'frost' }, { model: 'cyber_wings', variant: 'magenta' }], back: true },
+    { name: 'premium-variants-4', items: [{ model: 'kitsune_mask', variant: 'shadow' }, { model: 'baby_dragon', variant: 'emerald' }] },
+  ]
+  for (const o of premium) {
+    const off = wear(o.items)
+    viewer.playerObject.rotation.y = o.back ? Math.PI + 0.55 : -0.5
+    viewer.playerObject.rotation.x = 0.08
+    window.shots[o.name] = await frame(viewer)
+    off()
+  }
+  window.shots['sheet-premium'] = await sheet(premium.map(o => o.name), 4, 1)
+  if (new URLSearchParams(location.search).get('premium')) { window.done = true; return }
   for (const o of outfits) {
     const off = wear(o.items)
     viewer.playerObject.rotation.y = o.back ? Math.PI + 0.55 : -0.5

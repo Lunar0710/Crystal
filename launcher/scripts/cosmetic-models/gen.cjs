@@ -21,16 +21,25 @@
 const fs = require('fs')
 const path = require('path')
 const L = require('./lib.cjs')
-const DEFS = require('./defs.cjs')
+const DEFS = [...require('./defs.cjs'), ...require('./premium.cjs')]
 const { blockModels } = require('./blocks.cjs')
 
-/** Texels per skin pixel: twice the skin's resolution, crisp but still pixel art. */
+/**
+ * Texels per skin pixel the materials paint at, unless a model sets its own
+ * (def.density): twice the skin's resolution, crisp but still pixel art.
+ */
 const DENSITY = 2
+/**
+ * Texels per skin pixel of the finished textures. Patterns keep their paint
+ * density (each painted texel becomes a block), and L.finish lays smooth
+ * shading, bevelled edges and highlights over them at this resolution.
+ */
+const OUT_DENSITY = 4
 const REPO = path.resolve(__dirname, '..', '..', '..')
 const CLIENT_ASSETS = path.join(REPO, 'client', 'src', 'main', 'resources', 'assets', 'crystal')
 const TS_OUT = path.join(REPO, 'launcher', 'src', 'renderer', 'data', 'cosmeticModels.generated.ts')
 const FACES = ['pz', 'nz', 'px', 'nx', 'py', 'ny']
-const ANIMS = new Set(['sway', 'swayz', 'spin', 'bob', 'bounce', 'fold', 'flicker'])
+const ANIMS = new Set(['sway', 'swayz', 'spin', 'bob', 'bounce', 'fold', 'flicker', 'drift', 'look'])
 const MAX_FALLBACK_BOXES = 14
 
 const round = (v, n = 4) => Math.round(v * 10 ** n) / 10 ** n
@@ -80,6 +89,18 @@ const RAD = Math.PI / 180
 // ---------------------------------------------------------------- build
 
 function build(def) {
+  const paint = def.density ?? DENSITY
+  // Big models fall back to a lower resolution rather than past a 512 texture.
+  for (let out = Math.max(OUT_DENSITY, paint); ; out--) {
+    try {
+      return buildAt(def, paint, out)
+    } catch (e) {
+      if (out <= paint || !/too big/.test(e.message)) throw e
+    }
+  }
+}
+
+function buildAt(def, paint, density) {
   const boneNames = new Set(def.bones.map(b => b.name))
   const rects = []
   const cubes = []
@@ -88,10 +109,11 @@ function build(def) {
     if (bone.anim && !ANIMS.has(bone.anim)) throw new Error(`${def.id}: unknown anim ${bone.anim}`)
     bone.cubes.forEach((cube, ci) => {
       if (!def.mats[cube.mat]) throw new Error(`${def.id}: unknown material ${cube.mat}`)
-      const sizes = faceSizes(cube.size, def.density)
+      const sizes = faceSizes(cube.size, density)
+      const painted = faceSizes(cube.size, paint)
       const faces = {}
       for (const f of FACES) {
-        const r = { w: sizes[f][0], h: sizes[f][1], face: f }
+        const r = { w: sizes[f][0], h: sizes[f][1], pw: painted[f][0], ph: painted[f][1], face: f }
         faces[f] = r
         rects.push(r)
       }
@@ -113,9 +135,15 @@ function build(def) {
       let n = 0
       for (const f of FACES) {
         const r = entry.faces[f]
+        // Painted at paint density, each painted texel then spread over its block and finished.
+        const paintedFace = new Array(r.pw * r.ph)
+        for (let y = 0; y < r.ph; y++) {
+          for (let x = 0; x < r.pw; x++) paintedFace[y * r.pw + x] = mat({ face: f, x, y, w: r.pw, h: r.ph, P, seed: entry.seed, density: paint })
+        }
         for (let y = 0; y < r.h; y++) {
           for (let x = 0; x < r.w; x++) {
-            const col = mat({ face: f, x, y, w: r.w, h: r.h, P, seed: entry.seed })
+            const base = paintedFace[Math.min(r.ph - 1, Math.floor(y * r.ph / r.h)) * r.pw + Math.min(r.pw - 1, Math.floor(x * r.pw / r.w))]
+            const col = base && L.finish(base, { face: f, x, y, w: r.w, h: r.h, glow: !!entry.cube.glow, density })
             if (!col) continue
             const o = ((r.v + y) * atlas.width + (r.u + x)) * 4
             px[o] = col[0]; px[o + 1] = col[1]; px[o + 2] = col[2]; px[o + 3] = col[3] ?? 255
@@ -143,6 +171,7 @@ function build(def) {
       if (bone.anim) out.anim = bone.anim
       if (bone.amp !== undefined) out.amp = bone.amp
       if (bone.speed !== undefined) out.speed = bone.speed
+      if (bone.phase !== undefined) out.phase = bone.phase
       out.cubes = cubes.filter(e => e.bone === bi).map(e => {
         const [x, y, z] = e.cube.from, [w, h, d] = e.cube.size
         const c = { from: [x, y, z].map(v => round(v)), to: [x + w, y + h, z + d].map(v => round(v)) }

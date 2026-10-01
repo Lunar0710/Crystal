@@ -12,7 +12,7 @@ import { MODEL_GEOMETRY, MODEL_TEXTURES, AURA_SPRITES } from './cosmeticModels.g
  */
 
 export type ModelFace = 'pz' | 'nz' | 'px' | 'nx' | 'py' | 'ny'
-export type ModelAnim = 'sway' | 'swayz' | 'spin' | 'bob' | 'bounce' | 'fold' | 'flicker'
+export type ModelAnim = 'sway' | 'swayz' | 'spin' | 'bob' | 'bounce' | 'fold' | 'flicker' | 'drift' | 'look'
 
 export interface ModelCube {
   from: [number, number, number]
@@ -31,6 +31,8 @@ export interface ModelBone {
   anim?: ModelAnim
   amp?: number
   speed?: number
+  /** 0..1: offsets the animation cycle (particles of one model don't move in step). */
+  phase?: number
   cubes: ModelCube[]
 }
 
@@ -135,7 +137,7 @@ function boneGeometry(model: NexoraModel, bone: ModelBone, glow: boolean): THREE
 export interface BuiltModel {
   root: THREE.Group
   /** Animated bones and their rest rotation / position. */
-  animated: { obj: THREE.Object3D; bone: ModelBone; rest: THREE.Euler; restY: number }[]
+  animated: { obj: THREE.Object3D; bone: ModelBone; rest: THREE.Euler; restX: number; restY: number }[]
 }
 
 /**
@@ -168,7 +170,7 @@ export function buildModel(id: string, variant?: string): BuiltModel | null {
     }
     ;(parent ?? root).add(g)
     groups.set(bone.name, g)
-    if (bone.anim) animated.push({ obj: g, bone, rest: g.rotation.clone(), restY: g.position.y })
+    if (bone.anim) animated.push({ obj: g, bone, rest: g.rotation.clone(), restX: g.position.x, restY: g.position.y })
   }
   return { root, animated }
 }
@@ -194,7 +196,10 @@ export function animateModel(built: BuiltModel, m: ModelMotion) {
     const amp = bone.amp ?? 8
     const speed = bone.speed ?? 1
     obj.rotation.copy(rest)
+    obj.position.x = a.restX
     obj.position.y = a.restY
+    obj.scale.set(1, 1, 1)
+    obj.visible = true
     const deg = THREE.MathUtils.degToRad
     switch (bone.anim) {
       case 'sway':
@@ -220,6 +225,19 @@ export function animateModel(built: BuiltModel, m: ModelMotion) {
         obj.scale.set(1, s, 1)
         break
       }
+      case 'drift': {
+        let p = age * 0.02 * speed + (bone.phase ?? 0)
+        p -= Math.floor(p)
+        obj.position.y = a.restY + (bone.amp ?? 4) * p
+        obj.position.x = a.restX + 0.6 * Math.sin(p * Math.PI * 2 + (bone.phase ?? 0) * 11)
+        const grow = Math.sin(p * Math.PI)
+        obj.visible = grow >= 0.05
+        obj.scale.setScalar(Math.max(grow, 0.001))
+        break
+      }
+      case 'look':
+        obj.rotation.y = rest.y + deg(bone.amp ?? 20) * Math.sin(age * 0.03 * speed + (bone.phase ?? 0) * Math.PI * 2)
+        break
     }
   }
 }
