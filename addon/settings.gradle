@@ -1,0 +1,19 @@
+pluginManagement {
+    repositories {
+        maven { url 'https://maven.fabricmc.net/' }
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    plugins {
+        id 'net.fabricmc.fabric-loom-remap' version '1.17-SNAPSHOT'
+    }
+}
+
+plugins {
+    // Downloads JDK 21 when the machine has another one.
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}
+
+// Lunar Cosmetics: Nexora's cosmetics as a standalone Fabric mod for 1.21.11.
+// A build of its own, so the Nexora client's Stonecutter build never sees it.
+rootProject.name = 'lunar-cosmetics'

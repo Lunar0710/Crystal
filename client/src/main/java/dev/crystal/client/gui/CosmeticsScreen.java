@@ -5,7 +5,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import dev.crystal.client.CrystalClient;
+import dev.crystal.client.util.CosmeticsHooks;
 import dev.crystal.client.emote.Emote;
 import dev.crystal.client.emote.EmotePlayer;
 import dev.crystal.client.render.CosmeticPictures;
@@ -43,13 +43,15 @@ import java.util.Map;
  *
  * The catalog (cosmetics/catalog.json) is written by the launcher with every
  * item already resolved to what the game draws, so this screen never needs
- * the launcher's shape code.
+ * the launcher's shape code. Without that file it uses the catalog in the
+ * jar, which only the Lunar Cosmetics addon ships (npm run gen:addon).
  */
 public class CosmeticsScreen extends Screen {
 
     private record Variant(String id, String name, int color, int secondary, JsonObject item) {}
     private record Entry(String id, String name, String slot, boolean locked, boolean isNew, List<Variant> variants) {}
-    private record Cape(String id, String name, boolean locked) {}
+    /** {@code frames} > 1: an animated cape, shipped as a strip of that many textures. */
+    private record Cape(String id, String name, boolean locked, int frames, int fps) {}
     private record Tile(int x, int y, int w, int h, int index) {}
 
     private static final String[] SLOTS = {"cape", "hat", "bandana", "mask", "wings", "backpack", "aura", "pet", "emote"};
@@ -103,9 +105,9 @@ public class CosmeticsScreen extends Screen {
         capes.clear();
         emotes.clear();
         try {
-            Path file = dir().resolve("catalog.json");
-            if (!Files.exists(file)) { catalogMissing = true; return; }
-            JsonObject root = JsonParser.parseString(Files.readString(file)).getAsJsonObject();
+            String text = readCatalog();
+            if (text == null) { catalogMissing = true; return; }
+            JsonObject root = JsonParser.parseString(text).getAsJsonObject();
             for (JsonElement se : root.getAsJsonArray("slots")) {
                 JsonObject s = se.getAsJsonObject();
                 List<Entry> list = new ArrayList<>();
@@ -123,12 +125,15 @@ public class CosmeticsScreen extends Screen {
                 }
                 items.put(s.get("slot").getAsString(), list);
             }
-            Path cache = dir().resolve("cape-cache");
             if (root.has("capes")) for (JsonElement ce : root.getAsJsonArray("capes")) {
                 JsonObject c = ce.getAsJsonObject();
                 String id = c.get("id").getAsString();
-                // Only capes whose picture the launcher has drawn can be put on here.
-                if (Files.exists(cache.resolve(id + ".png"))) capes.add(new Cape(id, c.get("name").getAsString(), c.get("locked").getAsBoolean()));
+                int frames = c.has("frames") ? c.get("frames").getAsInt() : 1;
+                int fps = c.has("fps") ? c.get("fps").getAsInt() : 0;
+                // Only capes whose picture the launcher has drawn (or the jar has) can be put on here.
+                if (frames > 1 || dev.crystal.client.net.PeerCapes.available(id)) {
+                    capes.add(new Cape(id, c.get("name").getAsString(), c.get("locked").getAsBoolean(), frames, fps));
+                }
             }
             if (root.has("emotes")) for (JsonElement ee : root.getAsJsonArray("emotes")) {
                 JsonObject e = ee.getAsJsonObject();
@@ -136,7 +141,7 @@ public class CosmeticsScreen extends Screen {
             }
             if (root.has("outfits") && root.get("outfits").isJsonArray()) outfits = root.getAsJsonArray("outfits");
         } catch (Exception e) {
-            CrystalClient.LOGGER.warn("[Nexora] catalog.json nicht lesbar: {}", e.toString());
+            CosmeticsHooks.LOGGER.warn("[Nexora] catalog.json nicht lesbar: {}", e.toString());
             catalogMissing = true;
         }
         if (emotes.isEmpty()) for (Emote e : Emote.values()) emotes.add(new String[]{e.name(), e.label()});
@@ -163,6 +168,15 @@ public class CosmeticsScreen extends Screen {
             }
         } catch (Exception ignored) {
             // Nothing worn yet.
+        }
+    }
+
+    /** The launcher's catalog.json, else the one in the jar, else null. */
+    private static String readCatalog() throws java.io.IOException {
+        Path file = dir().resolve("catalog.json");
+        if (Files.exists(file)) return Files.readString(file);
+        try (var in = CosmeticsScreen.class.getResourceAsStream("/assets/crystal/cosmetics/catalog.json")) {
+            return in == null ? null : new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
         }
     }
 
@@ -220,13 +234,25 @@ public class CosmeticsScreen extends Screen {
             Path png = dir().resolve("equipped_cape.png");
             Files.deleteIfExists(dir().resolve("equipped_cape.json"));
             String capeId = worn.containsKey("cape") ? worn.get("cape").substring("builtin:".length()) : null;
-            if (capeId == null) Files.deleteIfExists(png);
-            else Files.copy(dir().resolve("cape-cache").resolve(capeId + ".png"), png, StandardCopyOption.REPLACE_EXISTING);
+            Cape chosen = null;
+            for (Cape c : capes) if (c.id().equals(capeId)) chosen = c;
+            boolean animated = chosen != null && chosen.frames() > 1;
+            byte[] picture = capeId == null ? null : dev.crystal.client.net.PeerCapes.picture(capeId, animated);
+            Files.createDirectories(dir());
+            if (picture == null) Files.deleteIfExists(png);
+            else Files.write(png, picture);
+            // An animation strip: CosmeticCapeLoader shows it frame by frame.
+            if (picture != null && animated) {
+                JsonObject animation = new JsonObject();
+                animation.addProperty("frames", chosen.frames());
+                animation.addProperty("fps", chosen.fps());
+                Files.writeString(dir().resolve("equipped_cape.json"), animation.toString());
+            }
             JsonObject equipped = new JsonObject();
             if (capeId == null) equipped.add("cape", JsonNull.INSTANCE); else equipped.addProperty("cape", capeId);
             Files.writeString(dir().resolve("equipped.json"), equipped.toString());
         } catch (Exception ex) {
-            CrystalClient.LOGGER.warn("[Nexora] Cape nicht gewechselt: {}", ex.toString());
+            CosmeticsHooks.LOGGER.warn("[Nexora] Cape nicht gewechselt: {}", ex.toString());
         }
         writeSelection();
     }
@@ -247,7 +273,7 @@ public class CosmeticsScreen extends Screen {
             Files.writeString(tmp, loadout.toString());
             Files.move(tmp, dir().resolve("loadout.json"), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
         } catch (Exception ex) {
-            CrystalClient.LOGGER.warn("[Nexora] loadout.json nicht geschrieben: {}", ex.toString());
+            CosmeticsHooks.LOGGER.warn("[Nexora] loadout.json nicht geschrieben: {}", ex.toString());
         }
         // Shows at once, without waiting for the once-a-second file check.
         CosmeticLoadout.apply(CosmeticLoadout.parse(loadout));
@@ -272,7 +298,7 @@ public class CosmeticsScreen extends Screen {
         try {
             Files.writeString(dir().resolve("selection.json"), sel.toString());
         } catch (Exception ex) {
-            CrystalClient.LOGGER.warn("[Nexora] selection.json nicht geschrieben: {}", ex.toString());
+            CosmeticsHooks.LOGGER.warn("[Nexora] selection.json nicht geschrieben: {}", ex.toString());
         }
     }
 
@@ -334,7 +360,7 @@ public class CosmeticsScreen extends Screen {
     @Override
     protected void init() {
         if (items.isEmpty() && !catalogMissing) load();
-        accent = CrystalClient.getInstance().getThemeManager().getAccent() | 0xFF000000;
+        accent = CosmeticsHooks.accent.getAsInt() | 0xFF000000;
         int margin = Math.max(10, Math.min(28, width / 24));
         px1 = margin;
         py1 = margin;
@@ -436,7 +462,22 @@ public class CosmeticsScreen extends Screen {
         ctx.drawString(font, filter, gridX1, y2, onlyOwned ? GuiRender.INK : GuiRender.ASH, false);
         String take = "Alles ablegen";
         ctx.drawString(font, take, gridX2 - font.width(take), y2, GuiRender.ASH, false);
+        String toggle = toggleLabel();
+        if (toggle != null) {
+            boolean on = CosmeticsHooks.menuToggle.on().getAsBoolean();
+            ctx.drawString(font, toggle, toggleX(), y2, on ? GuiRender.INK : GuiRender.ASH, false);
+        }
         ctx.fill(gridX1, gridY1 - 5, gridX2, gridY1 - 4, GuiRender.HAIR);
+    }
+
+    /** The mod's extra switch (CosmeticsHooks#menuToggle) as "[x] label", or null. */
+    private String toggleLabel() {
+        var t = CosmeticsHooks.menuToggle;
+        return t == null ? null : (t.on().getAsBoolean() ? "[x] " : "[ ] ") + t.label();
+    }
+
+    private int toggleX() {
+        return gridX2 - font.width("Alles ablegen") - 14 - font.width(toggleLabel());
     }
 
     private void renderPreview(GuiGraphics ctx, int mouseX, int mouseY) {
@@ -658,6 +699,11 @@ public class CosmeticsScreen extends Screen {
         int y2 = py1 + 30;
         if (my >= y2 - 2 && my < y2 + 10) {
             if (mx >= gridX1 && mx < gridX1 + font.width("[x] Nur verfügbare")) { onlyOwned = !onlyOwned; return true; }
+            String toggle = toggleLabel();
+            if (toggle != null && mx >= toggleX() && mx < toggleX() + font.width(toggle)) {
+                CosmeticsHooks.menuToggle.flip().run();
+                return true;
+            }
             String take = "Alles ablegen";
             if (mx >= gridX2 - font.width(take) && mx < gridX2) {
                 worn.keySet().removeIf(s -> !s.equals("cape"));
@@ -715,9 +761,8 @@ public class CosmeticsScreen extends Screen {
             } else if (o instanceof String[] e) {
                 Emote emote = Emote.byName(e[0]);
                 // Emotes are the Emotes module's (Nexora+); it also ends them again.
-                var module = CrystalClient.getInstance().getModuleManager().getEnabled(dev.crystal.client.module.player.Emotes.class);
-                if (module == null) {
-                    toast("Schalte das Emotes-Modul ein (Nexora+)");
+                if (!CosmeticsHooks.emotesAllowed.getAsBoolean()) {
+                    toast(CosmeticsHooks.emotesLockedHint);
                 } else if (emote != null) {
                     onClose();
                     EmotePlayer.play(emote, true);

@@ -4,7 +4,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import dev.crystal.client.CrystalClient;
+import dev.crystal.client.util.CosmeticsHooks;
 import dev.crystal.client.compat.SessionCompat;
 import dev.crystal.client.util.CosmeticLoadout;
 import dev.crystal.client.util.CrystalPaths;
@@ -51,7 +51,7 @@ public final class CrystalNet {
         return t;
     });
 
-    private static URI server;
+    private static volatile URI server;
     private static volatile WebSocket socket;
     private static volatile boolean ready = false;
     private static int failures = 0;
@@ -66,18 +66,48 @@ public final class CrystalNet {
     private CrystalNet() {}
 
     public static void start() {
-        String configured = System.getProperty(PROPERTY, "").trim();
-        if (configured.isEmpty()) return;
+        start(System.getProperty(PROPERTY, ""));
+    }
+
+    /** Connects to the Nexora server at this address (ws:// or wss://); nothing for an empty one. */
+    public static void start(String address) {
+        // On the worker, like stop(), so a quick off and on again run in order.
+        WORKER.execute(() -> open(address));
+    }
+
+    private static void open(String address) {
+        String configured = address == null ? "" : address.trim();
+        if (configured.isEmpty() || server != null) return;
         try {
             server = URI.create(configured);
             if (!"ws".equals(server.getScheme()) && !"wss".equals(server.getScheme())) throw new IllegalArgumentException("scheme");
         } catch (IllegalArgumentException e) {
-            CrystalClient.LOGGER.warn("[Nexora] Nexora-Server-Adresse ungültig: {}", configured);
+            CosmeticsHooks.LOGGER.warn("[Nexora] Nexora-Server-Adresse ungültig: {}", configured);
             server = null;
             return;
         }
-        CrystalClient.LOGGER.info("[Nexora] Nexora-Server: {}", server);
-        WORKER.execute(CrystalNet::connect);
+        CosmeticsHooks.LOGGER.info("[Nexora] Nexora-Server: {}", server);
+        // A reconnect still waiting from before a stop() connects instead.
+        if (!reconnectScheduled) connect();
+    }
+
+    /**
+     * Disconnects for good (until the next start): other players' cosmetics
+     * disappear and nothing is sent any more. The Lunar Cosmetics addon's
+     * sync switch.
+     */
+    public static void stop() {
+        WORKER.execute(() -> {
+            server = null;
+            ready = false;
+            sentRoom = null;
+            sentLoadoutKey = Long.MIN_VALUE;
+            PeerRegistry.clear();
+            WebSocket ws = socket;
+            socket = null;
+            if (ws != null) ws.abort();
+            CosmeticsHooks.LOGGER.info("[Nexora] Nexora-Server: Verbindung getrennt (ausgeschaltet)");
+        });
     }
 
     public static boolean isConnected() {
@@ -108,7 +138,7 @@ public final class CrystalNet {
         PeerRegistry.clear();
         long delay = RETRY_SECONDS[Math.min(failures, RETRY_SECONDS.length - 1)];
         failures++;
-        CrystalClient.LOGGER.info("[Nexora] Nexora-Server: {} (neuer Versuch in {} s)", why, delay);
+        CosmeticsHooks.LOGGER.info("[Nexora] Nexora-Server: {} (neuer Versuch in {} s)", why, delay);
         WORKER.schedule(CrystalNet::connect, delay, TimeUnit.SECONDS);
     }
 
@@ -231,7 +261,7 @@ public final class CrystalNet {
                 ready = true;
                 failures = 0;
                 selfId = str(m, "uuid");
-                CrystalClient.LOGGER.info("[Nexora] Beim Nexora-Server angemeldet");
+                CosmeticsHooks.LOGGER.info("[Nexora] Beim Nexora-Server angemeldet");
                 // The friends list, so /nmsg can reach friends by name.
                 JsonObject ask = new JsonObject();
                 ask.addProperty("t", "friends");
@@ -317,7 +347,7 @@ public final class CrystalNet {
             SessionCompat.sessionService(mc).joinServer(user.getProfileId(), user.getAccessToken(), serverId);
         } catch (Exception e) {
             // Offline accounts can't do this; they just don't use the Nexora server.
-            CrystalClient.LOGGER.info("[Nexora] Nexora-Server: Anmeldung bei Mojang nicht möglich ({})", e.getMessage());
+            CosmeticsHooks.LOGGER.info("[Nexora] Nexora-Server: Anmeldung bei Mojang nicht möglich ({})", e.getMessage());
             // The world test's offline account goes on anyway: its local test
             // server skips the Mojang check. A real server rejects this hello.
             if (System.getProperty(TEST_ROOM_PROPERTY) == null) return;
@@ -374,7 +404,7 @@ public final class CrystalNet {
             proof.add("textures", textures);
             return proof;
         } catch (Exception e) {
-            CrystalClient.LOGGER.info("[Nexora] Nexora-Server: kein Schlüssel-Nachweis ({})", e.toString());
+            CosmeticsHooks.LOGGER.info("[Nexora] Nexora-Server: kein Schlüssel-Nachweis ({})", e.toString());
             return null;
         }
     }

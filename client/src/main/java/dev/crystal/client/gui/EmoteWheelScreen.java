@@ -3,7 +3,7 @@ package dev.crystal.client.gui;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 import com.mojang.blaze3d.platform.InputConstants;
-import dev.crystal.client.CrystalClient;
+import dev.crystal.client.util.CosmeticsHooks;
 import dev.crystal.client.emote.Emote;
 import dev.crystal.client.emote.EmotePlayer;
 import dev.crystal.client.util.CrystalPaths;
@@ -51,7 +51,7 @@ public class EmoteWheelScreen extends Screen {
         super(Component.literal("Emotes"));
         this.turnCamera = turnCamera;
         this.holdKey = holdKey;
-        this.accent = CrystalClient.getInstance().getThemeManager().getAccent();
+        this.accent = CosmeticsHooks.accent.getAsInt();
         this.emotes = wheel();
     }
 

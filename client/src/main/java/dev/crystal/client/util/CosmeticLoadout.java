@@ -3,7 +3,6 @@ package dev.crystal.client.util;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import dev.crystal.client.CrystalClient;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -79,7 +78,7 @@ public final class CosmeticLoadout {
     public static Item get(String slot) {
         refreshIfDue();
         Item item = items.get(slot);
-        if (item == null || (item.plusOnly() && !CrystalProfile.hasPerks())) return null;
+        if (item == null || (item.plusOnly() && CosmeticsHooks.rankLocks && !CrystalProfile.hasPerks())) return null;
         return item;
     }
 
@@ -110,7 +109,7 @@ public final class CosmeticLoadout {
             items = parse(JsonParser.parseString(Files.readString(file)).getAsJsonObject());
             lastMtime = mtime;
         } catch (IOException | RuntimeException e) {
-            CrystalClient.LOGGER.warn("[Nexora] loadout.json nicht lesbar: {}", e.getMessage());
+            CosmeticsHooks.LOGGER.warn("[Nexora] loadout.json nicht lesbar: {}", e.getMessage());
         } finally {
             inFlight = false;
         }

@@ -61,6 +61,10 @@ public class CrystalClient implements ClientModInitializer {
         moduleManager.initModules();
         boolean hadSavedConfig = configManager.load();
         themeManager.load();
+        // The cosmetics code is shared with the Lunar Cosmetics addon and asks through these.
+        dev.crystal.client.util.CosmeticsHooks.accent = themeManager::getAccent;
+        dev.crystal.client.util.CosmeticsHooks.emotesAllowed =
+                () -> moduleManager.getEnabled(dev.crystal.client.module.player.Emotes.class) != null;
 
         hudPresetManager = new HudPresetManager(moduleManager);
         // Only force the default HUD layout for a fresh install — a loaded

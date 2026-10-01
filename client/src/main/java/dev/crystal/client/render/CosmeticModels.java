@@ -4,7 +4,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import dev.crystal.client.CrystalClient;
+import dev.crystal.client.util.CosmeticsHooks;
 import net.minecraft.resources.Identifier;
 
 import java.io.InputStream;
@@ -87,7 +87,7 @@ public final class CosmeticModels {
             JsonObject root = JsonParser.parseReader(new InputStreamReader(in, StandardCharsets.UTF_8)).getAsJsonObject();
             return bake(id, root);
         } catch (Exception e) {
-            CrystalClient.LOGGER.warn("[Nexora] Cosmetic-Modell {} nicht lesbar: {}", id, e.toString());
+            CosmeticsHooks.LOGGER.warn("[Nexora] Cosmetic-Modell {} nicht lesbar: {}", id, e.toString());
             return MISSING;
         }
     }

@@ -16,6 +16,7 @@
     "gen:cosmetics": "node scripts/cosmetic-models/gen.cjs",
     "check:cosmetics": "node scripts/cosmetic-models/gen.cjs --check",
     "gen:thumbs": "node scripts/cosmetic-models/showcase/thumbs.cjs",
+    "gen:addon": "node scripts/cosmetic-models/addon/addon.cjs",
     "test:crash": "node scripts/test-silent-memory-exit.cjs"
   },
   "dependencies": {

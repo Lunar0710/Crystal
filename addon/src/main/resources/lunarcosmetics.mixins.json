@@ -1,0 +1,13 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "dev.lunarcosmetics.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "PlayerSkinMixin",
+    "PlayerModelMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}

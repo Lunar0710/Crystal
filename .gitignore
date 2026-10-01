@@ -10,6 +10,8 @@ npm-debug.log*
 client/build/
 client/.gradle/
 client/.kotlin/
+addon/build/
+addon/.gradle/
 .gradle/
 *.class
 

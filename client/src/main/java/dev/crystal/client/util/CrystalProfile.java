@@ -2,7 +2,6 @@ package dev.crystal.client.util;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import dev.crystal.client.CrystalClient;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -77,7 +76,7 @@ public final class CrystalProfile {
             tester = root.has("tester") && root.get("tester").getAsBoolean();
             lastMtime = mtime;
         } catch (IOException | RuntimeException e) {
-            CrystalClient.LOGGER.warn("[Nexora] profile.json nicht lesbar: {}", e.getMessage());
+            CosmeticsHooks.LOGGER.warn("[Nexora] profile.json nicht lesbar: {}", e.getMessage());
         } finally {
             inFlight = false;
         }

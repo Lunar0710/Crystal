@@ -3,7 +3,6 @@ package dev.crystal.client.util;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mojang.blaze3d.platform.NativeImage;
-import dev.crystal.client.CrystalClient;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -90,7 +89,7 @@ public final class CosmeticCapeLoader {
             animated.upload();
             shownFrame = frame;
         } catch (RuntimeException e) {
-            CrystalClient.LOGGER.warn("[Nexora] Animiertes Cape konnte nicht weitergeschaltet werden: {}", e.getMessage());
+            CosmeticsHooks.LOGGER.warn("[Nexora] Animiertes Cape konnte nicht weitergeschaltet werden: {}", e.getMessage());
             frames = 1;
         }
     }
@@ -181,7 +180,7 @@ public final class CosmeticCapeLoader {
             lastLoadedKey = key;
             fileExists = true;
         } catch (IOException e) {
-            CrystalClient.LOGGER.warn("[Nexora] Konnte Cosmetic-Cape nicht laden: {}", e.getMessage());
+            CosmeticsHooks.LOGGER.warn("[Nexora] Konnte Cosmetic-Cape nicht laden: {}", e.getMessage());
             fileExists = false;
         }
     }

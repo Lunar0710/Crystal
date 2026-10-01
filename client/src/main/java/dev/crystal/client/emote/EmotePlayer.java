@@ -1,7 +1,6 @@
 package dev.crystal.client.emote;
 
-import dev.crystal.client.CrystalClient;
-import dev.crystal.client.module.player.Emotes;
+import dev.crystal.client.util.CosmeticsHooks;
 import dev.crystal.client.net.CrystalNet;
 import dev.crystal.client.net.PeerRegistry;
 import net.minecraft.client.CameraType;
@@ -97,8 +96,8 @@ public final class EmotePlayer {
         if (!emote.isOver(t)) emote.apply(model, t);
     }
 
+    /** In Nexora: the Emotes module (Nexora+) is on. */
     private static boolean moduleOn() {
-        CrystalClient client = CrystalClient.getInstance();
-        return client != null && client.getModuleManager().getEnabled(Emotes.class) != null;
+        return CosmeticsHooks.emotesAllowed.getAsBoolean();
     }
 }

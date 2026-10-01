@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "lunarcosmetics",
+  "version": "${version}",
+  "name": "Lunar Cosmetics",
+  "description": "Nexora's own cosmetics for any Fabric setup: capes (HD and animated), 3D hats, wings, backpacks, masks, auras and pets in colour variants, emotes with an emote wheel, outfits and an in-game menu (J). Optional sync shows them to other players with this mod or Nexora.",
+  "authors": ["Nexora Development Team"],
+  "license": "All Rights Reserved",
+  "icon": "assets/lunarcosmetics/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["dev.lunarcosmetics.LunarCosmetics"]
+  },
+  "mixins": ["lunarcosmetics.mixins.json"],
+  "depends": {
+    "fabricloader": ">=0.19.3",
+    "minecraft": "~1.21.11",
+    "java": ">=21",
+    "fabric-lifecycle-events-v1": "*",
+    "fabric-rendering-v1": "*",
+    "fabric-key-binding-api-v1": "*"
+  },
+  "breaks": {
+    "crystal": "*"
+  }
+}

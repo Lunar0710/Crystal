@@ -1,0 +1,82 @@
+// Lunar Cosmetics: the cosmetics part of the Nexora client (capes, 3D model
+// items, emotes, the J menu, server sync) as a standalone Fabric mod for
+// Minecraft 1.21.11. Needs neither the Nexora launcher nor the rest of Nexora.
+//
+// The cosmetics code isn't copied: the classes listed below are compiled
+// straight from client/src, which is always written for 1.21.11 (Stonecutter's
+// active version). They reach the mod they run in only through CosmeticsHooks,
+// CrystalPaths and Lite, which the addon fills in (src/main/java).
+plugins {
+    id 'net.fabricmc.fabric-loom-remap'
+}
+
+def client = file('../client/src/main')
+
+version = "${project.property('mod_version')}+${project.property('minecraft_version')}"
+group = 'dev.lunarcosmetics'
+base { archivesName = 'lunar-cosmetics' }
+
+/** Nexora client sources the addon shares, relative to client/src/main/java. */
+def sharedJava = [
+        'dev/crystal/client/util/CosmeticsHooks.java',
+        'dev/crystal/client/util/CosmeticLoadout.java',
+        'dev/crystal/client/util/CosmeticCapeLoader.java',
+        'dev/crystal/client/util/CrystalPaths.java',
+        'dev/crystal/client/util/CrystalProfile.java',
+        'dev/crystal/client/render/CosmeticModels.java',
+        'dev/crystal/client/render/CosmeticModelRenderer.java',
+        'dev/crystal/client/render/CosmeticPictures.java',
+        'dev/crystal/client/render/CosmeticsFeatureRenderer.java',
+        'dev/crystal/client/net/PeerRegistry.java',
+        'dev/crystal/client/net/PeerCapes.java',
+        'dev/crystal/client/net/CrystalNet.java',
+        'dev/crystal/client/compat/TextureCompat.java',
+        'dev/crystal/client/compat/SkinCompat.java',
+        'dev/crystal/client/compat/SessionCompat.java',
+        'dev/crystal/client/emote/Emote.java',
+        'dev/crystal/client/emote/EmotePlayer.java',
+        'dev/crystal/client/gui/CosmeticsScreen.java',
+        'dev/crystal/client/gui/EmoteWheelScreen.java',
+        'dev/crystal/client/gui/GuiRender.java',
+]
+
+/** And its cosmetics assets: models, model textures, item and cape pictures, aura sprites. */
+def sharedResources = [
+        'assets/crystal/cosmetics/models/**',
+        'assets/crystal/textures/cosmetics/**',
+]
+
+def syncSharedJava = tasks.register('sharedJava', Sync) {
+    from(new File(client, 'java')) { include sharedJava }
+    into layout.buildDirectory.dir('shared/java')
+}
+def syncSharedResources = tasks.register('sharedResources', Sync) {
+    from(new File(client, 'resources')) { include sharedResources }
+    into layout.buildDirectory.dir('shared/resources')
+}
+
+sourceSets {
+    main {
+        java.srcDir(syncSharedJava)
+        resources.srcDir(syncSharedResources)
+    }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.property('minecraft_version')}"
+    mappings loom.officialMojangMappings()
+    modImplementation "net.fabricmc:fabric-loader:${project.property('loader_version')}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.property('fabric_version')}"
+}
+
+processResources {
+    def props = [version: project.version]
+    inputs.properties props
+    filesMatching('fabric.mod.json') { expand props }
+}
+
+java {
+    toolchain { languageVersion = JavaLanguageVersion.of(21) }
+}
+
+tasks.withType(JavaCompile).configureEach { it.options.release = 21 }
