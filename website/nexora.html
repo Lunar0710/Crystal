@@ -6,13 +6,13 @@
 <link rel="icon" href="icon.png">
 <meta name="theme-color" content="#050505">
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="Nexora">
+<meta property="og:site_name" content="Lunar's Projects">
 <meta property="og:title" content="Nexora Client: jeder Kampf aufgezeichnet">
 <meta property="og:description" content="Kostenloser Minecraft-Client mit eigenem Launcher: Kampf-Replays, Kill-Cam, PvP-HUD und mehr FPS. Für 1.21.4 bis 26.2.">
-<meta property="og:url" content="https://lunar0710.github.io/Crystal/">
+<meta property="og:url" content="https://lunar0710.github.io/Crystal/nexora.html">
 <meta property="og:image" content="https://lunar0710.github.io/Crystal/icon.png">
 <meta name="twitter:card" content="summary">
-<title>Nexora Client</title>
+<title>Nexora · Lunar's Projects</title>
 <meta name="description" content="Nexora ist ein kostenloser Minecraft-Client mit eigenem Launcher: Kampf-Replays, Kill-Cam, PvP-HUD und mehr FPS. Für Minecraft 1.21.4 bis 26.2.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -403,21 +403,11 @@
   .toast.on { translate: -50% 0; opacity: 1; }
   .toast b { color: var(--ink); font-weight: 600; }
 
-  /* ---------- Lunar Optimizer ---------- */
-  .lunar { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 56px; align-items: center; }
-  .lunar h2 { margin-top: 20px; font-size: clamp(44px, 6vw, 92px); line-height: .9; font-weight: 870;
-    background: linear-gradient(180deg, #ffffff 20%, #8ea2ff); -webkit-background-clip: text; background-clip: text; color: transparent; }
-  .lunar .lede { margin-top: 22px; color: var(--ash); font-weight: 300; font-size: 17px; max-width: 34em; }
-  .lunar-list { margin: 26px 0 0; padding: 0; list-style: none; }
-  .lunar-list li { display: flex; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--hair); font-size: 14.5px; }
-  .lunar-list li span { color: var(--ash); font-weight: 300; text-align: right; }
-  .lunar-cta { margin-top: 30px; display: flex; gap: 12px; flex-wrap: wrap; }
-  .lunar-meta { margin-top: 16px; font-size: 13px; color: var(--dim); }
-  .lunar-shot { perspective: 1600px; }
-  .lunar-shot .shell { transform: rotateY(-10deg) rotateX(4deg); transition: transform 1s var(--out); box-shadow: 0 0 0 1px var(--hair), 0 60px 120px -40px rgba(0, 0, 0, .9), 0 0 140px -40px rgba(142, 162, 255, .45); }
-  .lunar-shot:hover .shell { transform: rotateY(-3deg) rotateX(1deg); }
-  .lunar-shot img { display: block; width: 100%; height: auto; }
-  @media (max-width: 1080px) { .lunar { grid-template-columns: 1fr; } .lunar-shot .shell { transform: none; } }
+  /* ---------- Back to Lunar's Projects ---------- */
+  .back { width: 40px; height: 40px; flex: none; border-radius: 50%; display: grid; place-items: center; color: var(--ash); background: rgba(255, 255, 255, .05);
+    box-shadow: inset 0 0 0 1px var(--hair); transition: color .4s var(--spring), background .4s var(--spring), translate .4s var(--spring); }
+  .back:hover { color: var(--ink); background: rgba(255, 255, 255, .09); translate: -2px 0; }
+  .back svg { width: 15px; height: 15px; }
 
   /* ---------- Motion ---------- */
   @property --ang { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
@@ -622,6 +612,7 @@
     .nav { left: 16px; right: 16px; transform: none; justify-content: space-between; }
     .nav-links, .nav .btn { display: none; }
     .burger { display: block; }
+    .nav .brand { margin-right: auto; padding-left: 4px; }
     .hero { text-align: left; }
     .hero .cta { justify-content: flex-start; }
     .stage { margin-top: 56px; perspective: none; }
@@ -652,6 +643,7 @@
 <div class="progress" id="progress" aria-hidden="true"></div>
 
 <header class="nav" id="nav">
+  <a class="back" href="./" aria-label="Zurück zu Lunar's Projects" title="Alle Projekte"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3.5 5.5 8l4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
   <a class="brand" href="#top" aria-label="Nexora, nach oben">
     <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M45.5 13.2A22 22 0 1 0 53.6 26" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round"/><path d="M22 44V20h5.6l10 14.6V20H43v24h-5.4L27.4 29.4V44z" fill="currentColor"/><path d="M51 6l2.2 5.6L59 13.8l-5.8 2.2L51 21.6 48.8 16 43 13.8l5.8-2.2z" fill="var(--accent)"/></svg>
     Nexora
@@ -684,15 +676,16 @@
   <a href="#faq">FAQ</a>
   <a href="https://discord.gg/Jj5AK7eD7" target="_blank" rel="noopener">Discord</a>
   <a href="#download">Download</a>
+  <a href="./">Alle Projekte</a>
 </div>
 
 <main id="top">
   <div class="wrap hero">
-    <span class="eyebrow rv"><b>1.7</b> Freunde, Chat und neuer Launcher</span>
+    <span class="eyebrow rv"><b>1.7.1</b> Minecraft-Client und Launcher</span>
     <h1 class="rv">Jeder Kampf.<span class="soft">Aufgezeichnet.</span></h1>
     <p class="lede rv">Nexora ist ein kostenloser Minecraft-Client mit eigenem Launcher. <strong>Sieh dir jeden Kampf von oben noch einmal an</strong>, mit Laufwegen, Treffern und Leben. Dazu ein HUD, das mitkämpft, und ein FPS-Doktor, der dein Spiel schneller macht.</p>
     <div class="cta rv">
-      <a class="btn btn-solid" data-dl href="https://github.com/Lunar0710/Crystal/releases/download/v1.6.0/Nexora-Launcher-Setup-1.6.0.exe" id="heroDl">Nexora herunterladen<span class="ic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v9m0 0L4.5 8M8 11.5 11.5 8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+      <a class="btn btn-solid" data-dl href="https://github.com/Lunar0710/Crystal/releases/download/v1.7.1/Nexora-Launcher-Setup-1.7.1.exe" id="heroDl">Nexora herunterladen<span class="ic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v9m0 0L4.5 8M8 11.5 11.5 8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
       <a class="btn btn-ghost" href="#features">Alle Features<span class="ic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 11.5l7-7m0 0H6m5.5 0V10" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
     </div>
     <p class="meta rv">Windows, macOS, Linux. Minecraft 1.21.4 bis 26.2 mit Fabric.<span id="liveMeta"></span></p>
@@ -846,7 +839,7 @@
       <div class="cell w12 shell rv" id="versionen">
         <div class="core">
           <div style="display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;align-items:end">
-            <div><h3>Ein Client, neun Versionen</h3><p>Wähl die Version im Launcher, Nexora bringt die passende Mod mit. Vor jedem Release läuft auf jeder Version ein Test in einer echten Welt.</p></div>
+            <div><h3>Ein Client, neun Versionen</h3><p>Wähl die Version im Launcher, Nexora bringt die passende Mod mit. Jedes Release wurde vorher auf jeder Version in einer echten Welt getestet.</p></div>
           </div>
           <div class="tl">
             <div><b>1.21.4</b></div><div><b>1.21.5</b></div><div><b>1.21.6</b></div><div><b>1.21.7</b></div><div><b>1.21.8</b></div>
@@ -860,7 +853,7 @@
   <section class="wrap" id="neu">
     <div class="head">
       <div><span class="eyebrow rv" id="neuTag"><b>1.7</b> Changelog</span><h2 class="rv" id="neuTitle">Neu in Nexora 1.7.</h2></div>
-      <p class="rv">Die größten Neuerungen im letzten Update. Der Launcher aktualisiert sich selbst, du musst nichts tun.</p>
+      <p class="rv">Was das letzte große Update gebracht hat. Die vollständigen Änderungen jeder Version stehen auf GitHub.</p>
     </div>
     <div class="news" id="news">
       <article class="shell rv"><div class="core"><span class="n">01</span><h3>Kampf-Replay</h3><p>Jeder Kampf wird aufgezeichnet. Im Launcher siehst du ihn von oben noch einmal, mit Laufwegen, Treffern und Leben.</p></div></article>
@@ -917,7 +910,7 @@
         </div>
         <div class="term">
           <div class="term-top"><span>.minecraft/mods</span><button type="button" id="copyJar">Name kopieren</button></div>
-<pre><i>+</i> <b id="jarName">nexora-1.6.0+1.21.11.jar</b>
+<pre><i>+</i> <b id="jarName">nexora-1.7.1+1.21.11.jar</b>
 <i>+</i> <b>fabric-api.jar</b>
   sodium.jar
   iris.jar</pre>
@@ -937,8 +930,8 @@
       <details><summary>Läuft Nexora auf meinem PC?</summary><div class="a"><p>Auf Windows 10 und 11, macOS (Intel und Apple Silicon) und Linux. Der Launcher installiert beim ersten Start Sodium und weitere Leistungs-Mods, und der FPS-Doktor schlägt passende Einstellungen für schwächere Rechner vor.</p></div></details>
       <details><summary>Kann ich meine eigenen Mods und Shader nutzen?</summary><div class="a"><p>Ja. Jede Instanz hat ihren eigenen mods-Ordner, Mods von Modrinth installierst du direkt im Launcher. Shader laufen über Iris.</p></div></details>
       <details><summary>Ich nutze Prism, MultiMC oder den normalen Launcher.</summary><div class="a"><p>Dann nimm die <a href="#jar">Mod-Datei</a> für deine Minecraft-Version und leg sie zusammen mit der Fabric API in den mods-Ordner. Nexora+ gibt es nur mit Anmeldung im Nexora-Launcher.</p></div></details>
-      <details><summary>Wo bekomme ich Hilfe?</summary><div class="a"><p>Auf unserem <a href="https://discord.gg/Jj5AK7eD7" target="_blank" rel="noopener">Discord-Server</a>. Dort gibt es Hilfe bei Problemen, neue Updates zuerst und die Community zum Zusammenspielen.</p></div></details>
-      <details><summary>Wie bekomme ich Updates?</summary><div class="a"><p>Automatisch. Der Launcher prüft beim Start auf eine neue Version und bietet sie dir an, der Client wird beim nächsten Spielstart mit aktualisiert.</p></div></details>
+      <details><summary>Wo bekomme ich Hilfe?</summary><div class="a"><p>Auf unserem <a href="https://discord.gg/Jj5AK7eD7" target="_blank" rel="noopener">Discord-Server</a>. Dort gibt es Hilfe bei Problemen und die Community zum Zusammenspielen.</p></div></details>
+      <details><summary>Habe ich die neueste Version?</summary><div class="a"><p>Der Launcher prüft beim Start, ob es eine neuere Version gibt, und bietet sie dir an. Alle bisherigen Versionen mit ihren Änderungen findest du auf <a href="https://github.com/Lunar0710/Crystal/releases">GitHub</a>.</p></div></details>
     </div>
   </section>
 
@@ -947,50 +940,26 @@
       <div class="core">
         <span class="eyebrow">Kostenlos</span>
         <h2>Bereit für den nächsten Kampf?</h2>
-        <p class="lede">Der Launcher richtet Java, Fabric und Nexora selbst ein und hält sich danach automatisch aktuell. Anmelden mit deinem Microsoft-Konto.</p>
-        <div class="cta"><a class="btn btn-solid" id="mainDl" data-dl href="https://github.com/Lunar0710/Crystal/releases/download/v1.6.0/Nexora-Launcher-Setup-1.6.0.exe"><span id="mainDlText">Für Windows herunterladen</span><span class="ic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v9m0 0L4.5 8M8 11.5 11.5 8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a><a class="btn btn-ghost" href="https://discord.gg/Jj5AK7eD7" target="_blank" rel="noopener">Discord beitreten<span class="ic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 11.5l7-7m0 0H6m5.5 0V10" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a></div>
-        <p class="dl-size" id="dlSize">Version 1.6.0 · Windows 10 und 11</p>
+        <p class="lede">Der Launcher richtet Java, Fabric und Nexora selbst ein. Anmelden mit deinem Microsoft-Konto.</p>
+        <div class="cta"><a class="btn btn-solid" id="mainDl" data-dl href="https://github.com/Lunar0710/Crystal/releases/download/v1.7.1/Nexora-Launcher-Setup-1.7.1.exe"><span id="mainDlText">Für Windows herunterladen</span><span class="ic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v9m0 0L4.5 8M8 11.5 11.5 8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a><a class="btn btn-ghost" href="https://discord.gg/Jj5AK7eD7" target="_blank" rel="noopener">Discord beitreten<span class="ic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 11.5l7-7m0 0H6m5.5 0V10" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a></div>
+        <p class="dl-size" id="dlSize">Version 1.7.1 · Windows 10 und 11</p>
         <div class="oses">
-          <a data-dl data-os="win" href="https://github.com/Lunar0710/Crystal/releases/download/v1.6.0/Nexora-Launcher-Setup-1.6.0.exe">Windows .exe</a>
-          <a data-dl data-os="mac-arm64" href="https://github.com/Lunar0710/Crystal/releases/download/v1.6.0/Nexora-Launcher-1.6.0-mac-arm64.dmg">macOS Apple Silicon</a>
-          <a data-dl data-os="mac-x64" href="https://github.com/Lunar0710/Crystal/releases/download/v1.6.0/Nexora-Launcher-1.6.0-mac-x64.dmg">macOS Intel</a>
-          <a data-dl data-os="linux" href="https://github.com/Lunar0710/Crystal/releases/download/v1.6.0/Nexora-Launcher-1.6.0-linux-x86_64.AppImage">Linux .AppImage</a>
+          <a data-dl data-os="win" href="https://github.com/Lunar0710/Crystal/releases/download/v1.7.1/Nexora-Launcher-Setup-1.7.1.exe">Windows .exe</a>
+          <a data-dl data-os="mac-arm64" href="https://github.com/Lunar0710/Crystal/releases/download/v1.7.1/Nexora-Launcher-1.7.1-mac-arm64.dmg">macOS Apple Silicon</a>
+          <a data-dl data-os="mac-x64" href="https://github.com/Lunar0710/Crystal/releases/download/v1.7.1/Nexora-Launcher-1.7.1-mac-x64.dmg">macOS Intel</a>
+          <a data-dl data-os="linux" href="https://github.com/Lunar0710/Crystal/releases/download/v1.7.1/Nexora-Launcher-1.7.1-linux-x86_64.AppImage">Linux .AppImage</a>
           <a href="#jar">Nur die Mod .jar</a>
         </div>
       </div>
     </div>
   </section>
 
-  <section class="wrap" id="lunar">
-    <div class="lunar">
-      <div class="lunar-text">
-        <span class="eyebrow rv"><b>Neu</b> Auch von uns</span>
-        <h2 class="rv no-split">Lunar Optimizer.</h2>
-        <p class="lede rv">Die App, die Windows fürs Gaming einstellt. Sie prüft deine Hardware, zeigt live, was Leistung frisst, misst deinen Ping und stellt mit einem Klick alles auf Spielen. Jede Änderung lässt sich zurücknehmen.</p>
-        <ul class="lunar-list rv">
-          <li><b>Gaming-Score</b><span>Findet alte Treiber, 60-Hz-Bildschirme, volle Platten und mehr</span></li>
-          <li><b>Tweaks</b><span>Energiesparplan ohne Core Parking, GPU-Planung, Maus 1:1, Nagle aus und mehr</span></li>
-          <li><b>Live-Monitor</b><span>CPU, GPU, RAM, Netzwerk und die größten Fresser</span></li>
-          <li><b>Latenz</b><span>Ping, Jitter und Paketverlust, dazu ein Reaktionstest</span></li>
-          <li><b>Autostart und Aufräumen</b><span>Schneller hochfahren, Platz schaffen</span></li>
-        </ul>
-        <div class="cta rv lunar-cta">
-          <a class="btn btn-solid" data-dl data-os="lunar" href="optimizer/Lunar-Optimizer-Setup.zip">Lunar Optimizer laden<span class="ic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v9m0 0L4.5 8M8 11.5 11.5 8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
-          <a class="btn btn-ghost" data-dl data-os="lunar" href="optimizer/Lunar-Optimizer.zip">Ohne Installation<span class="ic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v9m0 0L4.5 8M8 11.5 11.5 8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
-        </div>
-        <p class="meta lunar-meta rv">Kostenlos · Windows 10 und 11 · Defender, Updates und Firewall bleiben an</p>
-      </div>
-      <div class="lunar-shot rv">
-        <div class="shell"><div class="core"><img src="lunar-optimizer.jpg" alt="Lunar Optimizer: Übersicht mit Gaming-Score, Live-Werten und gefundenen Problemen" width="1320" height="840" loading="lazy"></div></div>
-      </div>
-    </div>
-  </section>
 </main>
 
 <footer class="wrap">
   <div class="foot">
     <span>Nexora ist kein offizielles Minecraft-Produkt und nicht mit Mojang oder Microsoft verbunden.</span>
-    <span style="display:flex;gap:24px"><a href="#lunar">Lunar Optimizer</a><a href="https://discord.gg/Jj5AK7eD7" target="_blank" rel="noopener">Discord</a><a href="https://github.com/Lunar0710/Crystal/releases">Alle Versionen</a><a href="#top">Nach oben</a></span>
+    <span style="display:flex;flex-wrap:wrap;gap:12px 24px"><a href="./">Alle Projekte</a><a href="./#lunar">Lunar Optimizer</a><a href="https://discord.gg/Jj5AK7eD7" target="_blank" rel="noopener">Discord</a><a href="https://github.com/Lunar0710/Crystal/releases">Alle Versionen</a><a href="#top">Nach oben</a></span>
   </div>
   <div class="wordmark" aria-hidden="true">Nexora</div>
 </footer>
@@ -1165,6 +1134,8 @@ document.addEventListener('click', e => {
       ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - Math.sin(yaw) * 9, y + Math.cos(yaw) * 9); ctx.lineTo(x - Math.sin(yaw) * 17, y + Math.cos(yaw) * 17); ctx.stroke();
     }
     size(); addEventListener('resize', () => { size(); draw(last); });
+    // A new theme recolours the players right away, even while paused.
+    boxes.forEach(b => b.addEventListener('click', () => draw(last)));
     let last = data.N - 1, visible = true;
     new IntersectionObserver(es => { visible = es[0].isIntersecting; }).observe(canvas);
     draw(last);
@@ -1174,7 +1145,6 @@ document.addEventListener('click', e => {
       if (visible) { const fr = Math.max(0, Math.floor((now - t0) / 50)) % (data.N + HOLD); const i = Math.min(fr, data.N - 1); if (i !== last) { last = i; draw(i); } }
       requestAnimationFrame(tick);
     })(t0);
-    box.addEventListener('click', () => draw(last));
   }
 
   const hero = fight(0, true);
@@ -1233,7 +1203,6 @@ document.addEventListener('click', e => {
     win: 'Öffne die .exe. Meldet Windows „Der Computer wurde geschützt“, klick auf „Weitere Informationen“ und dann „Trotzdem ausführen“.',
     'mac-arm64': 'Öffne die .dmg und zieh Nexora in „Programme“. Beim ersten Start mit Rechtsklick auf die App „Öffnen“ wählen.',
     'mac-x64': 'Öffne die .dmg und zieh Nexora in „Programme“. Beim ersten Start mit Rechtsklick auf die App „Öffnen“ wählen.',
-    lunar: 'ZIP öffnen und die .exe darin starten. Meldet Windows „Der Computer wurde geschützt“: „Weitere Informationen“, dann „Trotzdem ausführen“.',
     linux: 'Mach die .AppImage ausführbar (Rechtsklick, Eigenschaften, „Als Programm ausführen“) und starte sie per Doppelklick.',
   };
   document.querySelectorAll('[data-dl]').forEach(a => a.addEventListener('click', () => {
@@ -1461,7 +1430,7 @@ document.addEventListener('click', e => {
     addEventListener('pointermove', e => { mouse.x = e.clientX; mouse.y = e.clientY; }, { passive: true });
     let accentRgb = '255,255,255';
     const readAccent = () => { const h = getComputedStyle(root).getPropertyValue('--accent').trim(); const n = parseInt(h.slice(1), 16); if (h.length === 7) accentRgb = `${n >> 16},${n >> 8 & 255},${n & 255}`; };
-    readAccent(); box.addEventListener('click', readAccent);
+    readAccent(); boxes.forEach(b => b.addEventListener('click', readAccent));
     let visibleStars = true;
     (function frame() {
       const fade = Math.max(0, 1 - scrollY / (innerHeight * 1.1));
@@ -1542,7 +1511,7 @@ document.addEventListener('click', e => {
     links.forEach(a => a.classList.toggle('cur', a === current));
     if (!navBox.matches(':hover')) pillTo(current);
   }), { rootMargin: '-45% 0px -50% 0px' });
-  links.forEach(a => { const t = document.querySelector(a.getAttribute('href')); if (t) spy.observe(t); });
+  links.forEach(a => { const h = a.getAttribute('href'); const t = h.startsWith('#') && document.querySelector(h); if (t) spy.observe(t); });
   addEventListener('scroll', () => { if (scrollY < innerHeight * .5 && current) { current = null; links.forEach(a => a.classList.remove('cur')); pillTo(null); } }, { passive: true });
 
   if (!still && fine) {
