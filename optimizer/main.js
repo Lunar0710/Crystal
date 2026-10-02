@@ -8,7 +8,9 @@ const os = require('os')
 const net = require('net')
 const { execFile } = require('child_process')
 const dns = require('dns')
-const si = require('systeminformation')
+// Loaded on first use: the tray-only background process never needs it.
+let siMod = null
+const si = new Proxy({}, { get: (_t, k) => (siMod || (siMod = require('systeminformation')))[k] })
 
 const isWin = process.platform === 'win32'
 const selftestArg = process.argv.find(a => a.startsWith('--selftest'))
@@ -37,7 +39,7 @@ function createWindow(show = true) {
   win.webContents.setWindowOpenHandler(({ url }) => { shell.openExternal(url); return { action: 'deny' } })
   win.on('close', e => {
     if (settings.tray && tray && !quitting && !selftestArg) {
-      e.preventDefault(); win.hide()
+      // No preventDefault: the window (and its renderer process) is destroyed; the tray icon recreates it.
       if (!settings.trayHintShown) { settings.trayHintShown = true; saveSettings(); notify('Lunar Optimizer läuft weiter', 'Im Infobereich neben der Uhr. Rechtsklick auf den Mond zum Beenden.') }
     }
   })
@@ -96,6 +98,12 @@ const psHost = {
       this.proc.stdin.write(`${command}; [Console]::Out.WriteLine('${marker}')\n`)
     }))
     this.queue = job.catch(() => {})
+    // Idle for 60 s: the process exits, unless it is holding the 0.5 ms timer for a running game.
+    clearTimeout(this.idle); this.pending = (this.pending || 0) + 1
+    job.finally(() => {
+      if (--this.pending) return
+      this.idle = setTimeout(() => { if (!this.pending && !timerHeld && this.proc) { try { this.proc.kill() } catch {} ; this.proc = null } }, 60000)
+    }).catch(() => {})
     return job
   },
 }
@@ -682,7 +690,7 @@ app.whenReady().then(() => {
   const hidden = process.argv.includes('--hidden')
   if (!app.requestSingleInstanceLock()) { app.quit(); return }
   app.on('second-instance', showWindow)
-  createWindow(!hidden)
+  if (!hidden) createWindow()
   createTray()
   applyLoginItem()
   restartWatcher()
