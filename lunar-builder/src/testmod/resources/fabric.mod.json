@@ -5,8 +5,9 @@
   "name": "Lunar Builder CI test",
   "environment": "client",
   "entrypoints": {
-    "fabric-client-gametest": ["dev.lunar.builder.test.DigGameTest"]
+    "client": ["dev.lunar.builder.test.DigWorldTest"]
   },
+  "mixins": ["lunar-builder-test.mixins.json"],
   "depends": {
     "lunar-builder": "*"
   }

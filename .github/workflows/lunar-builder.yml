@@ -1,5 +1,5 @@
 # Builds the standalone Lunar Builder mod (lunar-builder/, Minecraft 1.21.11),
-# runs the gate unit tests and a client game test in a singleplayer world
+# runs the gate unit tests and a world test in a singleplayer world
 # (5x5 area, 3 layers dug, all blocks must be air). Nothing is published.
 name: Lunar Builder
 
@@ -41,10 +41,13 @@ jobs:
       - name: Linux display for the game window
         run: sudo apt-get update && sudo apt-get install -y xvfb libgl1-mesa-dri libglx-mesa0
 
-      - name: Client game test (singleplayer dig)
+      - name: World test (singleplayer, 5x5 area, 3 layers)
+        env:
+          LB_TEST: '1'
         run: |
-          timeout 25m xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew runClientGameTest --no-daemon --stacktrace 2>&1 | tee gametest.log
-          grep -q '\[lb-test\] PASS' gametest.log
+          timeout 25m xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew runTestClient --no-daemon --stacktrace 2>&1 | tee gametest.log || true
+          cat run/lb-test-result.txt
+          grep -q '^PASS' run/lb-test-result.txt
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -52,7 +55,7 @@ jobs:
           name: lunar-builder-test-logs
           path: |
             lunar-builder/gametest.log
-            lunar-builder/build/run/**/logs/
+            lunar-builder/run/lb-test-result.txt
             lunar-builder/run/**/logs/
             lunar-builder/**/screenshots/
             lunar-builder/**/crash-reports/
@@ -65,7 +68,7 @@ jobs:
         run: |
           for f in build.log gametest.log; do
             [ -f "$f" ] || continue
-            grep -nE 'error:|warning: \[|What went wrong|Caused by|Exception|\[lb-test\]|FAILED|Mixin|lunar' "$f" | grep -v '^\s*at ' | head -60 > "$f.key" || true
+            grep -nE 'lb-test|error:|warning: \[|What went wrong|Caused by|Exception|\[lb-test\]|FAILED|Mixin|lunar' "$f" | grep -v '^\s*at ' | head -60 > "$f.key" || true
             grep -n "World loading finished" "$f" | tail -2 >> "$f.key" || true
             grep -nE "Server thread|integrated|Preparing|logged in|joined the game|Stopping|Timed out|timed out|WARN|ERROR" "$f" | grep -v "World loading" | tail -40 >> "$f.key" || true
             split -l 10 "$f.key" "$f.part." || true

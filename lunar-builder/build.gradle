@@ -11,14 +11,26 @@ repositories {
     mavenCentral()
 }
 
-// Client game test (src/gametest): a singleplayer world in CI, never part of the released jar.
-fabricApi {
-    configureTests {
-        createSourceSet = true
-        modId = 'lunar-builder-test'
-        enableGameTests = false
-        enableClientGameTests = true
-        eula = true
+// Test-only mod (CI world test, src/testmod); never part of the released jar.
+sourceSets {
+    testmod {
+        compileClasspath += main.compileClasspath + main.output
+        runtimeClasspath += main.runtimeClasspath + main.output
+    }
+}
+
+loom {
+    mods {
+        'lunar-builder' { sourceSet sourceSets.main }
+        'lunar-builder-test' { sourceSet sourceSets.testmod }
+    }
+    runs {
+        testClient {
+            client()
+            name 'Test Client'
+            source sourceSets.testmod
+            runDir 'run'
+        }
     }
 }
 

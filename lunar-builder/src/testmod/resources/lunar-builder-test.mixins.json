@@ -1,0 +1,8 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.lunar.builder.test.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": ["CreateWorldScreenAccessor"],
+  "injectors": { "defaultRequire": 1 }
+}
