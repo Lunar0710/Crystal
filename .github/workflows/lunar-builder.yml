@@ -65,7 +65,8 @@ jobs:
         run: |
           for f in build.log gametest.log; do
             [ -f "$f" ] || continue
-            grep -nE 'World loading finished|error:|warning: \[|What went wrong|Caused by|Exception|\[lb-test\]|FAILED|Mixin|lunar' "$f" | grep -v '^\s*at ' | head -60 > "$f.key" || true
+            grep -nE 'error:|warning: \[|What went wrong|Caused by|Exception|\[lb-test\]|FAILED|Mixin|lunar' "$f" | grep -v '^\s*at ' | head -60 > "$f.key" || true
+            grep -n "World loading finished" "$f" | tail -2 >> "$f.key" || true
             split -l 12 "$f.key" "$f.part." || true
             for p in "$f".part.*; do
               [ -s "$p" ] || continue
