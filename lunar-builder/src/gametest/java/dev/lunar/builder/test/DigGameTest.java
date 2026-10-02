@@ -28,7 +28,15 @@ public final class DigGameTest implements FabricClientGameTest {
         check(Gate.allowed(true, null, List.of()), "singleplayer must be allowed");
         check(!Gate.allowed(false, "fremder-server.net", List.of("mein-server.de")), "foreign server must be refused");
 
-        try (TestSingleplayerContext world = context.worldBuilder().create()) {
+        TestSingleplayerContext created;
+        try {
+            created = context.worldBuilder().create();
+        } catch (AssertionError e) {
+            // A slow CI runner sometimes misses the world load timeout: once more.
+            System.out.println("[lb-test] world load retry: " + e.getMessage());
+            created = context.worldBuilder().create();
+        }
+        try (TestSingleplayerContext world = created) {
             world.getClientWorld().waitForChunksRender();
             BlockPos start = world.getServer().computeOnServer(server -> server.getPlayerList().getPlayers().get(0).blockPosition());
             int x = start.getX(), z = start.getZ(), top = 105;
