@@ -42,6 +42,9 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y xvfb libgl1-mesa-dri libglx-mesa0
 
       - name: Client game test (singleplayer dig)
+        env:
+          # Software rendering would take every core and starve the world generation.
+          LP_NUM_THREADS: '1'
         run: |
           timeout 25m xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew runClientGameTest --no-daemon --stacktrace 2>&1 | tee gametest.log
           grep -q '\[lb-test\] PASS' gametest.log
