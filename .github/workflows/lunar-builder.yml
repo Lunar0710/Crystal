@@ -29,7 +29,7 @@ jobs:
       - name: Build and unit tests
         run: |
           chmod +x gradlew
-          ./gradlew build --no-daemon --stacktrace
+          ./gradlew build --no-daemon --stacktrace 2>&1 | tee build.log
           ls -l build/libs
 
       - uses: actions/upload-artifact@v4
@@ -58,3 +58,18 @@ jobs:
             lunar-builder/**/crash-reports/
             lunar-builder/build/reports/tests/
           if-no-files-found: ignore
+
+      # The key lines of a failure as annotations (readable without downloading logs).
+      - name: Failure summary
+        if: failure()
+        run: |
+          for f in build.log gametest.log; do
+            [ -f "$f" ] || continue
+            grep -nE 'error:|warning: \[|What went wrong|Caused by|Exception|\[lb-test\]|FAILED|Mixin|lunar' "$f" | grep -v '^\s*at ' | head -60 > "$f.key" || true
+            split -l 12 "$f.key" "$f.part." || true
+            for p in "$f".part.*; do
+              [ -s "$p" ] || continue
+              msg=$(sed -e 's/%/%25/g' "$p" | awk '{printf "%s%%0A", $0}')
+              echo "::error title=$f::$msg"
+            done
+          done
