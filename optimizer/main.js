@@ -473,7 +473,7 @@ const GAMES = {
   'Marvel-Win64-Shipping.exe': 'Marvel Rivals', 'TslGame.exe': 'PUBG', 'bf2042.exe': 'Battlefield 2042', 'Warframe.x64.exe': 'Warframe',
 }
 function tasklist() {
-  return new Promise(resolve => execFile('tasklist.exe', ['/FO', 'CSV', '/NH'], { windowsHide: true, maxBuffer: 8 * 1024 * 1024 }, (err, out) => {
+  return new Promise(resolve => execFile('tasklist.exe', ['/FO', 'CSV', '/NH'], { windowsHide: true, maxBuffer: 8 * 1024 * 1024, timeout: 4000 }, (err, out) => {
     if (err) return resolve([])
     resolve(out.split(/\r?\n/).map(l => l.match(/^"([^"]+)","(\d+)"/)).filter(Boolean).map(m => ({ name: m[1], pid: Number(m[2]) })))
   }))
@@ -505,8 +505,15 @@ async function holdTimer(on) {
   if (!isWin || timerHeld === on) return
   try { await psHost.run(`${TIMER_CS}; [void][LunarTimer]::Set($${on})`, 20000); timerHeld = on } catch {}
 }
-let watchTimer = null, activeGames = new Map()
+let watchTimer = null, activeGames = new Map(), watchBusy = false
+// A tick that is still running (hung tasklist, slow boost) is never overlapped,
+// otherwise stuck tasklist processes pile up every 5 s.
 async function watchTick() {
+  if (watchBusy) return
+  watchBusy = true
+  try { await watchTickInner() } finally { watchBusy = false }
+}
+async function watchTickInner() {
   const procs = await tasklist()
   const now = new Map()
   for (const p of procs) { const g = gameName(p.name); if (g && !now.has(p.name.toLowerCase())) now.set(p.name.toLowerCase(), { exe: p.name, name: g, pids: procs.filter(x => x.name === p.name).map(x => x.pid) }) }
