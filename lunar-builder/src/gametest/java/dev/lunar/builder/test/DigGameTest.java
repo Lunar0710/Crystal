@@ -34,7 +34,7 @@ public final class DigGameTest implements FabricClientGameTest {
             mc.options.renderDistance().set(2);
             mc.options.simulationDistance().set(5);
         });
-        try (TestSingleplayerContext world = context.worldBuilder().create()) {
+        try (TestSingleplayerContext world = createWorld(context)) {
             world.getClientWorld().waitForChunksRender();
             BlockPos start = world.getServer().computeOnServer(server -> server.getPlayerList().getPlayers().get(0).blockPosition());
             int x = start.getX(), z = start.getZ(), top = 105;
@@ -101,6 +101,25 @@ public final class DigGameTest implements FabricClientGameTest {
             check(health > 0f, "player died");
             System.out.println("[lb-test] PASS: 75 blocks dug, 3 layers, health=" + health);
         }
+    }
+
+    /**
+     * The framework gives the world one minute to load; the software-rendered CI
+     * runner often needs longer (the spawn area alone). Then it is waited for
+     * here, up to eight minutes, and the context is made the same way.
+     */
+    private static TestSingleplayerContext createWorld(ClientGameTestContext context) {
+        try {
+            return context.worldBuilder().create();
+        } catch (AssertionError e) {
+            if (!String.valueOf(e.getMessage()).contains("Timeout loading world")) throw e;
+            System.out.println("[lb-test] world still loading after the framework's minute, waiting longer");
+        }
+        context.waitFor(mc -> mc.level != null && !(mc.screen instanceof net.minecraft.client.gui.screens.LevelLoadingScreen), 20 * 60 * 8);
+        var server = context.computeOnClient(mc -> mc.getSingleplayerServer());
+        java.nio.file.Path save = context.computeOnClient(mc -> mc.getSingleplayerServer().getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).toAbsolutePath().normalize());
+        return new net.fabricmc.fabric.impl.client.gametest.context.TestSingleplayerContextImpl(context,
+                new net.fabricmc.fabric.impl.client.gametest.world.TestWorldSaveImpl(context, save), server);
     }
 
     private static void check(boolean ok, String message) {
