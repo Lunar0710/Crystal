@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "lunar-builder",
+  "version": "${version}",
+  "name": "Lunar Builder",
+  "description": "Gräbt Bereiche Schicht für Schicht aus und baut Litematica-Platzierungen – nur im Einzelspieler und auf selbst freigegebenen Servern. / Digs out areas layer by layer and builds Litematica placements, only in singleplayer and on servers you allowlisted.",
+  "authors": ["Lunar_cpvp"],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["dev.lunar.builder.LunarBuilder"]
+  },
+  "mixins": ["lunar-builder.mixins.json"],
+  "depends": {
+    "fabricloader": ">=0.19.3",
+    "fabric-api": "*",
+    "minecraft": "~1.21.11",
+    "java": ">=21"
+  },
+  "suggests": {
+    "litematica": "*"
+  }
+}
