@@ -67,7 +67,8 @@ jobs:
             [ -f "$f" ] || continue
             grep -nE 'error:|warning: \[|What went wrong|Caused by|Exception|\[lb-test\]|FAILED|Mixin|lunar' "$f" | grep -v '^\s*at ' | head -60 > "$f.key" || true
             grep -n "World loading finished" "$f" | tail -2 >> "$f.key" || true
-            split -l 12 "$f.key" "$f.part." || true
+            grep -nE "Server thread|integrated|Preparing|logged in|joined the game|Stopping|Timed out|timed out|WARN|ERROR" "$f" | grep -v "World loading" | tail -40 >> "$f.key" || true
+            split -l 10 "$f.key" "$f.part." || true
             for p in "$f".part.*; do
               [ -s "$p" ] || continue
               msg=$(sed -e 's/%/%25/g' "$p" | awk '{printf "%s%%0A", $0}')
