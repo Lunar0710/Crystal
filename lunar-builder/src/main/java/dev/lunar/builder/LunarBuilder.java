@@ -67,7 +67,7 @@ public final class LunarBuilder implements ClientModInitializer {
     private static boolean paused;
     /** Game time until which the HUD says the mod is off here. */
     private static long foreignHintUntil = 0L;
-    private static boolean joinPending, foreignClickHinted;
+    private static boolean joinPending, foreignClickHinted, haltedForScreen;
     /** Allowlisted servers already warned about in this game session. */
     private static final Set<String> warned = new HashSet<>();
 
@@ -245,6 +245,13 @@ public final class LunarBuilder implements ClientModInitializer {
             return;
         }
         if (paused) return;
+        if (mc.screen != null) {
+            // A menu or chat is open: keys let go, everything is planned again afterwards.
+            if (!haltedForScreen) task.halt(mc);
+            haltedForScreen = true;
+            return;
+        }
+        haltedForScreen = false;
         task.tick(mc);
         if (task != null && task.finished()) {
             task = null;

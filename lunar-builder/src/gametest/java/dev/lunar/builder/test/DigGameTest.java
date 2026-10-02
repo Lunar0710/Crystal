@@ -46,6 +46,13 @@ public final class DigGameTest implements FabricClientGameTest {
             BlockPos corner2 = new BlockPos(x + 2, top, z + 2);
             // The real selection path: pickaxe in hand, left click, right click (a different height on purpose).
             context.runOnClient(mc -> {
+                // No pause menu when the CI window is not focused.
+                mc.options.pauseOnLostFocus = false;
+                if (mc.screen != null) mc.setScreen(null);
+            });
+            context.waitTicks(2);
+            context.runOnClient(mc -> {
+                check(mc.screen == null, "a screen is open: " + mc.screen);
                 mc.player.getInventory().setSelectedSlot(0);
                 check(mc.player.getMainHandItem().getItem() == net.minecraft.world.item.Items.DIAMOND_PICKAXE, "pickaxe not in hand");
                 mc.gameMode.startDestroyBlock(corner1, Direction.UP);
