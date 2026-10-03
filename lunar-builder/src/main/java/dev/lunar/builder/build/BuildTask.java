@@ -324,6 +324,16 @@ public class BuildTask implements Task {
             }
             Item item = target.state.getBlock().asItem();
             if (item == Items.AIR) continue;
+            // A wall torch, button, ladder... whose block in this same layer isn't
+            // there yet: that block first, never a support in its place.
+            BlockPos holder = dependsOn(target.state, target.pos);
+            if (holder != null && holder.getY() == target.pos.getY()) {
+                BlockState holderWant = source.expected(holder);
+                if (holderWant != null && !holderWant.isAir() && !PlacementPlanner.matches(level.getBlockState(holder), holderWant)) {
+                    waiting++;
+                    continue;
+                }
+            }
             if (!has(mc, player, item)) {
                 missing.merge(item, 1, Integer::sum);
                 continue;
