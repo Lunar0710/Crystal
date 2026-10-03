@@ -134,23 +134,31 @@ public final class WorldRenderHandler {
         BlockOutline module = module("BlockOutline", BlockOutline.class);
         if (module == null) return true;
 
-        if (!shape.isEmpty()) {
-            Vec3 camera = ctx.cameraPos();
-            outline(ctx, shape, pos.getX() - camera.x, pos.getY() - camera.y, pos.getZ() - camera.z,
-                    module.getOutlineColor(), module.getLineWidth());
+        PoseStack.Pose before = ctx.poseStack().last();
+        try {
+            if (!shape.isEmpty()) {
+                Vec3 camera = ctx.cameraPos();
+                outline(ctx, shape, pos.getX() - camera.x, pos.getY() - camera.y, pos.getZ() - camera.z,
+                        module.getOutlineColor(), module.getLineWidth());
+            }
+            return false;
+        } catch (RuntimeException e) {
+            // Off instead of a crash; vanilla draws its own outline again.
+            while (ctx.poseStack().last() != before) ctx.poseStack().popPose();
+            dev.crystal.client.util.SafeRender.moduleFailed(module, e);
+            return true;
         }
-        return false;
     }
 
     private static void afterEntities(Ctx ctx) {
         Hitbox hitbox = module("Hitbox", Hitbox.class);
-        if (hitbox != null) drawHitboxes(ctx, hitbox);
+        if (hitbox != null) safely(ctx, hitbox, () -> drawHitboxes(ctx, hitbox));
 
         ChunkBorders borders = module("ChunkBorders", ChunkBorders.class);
-        if (borders != null) drawChunkBorders(ctx, borders);
+        if (borders != null) safely(ctx, borders, () -> drawChunkBorders(ctx, borders));
 
         WorldEditCUI worldEdit = module("WorldEditCUI", WorldEditCUI.class);
-        if (worldEdit != null) {
+        if (worldEdit != null) safely(ctx, worldEdit, () -> {
             Vec3 camera = ctx.cameraPos();
             //? if >=26 {
             /*ctx.level().submitNodeCollector().submitCustomGeometry(ctx.poseStack(), RenderTypes.lines(),
@@ -158,10 +166,25 @@ public final class WorldRenderHandler {
             *///?} else {
             worldEdit.render(ctx.poseStack().last(), ctx.level().consumers().getBuffer(RenderTypes.lines()), camera);
             //?}
-        }
+        });
 
         TNTCountdown tnt = module("TNTCountdown", TNTCountdown.class);
-        if (tnt != null) drawTntCountdowns(ctx, tnt);
+        if (tnt != null) safely(ctx, tnt, () -> drawTntCountdowns(ctx, tnt));
+    }
+
+    /**
+     * Runs one module's world drawing; if it throws, the module is switched off
+     * (SafeRender) instead of the game crashing, and any pose it pushed is popped
+     * so the rest of the frame is drawn from the right place.
+     */
+    private static void safely(Ctx ctx, Module module, Runnable draw) {
+        PoseStack.Pose before = ctx.poseStack().last();
+        try {
+            draw.run();
+        } catch (RuntimeException e) {
+            while (ctx.poseStack().last() != before) ctx.poseStack().popPose();
+            dev.crystal.client.util.SafeRender.moduleFailed(module, e);
+        }
     }
 
     /** The enabled instance of a module, or null when it's off — every draw path starts here. */

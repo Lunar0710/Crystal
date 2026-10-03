@@ -35,10 +35,7 @@ public class MixinAbstractClientPlayerEntity {
         boolean changed = false;
 
         SkinChanger module = CrystalClient.getInstance().getModuleManager()
-                .getModuleByName("SkinChanger")
-                .filter(m -> m.isEnabled())
-                .map(m -> (SkinChanger) m)
-                .orElse(null);
+                .getEnabled(SkinChanger.class);
         if (module != null && !module.getTargetUsername().isEmpty()) {
             PlayerSkin replacement = SkinFetcher.getOrFetch(module.getTargetUsername());
             if (replacement != null) {

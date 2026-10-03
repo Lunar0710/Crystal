@@ -2,7 +2,7 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import { InstanceManager } from './InstanceManager'
-import { JarReader } from '../util/jarReader'
+import { JarReader, NotAZipError } from '../util/jarReader'
 import { logger } from '../logs/Logger'
 import { crystalPath, isPlainFileName } from '../paths'
 
@@ -80,16 +80,28 @@ export class CrashDoctor {
     return path.join(gameDir, 'mods')
   }
 
+  /** Jars in the mods folder that aren't a readable zip at all, from the last {@link installedMods}. */
+  private brokenJars: string[] = []
+
   /** Maps Fabric mod ids (e.g. "sodium") to the enabled jar that declares them. */
   private installedMods(instanceId: string): Map<string, InstalledMod> {
     const dir = this.modsDir(instanceId)
     const map = new Map<string, InstalledMod>()
+    this.brokenJars = []
     if (!fs.existsSync(dir)) return map
 
     for (const fileName of fs.readdirSync(dir)) {
       if (!fileName.endsWith('.jar')) continue
+      let reader: JarReader
       try {
-        const raw = new JarReader(path.join(dir, fileName)).readText('fabric.mod.json')
+        reader = new JarReader(path.join(dir, fileName))
+      } catch (err) {
+        // No zip directory at all: a cut-off download, not merely an odd entry.
+        if (err instanceof NotAZipError) this.brokenJars.push(fileName)
+        continue
+      }
+      try {
+        const raw = reader.readText('fabric.mod.json')
         if (!raw) continue
         const json = JSON.parse(raw)
         if (typeof json?.id === 'string') {
@@ -265,8 +277,19 @@ export class CrashDoctor {
       })
     }
 
-    // A truncated download leaves a jar that Fabric can't open at all.
-    if (/(?:zip END header not found|Invalid or corrupt jarfile|error in opening zip file)/i.test(log)) {
+    // A truncated download leaves a jar that Fabric can't open at all. When the
+    // broken file is one of the mods, it is named and can be switched off here.
+    for (const file of this.brokenJars) {
+      push({
+        id: `corrupt-jar-${file.toLowerCase()}`,
+        group: 'other',
+        title: `Beschädigte Mod-Datei: ${file}`,
+        detail: 'Die Datei lässt sich nicht öffnen, meist nach einem abgebrochenen Download. '
+          + 'Schalte sie aus und installiere die Mod danach im Mods-Tab neu.',
+        fix: { kind: 'disable-mod', label: 'Ausschalten', modFile: file, modName: file },
+      })
+    }
+    if (this.brokenJars.length === 0 && /(?:zip END header not found|Invalid or corrupt jarfile|error in opening zip file)/i.test(log)) {
       push({
         id: 'corrupt-jar',
         group: 'other',

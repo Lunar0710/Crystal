@@ -30,7 +30,7 @@ public class MixinClientWorld {
         if (!(((Object) this) instanceof ClientLevel)) return;
 
         TimeChanger module = CrystalClient.getInstance().getModuleManager().getEnabled(TimeChanger.class);
-        if (module != null) cir.setReturnValue(module.getOverrideTicks());
+        if (module != null && !TimeChanger.readingRealWorld) cir.setReturnValue(module.getOverrideTicks());
     }
     //?}
 
@@ -56,7 +56,7 @@ public class MixinClientWorld {
 
     /** The forced weather, or null when WeatherChanger is off or this isn't the client world. */
     private String weatherOverride() {
-        if (CrystalClient.getInstance() == null || !(((Object) this) instanceof ClientLevel)) return null;
+        if (CrystalClient.getInstance() == null || !(((Object) this) instanceof ClientLevel) || TimeChanger.readingRealWorld) return null;
         WeatherChanger module = CrystalClient.getInstance().getModuleManager().getEnabled(WeatherChanger.class);
         return module != null ? module.getWeather() : null;
     }

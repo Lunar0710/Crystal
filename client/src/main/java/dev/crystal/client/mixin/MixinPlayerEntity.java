@@ -30,10 +30,7 @@ public class MixinPlayerEntity {
         if (CrystalClient.getInstance() == null) return null;
         if (self != Minecraft.getInstance().player) return null;
 
-        NickHider module = CrystalClient.getInstance().getModuleManager().getModuleByName("NickHider")
-                .filter(m -> m.isEnabled())
-                .map(m -> (NickHider) m)
-                .orElse(null);
+        NickHider module = CrystalClient.getInstance().getModuleManager().getEnabled(NickHider.class);
         return module == null ? null : Component.literal(module.getPlaceholder());
     }
 }

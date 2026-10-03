@@ -56,7 +56,8 @@ public class MixinBlockEntityCulling {
         dev.crystal.client.module.render.RenderLimits limits = client.getModuleManager().getEnabled(dev.crystal.client.module.render.RenderLimits.class);
         var player = net.minecraft.client.Minecraft.getInstance().player;
         if (limits != null && player != null
-                && limits.hides(blockEntity, player.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(blockEntity.getBlockPos())))) return true;
+                // distToCenterSqr: no new Vec3 per block entity and frame.
+                && limits.hides(blockEntity, blockEntity.getBlockPos().distToCenterSqr(player.position()))) return true;
         SmartCulling culling = client.getModuleManager().get(SmartCulling.class);
         return culling != null && culling.cullsBlockEntities() && OcclusionCuller.isBlockEntityHidden(blockEntity.getBlockPos());
     }

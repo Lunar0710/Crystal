@@ -2,7 +2,6 @@ package dev.crystal.client.mixin;
 
 import com.mojang.blaze3d.platform.FramerateLimitTracker;
 import dev.crystal.client.CrystalClient;
-import dev.crystal.client.module.Module;
 import dev.crystal.client.module.render.BackgroundFps;
 import net.minecraft.client.Minecraft;
 import org.spongepowered.asm.mixin.Mixin;
@@ -19,8 +18,8 @@ public class MixinInactivityFpsLimiter {
         Minecraft mc = Minecraft.getInstance();
         if (mc == null || mc.isWindowActive() || CrystalClient.getInstance() == null) return;
 
-        Module module = CrystalClient.getInstance().getModuleManager().getModuleByName("BackgroundFps").orElse(null);
-        if (!(module instanceof BackgroundFps background) || !module.isEnabled()) return;
+        BackgroundFps background = CrystalClient.getInstance().getModuleManager().getEnabled(BackgroundFps.class);
+        if (background == null) return;
 
         cir.setReturnValue(Math.min(cir.getReturnValueI(), background.getFps()));
     }

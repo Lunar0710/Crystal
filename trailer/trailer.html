@@ -1,0 +1,546 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Nexora Trailer</title>
+<!--
+  The Nexora trailer, drawn frame by frame. Nothing here runs on a timer:
+  render.cjs calls window.renderAt(t) for every frame (t in seconds) and takes
+  a screenshot, so the video is exact at any frame rate. Open the page on its
+  own and it plays in real time (?t=12 starts at 12 s).
+-->
+<style>
+  @font-face { font-family: "Archivo"; src: url(fonts/archivo.woff2) format("woff2"); font-weight: 100 900; font-stretch: 62% 125%; }
+  @font-face { font-family: "Geist"; src: url(fonts/geist.woff2) format("woff2"); font-weight: 100 900; }
+  @font-face { font-family: "Geist Mono"; src: url(fonts/geist-mono.woff2) format("woff2"); font-weight: 100 900; }
+  :root {
+    --void: #050505; --core: #0b0b0c; --core-2: #111113; --hair: rgba(255,255,255,.07); --hair-2: rgba(255,255,255,.12);
+    --ink: #f4f4f5; --ash: #9b9ba1; --dim: #5f5f66; --accent: #ffffff; --foe: #e5484d; --glow: #4c8dff; --good: #3dbe7a;
+    --display: "Archivo", sans-serif; --body: "Geist", sans-serif; --mono: "Geist Mono", monospace;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--void); color: var(--ink); font-family: var(--body); -webkit-font-smoothing: antialiased; }
+  #frame { position: absolute; inset: 0; overflow: hidden; }
+  .layer { position: absolute; inset: 0; }
+  .scene { position: absolute; inset: 0; opacity: 0; will-change: opacity, transform; }
+  canvas { display: block; }
+  h1, h2, .big { font-family: var(--display); font-stretch: 125%; letter-spacing: -.03em; line-height: .9; }
+
+  /* Atmosphere */
+  #orbs i { position: absolute; border-radius: 50%; filter: blur(120px); }
+  #orbA { width: 1300px; height: 1300px; background: radial-gradient(circle, rgba(255,255,255,.14), transparent 65%); }
+  #orbB { width: 1100px; height: 1100px; background: radial-gradient(circle, rgba(76,141,255,.22), transparent 65%); }
+  #vignette { background: radial-gradient(120% 90% at 50% 50%, transparent 55%, rgba(0,0,0,.75)); pointer-events: none; }
+  #grain { opacity: .06; mix-blend-mode: overlay; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+  #flash { background: #fff; opacity: 0; }
+  #bars { pointer-events: none; }
+  #bars i { position: absolute; left: 0; right: 0; height: 0; background: #000; }
+  #bars i:first-child { top: 0; } #bars i:last-child { bottom: 0; }
+
+  /* Common bits */
+  .eyebrow { display: inline-flex; align-items: center; gap: 12px; padding: 9px 18px 9px 12px; border-radius: 999px; font-size: 17px; letter-spacing: .18em; text-transform: uppercase; font-weight: 500; color: var(--ash); background: rgba(255,255,255,.04); box-shadow: 0 0 0 1px var(--hair-2); }
+  .eyebrow b { padding: 3px 12px; border-radius: 999px; background: var(--accent); color: #050505; font-weight: 600; letter-spacing: .08em; }
+  .shell { padding: 8px; border-radius: 36px; background: rgba(255,255,255,.03); box-shadow: 0 0 0 1px var(--hair), 0 60px 120px -40px rgba(0,0,0,.9); }
+  .core { border-radius: 28px; background: linear-gradient(180deg, var(--core-2), var(--core)); box-shadow: inset 0 1px 1px rgba(255,255,255,.07); overflow: hidden; position: relative; }
+  .caption { position: absolute; left: 140px; bottom: 120px; }
+  .caption .eyebrow { margin-bottom: 26px; }
+  .caption h2 { font-size: 96px; font-weight: 830; }
+  .caption h2 .soft { color: #6d6d74; }
+  .w { display: inline-block; overflow: hidden; vertical-align: top; padding: 0 .03em .14em; margin-bottom: -.14em; }
+  .w > span { display: inline-block; }
+
+  /* S1 logo */
+  #logo { position: absolute; left: 50%; top: 50%; width: 260px; height: 260px; margin: -130px 0 0 -130px; overflow: visible; }
+
+  /* S2 headline */
+  #s2 h1 { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); text-align: center; font-size: 186px; font-weight: 860; }
+  #s2 .l2 .w > span { background: linear-gradient(100deg, #4a4a50 0%, #8d8d94 38%, #ffffff 50%, #8d8d94 62%, #4a4a50 100%); background-size: 260% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; }
+  #s2 .sub { position: absolute; left: 0; right: 0; top: calc(50% + 250px); text-align: center; font-size: 30px; color: var(--ash); font-weight: 300; }
+
+  /* S3 launcher window */
+  #win { position: absolute; left: 50%; top: 120px; width: 1480px; margin-left: -740px; transform-origin: 50% 0; }
+  .win { display: grid; grid-template-columns: 84px 1fr 380px; height: 760px; }
+  .side { border-right: 1px solid var(--hair); padding: 22px 0; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .side i { width: 50px; height: 50px; border-radius: 16px; display: block; background: rgba(255,255,255,.03); }
+  .side i.on { background: rgba(255,255,255,.09); }
+  .pane { padding: 34px 38px; display: flex; flex-direction: column; gap: 22px; }
+  .pane-head { display: flex; justify-content: space-between; align-items: end; }
+  .pane-head h4 { font-family: var(--display); font-stretch: 115%; font-size: 32px; font-weight: 760; }
+  .pane-head span { font-size: 16px; color: var(--ash); }
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .kpi { padding: 16px 18px; border-radius: 18px; background: rgba(255,255,255,.03); box-shadow: inset 0 0 0 1px var(--hair); }
+  .kpi small { display: block; font-size: 14px; color: var(--dim); }
+  .kpi b { font-family: var(--display); font-stretch: 110%; font-size: 34px; font-weight: 720; font-variant-numeric: tabular-nums; }
+  .map { position: relative; flex: 1; border-radius: 20px; background: rgba(0,0,0,.35); box-shadow: inset 0 0 0 1px var(--hair); overflow: hidden; }
+  .map canvas { position: absolute; inset: 0; }
+  .map .t { position: absolute; top: 16px; right: 20px; font-family: var(--mono); font-size: 16px; color: var(--ash); }
+  .map .who { position: absolute; top: 16px; left: 20px; display: flex; gap: 20px; font-size: 16px; color: var(--ash); }
+  .who i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; }
+  .hp { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; font-size: 15px; color: var(--ash); }
+  .hp span { display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; }
+  .bar { margin-top: 8px; height: 6px; border-radius: 6px; background: rgba(255,255,255,.07); overflow: hidden; }
+  .bar i { display: block; height: 100%; border-radius: 6px; transform-origin: left; }
+  .list { border-left: 1px solid var(--hair); padding: 34px 22px; display: flex; flex-direction: column; gap: 8px; }
+  .list h5 { font-size: 15px; font-weight: 500; color: var(--dim); margin: 0 0 10px 10px; }
+  .row { display: flex; gap: 14px; align-items: center; padding: 13px; border-radius: 15px; font-size: 17px; }
+  .row.on { background: rgba(255,255,255,.06); }
+  .res { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; font-weight: 600; font-size: 14px; }
+  .res.w { background: rgba(255,255,255,.12); } .res.l { background: rgba(229,72,77,.15); color: #ff7b7f; }
+  .row small { display: block; color: var(--dim); font-size: 14px; }
+
+  /* S4 kill cam */
+  #death { position: absolute; inset: 0; background: radial-gradient(90% 70% at 50% 0%, rgba(160,20,24,.7), rgba(60,6,8,.92) 55%, #140102); }
+  #death h3 { position: absolute; top: 150px; left: 0; right: 0; text-align: center; font-family: var(--display); font-stretch: 112%; font-weight: 760; font-size: 92px; text-shadow: 0 6px 0 rgba(0,0,0,.35); }
+  #death .by { position: absolute; top: 272px; left: 0; right: 0; text-align: center; font-size: 28px; color: rgba(255,255,255,.72); }
+  #cam { position: absolute; left: 50%; top: 360px; width: 560px; margin-left: -280px; padding: 20px; border-radius: 22px; background: rgba(8,8,9,.85); box-shadow: 0 0 0 1px rgba(255,255,255,.08), 0 50px 100px -30px rgba(0,0,0,.9); }
+  #cam .top { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 18px; color: var(--ash); }
+  #cam .top b { color: var(--ink); font-family: var(--body); font-weight: 600; }
+  #cam canvas { margin-top: 14px; border-radius: 12px; background: rgba(255,255,255,.04); }
+  #death .btns { position: absolute; bottom: 70px; left: 0; right: 0; display: flex; justify-content: center; gap: 14px; }
+  #death .btns span { padding: 14px 34px; font-size: 20px; border-radius: 10px; background: rgba(0,0,0,.35); box-shadow: inset 0 0 0 1px rgba(255,255,255,.18); }
+
+  /* S5 montage */
+  .card { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); text-align: center; }
+  .card .big { font-size: 170px; font-weight: 880; }
+  .card p { margin-top: 26px; font-size: 32px; color: var(--ash); font-weight: 300; }
+  .xmark { width: 120px; height: 120px; position: relative; margin: 0 auto 40px; transform: rotate(45deg); }
+  .xmark::before, .xmark::after { content: ""; position: absolute; background: #fff; border-radius: 3px; }
+  .xmark::before { left: 54px; top: 0; width: 12px; height: 40px; box-shadow: 0 80px 0 #fff; }
+  .xmark::after { top: 54px; left: 0; height: 12px; width: 40px; box-shadow: 80px 0 0 #fff; }
+  .totem { width: 110px; height: 110px; margin: 0 auto 40px; border-radius: 26px; background: linear-gradient(160deg, #f3d27a, #b8862c); box-shadow: inset 0 3px 0 rgba(255,255,255,.5), 0 0 80px rgba(243,210,122,.45); }
+  .keys { display: grid; grid-template-columns: repeat(3, 110px); gap: 14px; justify-content: center; margin: 0 auto 40px; }
+  .keys span { height: 110px; border-radius: 20px; display: grid; place-items: center; font-family: var(--display); font-size: 44px; font-weight: 700; background: rgba(255,255,255,.05); box-shadow: inset 0 0 0 1px var(--hair-2); color: var(--ash); }
+  .keys span.on { background: #fff; color: #050505; box-shadow: 0 0 60px rgba(255,255,255,.35); }
+  .keys span.gap { visibility: hidden; }
+  .atk { width: 560px; height: 14px; border-radius: 14px; margin: 0 auto 52px; background: rgba(255,255,255,.08); overflow: hidden; }
+  .atk i { display: block; height: 100%; border-radius: 14px; background: #fff; transform-origin: left; }
+  #grid { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; padding: 90px 120px; align-content: center; }
+  #grid span { padding: 22px 0; text-align: center; border-radius: 999px; font-size: 24px; color: var(--ash); background: rgba(255,255,255,.03); box-shadow: inset 0 0 0 1px var(--hair); }
+  #grid span.hl { color: #050505; background: #fff; }
+  #count { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); text-align: center; }
+  #count .big { font-size: 330px; font-weight: 900; text-shadow: 0 0 80px rgba(255,255,255,.25); }
+  #count p { font-size: 46px; color: var(--ink); font-family: var(--display); font-stretch: 125%; font-weight: 700; letter-spacing: .02em; text-transform: uppercase; }
+
+  /* S6 FPS */
+  #fpsNum { position: absolute; left: 140px; top: 200px; }
+  #fpsNum small { display: block; font-family: var(--mono); font-size: 24px; color: var(--ash); letter-spacing: .1em; margin-bottom: 10px; }
+  #fpsNum b { font-family: var(--display); font-stretch: 125%; font-size: 260px; font-weight: 900; line-height: .85; font-variant-numeric: tabular-nums; }
+  #graph { position: absolute; left: 140px; right: 900px; bottom: 110px; height: 240px; display: flex; align-items: flex-end; gap: 5px; padding: 20px; border-radius: 22px; background: rgba(0,0,0,.35); box-shadow: inset 0 0 0 1px var(--hair); }
+  #graph i { flex: 1; border-radius: 3px 3px 0 0; background: rgba(255,255,255,.6); }
+  #graph i.st { background: #f08c3a; } #graph i.hg { background: var(--foe); }
+  #doc { position: absolute; right: 140px; top: 230px; width: 640px; }
+  #doc h4 { font-family: var(--display); font-stretch: 118%; font-size: 44px; font-weight: 760; margin-bottom: 26px; }
+  #doc .it { display: flex; align-items: center; gap: 18px; padding: 22px 24px; border-radius: 20px; background: rgba(255,255,255,.03); box-shadow: inset 0 0 0 1px var(--hair); font-size: 22px; margin-bottom: 14px; }
+  #doc .it span { flex: 1; }
+  #doc .it small { display: block; color: var(--dim); font-size: 17px; }
+  #doc .sev { width: 14px; height: 14px; border-radius: 50%; }
+  #doc em { font-style: normal; font-size: 17px; padding: 9px 18px; border-radius: 999px; background: rgba(255,255,255,.07); }
+  #doc .it.fixed .sev { background: var(--good) !important; box-shadow: 0 0 18px var(--good); }
+  #doc .it.fixed em { background: rgba(61,190,122,.18); color: #6be3a2; }
+  #s6h { position: absolute; left: 140px; top: 470px; font-size: 76px; font-weight: 840; }
+  #s6h .soft { color: #6d6d74; }
+
+  /* S7 versions */
+  #tl { position: absolute; left: 160px; right: 160px; top: 560px; height: 200px; }
+  #tl .line { position: absolute; top: 9px; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, rgba(255,255,255,.15), #fff); transform-origin: left; }
+  #tl .v { position: absolute; top: 0; }
+  #tl .v::before { content: ""; position: absolute; top: 0; left: 0; width: 20px; height: 20px; border-radius: 50%; background: var(--core); box-shadow: inset 0 0 0 2px var(--hair-2); }
+  #tl .v.new::before { background: #fff; box-shadow: 0 0 0 10px rgba(255,255,255,.18), 0 0 50px #fff; }
+  #tl .v b { position: absolute; top: 44px; left: 0; font-family: var(--display); font-stretch: 112%; font-weight: 720; font-size: 40px; white-space: nowrap; }
+  #tl .v small { position: absolute; top: 96px; left: 0; font-size: 20px; color: var(--ash); white-space: nowrap; }
+  #s7 h2 { position: absolute; left: 160px; top: 250px; font-size: 120px; font-weight: 860; }
+  #s7 h2 .soft { color: #6d6d74; }
+
+  /* S8 end card */
+  #end { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  #endLogo { width: 150px; height: 150px; overflow: visible; }
+  #end .name { margin-top: 30px; font-family: var(--display); font-stretch: 125%; font-weight: 900; font-size: 230px; letter-spacing: -.05em; line-height: .85; }
+  #end .name span { display: inline-block; }
+  #end .tag { margin-top: 26px; font-size: 34px; color: var(--ash); font-weight: 300; }
+  #end .cta { margin-top: 54px; display: inline-flex; align-items: center; gap: 22px; padding: 12px 12px 12px 38px; border-radius: 999px; background: #fff; color: #050505; font-size: 30px; font-weight: 500; box-shadow: 0 20px 80px -10px rgba(255,255,255,.45); position: relative; overflow: hidden; }
+  #end .cta i { width: 60px; height: 60px; border-radius: 50%; background: rgba(0,0,0,.08); display: grid; place-items: center; font-style: normal; font-size: 28px; }
+  #end .cta .shine { position: absolute; inset: 0; background: linear-gradient(100deg, transparent 35%, rgba(0,0,0,.1) 50%, transparent 65%); }
+  #end .url { margin-top: 30px; font-family: var(--mono); font-size: 26px; color: var(--ink); letter-spacing: .02em; }
+  #end .os { margin-top: 14px; font-size: 20px; color: var(--dim); letter-spacing: .12em; text-transform: uppercase; }
+</style>
+</head>
+<body>
+<div id="frame">
+  <div class="layer" id="orbs"><i id="orbA"></i><i id="orbB"></i></div>
+  <canvas class="layer" id="stars" width="1920" height="1080"></canvas>
+
+  <!-- S1: logo -->
+  <div class="scene" id="s1">
+    <svg id="logo" viewBox="0 0 64 64">
+      <path id="ring" d="M45.5 13.2A22 22 0 1 0 53.6 26" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+      <path id="nLetter" d="M22 44V20h5.6l10 14.6V20H43v24h-5.4L27.4 29.4V44z" fill="#fff"/>
+      <path id="star" d="M51 6l2.2 5.6L59 13.8l-5.8 2.2L51 21.6 48.8 16 43 13.8l5.8-2.2z" fill="#fff"/>
+    </svg>
+  </div>
+
+  <!-- S2: headline -->
+  <div class="scene" id="s2">
+    <h1><span class="l1"></span><br><span class="l2"></span></h1>
+    <p class="sub" id="s2sub">Der Minecraft-Client, der jeden Kampf mitschneidet.</p>
+  </div>
+
+  <!-- S3: replay in the launcher -->
+  <div class="scene" id="s3">
+    <div id="win" class="shell"><div class="core"><div class="win">
+      <div class="side"><i></i><i></i><i class="on"></i><i></i><i></i><i></i></div>
+      <div class="pane">
+        <div class="pane-head"><h4>Kämpfe</h4><span>Heute, 21:14 · Hypixel Duels</span></div>
+        <div class="kpis">
+          <div class="kpi"><small>Kämpfe</small><b id="k1">48</b></div>
+          <div class="kpi"><small>Siege</small><b id="k2">31</b></div>
+          <div class="kpi"><small>Trefferquote</small><b id="k3">68 %</b></div>
+          <div class="kpi"><small>Beste Combo</small><b id="k4">7</b></div>
+        </div>
+        <div class="map"><canvas id="heroMap" width="918" height="400"></canvas>
+          <div class="who"><span><i style="background:#fff"></i>Du</span><span><i style="background:var(--foe)"></i>Steve_PvP</span></div>
+          <div class="t" id="heroTime">-5.0s</div></div>
+        <div class="hp">
+          <div><span><span>Du</span><span id="hpMe">20.0</span></span><div class="bar"><i id="barMe" style="background:#fff"></i></div></div>
+          <div><span><span>Steve_PvP</span><span id="hpFoe">20.0</span></span><div class="bar"><i id="barFoe" style="background:var(--foe)"></i></div></div>
+        </div>
+      </div>
+      <div class="list"><h5>Letzte Kämpfe</h5>
+        <div class="row on"><span class="res w">S</span><span>Steve_PvP<small>12 Treffer · 0:48</small></span></div>
+        <div class="row"><span class="res w">S</span><span>xNotch<small>9 Treffer · 0:31</small></span></div>
+        <div class="row"><span class="res l">N</span><span>Technoblade_Fan<small>6 Treffer · 1:12</small></span></div>
+        <div class="row"><span class="res w">S</span><span>kiwi_pvp<small>14 Treffer · 0:57</small></span></div>
+        <div class="row"><span class="res w">S</span><span>Dreamless<small>11 Treffer · 0:44</small></span></div>
+      </div>
+    </div></div></div>
+    <div class="caption" id="s3cap" style="bottom:auto;top:0;left:0;right:0"></div>
+  </div>
+
+  <!-- S4: kill cam -->
+  <div class="scene" id="s4">
+    <div id="death">
+      <h3>Du bist gestorben!</h3>
+      <div class="by">Steve_PvP hat dich getötet</div>
+      <div id="cam"><div class="top"><b>Kill-Cam: Steve_PvP</b><span id="camTime">-5.0s</span></div><canvas id="camMap" width="520" height="440"></canvas></div>
+      <div class="btns"><span>Wiederbeleben</span><span>Hauptmenü</span></div>
+    </div>
+  </div>
+
+  <!-- S5: montage -->
+  <div class="scene" id="m1"><div class="card"><div class="xmark"></div><div class="big">HitMarker</div><p>Siehst sofort, ob der Treffer zählt.</p></div></div>
+  <div class="scene" id="m2"><div class="card"><div class="totem"></div><div class="big">TotemPops</div><p>Wie viele Totems dein Gegner verloren hat.</p></div></div>
+  <div class="scene" id="m3"><div class="card"><div class="atk"><i id="atkBar"></i></div><div class="big">AttackIndicator</div><p>Jeder Schlag im perfekten Moment.</p></div></div>
+  <div class="scene" id="m4"><div class="card"><div class="keys" id="keys"><span class="gap"></span><span>W</span><span class="gap"></span><span>A</span><span>S</span><span>D</span></div><div class="big">Keystrokes</div><p>CPS, Tasten, Reach. Alles im HUD.</p></div></div>
+  <div class="scene" id="m5"><div id="grid"></div></div>
+  <div class="scene" id="m6"><div id="count"><div class="big" id="modCount">0</div><p>Module. Kostenlos.</p></div></div>
+
+  <!-- S6: FPS -->
+  <div class="scene" id="s6">
+    <div id="fpsNum"><small>FPS</small><b id="fps">180</b></div>
+    <h2 id="s6h"><span class="l"></span><br><span class="l soft"></span></h2>
+    <div id="graph"></div>
+    <div id="doc"><h4>FPS-Doktor</h4>
+      <div class="it"><i class="sev" style="background:var(--foe)"></i><span>Zwei Mods für dieselbe Aufgabe<small>Sodium und Embeddium</small></span><em>Beheben</em></div>
+      <div class="it"><i class="sev" style="background:#f08c3a"></i><span>Sichtweite 32 Chunks<small>12 reichen für PvP</small></span><em>Beheben</em></div>
+      <div class="it"><i class="sev" style="background:#d4af5a"></i><span>Nur 2 GB Arbeitsspeicher<small>Empfohlen: 4 GB</small></span><em>Beheben</em></div>
+    </div>
+  </div>
+
+  <!-- S7: versions -->
+  <div class="scene" id="s7">
+    <h2 id="s7h"></h2>
+    <div id="tl"><div class="line" id="tlLine"></div></div>
+  </div>
+
+  <!-- S8: end card -->
+  <div class="scene" id="s8">
+    <div id="end">
+      <svg id="endLogo" viewBox="0 0 64 64">
+        <path id="endRing" d="M45.5 13.2A22 22 0 1 0 53.6 26" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+        <path d="M22 44V20h5.6l10 14.6V20H43v24h-5.4L27.4 29.4V44z" fill="#fff"/>
+        <path id="endStar" d="M51 6l2.2 5.6L59 13.8l-5.8 2.2L51 21.6 48.8 16 43 13.8l5.8-2.2z" fill="#fff"/>
+      </svg>
+      <div class="name" id="endName"></div>
+      <div class="tag" id="endTag">Kostenloser Minecraft-Client mit eigenem Launcher</div>
+      <div class="cta" id="endCta">Jetzt herunterladen<i>↓</i><span class="shine" id="endShine"></span></div>
+      <div class="url" id="endUrl">lunar0710.github.io/Crystal</div>
+      <div class="os" id="endOs">Windows · macOS · Linux · Minecraft 1.21.4 bis 26.2</div>
+    </div>
+  </div>
+
+  <div class="layer" id="vignette"></div>
+  <div class="layer" id="grain"></div>
+  <div class="layer" id="flash"></div>
+  <div class="layer" id="bars"><i></i><i></i></div>
+</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const DURATION = 32;
+  window.DURATION = DURATION;
+
+  // ---------- helpers ----------
+  const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+  const prog = (t, a, b) => clamp((t - a) / (b - a));
+  const outExpo = x => x >= 1 ? 1 : 1 - Math.pow(2, -10 * x);
+  const outCubic = x => 1 - Math.pow(1 - x, 3);
+  const inOut = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+  const outBack = x => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+  const lerp = (a, b, x) => a + (b - a) * x;
+  // Visible from a to b, fading in over fi and out over fo.
+  const win = (t, a, b, fi = .25, fo = .25) => t < a || t > b ? 0 : Math.min(fi ? prog(t, a, a + fi) : 1, fo ? 1 - prog(t, b - fo, b) : 1);
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const words = (el, text, cls = '') => {
+    el.innerHTML = text.split(' ').map(w => `<span class="w ${cls}"><span>${w}</span></span>`).join(' ');
+    return [...el.querySelectorAll('.w > span')];
+  };
+  // Words rising out of their masks, one after another.
+  const rise = (spans, t, start, step = .08, dur = .7) => spans.forEach((s, i) => {
+    const p = outExpo(prog(t, start + i * step, start + i * step + dur));
+    s.style.transform = `translateY(${(1 - p) * 115}%) rotate(${(1 - p) * 6}deg)`;
+  });
+  const show = (el, o, tf = '') => { el.style.opacity = o; el.style.transform = tf; el.style.visibility = o <= 0.001 ? 'hidden' : 'visible'; };
+
+  // ---------- atmosphere ----------
+  const stars = $('stars').getContext('2d');
+  const pts = []; for (let i = 0; i < 110; i++) pts.push({ x: rnd() * 1920, y: rnd() * 1080, vx: (rnd() - .5) * 26, vy: (rnd() - .5) * 26, r: rnd() * 1.6 + .5, ph: rnd() * 6.28 });
+  function drawStars(t, alpha) {
+    stars.clearRect(0, 0, 1920, 1080);
+    if (alpha <= 0) return;
+    const P = pts.map(p => ({ x: ((p.x + p.vx * t) % 1980 + 1980) % 1980 - 30, y: ((p.y + p.vy * t) % 1140 + 1140) % 1140 - 30, r: p.r, ph: p.ph }));
+    stars.lineWidth = 1;
+    for (let i = 0; i < P.length; i++) {
+      for (let j = i + 1; j < P.length; j++) {
+        const dx = P[i].x - P[j].x, dy = P[i].y - P[j].y, d2 = dx * dx + dy * dy;
+        if (d2 < 30000) { stars.strokeStyle = `rgba(255,255,255,${(1 - d2 / 30000) * .14 * alpha})`; stars.beginPath(); stars.moveTo(P[i].x, P[i].y); stars.lineTo(P[j].x, P[j].y); stars.stroke(); }
+      }
+      stars.fillStyle = `rgba(255,255,255,${(.35 + .3 * Math.sin(t * 2 + P[i].ph)) * alpha})`;
+      stars.beginPath(); stars.arc(P[i].x, P[i].y, P[i].r, 0, 7); stars.fill();
+    }
+  }
+
+  // ---------- fight data, like Nexora's CombatTracker (20 frames per second) ----------
+  function fight(sd, win) {
+    const f = []; let me = 20, foe = 20; const N = 100;
+    for (let i = 0; i < N; i++) {
+      const t = i / 20, a = t * 1.3 + sd, r = 2.5 - t * .16;
+      const mx = Math.cos(a) * r + Math.sin(t * 2.3 + sd) * .4, mz = Math.sin(a) * r * .8 + .5;
+      const fx = -Math.cos(a - .4) * (r - .3) + Math.sin(t * 1.7) * .45 + t * .12, fz = -Math.sin(a - .4) * (r - .3) * .8 + .3 - t * .1;
+      let fl = 0;
+      if (win) {
+        if (i % 9 === 4 && i < N - 4) { fl |= 1; foe = Math.max(.5, foe - (2.1 + (i % 3) * .35)); }
+        if (i % 17 === 11) { fl |= 2; me -= 2.4; }
+        if (i === N - 3) { fl |= 1; foe = 0; }
+      } else {
+        if (i % 13 === 6) { fl |= 1; foe -= 2.2; }
+        if (i % 8 === 3 && i < N - 4) { fl |= 2; me = Math.max(.5, me - (2.3 + (i % 3) * .3)); }
+        if (i === N - 3) { fl |= 2; me = 0; }
+      }
+      const yaw = (x1, z1, x2, z2) => Math.atan2(-(x2 - x1), z2 - z1);
+      f.push([mx, mz, yaw(mx, mz, fx, fz), me, fx, fz, yaw(fx, fz, mx, mz), foe, fl]);
+    }
+    let a = Infinity, b = -Infinity, c = Infinity, d = -Infinity;
+    for (const k of f) { a = Math.min(a, k[0], k[4]); b = Math.max(b, k[0], k[4]); c = Math.min(c, k[1], k[5]); d = Math.max(d, k[1], k[5]); }
+    return { f, N, span: Math.max(b - a, d - c) * 1.35, cx: (a + b) / 2, cz: (c + d) / 2 };
+  }
+  // Draws the replay at a fractional frame, interpolating between recorded frames.
+  function drawReplay(ctx, W, H, data, pos, me, foe) {
+    const { f, span, cx, cz, N } = data; const s = Math.min(W, H) / span;
+    const px = x => W / 2 + (x - cx) * s, pz = z => H / 2 + (z - cz) * s;
+    ctx.clearRect(0, 0, W, H);
+    ctx.strokeStyle = 'rgba(255,255,255,.05)'; ctx.lineWidth = 1;
+    for (let x = ((W / 2 - cx * s) % s + s) % s; x < W; x += s) { ctx.beginPath(); ctx.moveTo(x + .5, 0); ctx.lineTo(x + .5, H); ctx.stroke(); }
+    for (let y = ((H / 2 - cz * s) % s + s) % s; y < H; y += s) { ctx.beginPath(); ctx.moveTo(0, y + .5); ctx.lineTo(W, y + .5); ctx.stroke(); }
+    const idx = Math.min(N - 1, Math.floor(pos)), fr = Math.min(1, pos - idx);
+    const at = (i, k) => i + 1 < N ? lerp(f[i][k], f[i + 1][k], fr) : f[i][k];
+    for (const [ix, iz, col] of [[0, 1, me], [4, 5, foe]]) {
+      ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.lineCap = 'round';
+      for (let i = 1; i <= idx; i++) { ctx.globalAlpha = .05 + .65 * (i / Math.max(1, idx)) ** 2; ctx.beginPath(); ctx.moveTo(px(f[i - 1][ix]), pz(f[i - 1][iz])); ctx.lineTo(px(f[i][ix]), pz(f[i][iz])); ctx.stroke(); }
+    }
+    ctx.globalAlpha = 1;
+    let landed = 0, taken = 0;
+    for (let i = Math.max(0, idx - 5); i <= idx; i++) { const age = (pos - i) / 6; if (f[i][8] & 1) landed = Math.max(landed, 1 - age); if (f[i][8] & 2) taken = Math.max(taken, 1 - age); }
+    const dot = (x, y, yaw, col, hit, alive) => {
+      ctx.strokeStyle = col; ctx.fillStyle = col;
+      if (hit > 0) { ctx.globalAlpha = hit; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(x, y, 14 + (1 - hit) * 24, 0, 7); ctx.stroke(); ctx.globalAlpha = 1; }
+      if (!alive) { ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(x - 10, y - 10); ctx.lineTo(x + 10, y + 10); ctx.moveTo(x + 10, y - 10); ctx.lineTo(x - 10, y + 10); ctx.stroke(); return; }
+      ctx.shadowColor = col; ctx.shadowBlur = 22; ctx.beginPath(); ctx.arc(x, y, 9, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
+      ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x - Math.sin(yaw) * 15, y + Math.cos(yaw) * 15); ctx.lineTo(x - Math.sin(yaw) * 28, y + Math.cos(yaw) * 28); ctx.stroke();
+    };
+    const k = f[idx];
+    dot(px(at(idx, 0)), pz(at(idx, 1)), k[2], me, taken, k[3] > 0);
+    dot(px(at(idx, 4)), pz(at(idx, 5)), k[6], foe, landed, k[7] > 0);
+    return k;
+  }
+  const heroFight = fight(0, true), camFight = fight(1.7, false);
+  const heroCtx = $('heroMap').getContext('2d'), camCtx = $('camMap').getContext('2d');
+
+  // ---------- one-time text setup ----------
+  const l1 = words(document.querySelector('#s2 .l1'), 'Jeder Kampf.');
+  const l2 = words(document.querySelector('#s2 .l2'), 'Aufgezeichnet.');
+  const capWrap = $('s3cap');
+  capWrap.innerHTML = '<div style="position:absolute;left:0;right:0;top:36px;text-align:center"><span class="eyebrow" id="s3eye"><b>1.6</b>Kampf-Replay: jeder Kampf von oben</span></div>';
+  const s7h = $('s7h'); s7h.innerHTML = '<span class="l"></span><br><span class="l soft"></span>';
+  const s7a = words(s7h.children[0], 'Ein Client.'), s7b = words(s7h.children[2], 'Neun Versionen.');
+  const versions = ['1.21.4', '1.21.5', '1.21.6', '1.21.7', '1.21.8', '1.21.9', '1.21.10', '1.21.11', '26.2'];
+  const tl = $('tl');
+  const vEls = versions.map((v, i) => { const d = document.createElement('div'); d.className = 'v' + (i === 8 ? ' new' : ''); d.style.left = `${i / 8 * 94}%`; d.innerHTML = `<b>${v}</b>` + (i === 8 ? '<small>neueste</small>' : ''); tl.appendChild(d); return d; });
+  const endName = $('endName'); endName.innerHTML = [...'Nexora'].map(c => `<span>${c}</span>`).join('');
+  const endLetters = [...endName.children];
+  const mods = ['Kampf-Replay', 'Kill-Cam', 'HitMarker', 'TotemPops', 'PotCounter', 'FightSummary', 'Gegner-Rüstung', 'SessionStats', 'TPSDisplay', 'InventoryHUD', 'KillEffect', 'LowFire', 'Keystrokes', 'CPS', 'Zoom', 'Minimap', 'Waypoints', 'FreeLook', 'ToggleSprint', 'FrameGraph', 'RenderLimits', 'MotionBlur', 'SkyColor', 'NameTags', 'Crosshair', 'Spotify', 'Emotes', 'Pets', 'Capes', 'SleepTimer'];
+  const grid = $('grid'); const gEls = mods.map((m, i) => { const s = document.createElement('span'); s.textContent = m; if (i % 7 === 0) s.className = 'hl'; grid.appendChild(s); return s; });
+  const graph = $('graph'); const bars = []; for (let i = 0; i < 64; i++) { const b = document.createElement('i'); graph.appendChild(b); bars.push(b); }
+  const sample = i => { const r = Math.sin(i * 1.7) * .5 + Math.sin(i * .37) * .5; return i % 23 === 17 ? 3.1 : i % 41 === 29 ? 6.5 : 1 + r * .25 + (i % 7) * .03; };
+  const docIts = [...document.querySelectorAll('#doc .it')];
+  const s6h = $('s6h'); const s6a = words(s6h.children[0], 'Mehr FPS.'), s6b = words(s6h.children[2], 'Weniger Ruckler.');
+  const glyphs = 'abcdefghijklmnopqrstuvxyz0123456789#%&*+=<>/';
+
+  // ---------- the frame ----------
+  window.renderAt = function (t) {
+    seed = 1000 + Math.floor(t * 60); // film grain jitter and the decode, repeatable per frame
+
+    // Atmosphere: drifting orbs, constellation (strongest at the start and the end)
+    $('orbA').style.transform = `translate(${-300 + Math.sin(t * .21) * 180}px, ${-420 + Math.cos(t * .17) * 140}px)`;
+    $('orbB').style.transform = `translate(${1150 + Math.cos(t * .19) * 200}px, ${120 + Math.sin(t * .23) * 160}px)`;
+    drawStars(t, Math.max(win(t, 0, 7.2, 1, .6) * .9, win(t, 27.3, 32, .8, .5)) + win(t, 24.3, 27.7, .5, .4) * .5);
+    $('grain').style.backgroundPosition = `${Math.floor(rnd() * 220)}px ${Math.floor(rnd() * 220)}px`;
+    // Letterbox bars close in at the very start and open once the logo is done.
+    const bar = 140 * (1 - outExpo(prog(t, 2.6, 3.4)));
+    document.querySelectorAll('#bars i').forEach(b => b.style.height = `${bar}px`);
+
+    // Flashes on the big cuts
+    const flashAt = [[3.0, .5], [7.0, .35], [12.0, .8], [15.5, .4], [20.0, .35], [27.5, .6]];
+    let fl = 0; for (const [a, s] of flashAt) if (t >= a) fl = Math.max(fl, s * (1 - prog(t, a, a + .35)));
+    $('flash').style.opacity = fl;
+    $('flash').style.background = t >= 12 && t < 12.4 ? '#ff4b4b' : '#fff';
+
+    // S1: logo draws itself
+    const s1 = $('s1'); const o1 = win(t, 0, 3.15, .2, .35);
+    show(s1, o1, `scale(${1 + prog(t, 2.4, 3.15) * .25})`);
+    if (o1 > 0) {
+      const ring = $('ring'); ring.style.strokeDasharray = 130; ring.style.strokeDashoffset = 130 * (1 - inOut(prog(t, .25, 1.3)));
+      const n = $('nLetter'), pn = outBack(prog(t, 1.0, 1.5));
+      n.style.opacity = prog(t, 1.0, 1.25); n.style.transformOrigin = '32px 32px'; n.style.transform = `scale(${.5 + .5 * pn})`;
+      const st = $('star'), ps = prog(t, 1.35, 1.9);
+      st.style.opacity = ps > 0 ? 1 : 0; st.style.transformOrigin = '51px 13.8px';
+      st.style.transform = `scale(${ps < .6 ? outCubic(ps / .6) * 1.6 : lerp(1.6, 1, outCubic((ps - .6) / .4))}) rotate(${lerp(-120, 0, outCubic(ps))}deg)`;
+      $('logo').style.filter = `drop-shadow(0 0 ${20 + 40 * Math.max(0, Math.sin(prog(t, 1.35, 2.4) * Math.PI))}px rgba(255,255,255,.55))`;
+    }
+
+    // S2: headline
+    const s2 = $('s2'); const o2 = win(t, 3.0, 7.05, .01, .35);
+    show(s2, o2, `translateY(${-prog(t, 6.7, 7.05) * 60}px) scale(${1 - prog(t, 3, 7) * .04})`);
+    s2.style.filter = `blur(${prog(t, 6.7, 7.05) * 14}px)`;
+    if (o2 > 0) {
+      rise(l1, t, 3.05, .1, .75); rise(l2, t, 3.45, .1, .8);
+      // "Aufgezeichnet." decodes, then a light runs over it.
+      const target = l2[0], fin = 'Aufgezeichnet.';
+      const dp = prog(t, 3.9, 4.9);
+      target.textContent = dp >= 1 ? fin : [...fin].map((c, i) => i < dp * fin.length ? c : glyphs[Math.floor(rnd() * glyphs.length)]).join('');
+      target.style.backgroundPosition = `${100 - inOut(prog(t, 5.0, 6.4)) * 100}% 0`;
+      const sub = $('s2sub'); const ps = outExpo(prog(t, 4.9, 5.7)); sub.style.opacity = ps; sub.style.transform = `translateY(${(1 - ps) * 24}px)`;
+    }
+
+    // S3: replay in the launcher
+    const s3 = $('s3'); const o3 = win(t, 7.0, 12.0, .15, .01);
+    show(s3, o3);
+    if (o3 > 0) {
+      const pin = outExpo(prog(t, 7.0, 8.2));
+      $('win').style.transform = `perspective(2200px) translateY(${(1 - pin) * 260}px) rotateX(${(1 - pin) * 26}deg) scale(${lerp(.9, 1, pin) * (1 + prog(t, 8.2, 12) * .05)})`;
+      const pos = clamp((t - 7.6) * 22, 0, heroFight.N - 1);
+      const k = drawReplay(heroCtx, 918, 400, heroFight, pos, '#ffffff', '#e5484d');
+      $('heroTime').textContent = '-' + ((heroFight.N - 1 - Math.floor(pos)) / 20).toFixed(1) + 's';
+      $('hpMe').textContent = k[3].toFixed(1); $('hpFoe').textContent = k[7].toFixed(1);
+      $('barMe').style.transform = `scaleX(${k[3] / 20})`; $('barFoe').style.transform = `scaleX(${k[7] / 20})`;
+      const cp = outCubic(prog(t, 7.4, 8.8));
+      $('k1').textContent = Math.round(48 * cp); $('k2').textContent = Math.round(31 * cp); $('k3').textContent = Math.round(68 * cp) + ' %'; $('k4').textContent = Math.round(7 * cp);
+      const ey = $('s3eye'), pe = outExpo(prog(t, 7.5, 8.3)); ey.style.opacity = pe; ey.style.transform = `translateX(${(1 - pe) * -40}px)`;
+    }
+
+    // S4: kill cam, straight after the red flash
+    const s4 = $('s4'); const o4 = win(t, 12.0, 15.55, .01, .2);
+    show(s4, o4, `scale(${1.08 - outExpo(prog(t, 12, 12.8)) * .08})`);
+    if (o4 > 0) {
+      const pos = clamp((t - 12.5) * 34, 0, camFight.N - 1);
+      drawReplay(camCtx, 520, 440, camFight, pos, '#ffffff', '#e5484d');
+      $('camTime').textContent = '-' + ((camFight.N - 1 - Math.floor(pos)) / 20).toFixed(1) + 's';
+      const pc = outExpo(prog(t, 12.2, 13.0)); $('cam').style.transform = `translateY(${(1 - pc) * 80}px)`; $('cam').style.opacity = pc;
+    }
+
+    // S5: montage on the beat (every half second)
+    const cards = [['m1', 15.5], ['m2', 16.25], ['m3', 17.0], ['m4', 17.75]];
+    for (const [id, a] of cards) {
+      const el = $(id), o = win(t, a, a + .75, .01, .12);
+      const p = outExpo(prog(t, a, a + .5));
+      show(el, o, `scale(${lerp(1.35, 1, p) + prog(t, a, a + .75) * .04})`);
+      el.style.filter = `blur(${(1 - p) * 18}px)`;
+    }
+    if (t >= 17.0 && t < 17.75) $('atkBar').style.transform = `scaleX(${outCubic(prog(t, 17.05, 17.55))})`;
+    if (t >= 17.75 && t < 18.5) { const keys = [...$('keys').children]; const on = Math.floor((t - 17.75) / .12) % 4; ['W', 'A', 'S', 'D'].forEach((k, i) => keys.find(s => s.textContent === k).classList.toggle('on', i === on)); }
+    const m5 = $('m5'), o5 = win(t, 18.5, 19.25, .01, .1);
+    show(m5, o5, `scale(${1.1 - outExpo(prog(t, 18.5, 19.2)) * .1})`);
+    if (o5 > 0) gEls.forEach((g, i) => { const p = outExpo(prog(t, 18.5 + (i % 6) * .03 + Math.floor(i / 6) * .05, 18.9 + (i % 6) * .03 + Math.floor(i / 6) * .05)); g.style.opacity = p; g.style.transform = `translateY(${(1 - p) * 40}px)`; });
+    const m6 = $('m6'), o6 = win(t, 19.25, 20.05, .01, .15);
+    show(m6, o6, `scale(${1 + prog(t, 19.25, 20.05) * .06})`);
+    if (o6 > 0) $('modCount').textContent = Math.round(115 * outExpo(prog(t, 19.25, 19.8)));
+
+    // S6: FPS
+    const s6 = $('s6'); const o6b = win(t, 20.0, 24.55, .01, .3);
+    show(s6, o6b);
+    if (o6b > 0) {
+      const pf = outCubic(prog(t, 20.3, 22.4));
+      $('fps').textContent = Math.round(lerp(180, 412, pf));
+      const off = Math.floor((t - 20) * 24);
+      const good = prog(t, 21.0, 23.4); // hitches fade out as the doctor fixes things
+      bars.forEach((b, i) => {
+        let v = sample(i + off); if (v > 2.5) v = lerp(v, 1.1, good);
+        const grow = outExpo(prog(t, 20.0 + i * .008, 20.5 + i * .008));
+        b.style.height = `${(Math.min(1, v / 7) * .9 + .06) * 100 * grow}%`;
+        b.className = v > 5 ? 'hg' : v > 2.5 ? 'st' : '';
+      });
+      docIts.forEach((d, i) => {
+        const pin = outExpo(prog(t, 20.2 + i * .12, 20.9 + i * .12)); d.style.opacity = pin; d.style.transform = `translateX(${(1 - pin) * 60}px)`;
+        const fixed = t > 21.3 + i * .7; d.classList.toggle('fixed', fixed); d.querySelector('em').textContent = fixed ? 'Behoben ✓' : 'Beheben';
+        if (fixed) { const pop = 1 + .06 * Math.sin(Math.min(1, (t - 21.3 - i * .7) / .3) * Math.PI); d.style.transform = `scale(${pop})`; }
+      });
+      $('fpsNum').style.opacity = outExpo(prog(t, 20.05, 20.6));
+      rise(s6a, t, 20.35, .08, .7); rise(s6b, t, 20.6, .08, .7);
+    }
+
+    // S7: versions
+    const s7 = $('s7'); const o7 = win(t, 24.5, 27.55, .15, .25);
+    show(s7, o7);
+    if (o7 > 0) {
+      rise(s7a, t, 24.55, .08, .7); rise(s7b, t, 24.8, .08, .7);
+      $('tlLine').style.transform = `scaleX(${inOut(prog(t, 25.0, 26.4))})`;
+      vEls.forEach((v, i) => { const p = outBack(prog(t, 25.05 + i * .15, 25.5 + i * .15)); v.style.opacity = clamp(p); v.style.transform = `translateY(${(1 - p) * 30}px)`; });
+    }
+
+    // S8: end card
+    const s8 = $('s8'); const o8 = win(t, 27.5, 32, .05, .6);
+    show(s8, o8);
+    if (o8 > 0) {
+      const er = $('endRing'); er.style.strokeDasharray = 130; er.style.strokeDashoffset = 130 * (1 - inOut(prog(t, 27.5, 28.4)));
+      const es = $('endStar'), ps = prog(t, 28.2, 28.7); es.style.transformOrigin = '51px 13.8px'; es.style.opacity = ps > 0 ? 1 : 0;
+      es.style.transform = `scale(${ps < .6 ? outCubic(ps / .6) * 1.6 : lerp(1.6, 1, outCubic((ps - .6) / .4))})`;
+      const lg = outExpo(prog(t, 27.5, 28.3)); $('endLogo').style.transform = `translateY(${(1 - lg) * 40}px)`; $('endLogo').style.opacity = lg;
+      endLetters.forEach((l, i) => { const p = outExpo(prog(t, 27.9 + i * .06, 28.8 + i * .06)); l.style.transform = `translateY(${(1 - p) * 60}%)`; l.style.opacity = p; });
+      const el = (id, a) => { const p = outExpo(prog(t, a, a + .7)); const e = $(id); e.style.opacity = p; e.style.transform = `translateY(${(1 - p) * 30}px)`; };
+      el('endTag', 28.6); el('endCta', 28.9); el('endUrl', 29.2); el('endOs', 29.4);
+      $('endShine').style.transform = `translateX(${lerp(-130, 130, inOut(prog(t, 29.8, 30.8)))}%)`;
+      $('endName').style.textShadow = `0 0 ${60 * Math.max(0, Math.sin(prog(t, 28.6, 30.4) * Math.PI))}px rgba(255,255,255,.35)`;
+    }
+    // Everything fades to black at the very end.
+    $('frame').style.opacity = 1 - prog(t, 31.4, 32);
+  };
+
+  // Played on its own (not rendering): real time, ?t= to start later.
+  window.ready = document.fonts.ready.then(() => { window.renderAt(0); return true; });
+  if (!navigator.webdriver) {
+    const start = parseFloat(new URLSearchParams(location.search).get('t')) || 0;
+    window.ready.then(() => { const t0 = performance.now(); (function f(now) { window.renderAt((start + (now - t0) / 1000) % DURATION); requestAnimationFrame(f); })(t0); });
+  }
+})();
+</script>
+</body>
+</html>

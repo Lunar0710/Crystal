@@ -49,9 +49,14 @@ public class CrystalLogo extends Module {
 
     /** The logo, a space, then the name. */
     public static Component withLogo(Component name) {
-        MutableComponent logo = Component.literal(LOGO_CHAR).withStyle(style -> style.withFont(ICON_FONT).withColor(0xFFFFFF));
-        return Component.empty().append(logo).append(" ").append(name);
+        // Built once: this runs for every Nexora player's nametag in every frame.
+        if (logoPrefix == null) {
+            logoPrefix = Component.literal(LOGO_CHAR).withStyle(style -> style.withFont(ICON_FONT).withColor(0xFFFFFF));
+        }
+        return Component.empty().append(logoPrefix).append(" ").append(name);
     }
+
+    private static Component logoPrefix;
 
     public boolean isInNametag() { return inNametag; }
     public boolean isInTabList() { return inTabList; }

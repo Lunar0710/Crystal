@@ -26,6 +26,7 @@ public class PotCounter extends HudModule {
     private boolean countPearls = false;
     private boolean countCrystals = false;
     private boolean countObsidian = false;
+    private boolean countArrows = false;
 
     public PotCounter() {
         super("PotCounter", "Counts healing potions and other fight supplies left in your inventory", 4, 216);
@@ -63,6 +64,7 @@ public class PotCounter extends HudModule {
         if (countPearls) text.append("  Perlen: ").append(count(stacks, Items.ENDER_PEARL));
         if (countCrystals) text.append("  Kristalle: ").append(count(stacks, Items.END_CRYSTAL));
         if (countObsidian) text.append("  Obsi: ").append(count(stacks, Items.OBSIDIAN));
+        if (countArrows) text.append("  Pfeile: ").append(count(stacks, Items.ARROW) + count(stacks, Items.SPECTRAL_ARROW) + count(stacks, Items.TIPPED_ARROW));
         return text.toString();
     }
 
@@ -74,6 +76,7 @@ public class PotCounter extends HudModule {
                 new BooleanSetting("Totems zählen", () -> countTotems, v -> countTotems = v, false),
                 new BooleanSetting("Enderperlen zählen", () -> countPearls, v -> countPearls = v, false),
                 new BooleanSetting("End-Kristalle zählen", () -> countCrystals, v -> countCrystals = v, false),
-                new BooleanSetting("Obsidian zählen", () -> countObsidian, v -> countObsidian = v, false));
+                new BooleanSetting("Obsidian zählen", () -> countObsidian, v -> countObsidian = v, false),
+                new BooleanSetting("Pfeile zählen", () -> countArrows, v -> countArrows = v, false));
     }
 }
