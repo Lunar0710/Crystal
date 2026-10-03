@@ -155,6 +155,18 @@ function Apply-Power($Backup) {
     # No core parking (all cores stay awake), processor never below 100 %.
     powercfg -setacvalueindex $guid 54533251-82be-4824-96c1-47b60b740d00 0cc5b647-c1df-4637-891a-dec35c318583 100 2>$null | Out-Null
     powercfg -setacvalueindex $guid 54533251-82be-4824-96c1-47b60b740d00 893dee8e-2bef-41e0-89c6-b55d0929964c 100 2>$null | Out-Null
+    # Same for the efficiency cores of hybrid CPUs (ignored where there are none).
+    powercfg -setacvalueindex $guid 54533251-82be-4824-96c1-47b60b740d00 0cc5b647-c1df-4637-891a-dec35c318584 100 2>$null | Out-Null
+    # Turbo boost aggressive, energy/performance preference fully on performance.
+    powercfg -setacvalueindex $guid 54533251-82be-4824-96c1-47b60b740d00 be337238-0d82-4146-a960-4f3749d470c7 2 2>$null | Out-Null
+    powercfg -setacvalueindex $guid 54533251-82be-4824-96c1-47b60b740d00 36687f9e-e3a5-4dbf-b1dc-15eb381c6863 0 2>$null | Out-Null
+    # Hybrid CPUs: game threads prefer the performance cores.
+    powercfg -setacvalueindex $guid 54533251-82be-4824-96c1-47b60b740d00 93b8b6dc-0698-4d1c-9ee4-0644e900c85d 2 2>$null | Out-Null
+    powercfg -setacvalueindex $guid 54533251-82be-4824-96c1-47b60b740d00 bae08b81-2d5e-4688-ad6a-13243356654b 2 2>$null | Out-Null
+    # Disks never spin down, no sleep while plugged in, Wi-Fi adapter at full power.
+    powercfg -setacvalueindex $guid 0012ee47-9041-4b5d-9b77-535fba8b1442 6738e2c4-e8a5-4a42-b16a-e040e769756e 0 2>$null | Out-Null
+    powercfg -setacvalueindex $guid 238c9fa8-0aad-41ed-83f4-97be242c8f20 29f6c1db-86da-48c5-9fdb-f2b67b1f44da 0 2>$null | Out-Null
+    powercfg -setacvalueindex $guid 19cbb8fa-5279-450e-9fac-8a3d5fedd0c1 12bbebe6-58d6-4636-95bb-3217ef867c1a 0 2>$null | Out-Null
     powercfg -setactive $guid | Out-Null
 }
 function Revert-Power($Backup) {
