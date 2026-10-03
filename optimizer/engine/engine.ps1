@@ -247,6 +247,12 @@ $Tweaks = @(
        name = 'Extrem: CPU-Leerlauf aus'
        desc = 'Für "Lunar Gaming": die CPU geht nie in Stromspar-Zustände und hält immer vollen Takt. Weniger Input-Lag und Ruckler, aber die CPU wird deutlich wärmer und braucht mehr Strom. Nur für Desktop-PCs mit guter Kühlung.'
        custom = $true },
+    @{ id = 'mcprio'; cat = 'Leistung'; admin = $true; reboot = $false; impact = 'mittel'; optional = $true
+       name = 'Minecraft immer mit hoher Priorität'
+       desc = 'Windows gibt Java-Minecraft (javaw.exe, also auch Feather, Lunar und Prism) dauerhaft hohe CPU- und Festplatten-Priorität, auch ohne dass der Optimizer läuft. Gilt für jedes Java-Programm.'
+       reg = @(
+           @('HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\javaw.exe\PerfOptions', 'CpuPriorityClass', 3, 'DWord'),
+           @('HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\javaw.exe\PerfOptions', 'IoPriority', 3, 'DWord')) },
     @{ id = 'gamemode'; cat = 'Leistung'; admin = $false; reboot = $false; impact = 'mittel'
        name = 'Spielmodus an'
        desc = 'Windows gibt dem Spiel im Vordergrund Vorrang und hält Updates während des Spielens zurück.'
