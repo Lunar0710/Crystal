@@ -169,6 +169,21 @@ function Apply-Power($Backup) {
     powercfg -setacvalueindex $guid 19cbb8fa-5279-450e-9fac-8a3d5fedd0c1 12bbebe6-58d6-4636-95bb-3217ef867c1a 0 2>$null | Out-Null
     powercfg -setactive $guid | Out-Null
 }
+# "Processor idle disable": no C-states, every core stays at full clock. Lowest
+# latency, like the plans of paid tweakers, but the CPU runs hot and draws more power.
+$IdleSub = '54533251-82be-4824-96c1-47b60b740d00'; $IdleSet = '5d76a2ca-e8c0-402f-a133-2158492d58ad'
+function Set-PowerIdle($on) {
+    $guid = Get-LunarScheme
+    if (-not $guid) { throw 'Zuerst den Energiesparplan "Lunar Gaming" anwenden.' }
+    powercfg -setacvalueindex $guid $IdleSub $IdleSet ([int]$on) 2>$null | Out-Null
+    if ((Get-ActiveScheme).guid -eq $guid) { powercfg -setactive $guid | Out-Null }
+}
+function Test-PowerIdle {
+    $guid = Get-LunarScheme; if (-not $guid) { return $false }
+    $q = (powercfg /query $guid $IdleSub $IdleSet 2>$null) | Out-String
+    # The first 0x value in the answer is the AC (plugged in) index, in every Windows language.
+    return ($q -match '0x([0-9a-fA-F]{8})' -and [Convert]::ToInt32($Matches[1], 16) -eq 1)
+}
 function Revert-Power($Backup) {
     if ($Backup.powerScheme) { powercfg -setactive $Backup.powerScheme 2>$null | Out-Null }
     else { powercfg -setactive 381b4222-f694-41f0-9685-ff5bb260df2e 2>$null | Out-Null }
@@ -222,6 +237,10 @@ $Tweaks = @(
     @{ id = 'power'; cat = 'Leistung'; admin = $true; reboot = $false; impact = 'hoch'
        name = 'Energiesparplan "Lunar Gaming"'
        desc = 'Alle CPU-Kerne bleiben wach (kein Core Parking) und laufen nie unter vollem Takt, USB-Geräte wie Maus und Headset gehen nie in den Stromsparmodus. Auf Laptops im Akkubetrieb braucht das mehr Strom.'
+       custom = $true },
+    @{ id = 'power-idle'; cat = 'Leistung'; admin = $true; reboot = $false; impact = 'hoch'
+       name = 'Extrem: CPU-Leerlauf aus'
+       desc = 'Für "Lunar Gaming": die CPU geht nie in Stromspar-Zustände und hält immer vollen Takt. Weniger Input-Lag und Ruckler, aber die CPU wird deutlich wärmer und braucht mehr Strom. Nur für Desktop-PCs mit guter Kühlung.'
        custom = $true },
     @{ id = 'gamemode'; cat = 'Leistung'; admin = $false; reboot = $false; impact = 'mittel'
        name = 'Spielmodus an'
@@ -444,6 +463,7 @@ function Get-Norm($x) {
 }
 function Test-Applied($t) {
     if ($t.id -eq 'power') { return ((Get-ActiveScheme).name -match 'Lunar Gaming') }
+    if ($t.id -eq 'power-idle') { return (Test-PowerIdle) }
     if ($t.id -eq 'hibernate') { return ((Get-RegValue 'HKLM:\SYSTEM\CurrentControlSet\Control\Power' 'HibernateEnabled') -eq 0) }
     if ($t.id -eq 'memcomp') {
         # Get-MMAgent needs admin rights; without them, whether Lunar switched it off.
@@ -468,6 +488,7 @@ function Test-Applied($t) {
 
 function Apply-Tweak($Backup, $t) {
     if ($t.id -eq 'power') { Apply-Power $Backup; return }
+    if ($t.id -eq 'power-idle') { Set-PowerIdle $true; return }
     if ($t.nic) { Apply-Nic $Backup $t.id; return }
     if ($t.id -eq 'memcomp') {
         if (-not ($Backup.PSObject.Properties.Name -contains 'memcomp')) {
@@ -496,6 +517,7 @@ function Apply-Tweak($Backup, $t) {
 
 function Revert-Tweak($Backup, $t) {
     if ($t.id -eq 'power') { Revert-Power $Backup; return }
+    if ($t.id -eq 'power-idle') { if (Get-LunarScheme) { Set-PowerIdle $false }; return }
     if ($t.nic) { Revert-Nic $Backup $t.id; return }
     if ($t.id -eq 'memcomp') {
         if ($Backup.PSObject.Properties.Name -contains 'memcomp') {
