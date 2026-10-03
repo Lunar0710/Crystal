@@ -28,6 +28,8 @@ public final class Config {
     public boolean pickaxeSelection = true;
     /** AFK: the job goes on behind the pause menu and when the window loses focus. */
     public boolean afk = false;
+    /** Look for a new release on start and put it in place for the next start (Updater). */
+    public boolean autoUpdate = true;
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static Config instance;

@@ -65,7 +65,12 @@ public final class SettingsScreen extends Screen {
             config.afk = !config.afk;
             config.save();
             rebuildWidgets();
-        }).bounds(left, y, 310, 20).build());
+        }).bounds(left, y, 150, 20).build());
+        addRenderableWidget(Button.builder(Component.literal("Auto-Update: " + (config.autoUpdate ? "an" : "aus")), b -> {
+            config.autoUpdate = !config.autoUpdate;
+            config.save();
+            rebuildWidgets();
+        }).bounds(left + 160, y, 150, 20).build());
 
         // The allowlist.
         y += 44;

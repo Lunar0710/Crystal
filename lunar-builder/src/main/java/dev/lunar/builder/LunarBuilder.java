@@ -79,6 +79,7 @@ public final class LunarBuilder implements ClientModInitializer {
         stopKey = KeyBindingHelper.registerKeyBinding(new KeyMapping("key.lunar-builder.stop", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_O, CATEGORY));
         buildKey = KeyBindingHelper.registerKeyBinding(new KeyMapping("key.lunar-builder.build", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, CATEGORY));
 
+        Updater.checkInBackground();
         ClientTickEvents.END_CLIENT_TICK.register(LunarBuilder::onTick);
         AttackBlockCallback.EVENT.register((player, level, hand, pos, direction) -> onLeftClick(player, hand, pos));
         UseBlockCallback.EVENT.register((player, level, hand, hit) -> onRightClick(player, hand, hit.getBlockPos()));
