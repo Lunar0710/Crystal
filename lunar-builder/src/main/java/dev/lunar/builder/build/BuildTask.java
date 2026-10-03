@@ -535,6 +535,12 @@ public class BuildTask implements Task {
         }
         topLayer = maxY;
         bottomLayer = minY;
+        originX = Integer.MAX_VALUE;
+        originZ = Integer.MAX_VALUE;
+        for (BlockPos[] box : boxes) {
+            originX = Math.min(originX, box[0].getX());
+            originZ = Math.min(originZ, box[0].getZ());
+        }
         // Finished layers stay finished; start where the last look found work.
         if (scanFromY < minY) scanFromY = minY;
         // In case something below was broken, one finished layer is checked
@@ -818,10 +824,16 @@ public class BuildTask implements Task {
      * The fixed pattern: rows along X, each row along Z, every other row the
      * other way round (a snake). Smaller comes first; same for every layer.
      */
-    static double snake(BlockPos pos) {
-        int z = Math.floorMod(pos.getX(), 2) == 0 ? pos.getZ() : -pos.getZ();
-        return pos.getX() * 100_000_000.0 + z;
+    double snake(BlockPos pos) {
+        // From the corner of the schematic (smallest X and Z): the first row goes
+        // towards +Z from there, the next one back, and so on.
+        int row = pos.getX() - originX;
+        int along = pos.getZ() - originZ;
+        return row * 100_000_000.0 + (Math.floorMod(row, 2) == 0 ? along : -along);
     }
+
+    /** The corner the pattern starts at, from the schematic bounds. */
+    private int originX = 0, originZ = 0;
 
     /**
      * Falling (walked off, a support gone): a filler block under the feet,
