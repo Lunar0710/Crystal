@@ -126,6 +126,10 @@ public class BuildTask implements Task {
     /** Supports placed by us, broken once the block they held up is in. */
     private final Deque<BlockPos> supports = new ArrayDeque<>();
     private BlockPos breaking = null;
+    /** For supports of a chain: the schematic block the chain leads to; kept until that one is in. */
+    private final Map<BlockPos, BlockPos> supportFor = new java.util.HashMap<>();
+    /** How far a chain of supports may reach to find something to stand on. */
+    private static final int MAX_CHAIN = 6;
     /** Broken supports and when, in case the server puts one back. */
     private final Map<BlockPos, Long> recentlyBroken = new java.util.HashMap<>();
     private static final long RECHECK_TICKS = 40;
@@ -1020,9 +1024,49 @@ public class BuildTask implements Task {
         for (Direction dir : order) {
             BlockPos spot = target.relative(dir);
             if (!mc.level.getBlockState(spot).canBeReplaced() || !spotFree(player, spot)) continue;
-            if (placeSupportAt(mc, player, spot)) return true;
+            if (placeSupportAt(mc, player, spot)) {
+                supportFor.put(spot.immutable(), target.immutable());
+                return true;
+            }
+        }
+        // None of the six touches anything: a chain of supports from the nearest
+        // solid block towards it. One link per step, the one next to the solid
+        // block first; the next step finds a shorter chain from there.
+        BlockPos link = chainStart(mc.level, player, target);
+        if (link != null && placeSupportAt(mc, player, link)) {
+            supportFor.put(link.immutable(), target.immutable());
+            return true;
         }
         return false;
+    }
+
+    /**
+     * Breadth first from the block outwards through empty spots a support may
+     * use: the first one that has something solid to click against and is in
+     * reach. Down first, so chains are pillars where they can be.
+     */
+    private BlockPos chainStart(Level level, LocalPlayer player, BlockPos target) {
+        Direction[] order = {Direction.DOWN, Direction.NORTH, Direction.SOUTH, Direction.EAST, Direction.WEST, Direction.UP};
+        double reach = player.blockInteractionRange() - 0.5;
+        Vec3 eye = player.getEyePosition();
+        java.util.ArrayDeque<BlockPos> queue = new java.util.ArrayDeque<>();
+        Map<BlockPos, Integer> depth = new java.util.HashMap<>();
+        queue.add(target);
+        depth.put(target, 0);
+        while (!queue.isEmpty()) {
+            BlockPos at = queue.poll();
+            int d = depth.get(at);
+            if (d >= MAX_CHAIN) continue;
+            for (Direction dir : order) {
+                BlockPos spot = at.relative(dir);
+                if (depth.containsKey(spot)) continue;
+                depth.put(spot, d + 1);
+                if (!level.hasChunkAt(spot) || !level.getBlockState(spot).canBeReplaced() || !spotFree(player, spot)) continue;
+                if (hasClickableNeighbour(level, spot) && Vec3.atCenterOf(spot).distanceTo(eye) <= reach) return spot;
+                queue.add(spot);
+            }
+        }
+        return null;
     }
 
     /** A spot a support may use: nothing of the schematic goes there, and you don't stand in it. */
@@ -1068,6 +1112,7 @@ public class BuildTask implements Task {
         if (breaking != null) {
             if (level.getBlockState(breaking).isAir()) {
                 supports.remove(breaking);
+                supportFor.remove(breaking);
                 recentlyBroken.put(breaking, now);
                 breaking = null;
                 return false;
@@ -1097,12 +1142,68 @@ public class BuildTask implements Task {
     }
 
     private boolean supportDone(Level level, BlockPos support) {
+        BlockPos servedTarget = supportFor.get(support);
+        if (servedTarget != null) {
+            BlockState want = source.expected(servedTarget);
+            if (want != null && !want.isAir() && !PlacementPlanner.matches(level.getBlockState(servedTarget), want)) return false;
+        }
         for (Direction dir : Direction.values()) {
             BlockPos next = support.relative(dir);
             BlockState want = source.expected(next);
-            if (want != null && !want.isAir() && !PlacementPlanner.matches(level.getBlockState(next), want)) return false;
+            if (want == null || want.isAir()) continue;
+            if (!PlacementPlanner.matches(level.getBlockState(next), want)) return false;
+            // Something of the build hangs on it (a torch, a ladder, sand on top):
+            // breaking the support would break that, so it stays.
+            if (support.equals(dependsOn(want, next))) return false;
         }
         return true;
+    }
+
+    /** The block this one needs to stay in place (it pops off or falls without it), or null. */
+    static BlockPos dependsOn(BlockState state, BlockPos pos) {
+        var block = state.getBlock();
+        if (block instanceof net.minecraft.world.level.block.FaceAttachedHorizontalDirectionalBlock) {
+            var face = state.getValue(net.minecraft.world.level.block.FaceAttachedHorizontalDirectionalBlock.FACE);
+            return switch (face) {
+                case FLOOR -> pos.below();
+                case CEILING -> pos.above();
+                default -> pos.relative(state.getValue(net.minecraft.world.level.block.HorizontalDirectionalBlock.FACING).getOpposite());
+            };
+        }
+        if (block instanceof net.minecraft.world.level.block.WallTorchBlock
+                || block instanceof net.minecraft.world.level.block.RedstoneWallTorchBlock
+                || block instanceof net.minecraft.world.level.block.LadderBlock
+                || block instanceof net.minecraft.world.level.block.WallSignBlock
+                || block instanceof net.minecraft.world.level.block.WallBannerBlock
+                || block instanceof net.minecraft.world.level.block.WallHangingSignBlock
+                || block instanceof net.minecraft.world.level.block.TripWireHookBlock) {
+            for (var property : state.getProperties()) {
+                if (property.getName().equals("facing") && state.getValue(property) instanceof Direction facing) return pos.relative(facing.getOpposite());
+            }
+            return null;
+        }
+        if (block instanceof net.minecraft.world.level.block.CocoaBlock) {
+            return pos.relative(state.getValue(net.minecraft.world.level.block.HorizontalDirectionalBlock.FACING));
+        }
+        if (block instanceof net.minecraft.world.level.block.LanternBlock) {
+            return state.getValue(net.minecraft.world.level.block.LanternBlock.HANGING) ? pos.above() : pos.below();
+        }
+        if (block instanceof net.minecraft.world.level.block.CeilingHangingSignBlock) return pos.above();
+        if (block instanceof net.minecraft.world.level.block.FallingBlock
+                || block instanceof net.minecraft.world.level.block.BaseTorchBlock
+                || block instanceof net.minecraft.world.level.block.BaseRailBlock
+                || block instanceof net.minecraft.world.level.block.CarpetBlock
+                || block instanceof net.minecraft.world.level.block.BasePressurePlateBlock
+                || block instanceof net.minecraft.world.level.block.RedStoneWireBlock
+                || block instanceof net.minecraft.world.level.block.DiodeBlock
+                || block instanceof net.minecraft.world.level.block.VegetationBlock
+                || block instanceof net.minecraft.world.level.block.SnowLayerBlock
+                || block instanceof net.minecraft.world.level.block.DoorBlock
+                || block instanceof net.minecraft.world.level.block.StandingSignBlock
+                || block instanceof net.minecraft.world.level.block.BannerBlock) {
+            return pos.below();
+        }
+        return null;
     }
 
     // ------------------------------------------------------------ items
