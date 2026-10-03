@@ -21,6 +21,7 @@ import net.minecraft.world.level.block.state.properties.BedPart;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.level.block.state.properties.SlabType;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayDeque;
@@ -244,7 +245,8 @@ public class BuildTask implements Task {
             // Litematica needs a moment to load a layer it was just told to show.
             if (showLayer && shownLayer != Integer.MIN_VALUE && mc.level.getGameTime() - layerShownAt < 20) return;
             if (mc.level.getGameTime() < settleUntil) {
-                findWork(mc.level, player);
+                // Twice a second is enough to see the placement filled in (a big one is a big scan).
+                if (mc.level.getGameTime() % 10 == 0) findWork(mc.level, player);
                 return;
             }
             if (--rescanCountdown <= 0 || globalLayer == Integer.MAX_VALUE || boxesKey(source.bounds()) != lastBoxesKey) {
@@ -421,8 +423,21 @@ public class BuildTask implements Task {
         return findWork(level, player, java.util.Set.of());
     }
 
+    /**
+     * The open blocks of the layer the last full scan found, nearest first, and
+     * when. Walk planning asks for "the next nearest" up to a dozen times in one
+     * tick; on a big build each of those used to be a scan of the whole layer.
+     */
+    private List<Target> candidates = List.of();
+    private long candidatesAt = Long.MIN_VALUE;
+    private Vec3 candidatesFrom = Vec3.ZERO;
+
     /** {@code skip}: blocks not to pick as the answer (they still count for the layer). */
     private Target findWork(Level level, LocalPlayer player, java.util.Set<BlockPos> skip) {
+        if (!skip.isEmpty() && candidatesAt == level.getGameTime() && candidatesFrom.equals(player.position())) {
+            for (Target t : candidates) if (!skip.contains(t.pos) && isOpen(level, t.pos)) return t;
+            return null;
+        }
         List<BlockPos[]> boxes = source.bounds();
         if (boxesKey(boxes) != lastBoxesKey) {
             lastBoxesKey = boxesKey(boxes);
@@ -473,6 +488,7 @@ public class BuildTask implements Task {
             Target best = null;
             double bestDistance = Double.MAX_VALUE;
             boolean layerOpen = false;
+            List<Target> found = new ArrayList<>();
             for (BlockPos[] box : boxes) {
                 if (y < box[0].getY() || y > box[1].getY()) continue;
                 for (int x = box[0].getX(); x <= box[1].getX(); x++) {
@@ -486,13 +502,15 @@ public class BuildTask implements Task {
                         boolean adjust = PlacementPlanner.needsAdjusting(level.getBlockState(pos), want);
                         Item item = want.getBlock().asItem();
                         if (!adjust && !haveItem.computeIfAbsent(item, i -> has(mc, player, i))) continue;
+                        Target here = new Target(pos.immutable(), want);
+                        found.add(here);
                         if (skip.contains(pos)) continue;
                         double distance = pos.distToCenterSqr(player.position());
                         // The spot you stand in last: it needs you to step off first.
                         if (player.getBoundingBox().intersects(new net.minecraft.world.phys.AABB(pos))) distance += 1000;
                         if (distance < bestDistance) {
                             bestDistance = distance;
-                            best = new Target(pos.immutable(), want);
+                            best = here;
                         }
                     }
                 }
@@ -500,6 +518,12 @@ public class BuildTask implements Task {
             if (layerOpen) {
                 globalLayer = y;
                 scanFromY = y;
+                Vec3 at = player.position();
+                AABB body = player.getBoundingBox();
+                found.sort(Comparator.comparingDouble(t -> t.pos.distToCenterSqr(at) + (body.intersects(new AABB(t.pos)) ? 1000 : 0)));
+                candidates = found;
+                candidatesAt = level.getGameTime();
+                candidatesFrom = at;
                 return best;
             }
         }

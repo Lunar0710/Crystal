@@ -15,6 +15,10 @@ public final class Config {
 
     public static final String SPEED_NORMAL = "normal";
     public static final String SPEED_CAREFUL = "vorsichtig";
+    public static final String SPEED_FAST = "schnell";
+    public static final String SPEED_TURBO = "turbo";
+    /** The order the settings button cycles through. */
+    public static final List<String> SPEEDS = List.of(SPEED_CAREFUL, SPEED_NORMAL, SPEED_FAST, SPEED_TURBO);
 
     /** Multiplayer servers the player confirmed allow automation. Empty by default. */
     public List<String> allowlist = new ArrayList<>();
@@ -22,6 +26,8 @@ public final class Config {
     public boolean showOutline = true;
     /** Left/right click with a pickaxe sets the corners (off: the pickaxe mines normally). */
     public boolean pickaxeSelection = true;
+    /** AFK: the job goes on behind the pause menu and when the window loses focus. */
+    public boolean afk = false;
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static Config instance;
@@ -35,14 +41,39 @@ public final class Config {
         return SPEED_CAREFUL.equals(digSpeed);
     }
 
-    /** Degrees per tick the head turns at most. */
+    /** Degrees per tick the head turns at most (eased per frame, so still smooth). */
     public float turnSpeed() {
-        return careful() ? 9f : 20f;
+        return switch (digSpeed) {
+            case SPEED_CAREFUL -> 9f;
+            case SPEED_FAST -> 35f;
+            case SPEED_TURBO -> 60f;
+            default -> 20f;
+        };
     }
 
     /** Ticks of rest after each block. */
     public int pauseTicks() {
-        return careful() ? 8 : 2;
+        return switch (digSpeed) {
+            case SPEED_CAREFUL -> 8;
+            case SPEED_FAST -> 1;
+            case SPEED_TURBO -> 0;
+            default -> 2;
+        };
+    }
+
+    /** Blocks the builder places per second at most. */
+    public float blocksPerSecond() {
+        return switch (digSpeed) {
+            case SPEED_CAREFUL -> 1.5f;
+            case SPEED_FAST -> 6f;
+            case SPEED_TURBO -> 10f;
+            default -> 3f;
+        };
+    }
+
+    /** Sprint on longer straight walks (not in careful mode). */
+    public boolean sprint() {
+        return !careful();
     }
 
     private static Path path() {
@@ -57,7 +88,7 @@ public final class Config {
                 if (c != null) {
                     if (c.allowlist == null) c.allowlist = new ArrayList<>();
                     c.allowlist.removeIf(s -> Gate.normalize(s).isEmpty());
-                    if (!SPEED_CAREFUL.equals(c.digSpeed)) c.digSpeed = SPEED_NORMAL;
+                    if (!SPEEDS.contains(c.digSpeed)) c.digSpeed = SPEED_NORMAL;
                     return c;
                 }
             }

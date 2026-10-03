@@ -38,8 +38,9 @@ public final class SettingsScreen extends Screen {
         Config config = Config.get();
         int cx = width / 2, left = cx - 155, y = 34;
 
-        addRenderableWidget(Button.builder(Component.literal("Grabtempo: " + config.digSpeed), b -> {
-            config.digSpeed = config.careful() ? Config.SPEED_NORMAL : Config.SPEED_CAREFUL;
+        addRenderableWidget(Button.builder(Component.literal("Tempo: " + config.digSpeed), b -> {
+            int i = Config.SPEEDS.indexOf(config.digSpeed);
+            config.digSpeed = Config.SPEEDS.get((i + 1) % Config.SPEEDS.size());
             config.save();
             rebuildWidgets();
         }).bounds(left, y, 150, 20).build());
@@ -58,6 +59,13 @@ public final class SettingsScreen extends Screen {
             onClose();
             LunarBuilder.startBuild();
         }).bounds(left + 160, y, 150, 20).build());
+
+        y += 24;
+        addRenderableWidget(Button.builder(Component.literal("AFK-Modus: " + (config.afk ? "an" : "aus")), b -> {
+            config.afk = !config.afk;
+            config.save();
+            rebuildWidgets();
+        }).bounds(left, y, 310, 20).build());
 
         // The allowlist.
         y += 44;

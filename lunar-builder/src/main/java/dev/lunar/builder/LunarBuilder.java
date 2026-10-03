@@ -20,6 +20,7 @@ import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.client.player.LocalPlayer;
@@ -128,7 +129,27 @@ public final class LunarBuilder implements ClientModInitializer {
     /** The left mouse button is held for the task this tick (MinecraftMixin). */
     public static boolean holdAttack() {
         Minecraft mc = Minecraft.getInstance();
-        return task != null && !paused && mc.screen == null && task.wantsAttack() && allowed(mc);
+        return task != null && !paused && !screenBlocks(mc) && task.wantsAttack() && allowed(mc);
+    }
+
+    /** A menu or chat is open that stops the job; in AFK mode the pause menu does not. */
+    private static boolean screenBlocks(Minecraft mc) {
+        return mc.screen != null && !(Config.get().afk && mc.screen instanceof PauseScreen);
+    }
+
+    /** pauseOnLostFocus as it was before AFK mode switched it off for a job; null while not switched. */
+    private static Boolean savedPauseOnLostFocus;
+
+    /** AFK mode: no pause menu when the window loses focus while a job runs; put back afterwards. */
+    private static void keepRunningUnfocused(Minecraft mc) {
+        boolean want = task != null && Config.get().afk;
+        if (want && savedPauseOnLostFocus == null) {
+            savedPauseOnLostFocus = mc.options.pauseOnLostFocus;
+            mc.options.pauseOnLostFocus = false;
+        } else if (!want && savedPauseOnLostFocus != null) {
+            mc.options.pauseOnLostFocus = savedPauseOnLostFocus;
+            savedPauseOnLostFocus = null;
+        }
     }
 
     public static boolean startDig(BlockPos c1, BlockPos c2, int depth) {
@@ -164,7 +185,7 @@ public final class LunarBuilder implements ClientModInitializer {
         }
         stopTask(mc, null);
         Config config = Config.get();
-        task = new BuildTask(source, config.turnSpeed(), config.careful() ? 1.5f : 3f);
+        task = new BuildTask(source, config.turnSpeed(), config.blocksPerSecond());
         paused = false;
         notify("Platzierung bauen gestartet. " + keyName(pauseKey) + " = Pause/Weiter, " + keyName(stopKey) + " = Stopp.");
     }
@@ -234,6 +255,7 @@ public final class LunarBuilder implements ClientModInitializer {
                 actionBar("Auswahl verworfen");
             }
         }
+        keepRunningUnfocused(mc);
         if (joinPending) {
             joinPending = false;
             onJoin(mc, allowed);
@@ -245,7 +267,7 @@ public final class LunarBuilder implements ClientModInitializer {
             return;
         }
         if (paused) return;
-        if (mc.screen != null) {
+        if (screenBlocks(mc)) {
             // A menu or chat is open: keys let go, everything is planned again afterwards.
             if (!haltedForScreen) task.halt(mc);
             haltedForScreen = true;

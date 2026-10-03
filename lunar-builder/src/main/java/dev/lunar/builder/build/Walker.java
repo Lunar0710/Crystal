@@ -1,5 +1,6 @@
 package dev.lunar.builder.build;
 
+import dev.lunar.builder.Config;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
@@ -78,6 +79,7 @@ public final class Walker {
         if (walking()) {
             mc.options.keyUp.setDown(false);
             mc.options.keyJump.setDown(false);
+            mc.options.keySprint.setDown(false);
             SmoothLook.stop();
         }
         if (sneakHeld) {
@@ -122,6 +124,8 @@ public final class Walker {
         SmoothLook.tick();
         float dy = SmoothLook.yawLeft(player);
         mc.options.keyUp.setDown(Math.abs(dy) < 40f);
+        // Sprint while a few blocks are still ahead and the head points the right way.
+        mc.options.keySprint.setDown(Config.get().sprint() && path.size() - index >= 4 && Math.abs(dy) < 15f);
         int feetY = (int) Math.floor(player.getY() + 0.01);
         boolean stepUp = next.getY() > feetY;
         boolean dropDown = next.getY() < feetY;
