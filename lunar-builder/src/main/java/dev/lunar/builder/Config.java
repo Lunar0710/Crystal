@@ -30,6 +30,9 @@ public final class Config {
     public boolean afk = false;
     /** Look for a new release on start and put it in place for the next start (Updater). */
     public boolean autoUpdate = true;
+    /** During a job: eat when hungry, mend Mending tools with bottles o' enchanting (Upkeep). */
+    public boolean autoEat = true;
+    public boolean autoMend = true;
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static Config instance;

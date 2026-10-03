@@ -71,6 +71,17 @@ public final class SettingsScreen extends Screen {
             config.save();
             rebuildWidgets();
         }).bounds(left + 160, y, 150, 20).build());
+        y += 24;
+        addRenderableWidget(Button.builder(Component.literal("Auto-Essen: " + (config.autoEat ? "an" : "aus")), b -> {
+            config.autoEat = !config.autoEat;
+            config.save();
+            rebuildWidgets();
+        }).bounds(left, y, 150, 20).build());
+        addRenderableWidget(Button.builder(Component.literal("Auto-Mending: " + (config.autoMend ? "an" : "aus")), b -> {
+            config.autoMend = !config.autoMend;
+            config.save();
+            rebuildWidgets();
+        }).bounds(left + 160, y, 150, 20).build());
 
         // The allowlist.
         y += 44;

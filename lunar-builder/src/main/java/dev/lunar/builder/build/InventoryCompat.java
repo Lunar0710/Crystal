@@ -16,6 +16,14 @@ public final class InventoryCompat {
         player.getInventory().setSelectedSlot(slot);
     }
 
+    /** Swaps an inventory slot (0-35) with the off hand: the F key over the item in the inventory. */
+    public static void swapIntoOffhand(Minecraft mc, int inventorySlot) {
+        if (mc.gameMode == null || mc.player == null) return;
+        int container = mc.player.inventoryMenu.containerId;
+        int menuSlot = inventorySlot < 9 ? 36 + inventorySlot : inventorySlot;
+        mc.gameMode.handleInventoryMouseClick(container, menuSlot, 40, net.minecraft.world.inventory.ClickType.SWAP, mc.player);
+    }
+
     /** Swaps a main inventory slot (9-35) with a hotbar slot (0-8): the hotbar key over the item in the inventory. */
     public static void swapIntoHotbar(Minecraft mc, int inventorySlot, int hotbarSlot) {
         if (mc.gameMode == null || mc.player == null) return;

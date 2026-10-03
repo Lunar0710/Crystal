@@ -261,20 +261,29 @@ public final class LunarBuilder implements ClientModInitializer {
             joinPending = false;
             onJoin(mc, allowed);
         }
-        if (task == null) return; // idle: nothing else to do
+        if (task == null) {
+            Upkeep.reset(mc); // a job that ended mid-meal lets go of the keys too
+            return; // idle: nothing else to do
+        }
         if (!allowed) {
             stopTask(mc, null);
             showForeignHint(mc);
             return;
         }
-        if (paused) return;
+        if (paused) {
+            Upkeep.reset(mc);
+            return;
+        }
         if (screenBlocks(mc)) {
             // A menu or chat is open: keys let go, everything is planned again afterwards.
+            Upkeep.reset(mc);
             if (!haltedForScreen) task.halt(mc);
             haltedForScreen = true;
             return;
         }
         haltedForScreen = false;
+        // Eating or mending first; the job waits meanwhile.
+        if (Upkeep.tick(mc, task)) return;
         task.tick(mc);
         if (task != null && task.finished()) {
             task = null;
