@@ -33,8 +33,11 @@ import java.util.Set;
  * snake pattern. Every block is mined the way a player does it: walk until it
  * is in reach and in sight, turn the head onto it smoothly, then hold the
  * attack on it through the interaction manager while the crosshair is on it.
- * The block under the feet goes last in each layer; breaking it drops the
- * player one block onto the next layer.
+ * Strip-mining style: at the start of each layer the block under the feet
+ * goes first, which drops the player into the layer. From there the player
+ * keeps walking forward while mining the block ahead at foot height, so a
+ * row is dug without stopping; only when no block is right next to the
+ * player does it fall back to walking to the next one.
  */
 public final class DigTask implements Task {
 
@@ -43,7 +46,7 @@ public final class DigTask implements Task {
     private static final int MAX_MINE_TICKS = 20 * 30;
     private static final long UNREACHABLE_TICKS = 200;
 
-    private enum Phase { PICK, WALK, TURN, MINE, REST }
+    private enum Phase { PICK, WALK, TURN, MINE, REST, STRIP }
 
     private final int minX, maxX, minZ, maxZ, topY, bottomY;
     private int layerY;
@@ -85,12 +88,12 @@ public final class DigTask implements Task {
 
     @Override
     public boolean wantsAttack() {
-        return !finished && phase == Phase.MINE;
+        return !finished && (phase == Phase.MINE || phase == Phase.STRIP);
     }
 
     @Override
     public boolean holdsLook() {
-        return !finished && (phase == Phase.TURN || phase == Phase.MINE || phase == Phase.WALK);
+        return !finished && (phase == Phase.TURN || phase == Phase.MINE || phase == Phase.WALK || phase == Phase.STRIP);
     }
 
     @Override
@@ -102,7 +105,8 @@ public final class DigTask implements Task {
 
     @Override
     public void halt(Minecraft mc) {
-        if (phase == Phase.MINE && mc.gameMode != null) mc.gameMode.stopDestroyBlock();
+        if ((phase == Phase.MINE || phase == Phase.STRIP) && mc.gameMode != null) mc.gameMode.stopDestroyBlock();
+        mc.options.keyUp.setDown(false);
         walker.stop(mc);
         SmoothLook.stop();
         phase = Phase.PICK;
@@ -134,6 +138,7 @@ public final class DigTask implements Task {
             }
             case TURN -> turn(mc, player);
             case MINE -> mine(mc, player);
+            case STRIP -> strip(mc, player);
             case REST -> {
                 if (--timer <= 0) phase = Phase.PICK;
             }
@@ -207,6 +212,19 @@ public final class DigTask implements Task {
             startLayer(level);
             return;
         }
+        int feetY = player.blockPosition().getY();
+        if (feetY == layerY + 1 && !underFeet.isEmpty() && unsafeDrop(level, underFeet.get(0)) == null) {
+            // Standing on the layer: drop into it first, then strip it from the inside.
+            next = underFeet.get(0);
+        } else if (feetY == layerY) {
+            BlockPos ahead = adjacentInOrder(level, player.blockPosition());
+            if (ahead != null) {
+                if (!prepareTool(player, level.getBlockState(ahead))) return;
+                target = ahead;
+                startStrip(player);
+                return;
+            }
+        }
         if (next == null && !underFeet.isEmpty() && blocked == 0) {
             // Everything else in the layer is gone: now the block under the feet (one block down).
             next = underFeet.get(0);
@@ -230,17 +248,7 @@ public final class DigTask implements Task {
             finish(mc, "Wasser oder Lava bei " + fluid.toShortString() + " – Ausgraben gestoppt.");
             return;
         }
-        BlockState state = level.getBlockState(next);
-        if (inventoryFull(player, state)) {
-            LunarBuilder.pauseWith("Inventar voll – pausiert. Platz schaffen, dann P zum Fortsetzen.");
-            return;
-        }
-        int slot = chooseTool(player, state);
-        if (slot < 0) {
-            LunarBuilder.pauseWith("Kein passendes Werkzeug mit genug Haltbarkeit in der Hotbar – pausiert.");
-            return;
-        }
-        if (slot != InventoryCompat.selectedSlot(player)) InventoryCompat.setSelectedSlot(player, slot);
+        if (!prepareTool(player, level.getBlockState(next))) return;
 
         if (!next.equals(target)) walkStuck = 0;
         target = next;
@@ -265,6 +273,100 @@ public final class DigTask implements Task {
         }
         walker.start(path);
         phase = Phase.WALK;
+    }
+
+    /** Inventory has room and the right tool is in hand; otherwise pauses and returns false. */
+    private boolean prepareTool(LocalPlayer player, BlockState state) {
+        if (inventoryFull(player, state)) {
+            LunarBuilder.pauseWith("Inventar voll – pausiert. Platz schaffen, dann P zum Fortsetzen.");
+            return false;
+        }
+        int slot = chooseTool(player, state);
+        if (slot < 0) {
+            LunarBuilder.pauseWith("Kein passendes Werkzeug mit genug Haltbarkeit in der Hotbar – pausiert.");
+            return false;
+        }
+        if (slot != InventoryCompat.selectedSlot(player)) InventoryCompat.setSelectedSlot(player, slot);
+        return true;
+    }
+
+    /**
+     * The block of this layer right next to {@code feet} (same height, one step
+     * N/S/E/W) that comes first in the snake, if the player can walk into it
+     * once it is gone (head room free) and no fluid is next to it.
+     */
+    private BlockPos adjacentInOrder(Level level, BlockPos feet) {
+        BlockPos best = null;
+        int bestIndex = Integer.MAX_VALUE;
+        for (Direction dir : Direction.Plane.HORIZONTAL) {
+            BlockPos pos = feet.relative(dir);
+            if (!inWork(pos) || pos.getY() != layerY || done(level, pos)) continue;
+            BlockState state = level.getBlockState(pos);
+            if (state.getDestroySpeed(level, pos) < 0) continue;
+            if (!level.getBlockState(pos.above()).getCollisionShape(level, pos.above()).isEmpty() && !inWork(pos.above())) continue;
+            if (fluidNear(level, pos) != null) continue;
+            int index = order.indexOf(pos);
+            if (index >= 0 && index < bestIndex) {
+                best = pos;
+                bestIndex = index;
+            }
+        }
+        return best;
+    }
+
+    private void startStrip(LocalPlayer player) {
+        Vec3 eye = player.getEyePosition();
+        // Low on the block's near face: the crosshair stays on it while walking at it.
+        Vec3 point = Vec3.atCenterOf(target).add(0, -0.2, 0);
+        float[] look = PlacementPlanner.aim(eye, point);
+        SmoothLook.lookAt(look[0], look[1], Config.get().turnSpeed());
+        mineTicks = 0;
+        unreachableRounds = 0;
+        phase = Phase.STRIP;
+    }
+
+    /** Walk at the block ahead while mining it; when it breaks, step in and go straight on to the next one. */
+    private void strip(Minecraft mc, LocalPlayer player) {
+        Level level = mc.level;
+        SmoothLook.tick();
+        if (done(level, target)) {
+            BlockPos feet = player.blockPosition();
+            // Plan from the hole just mined, not from where the player still stands:
+            // the next block is then straight ahead in the row, no turn to the side.
+            boolean stepping = !feet.equals(target) && feet.distManhattan(target) == 1;
+            BlockPos from = stepping ? target : feet;
+            BlockPos ahead = feet.getY() == layerY ? adjacentInOrder(level, from) : null;
+            if (ahead != null && stepping && ahead.equals(feet)) ahead = null;
+            // Nothing further on: walk into the hole and plan again from there.
+            if (ahead == null && stepping) {
+                mc.options.keyUp.setDown(true);
+                if (++mineTicks > 40) stopStrip(mc);
+                return;
+            }
+            if (ahead == null || !prepareTool(player, level.getBlockState(ahead))) {
+                stopStrip(mc);
+                return;
+            }
+            target = ahead;
+            startStrip(player);
+            return;
+        }
+        ItemStack held = player.getMainHandItem();
+        boolean toolWorn = held.isDamageableItem() && held.getMaxDamage() - held.getDamageValue() <= MIN_DURABILITY;
+        if (toolWorn || ++mineTicks > MAX_MINE_TICKS || player.blockPosition().getY() != layerY) {
+            if (mineTicks > MAX_MINE_TICKS) skipped.add(target);
+            stopStrip(mc);
+            return;
+        }
+        // Forward only once facing the block: walking presses against it while the attack mines it.
+        mc.options.keyUp.setDown(Math.abs(SmoothLook.yawLeft(player)) < 30f);
+    }
+
+    private void stopStrip(Minecraft mc) {
+        mc.options.keyUp.setDown(false);
+        if (mc.gameMode != null) mc.gameMode.stopDestroyBlock();
+        SmoothLook.stop();
+        phase = Phase.PICK;
     }
 
     private void aimAt(LocalPlayer player, Vec3 eye, BlockHitResult sight) {
