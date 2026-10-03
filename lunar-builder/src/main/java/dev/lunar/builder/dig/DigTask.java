@@ -109,8 +109,30 @@ public final class DigTask implements Task {
     public String status() {
         int layers = topY - bottomY + 1;
         int layer = Math.min(layers, topY - layerY + 1);
-        return "Ausgraben · Schicht " + layer + "/" + layers + " · " + (layerLeft + belowLeft) + " Blöcke übrig";
+        int left = layerLeft + belowLeft;
+        String text = "Ausgraben · Schicht " + layer + "/" + layers + " · " + left + " Blöcke übrig";
+        long now = System.currentTimeMillis();
+        if (totalBlocks < 0 && left > 0) {
+            totalBlocks = left;
+            startedAt = now;
+        }
+        if (totalBlocks > 0) {
+            int done = Math.max(0, totalBlocks - left);
+            text += " · " + (done * 100 / totalBlocks) + " %";
+            // Time left from the pace so far, once there is a pace to go by.
+            long spent = now - startedAt;
+            if (done >= 10 && spent > 15_000) {
+                long secondsLeft = spent / 1000 * left / done;
+                text += " · noch ~" + (secondsLeft >= 3600 ? secondsLeft / 3600 + " h " + secondsLeft % 3600 / 60 + " min"
+                        : secondsLeft >= 60 ? secondsLeft / 60 + " min" : secondsLeft + " s");
+            }
+        }
+        return text;
     }
+
+    /** Blocks to dig when first counted, and when (for % and time left). */
+    private int totalBlocks = -1;
+    private long startedAt = 0L;
 
     @Override
     public void halt(Minecraft mc) {
@@ -191,6 +213,12 @@ public final class DigTask implements Task {
         // 3x3 tool: hit from above on every third block, the tool takes the eight around it.
         boolean wide = Config.get().toolArea == 3;
         BlockPos centre = null;
+        // Something could not be aimed at: the next block is then the one needing the
+        // smallest turn from where the head points, so it never whips round and back.
+        boolean recovering = !unreachable.isEmpty();
+        BlockPos gentle = null;
+        float gentleTurn = Float.MAX_VALUE;
+        Vec3 eyeNow = player.getEyePosition();
         for (BlockPos pos : order) {
             if (done(level, pos)) continue;
             BlockState state = level.getBlockState(pos);
@@ -213,9 +241,19 @@ public final class DigTask implements Task {
                 continue;
             }
             if (next == null) next = pos;
+            if (recovering && pos.getY() == layerY) {
+                float[] look = PlacementPlanner.aim(eyeNow, Vec3.atCenterOf(pos));
+                float turn = Math.abs(net.minecraft.util.Mth.wrapDegrees(look[0] - player.getYRot())) + Math.abs(look[1] - player.getXRot());
+                if (turn < gentleTurn && Vec3.atCenterOf(pos).distanceTo(eyeNow) <= player.blockInteractionRange()
+                        && (wide ? topSight(level, player, eyeNow, pos) : sight(level, player, eyeNow, pos)) != null) {
+                    gentle = pos;
+                    gentleTurn = turn;
+                }
+            }
             if (wide && centre == null && (pos.getX() - minX) % 3 == 1 && (pos.getZ() - minZ) % 3 == 1) centre = pos;
         }
         layerLeft = left;
+        if (gentle != null) next = gentle;
         if (left == 0) {
             if (layerY <= bottomY) {
                 finish(mc, "Ausgraben fertig.");
