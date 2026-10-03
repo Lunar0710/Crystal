@@ -217,7 +217,7 @@
     S.tweaks = r.tweaks; S.admin = r.admin
     renderTweaks(); render()
   }
-  const CAT_ORDER = ['Leistung', 'Grafik', 'Eingabe', 'Netzwerk', 'System', 'Dienste', 'Datenschutz', 'Optik']
+  const CAT_ORDER = ['Leistung', 'Grafik', 'Eingabe', 'Netzwerk', 'System', 'Debloat', 'Dienste', 'Datenschutz', 'Optik']
   let twCat = 'Alle', twQuery = ''
   function renderTweaks() {
     const all = S.tweaks

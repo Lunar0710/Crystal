@@ -430,8 +430,57 @@ $Tweaks = @(
     @{ id = 'copilot'; cat = 'System'; admin = $false; reboot = $true; impact = 'niedrig'; optional = $true
        name = 'Copilot aus'
        desc = 'Der Windows-Copilot verschwindet aus der Taskleiste und startet nicht mehr mit.'
-       reg = @(, @('HKCU:\Software\Policies\Microsoft\Windows\WindowsCopilot', 'TurnOffWindowsCopilot', 1, 'DWord')) }
+       reg = @(, @('HKCU:\Software\Policies\Microsoft\Windows\WindowsCopilot', 'TurnOffWindowsCopilot', 1, 'DWord')) },
+    @{ id = 'ads'; cat = 'Debloat'; admin = $false; reboot = $false; impact = 'niedrig'
+       name = 'Restliche Werbung aus'
+       desc = 'Ergänzt "Tipps und Werbung aus": keine Empfehlungen im Startmenü, keine Werbe-Einblendungen auf dem Sperrbildschirm, keine vorinstallierten Hersteller- und Werbe-Apps bei neuen Konten.'
+       reg = @(
+           @('HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager', 'PreInstalledAppsEnabled', 0, 'DWord'),
+           @('HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager', 'OemPreInstalledAppsEnabled', 0, 'DWord'),
+           @('HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager', 'RotatingLockScreenOverlayEnabled', 0, 'DWord'),
+           @('HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced', 'Start_IrisRecommendations', 0, 'DWord')) },
+    @{ id = 'recall'; cat = 'Debloat'; admin = $true; reboot = $true; impact = 'niedrig'
+       name = 'Recall aus'
+       desc = 'Die KI-Funktion "Recall" macht keine Bildschirmfotos von allem, was du tust. Auf PCs ohne Recall ändert sich nichts.'
+       reg = @(
+           @('HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsAI', 'DisableAIDataAnalysis', 1, 'DWord'),
+           @('HKCU:\Software\Policies\Microsoft\Windows\WindowsAI', 'DisableAIDataAnalysis', 1, 'DWord')) },
+    @{ id = 'datasvcs'; cat = 'Debloat'; admin = $true; reboot = $false; impact = 'niedrig'; optional = $true
+       name = 'Daten-Dienste aus'
+       desc = 'Vier Hintergrund-Dienste, die kein Spieler braucht: Push-Nachrichten für Telemetrie, Offline-Karten, der Laden-Demo-Modus und das automatische Senden von Fehlerberichten.'
+       svc = @(@('dmwappushservice', 'Disabled'), @('MapsBroker', 'Disabled'), @('RetailDemo', 'Disabled'), @('WerSvc', 'Manual')) },
+    @{ id = 'teltasks'; cat = 'Debloat'; admin = $true; reboot = $false; impact = 'niedrig'; optional = $true
+       name = 'Telemetrie-Aufgaben aus'
+       desc = 'Geplante Windows-Aufgaben, die nachts Nutzungs- und Kompatibilitätsdaten sammeln und senden (Programm zur Verbesserung der Benutzerfreundlichkeit), laufen nicht mehr.'
+       custom = $true },
+    @{ id = 'bloatapps'; cat = 'Debloat'; admin = $true; reboot = $false; impact = 'mittel'; optional = $true
+       name = 'Vorinstallierte Apps entfernen'
+       desc = 'Entfernt mitgelieferte Apps, die kaum jemand nutzt: Bing News und Wetter, Solitaire, Clipchamp, Tipps, Feedback-Hub, Karten, Personen, Office-Werbung, Teams (privat), Film & TV, Outlook (neu), Dev Home und Werbe-Spiele. Store, Xbox/Game Bar, Fotos, Rechner und Editor bleiben. Nicht rückgängig zu machen – einzelne Apps lassen sich aber jederzeit wieder aus dem Microsoft Store holen.'
+       custom = $true }
 )
+# Scheduled tasks that collect and send usage data; only those found get touched.
+$TelemetryTasks = @(
+    '\Microsoft\Windows\Application Experience\Microsoft Compatibility Appraiser',
+    '\Microsoft\Windows\Application Experience\ProgramDataUpdater',
+    '\Microsoft\Windows\Application Experience\StartupAppTask',
+    '\Microsoft\Windows\Customer Experience Improvement Program\Consolidator',
+    '\Microsoft\Windows\Customer Experience Improvement Program\UsbCeip',
+    '\Microsoft\Windows\Feedback\Siuf\DmClient',
+    '\Microsoft\Windows\Feedback\Siuf\DmClientOnScenarioDownload',
+    '\Microsoft\Windows\Windows Error Reporting\QueueReporting')
+function Get-TelemetryTask([string]$full) {
+    $i = $full.LastIndexOf('\')
+    Get-ScheduledTask -TaskPath ($full.Substring(0, $i + 1)) -TaskName ($full.Substring($i + 1)) -ErrorAction SilentlyContinue
+}
+# Appx package names (wildcards) removed by "bloatapps"; nothing a game, the Store or Game Bar needs.
+$BloatApps = @('Microsoft.BingNews', 'Microsoft.BingWeather', 'Microsoft.BingSearch', 'Microsoft.GetHelp', 'Microsoft.Getstarted',
+    'Microsoft.MicrosoftSolitaireCollection', 'Microsoft.MicrosoftOfficeHub', 'Microsoft.People', 'Microsoft.WindowsFeedbackHub',
+    'Microsoft.WindowsMaps', 'Microsoft.ZuneVideo', 'Microsoft.MixedReality.Portal', 'Microsoft.Microsoft3DViewer', 'Microsoft.SkypeApp',
+    'Microsoft.549981C3F5F10', 'MicrosoftTeams', 'Microsoft.Todos', 'Microsoft.PowerAutomateDesktop', 'Microsoft.OutlookForWindows',
+    'Microsoft.Windows.DevHome', 'Clipchamp.Clipchamp', 'king.com.*', '*CandyCrush*', '*Disney*', '*TikTok*', '*Facebook*', '*Instagram*')
+function Get-BloatPackages {
+    foreach ($n in $BloatApps) { Get-AppxPackage -Name $n -ErrorAction SilentlyContinue }
+}
 function Restore-Hibernate($h) {
     $path = 'HKLM:\SYSTEM\CurrentControlSet\Control\Power'
     if ($null -eq $h.value) { Remove-ItemProperty -Path $path -Name 'HibernateEnabled' -ErrorAction SilentlyContinue }
@@ -462,6 +511,11 @@ function Get-Norm($x) {
     return "$x"
 }
 function Test-Applied($t) {
+    if ($t.id -eq 'teltasks') {
+        $found = @($TelemetryTasks | ForEach-Object { Get-TelemetryTask $_ } | Where-Object { $_ })
+        return ($found.Count -gt 0 -and -not ($found | Where-Object { $_.State -ne 'Disabled' }))
+    }
+    if ($t.id -eq 'bloatapps') { return (@(Get-BloatPackages).Count -eq 0) }
     if ($t.id -eq 'power') { return ((Get-ActiveScheme).name -match 'Lunar Gaming') }
     if ($t.id -eq 'power-idle') { return (Test-PowerIdle) }
     if ($t.id -eq 'hibernate') { return ((Get-RegValue 'HKLM:\SYSTEM\CurrentControlSet\Control\Power' 'HibernateEnabled') -eq 0) }
@@ -487,6 +541,22 @@ function Test-Applied($t) {
 }
 
 function Apply-Tweak($Backup, $t) {
+    if ($t.id -eq 'teltasks') {
+        # Only tasks that were on are remembered, so "Rückgängig" turns back on exactly those.
+        $was = @($TelemetryTasks | ForEach-Object { $x = Get-TelemetryTask $_; if ($x -and $x.State -ne 'Disabled') { $_ } })
+        if (-not ($Backup.PSObject.Properties.Name -contains 'teltasks')) { $Backup | Add-Member -NotePropertyName teltasks -NotePropertyValue $was; Save-Backup $Backup }
+        foreach ($full in $TelemetryTasks) { $x = Get-TelemetryTask $full; if ($x) { $x | Disable-ScheduledTask -ErrorAction SilentlyContinue | Out-Null } }
+        return
+    }
+    if ($t.id -eq 'bloatapps') {
+        foreach ($p in @(Get-BloatPackages)) { try { Remove-AppxPackage -Package $p.PackageFullName -ErrorAction Stop } catch {} }
+        # Not again for new user accounts either.
+        foreach ($n in $BloatApps) {
+            Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -like $n } |
+                ForEach-Object { try { Remove-AppxProvisionedPackage -Online -PackageName $_.PackageName -ErrorAction Stop | Out-Null } catch {} }
+        }
+        return
+    }
     if ($t.id -eq 'power') { Apply-Power $Backup; return }
     if ($t.id -eq 'power-idle') { Set-PowerIdle $true; return }
     if ($t.nic) { Apply-Nic $Backup $t.id; return }
@@ -516,6 +586,15 @@ function Apply-Tweak($Backup, $t) {
 }
 
 function Revert-Tweak($Backup, $t) {
+    if ($t.id -eq 'teltasks') {
+        if ($Backup.PSObject.Properties.Name -contains 'teltasks') {
+            foreach ($full in @($Backup.teltasks)) { $x = Get-TelemetryTask $full; if ($x) { $x | Enable-ScheduledTask -ErrorAction SilentlyContinue | Out-Null } }
+            $Backup.PSObject.Properties.Remove('teltasks'); Save-Backup $Backup
+        }
+        return
+    }
+    # Removed apps come back from the Microsoft Store, not from here.
+    if ($t.id -eq 'bloatapps') { return }
     if ($t.id -eq 'power') { Revert-Power $Backup; return }
     if ($t.id -eq 'power-idle') { if (Get-LunarScheme) { Set-PowerIdle $false }; return }
     if ($t.nic) { Revert-Nic $Backup $t.id; return }
