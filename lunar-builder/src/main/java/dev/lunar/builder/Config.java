@@ -37,6 +37,8 @@ public final class Config {
     public int toolArea = 1;
     /** Inventory full while digging: throw away junk (cobblestone, dirt, ...) instead of pausing. */
     public boolean dropJunk = true;
+    /** Builder follows a fixed pattern (layer by layer, rows in a snake) instead of "nearest first". */
+    public boolean buildPattern = true;
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static Config instance;

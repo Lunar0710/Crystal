@@ -104,6 +104,12 @@ public final class SettingsScreen extends Screen {
         }).bounds(left + 160, y, 150, 20).build());
 
         y += 24;
+        addRenderableWidget(Button.builder(Component.literal("Bauen: " + (config.buildPattern ? "festes Muster" : "nächster Block")), b -> {
+            config.buildPattern = !config.buildPattern;
+            config.save();
+            rebuildWidgets();
+        }).bounds(left, y, 310, 20).build());
+        y += 24;
         addRenderableWidget(Button.builder(Component.literal("Werkzeug: " + (config.toolArea == 3 ? "3x3 (Shard-Spitzhacke)" : "1x1 (normal)")), b -> {
             config.toolArea = config.toolArea == 3 ? 1 : 3;
             config.save();

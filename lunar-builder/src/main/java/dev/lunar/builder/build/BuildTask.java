@@ -1,5 +1,6 @@
 package dev.lunar.builder.build;
 
+import dev.lunar.builder.Config;
 import dev.lunar.builder.LunarBuilder;
 import dev.lunar.builder.Task;
 import dev.lunar.builder.build.PlacementPlanner.Plan;
@@ -251,6 +252,9 @@ public class BuildTask implements Task {
         if (finished || player == null || mc.level == null || mc.gameMode == null) return;
 
         if (filler == null) filler = new ContainerFiller(source);
+        // Crouch at edges while walking (never step off), and catch a fall with a block.
+        walker.setCareful(true);
+        if (useSupports && rescueFall(mc, player)) return;
         if (mc.screen == null && afterTurn != null) {
             turnStep(player);
             return;
@@ -469,7 +473,8 @@ public class BuildTask implements Task {
         }
         wrong = wrongHere;
         var eyePos = player.getEyePosition();
-        result.sort(Comparator.<Target>comparingInt(t -> t.pos.getY()).thenComparingDouble(t -> t.pos.distToCenterSqr(eyePos)));
+        if (Config.get().buildPattern) result.sort(Comparator.<Target>comparingInt(t -> t.pos.getY()).thenComparingDouble(t -> snake(t.pos)));
+        else result.sort(Comparator.<Target>comparingInt(t -> t.pos.getY()).thenComparingDouble(t -> t.pos.distToCenterSqr(eyePos)));
         return result;
     }
 
@@ -564,7 +569,7 @@ public class BuildTask implements Task {
                         Target here = new Target(pos.immutable(), want);
                         found.add(here);
                         if (skip.contains(pos)) continue;
-                        double distance = pos.distToCenterSqr(player.position());
+                        double distance = Config.get().buildPattern ? snake(pos) : pos.distToCenterSqr(player.position());
                         // The spot you stand in last: it needs you to step off first.
                         if (player.getBoundingBox().intersects(new net.minecraft.world.phys.AABB(pos))) distance += 1000;
                         if (distance < bestDistance) {
@@ -579,7 +584,8 @@ public class BuildTask implements Task {
                 scanFromY = y;
                 Vec3 at = player.position();
                 AABB body = player.getBoundingBox();
-                found.sort(Comparator.comparingDouble(t -> t.pos.distToCenterSqr(at) + (body.intersects(new AABB(t.pos)) ? 1000 : 0)));
+                boolean pattern = Config.get().buildPattern;
+                found.sort(Comparator.comparingDouble(t -> (pattern ? snake(t.pos) : t.pos.distToCenterSqr(at)) + (body.intersects(new AABB(t.pos)) ? 1000 : 0)));
                 candidates = found;
                 candidatesAt = level.getGameTime();
                 candidatesFrom = at;
@@ -806,6 +812,43 @@ public class BuildTask implements Task {
     /** The support block chosen in the settings, or null for "Automatisch". */
     private Item chosenFiller() {
         return FILLER_CHOICES.get(supportChoice);
+    }
+
+    /**
+     * The fixed pattern: rows along X, each row along Z, every other row the
+     * other way round (a snake). Smaller comes first; same for every layer.
+     */
+    static double snake(BlockPos pos) {
+        int z = Math.floorMod(pos.getX(), 2) == 0 ? pos.getZ() : -pos.getZ();
+        return pos.getX() * 100_000_000.0 + z;
+    }
+
+    /**
+     * Falling (walked off, a support gone): a filler block under the feet,
+     * against whatever is next to that spot, the way you clutch by hand.
+     * The look snaps there, a fall gives no time to turn slowly.
+     */
+    private boolean rescueFall(Minecraft mc, LocalPlayer player) {
+        if (player.onGround() || player.getAbilities().flying || player.fallDistance < 1.5 || player.getDeltaMovement().y > -0.2) return false;
+        Level level = mc.level;
+        Item filler = fillerItem(mc, player);
+        if (filler == null) return false;
+        BlockPos feet = player.blockPosition();
+        for (int k = 1; k <= 4; k++) {
+            BlockPos spot = feet.below(k);
+            if (!level.getBlockState(spot).canBeReplaced()) return false; // ground right there: lands anyway
+            BlockState planned = source.expected(spot);
+            if (planned != null && !planned.isAir()) continue;
+            if (!hasClickableNeighbour(level, spot)) continue;
+            Plan plan = PlacementPlanner.plan(level, player, spot, ((BlockItem) filler).getBlock().defaultBlockState(), new ItemStack(filler));
+            if (plan == null || select(mc, player, filler) == null) continue;
+            player.setYRot(plan.yaw());
+            player.setXRot(plan.pitch());
+            click(mc, plan);
+            supports.add(spot.immutable());
+            return true;
+        }
+        return false;
     }
 
     private Item fillerItem(Minecraft mc, LocalPlayer player) {
