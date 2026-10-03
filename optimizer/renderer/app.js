@@ -599,6 +599,7 @@
     if (S.hw && S.hw.mem) { const t = S.hw.mem.total; if (t < 7.5 * GB) list.push({ sev: 'bad', pts: 10, title: `Nur ${fmtBytes(t)} Arbeitsspeicher`, detail: 'Für Spiele sind 16 GB heute Standard. Programme im Hintergrund schließen hilft kurzfristig.', act: ['Live-Monitor', 'monitor'] }) }
     if (S.hw && (S.hw.layout || []).filter(m => m.size).length === 1) list.push({ sev: 'info', pts: 4, title: 'Arbeitsspeicher im Single-Channel', detail: 'Ein zweites gleiches Modul verdoppelt die Bandbreite.', act: ['Details', 'hardware'] })
     if (S.hw && (S.hw.disks || []).length && S.hw.disks.every(p => /HD/i.test(p.type || ''))) list.push({ sev: 'bad', pts: 10, title: 'Keine SSD gefunden', detail: 'Mit einer SSD starten Windows und Spiele um ein Vielfaches schneller.', act: ['Details', 'hardware'] })
+    if (S.conflicts && S.conflicts.length >= 2) list.push({ sev: 'warn', pts: Math.min(10, S.conflicts.length * 2), title: `${S.conflicts.length} Tweak-Programme laufen gleichzeitig`, detail: `${S.conflicts.join(', ')}: Sie stellen Energieplan, Prioritäten und RAM gegenseitig um und kosten selbst CPU. Eins reicht, die anderen beenden und aus dem Autostart nehmen.`, act: ['Autostart', 'startup'] })
     if (S.startup) { const on = S.startup.filter(i => i.enabled).length; if (on > 8) list.push({ sev: 'warn', pts: 5, title: `${on} Programme starten mit Windows`, detail: 'Jedes davon kostet beim Hochfahren Zeit und läuft danach im Hintergrund.', act: ['Autostart', 'startup'] }) }
     if (S.clean) { const junk = S.clean.targets.filter(t => t.id !== 'recycle').reduce((a, t) => a + t.bytes, 0); if (junk > 2 * GB) list.push({ sev: 'info', pts: 3, title: `${fmtBytes(junk)} Datenmüll`, detail: 'Temporäre Dateien und alte Update-Downloads.', act: ['Aufräumen', 'clean'] }) }
     if (S.cpuSamples.length >= 20) { const avg = S.cpuSamples.reduce((a, b) => a + b, 0) / S.cpuSamples.length; if (avg > 35) list.push({ sev: 'warn', pts: 6, title: `CPU im Leerlauf zu ${Math.round(avg)} % ausgelastet`, detail: 'Irgendetwas läuft im Hintergrund mit. Der Live-Monitor zeigt was.', act: ['Ansehen', 'monitor'] }) }
@@ -662,5 +663,6 @@
   api.netInfo && api.netInfo().then(n => { S.net = n; render() }).catch(() => {})
   liveTick(); pingTick(); latTick()
   loadHardware(); loadOverview()
+  api.conflicts && api.conflicts().then(c => { S.conflicts = c || []; render() }).catch(() => {})
   window.__lunarReady = true
 })()

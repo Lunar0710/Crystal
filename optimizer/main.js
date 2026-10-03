@@ -554,6 +554,21 @@ ipcMain.handle('hw:static', (_e, part) => part ? hardware(part) : (hwCache = nul
 ipcMain.handle('hw:parts', () => isWin ? null : Object.keys(HW_PARTS))
 ipcMain.handle('hw:live', (_e, want) => live(want))
 ipcMain.handle('proc:list', () => processes())
+// Other tweak and "booster" tools running next to this one: they change the same
+// settings back and forth (power plan, priorities, RAM trimming) and cost CPU.
+const OTHER_TWEAKERS = {
+  'hone.exe': 'Hone', 'exm.exe': 'EXM Tweaks', 'processlasso.exe': 'Process Lasso', 'parkcontrol.exe': 'ParkControl',
+  'wisememoryoptimzer.exe': 'Wise Memory Optimizer', 'wisememoryoptimizer.exe': 'Wise Memory Optimizer', 'razercortex.exe': 'Razer Cortex',
+  'iobitgamebooster.exe': 'IObit Game Booster', 'advancedsystemcare.exe': 'Advanced SystemCare', 'ccleaner64.exe': 'CCleaner',
+  'ccleaner.exe': 'CCleaner', 'memreduct.exe': 'Mem Reduct', 'islc.exe': 'ISLC', 'timerresolution.exe': 'TimerResolution',
+  'aphrodite.exe': 'Aphrodite', 'msiafterburner.exe': null,
+}
+ipcMain.handle('tools:conflicts', async () => {
+  const procs = await tasklist()
+  const found = new Set()
+  for (const p of procs) { const n = OTHER_TWEAKERS[p.name.toLowerCase()]; if (n) found.add(n) }
+  return [...found]
+})
 ipcMain.handle('proc:kill', (_e, pids) => {
   let killed = 0
   for (const pid of pids) { try { process.kill(pid); killed++ } catch {} }

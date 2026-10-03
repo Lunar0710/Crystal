@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('lunar', {
   hardwareParts: () => ipcRenderer.invoke('hw:parts'),
   live: want => ipcRenderer.invoke('hw:live', want),
   processes: () => ipcRenderer.invoke('proc:list'),
+  conflicts: () => ipcRenderer.invoke('tools:conflicts'),
   kill: pids => ipcRenderer.invoke('proc:kill', pids),
   ping: (host, port) => ipcRenderer.invoke('net:ping', { host, port }),
   dnsBench: current => ipcRenderer.invoke('net:dns', current),
