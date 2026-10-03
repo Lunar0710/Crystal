@@ -652,7 +652,8 @@ async function selftest(file) {
     await step('undo', async () => { const r = await engine('undo', { elevate: true }); if (!r.ok) throw new Error(r.error); return r })
     await step('state-after-undo', async () => {
       const r = await engine('state')
-      const changed = r.tweaks.filter(t => t.applied !== before.tweaks.find(b => b.id === t.id).applied).map(t => t.id)
+      // Removed apps can't come back through "Rückgängig" (the tweak says so); everything else must.
+      const changed = r.tweaks.filter(t => t.id !== 'bloatapps' && t.applied !== before.tweaks.find(b => b.id === t.id).applied).map(t => t.id)
       if (changed.length) throw new Error('differs from before: ' + changed.join(','))
       return r.powerPlan
     })

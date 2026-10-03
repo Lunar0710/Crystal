@@ -180,9 +180,14 @@ function Set-PowerIdle($on) {
 }
 function Test-PowerIdle {
     $guid = Get-LunarScheme; if (-not $guid) { return $false }
+    # Stored per plan in the registry once set; ACSettingIndex is the plugged-in value.
+    $v = Get-RegValue "HKLM:\SYSTEM\CurrentControlSet\Control\Power\User\PowerSchemes\$guid\$IdleSub\$IdleSet" 'ACSettingIndex'
+    if ($null -ne $v) { return ([int]$v -eq 1) }
+    # Otherwise from powercfg: its answer starts with the minimum and maximum and
+    # ends with the AC and DC index, so the second-to-last 0x value, in every language.
     $q = (powercfg /query $guid $IdleSub $IdleSet 2>$null) | Out-String
-    # The first 0x value in the answer is the AC (plugged in) index, in every Windows language.
-    return ($q -match '0x([0-9a-fA-F]{8})' -and [Convert]::ToInt32($Matches[1], 16) -eq 1)
+    $hex = @([regex]::Matches($q, '0x([0-9a-fA-F]{8})') | ForEach-Object { $_.Groups[1].Value })
+    return ($hex.Count -ge 2 -and [Convert]::ToInt32($hex[$hex.Count - 2], 16) -eq 1)
 }
 function Revert-Power($Backup) {
     if ($Backup.powerScheme) { powercfg -setactive $Backup.powerScheme 2>$null | Out-Null }
