@@ -110,7 +110,9 @@ public class BuildTask implements Task {
 
     @Override
     public boolean wantsAttack() {
-        return breaking != null;
+        // Only on the support itself, never on the build next to it.
+        return breaking != null && Minecraft.getInstance().hitResult instanceof net.minecraft.world.phys.BlockHitResult hit
+                && hit.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK && hit.getBlockPos().equals(breaking);
     }
 
     @Override
@@ -121,6 +123,14 @@ public class BuildTask implements Task {
     @Override
     public String status() {
         return status;
+    }
+
+    /** Clicks made so far; the build is moving while it grows. */
+    private int clicks = 0;
+
+    @Override
+    public int progress() {
+        return clicks;
     }
 
     /** Supports placed by us, broken once the block they held up is in. */
@@ -171,6 +181,33 @@ public class BuildTask implements Task {
     private int left = 0, wrong = 0, waiting = 0, layer = Integer.MIN_VALUE;
     private Target firstLeft = null;
 
+    /** Dispensers and crafters of the schematic get their items and slot settings. */
+    private ContainerFiller filler;
+
+    @Override
+    public boolean ownsScreen(net.minecraft.client.gui.screens.Screen screen) {
+        return filler != null && filler.isOpen() && screen instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>;
+    }
+
+    /** Turns to the block and right-clicks it open, as by hand (never sneaking, that would place). */
+    private void openContainer(BlockPos pos) {
+        LocalPlayer player = Minecraft.getInstance().player;
+        Vec3 eye = player.getEyePosition();
+        Vec3 centre = Vec3.atCenterOf(pos);
+        Vec3 toEye = eye.subtract(centre);
+        double ax = Math.abs(toEye.x), ay = Math.abs(toEye.y), az = Math.abs(toEye.z);
+        Direction face = ay >= ax && ay >= az ? (toEye.y > 0 ? Direction.UP : Direction.DOWN)
+                : ax >= az ? (toEye.x > 0 ? Direction.EAST : Direction.WEST) : (toEye.z > 0 ? Direction.SOUTH : Direction.NORTH);
+        Vec3 hit = centre.add(face.getStepX() * 0.5, face.getStepY() * 0.5, face.getStepZ() * 0.5);
+        float[] look = PlacementPlanner.aim(eye, hit);
+        Minecraft mc = Minecraft.getInstance();
+        setSneak(mc, false);
+        turnThen(player, look[0], look[1], 2, () -> {
+            mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, new net.minecraft.world.phys.BlockHitResult(hit, face, pos, false));
+            mc.player.swing(InteractionHand.MAIN_HAND);
+        });
+    }
+
     public BuildTask(SchematicSource source, float turnSpeed, float blocksPerSecond) {
         this.source = source;
         this.turnSpeed = turnSpeed;
@@ -185,6 +222,7 @@ public class BuildTask implements Task {
     @Override
     public void halt(Minecraft mc) {
         if (breaking != null && mc.gameMode != null) mc.gameMode.stopDestroyBlock();
+        if (filler != null) filler.reset();
         afterTurn = null;
         turning = false;
         setSneak(mc, false);
@@ -211,6 +249,13 @@ public class BuildTask implements Task {
     public void tick(Minecraft mc) {
         LocalPlayer player = mc.player;
         if (finished || player == null || mc.level == null || mc.gameMode == null) return;
+
+        if (filler == null) filler = new ContainerFiller(source);
+        if (mc.screen == null && afterTurn != null) {
+            turnStep(player);
+            return;
+        }
+        if (filler.tick(mc, player, this::openContainer)) return;
 
         if (mc.screen != null) {
             // Keys let go while a menu is open; the walk is planned again afterwards.
@@ -956,7 +1001,11 @@ public class BuildTask implements Task {
             Level level = mc.level;
             boolean againstBlock = plan.clickPos().equals(target)
                     || (plan.sneak() ? PlacementPlanner.solidToClick(level, plan.clickPos()) : PlacementPlanner.clickable(level, plan.clickPos()));
-            if (againstBlock && player.getEyePosition().distanceTo(plan.hit()) <= player.blockInteractionRange()) click(mc, plan);
+            if (againstBlock && player.getEyePosition().distanceTo(plan.hit()) <= player.blockInteractionRange()) {
+                click(mc, plan);
+                BlockState placedState = source.expected(target);
+                if (placedState != null && filler != null) filler.placed(target, placedState);
+            }
             setSneak(mc, false);
         });
     }
@@ -1018,6 +1067,7 @@ public class BuildTask implements Task {
                     mc.player.getYRot(), mc.player.getXRot(), plan.yaw(), plan.pitch(), plan.needsRotation());
         }
         mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, plan.hitResult());
+        clicks++;
         mc.player.swing(InteractionHand.MAIN_HAND);
     }
 

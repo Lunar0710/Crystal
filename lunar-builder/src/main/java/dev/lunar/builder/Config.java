@@ -33,6 +33,10 @@ public final class Config {
     /** During a job: eat when hungry, mend Mending tools with bottles o' enchanting (Upkeep). */
     public boolean autoEat = true;
     public boolean autoMend = true;
+    /** Blocks one hit breaks: 1, or 3 for 3x3 tools (shard pickaxes and the like on some servers). */
+    public int toolArea = 1;
+    /** Inventory full while digging: throw away junk (cobblestone, dirt, ...) instead of pausing. */
+    public boolean dropJunk = true;
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static Config instance;

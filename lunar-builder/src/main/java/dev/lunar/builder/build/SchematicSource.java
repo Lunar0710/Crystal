@@ -29,6 +29,11 @@ public interface SchematicSource {
         return false;
     }
 
+    /** The block entity the schematic has here (a dispenser with its items, say), or null. */
+    default net.minecraft.world.level.block.entity.BlockEntity expectedBlockEntity(BlockPos pos) {
+        return null;
+    }
+
     /** Back to however the layers were shown before. */
     default void showAllLayers() {}
 }

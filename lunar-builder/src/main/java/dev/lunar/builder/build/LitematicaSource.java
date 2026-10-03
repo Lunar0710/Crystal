@@ -107,6 +107,12 @@ public final class LitematicaSource implements SchematicSource {
         }
     }
 
+    @Override
+    public net.minecraft.world.level.block.entity.BlockEntity expectedBlockEntity(BlockPos pos) {
+        Level world = world();
+        return world == null ? null : world.getBlockEntity(pos);
+    }
+
     private boolean boundsFailureLogged;
 
     @Override

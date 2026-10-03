@@ -83,6 +83,23 @@ public final class SettingsScreen extends Screen {
             rebuildWidgets();
         }).bounds(left + 160, y, 150, 20).build());
 
+        y += 24;
+        addRenderableWidget(Button.builder(Component.literal("Werkzeug: " + (config.toolArea == 3 ? "3x3 (Shard-Spitzhacke)" : "1x1 (normal)")), b -> {
+            config.toolArea = config.toolArea == 3 ? 1 : 3;
+            config.save();
+            rebuildWidgets();
+        }).bounds(left, y, 310, 20).build());
+
+        y += 24;
+        addRenderableWidget(Button.builder(Component.literal("Materialliste"), b -> {
+            if (minecraft != null) minecraft.setScreen(new MaterialScreen(this));
+        }).bounds(left, y, 150, 20).build());
+        addRenderableWidget(Button.builder(Component.literal("Müll wegwerfen: " + (config.dropJunk ? "an" : "aus")), b -> {
+            config.dropJunk = !config.dropJunk;
+            config.save();
+            rebuildWidgets();
+        }).bounds(left + 160, y, 150, 20).build());
+
         // The allowlist.
         y += 44;
         address = new EditBox(font, left, y, 200, 20, Component.literal("Serveradresse"));

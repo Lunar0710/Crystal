@@ -21,6 +21,19 @@ public interface Task {
         return false;
     }
 
+    /**
+     * A number that changes whenever the job gets on (blocks left, blocks
+     * placed). -1: not watched. Unchanged for a minute means it is stuck.
+     */
+    default int progress() {
+        return -1;
+    }
+
+    /** A screen the job opened itself (a dispenser it fills): the job keeps running. */
+    default boolean ownsScreen(net.minecraft.client.gui.screens.Screen screen) {
+        return false;
+    }
+
     /** The mouse leaves the head alone while true. */
     boolean holdsLook();
 }

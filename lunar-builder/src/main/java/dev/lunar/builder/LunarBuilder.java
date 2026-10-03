@@ -135,7 +135,8 @@ public final class LunarBuilder implements ClientModInitializer {
 
     /** A menu or chat is open that stops the job; in AFK mode the pause menu does not. */
     private static boolean screenBlocks(Minecraft mc) {
-        return mc.screen != null && !(Config.get().afk && mc.screen instanceof PauseScreen);
+        return mc.screen != null && !(Config.get().afk && mc.screen instanceof PauseScreen)
+                && !(task != null && task.ownsScreen(mc.screen));
     }
 
     /** pauseOnLostFocus as it was before AFK mode switched it off for a job; null while not switched. */
@@ -199,8 +200,58 @@ public final class LunarBuilder implements ClientModInitializer {
     }
 
     /** Pauses the running task with a reason (inventory full, worn tool, ...). */
+    /** Degrees the head turned in each of the last SPIN_TICKS ticks of a job. */
+    private static final int SPIN_TICKS = 60;
+    private static final float SPIN_LIMIT = 1080f;
+    private static final float[] spin = new float[SPIN_TICKS];
+    private static int spinIndex = 0;
+    private static float lastYaw = Float.NaN;
+
+    /**
+     * Three full turns in three seconds is no work any more, it is the planner
+     * hopping between targets it can not get at: pause instead of spinning.
+     */
+    private static void watchSpin(Minecraft mc) {
+        float yaw = mc.player.getYRot();
+        spin[spinIndex++ % SPIN_TICKS] = Float.isNaN(lastYaw) ? 0f : Math.abs(net.minecraft.util.Mth.wrapDegrees(yaw - lastYaw));
+        lastYaw = yaw;
+        float total = 0f;
+        for (float d : spin) total += d;
+        if (total > SPIN_LIMIT) {
+            resetSpin();
+            pauseWith("Lunar Builder dreht sich fest (Block nicht anvisierbar) – pausiert. P zum Fortsetzen.");
+        }
+    }
+
+    /** The task's progress number and when it last changed (game ticks). */
+    private static int lastProgress = Integer.MIN_VALUE;
+    private static long progressAt = 0L;
+    private static final long STUCK_TICKS = 20 * 60;
+
+    /** A minute without any progress (and not eating or mending): pause and say so. */
+    private static void watchStuck(Minecraft mc) {
+        int progress = task.progress();
+        long now = mc.level.getGameTime();
+        if (progress == -1) return;
+        if (progress != lastProgress || Upkeep.busy()) {
+            lastProgress = progress;
+            progressAt = now;
+            return;
+        }
+        if (now - progressAt > STUCK_TICKS) {
+            progressAt = now;
+            pauseWith("Lunar Builder kommt seit einer Minute nicht weiter – pausiert. Schau, was im Weg ist; P zum Fortsetzen.");
+        }
+    }
+
+    private static void resetSpin() {
+        java.util.Arrays.fill(spin, 0f);
+        lastYaw = Float.NaN;
+    }
+
     public static void pauseWith(String message) {
         Minecraft mc = Minecraft.getInstance();
+        resetSpin();
         if (task != null) task.halt(mc);
         paused = true;
         notify(message);
@@ -285,6 +336,8 @@ public final class LunarBuilder implements ClientModInitializer {
         // Eating or mending first; the job waits meanwhile.
         if (Upkeep.tick(mc, task)) return;
         task.tick(mc);
+        if (task != null && mc.player != null) watchSpin(mc);
+        if (task != null && mc.level != null) watchStuck(mc);
         if (task != null && task.finished()) {
             task = null;
             paused = false;

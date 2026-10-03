@@ -88,12 +88,21 @@ public final class DigTask implements Task {
 
     @Override
     public boolean wantsAttack() {
-        return !finished && (phase == Phase.MINE || phase == Phase.STRIP);
+        if (finished || target == null || !(phase == Phase.MINE || phase == Phase.STRIP)) return false;
+        // Only while the crosshair is really on the block being dug: a look that slips
+        // past it (or a step in strip mode) must never mine into the wall beside it.
+        return Minecraft.getInstance().hitResult instanceof BlockHitResult hit
+                && hit.getType() == HitResult.Type.BLOCK && hit.getBlockPos().equals(target);
     }
 
     @Override
     public boolean holdsLook() {
         return !finished && (phase == Phase.TURN || phase == Phase.MINE || phase == Phase.WALK || phase == Phase.STRIP);
+    }
+
+    @Override
+    public int progress() {
+        return (topY - layerY) * 1_000_000 - (layerLeft + belowLeft) + skipped.size();
     }
 
     @Override
@@ -179,6 +188,9 @@ public final class DigTask implements Task {
         List<BlockPos> underFeet = new ArrayList<>();
         int left = 0, blocked = 0;
         AABB feet = player.getBoundingBox().expandTowards(0, -0.6, 0).deflate(0.001, 0, 0.001);
+        // 3x3 tool: hit from above on every third block, the tool takes the eight around it.
+        boolean wide = Config.get().toolArea == 3;
+        BlockPos centre = null;
         for (BlockPos pos : order) {
             if (done(level, pos)) continue;
             BlockState state = level.getBlockState(pos);
@@ -201,6 +213,7 @@ public final class DigTask implements Task {
                 continue;
             }
             if (next == null) next = pos;
+            if (wide && centre == null && (pos.getX() - minX) % 3 == 1 && (pos.getZ() - minZ) % 3 == 1) centre = pos;
         }
         layerLeft = left;
         if (left == 0) {
@@ -212,8 +225,12 @@ public final class DigTask implements Task {
             startLayer(level);
             return;
         }
+        if (wide && centre != null) next = centre;
         int feetY = player.blockPosition().getY();
-        if (feetY == layerY + 1 && !underFeet.isEmpty() && unsafeDrop(level, underFeet.get(0)) == null) {
+        // A 3x3 tool hit on a side face would dig into the layer below too: never strip from inside then.
+        if (wide) {
+            // From the layer's top, like the rest: nothing to do here.
+        } else if (feetY == layerY + 1 && !underFeet.isEmpty() && unsafeDrop(level, underFeet.get(0)) == null) {
             // Standing on the layer: drop into it first, then strip it from the inside.
             next = underFeet.get(0);
         } else if (feetY == layerY) {
@@ -253,7 +270,7 @@ public final class DigTask implements Task {
         if (!next.equals(target)) walkStuck = 0;
         target = next;
         Vec3 eye = player.getEyePosition();
-        BlockHitResult sight = sight(level, player, eye, target);
+        BlockHitResult sight = wide ? topSight(level, player, eye, target) : sight(level, player, eye, target);
         if (sight != null) {
             aimAt(player, eye, sight);
             return;
@@ -265,7 +282,7 @@ public final class DigTask implements Task {
             if (spot.below().equals(goal)) return false;
             Vec3 spotEye = new Vec3(spot.getX() + 0.5, spot.getY() + eyeHeight, spot.getZ() + 0.5);
             if (spotEye.distanceTo(Vec3.atCenterOf(goal)) > player.blockInteractionRange() - 0.6) return false;
-            return sight(level, player, spotEye, goal) != null;
+            return (wide ? topSight(level, player, spotEye, goal) : sight(level, player, spotEye, goal)) != null;
         }, goal);
         if (path == null || path.size() <= 1) {
             unreachable.put(goal, now);
@@ -278,6 +295,8 @@ public final class DigTask implements Task {
     /** Inventory has room and the right tool is in hand; otherwise pauses and returns false. */
     private boolean prepareTool(LocalPlayer player, BlockState state) {
         if (inventoryFull(player, state)) {
+            // Junk out first (one stack per step), pause only when there is none.
+            if (Config.get().dropJunk && throwJunk(player)) return false;
             LunarBuilder.pauseWith("Inventar voll – pausiert. Platz schaffen, dann P zum Fortsetzen.");
             return false;
         }
@@ -456,6 +475,22 @@ public final class DigTask implements Task {
         return null;
     }
 
+    /**
+     * Like sight, but only the top face: a 3x3 tool breaks the 3x3 flat
+     * around a block hit from above, the layer stays one layer.
+     */
+    private static BlockHitResult topSight(Level level, LocalPlayer player, Vec3 eye, BlockPos pos) {
+        double reach = player.blockInteractionRange() - 0.2;
+        for (double[] o : new double[][]{{0, 0}, {0.3, 0}, {-0.3, 0}, {0, 0.3}, {0, -0.3}}) {
+            Vec3 point = new Vec3(pos.getX() + 0.5 + o[0], pos.getY() + 1.0, pos.getZ() + 0.5 + o[1]);
+            if (point.distanceTo(eye) > reach || eye.y <= point.y) continue;
+            Vec3 through = point.add(point.subtract(eye).normalize().scale(0.3));
+            BlockHitResult hit = level.clip(new ClipContext(eye, through, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, player));
+            if (hit.getType() == HitResult.Type.BLOCK && hit.getBlockPos().equals(pos) && hit.getDirection() == Direction.UP) return hit;
+        }
+        return null;
+    }
+
     /** Water or lava in the block or right next to it (breaking it would let it flow in). */
     private static BlockPos fluidNear(Level level, BlockPos pos) {
         if (!level.getFluidState(pos).isEmpty()) return pos;
@@ -475,6 +510,30 @@ public final class DigTask implements Task {
             if (!state.getCollisionShape(level, below).isEmpty()) return null;
         }
         return "Unter dir geht es tief runter – Ausgraben gestoppt.";
+    }
+
+    /** What digging fills the inventory with and nobody misses. */
+    private static final java.util.Set<net.minecraft.world.item.Item> JUNK = java.util.Set.of(
+            net.minecraft.world.item.Items.COBBLESTONE, net.minecraft.world.item.Items.COBBLED_DEEPSLATE,
+            net.minecraft.world.item.Items.DIRT, net.minecraft.world.item.Items.GRAVEL, net.minecraft.world.item.Items.NETHERRACK,
+            net.minecraft.world.item.Items.DIORITE, net.minecraft.world.item.Items.ANDESITE, net.minecraft.world.item.Items.GRANITE,
+            net.minecraft.world.item.Items.TUFF, net.minecraft.world.item.Items.BLACKSTONE, net.minecraft.world.item.Items.BASALT,
+            net.minecraft.world.item.Items.SANDSTONE, net.minecraft.world.item.Items.CALCITE);
+
+    /** Throws one stack of junk, main inventory before hotbar, never the held slot. True if one went. */
+    private static boolean throwJunk(LocalPlayer player) {
+        var inventory = player.getInventory();
+        int held = InventoryCompat.selectedSlot(player);
+        for (int pass = 0; pass < 2; pass++) {
+            for (int i = pass == 0 ? 9 : 0; i < (pass == 0 ? 36 : 9); i++) {
+                if (i == held) continue;
+                if (JUNK.contains(inventory.getItem(i).getItem())) {
+                    InventoryCompat.throwStack(Minecraft.getInstance(), i);
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /** No free slot and no stack the block could still go on. */
