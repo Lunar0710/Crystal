@@ -34,8 +34,8 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: lunar-builder-1.0.0
-          path: lunar-builder/build/libs/lunar-builder-1.0.0.jar
+          name: lunar-builder-jar
+          path: lunar-builder/build/libs/lunar-builder-*.jar
           if-no-files-found: error
 
       - name: Linux display for the game window
