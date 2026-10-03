@@ -264,6 +264,26 @@ public final class DigTask implements Task {
         }
         layerLeft = left;
         if (gentle != null) next = gentle;
+        // A new layer begins at the start of the pattern (the corner lane): walk
+        // onto that block first and drop in there, not wherever the last layer ended.
+        if (!wide && player.blockPosition().getY() == layerY + 1) {
+            BlockPos start = null;
+            for (BlockPos pos : order) {
+                if (done(level, pos) || level.getBlockState(pos).getDestroySpeed(level, pos) < 0) continue;
+                start = pos;
+                break;
+            }
+            if (start != null && !underFeet.contains(start) && unsafeDrop(level, start) == null && !unreachable.containsKey(start)) {
+                final BlockPos onTop = start.above();
+                List<BlockPos> path = Walker.findPath(level, player.blockPosition(), spot -> spot.equals(onTop), start);
+                if (path != null && path.size() > 1) {
+                    walker.start(path);
+                    phase = Phase.WALK;
+                    return;
+                }
+                unreachable.put(start, now);
+            }
+        }
         if (left == 0) {
             if (layerY <= bottomY) {
                 finish(mc, "Ausgraben fertig.");
