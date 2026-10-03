@@ -398,6 +398,27 @@ public final class DigTask implements Task {
         return null;
     }
 
+    /**
+     * The first open block of the pattern if it lies straight down the lane
+     * (same X, same layer) with nothing but air between it and the feet: then
+     * walking on gets there, no route needed.
+     */
+    private BlockPos laneAhead(Level level, LocalPlayer player) {
+        BlockPos feet = player.blockPosition();
+        for (BlockPos pos : order) {
+            if (done(level, pos)) continue;
+            if (pos.getX() != feet.getX() || pos.getY() != layerY || pos.getZ() == feet.getZ()) return null;
+            int step = pos.getZ() > feet.getZ() ? 1 : -1;
+            for (int z = feet.getZ() + step; z != pos.getZ(); z += step) {
+                BlockPos between = new BlockPos(feet.getX(), layerY, z);
+                if (!level.getBlockState(between).getCollisionShape(level, between).isEmpty()) return null;
+                if (!level.getBlockState(between.above()).getCollisionShape(level, between.above()).isEmpty()) return null;
+            }
+            return fluidNear(level, pos) == null ? pos : null;
+        }
+        return null;
+    }
+
     private void startStrip(LocalPlayer player) {
         Vec3 eye = player.getEyePosition();
         // Low on the block's near face: the crosshair stays on it while walking at it.
@@ -415,6 +436,9 @@ public final class DigTask implements Task {
         SmoothLook.tick();
         if (done(level, target)) {
             BlockPos ahead = player.blockPosition().getY() == layerY ? nextInPattern(level, player) : null;
+            // Next block further down the lane than reach: walk on towards it instead
+            // of stopping to plan a route; mining starts once the crosshair is on it.
+            if (ahead == null && player.blockPosition().getY() == layerY) ahead = laneAhead(level, player);
             if (ahead == null || !prepareTool(player, level.getBlockState(ahead))) {
                 stopStrip(mc);
                 return;
@@ -458,7 +482,7 @@ public final class DigTask implements Task {
             settled = 0;
             return;
         }
-        if (++settled < 2) return;
+        if (++settled < (Config.get().careful() ? 2 : 1)) return;
         // Only what the crosshair is really on gets mined.
         if (mc.hitResult instanceof BlockHitResult hit && hit.getType() == HitResult.Type.BLOCK) {
             BlockPos on = hit.getBlockPos();
@@ -483,7 +507,8 @@ public final class DigTask implements Task {
         SmoothLook.tick();
         if (level.getBlockState(target).isAir()) {
             SmoothLook.stop();
-            timer = Config.get().pauseTicks();
+            // No rest between blocks unless careful: straight on to the next one.
+            timer = Config.get().careful() ? Config.get().pauseTicks() : 0;
             unreachableRounds = 0;
             phase = Phase.REST;
             return;
