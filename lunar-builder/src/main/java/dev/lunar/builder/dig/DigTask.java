@@ -640,13 +640,25 @@ public final class DigTask implements Task {
     /** No free slot and no stack the block could still go on. */
     private static boolean inventoryFull(LocalPlayer player, BlockState state) {
         var inventory = player.getInventory();
-        var drop = state.getBlock().asItem();
+        var drop = droppedItem(state);
         for (int i = 0; i < 36; i++) {
             ItemStack stack = inventory.getItem(i);
             if (stack.isEmpty()) return false;
             if (stack.is(drop) && stack.getCount() < stack.getMaxStackSize()) return false;
         }
         return true;
+    }
+
+    /** What mining the block gives without Silk Touch, for the common blocks that do not drop themselves. */
+    private static net.minecraft.world.item.Item droppedItem(BlockState state) {
+        var block = state.getBlock();
+        if (block == net.minecraft.world.level.block.Blocks.STONE) return net.minecraft.world.item.Items.COBBLESTONE;
+        if (block == net.minecraft.world.level.block.Blocks.DEEPSLATE) return net.minecraft.world.item.Items.COBBLED_DEEPSLATE;
+        if (block == net.minecraft.world.level.block.Blocks.GRASS_BLOCK || block == net.minecraft.world.level.block.Blocks.MYCELIUM
+                || block == net.minecraft.world.level.block.Blocks.PODZOL || block == net.minecraft.world.level.block.Blocks.DIRT_PATH) {
+            return net.minecraft.world.item.Items.DIRT;
+        }
+        return block.asItem();
     }
 
     /**
