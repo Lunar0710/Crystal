@@ -180,11 +180,21 @@ public final class DigTask implements Task {
 
     /** The layer's blocks in a fixed snake: row by row along X, every other row back the other way. */
     private void startLayer(Level level) {
-        order = new ArrayList<>();
-        for (int x = minX, row = 0; x <= maxX; x++, row++) {
-            if (row % 2 == 0) for (int z = minZ; z <= maxZ; z++) order.add(new BlockPos(x, layerY, z));
-            else for (int z = maxZ; z >= minZ; z--) order.add(new BlockPos(x, layerY, z));
+        // A fixed pattern, like a macro: lanes three blocks wide, walked along Z
+        // down the middle and back the next lane; at each step the middle block
+        // first (to walk into), then the one left and right of it.
+        java.util.LinkedHashSet<BlockPos> lanes = new java.util.LinkedHashSet<>();
+        for (int laneX = minX + 1, lane = 0; laneX - 1 <= maxX; laneX += 3, lane++) {
+            int centre = Math.min(laneX, maxX);
+            boolean forward = lane % 2 == 0;
+            for (int i = 0; i <= maxZ - minZ; i++) {
+                int z = forward ? minZ + i : maxZ - i;
+                for (int x : new int[]{centre, centre - 1, centre + 1}) {
+                    if (x >= laneX - 1 && x <= Math.min(laneX + 1, maxX) && x >= minX) lanes.add(new BlockPos(x, layerY, z));
+                }
+            }
         }
+        order = new ArrayList<>(lanes);
         unreachable.clear();
         unreachableRounds = 0;
         belowLeft = 0;
@@ -272,7 +282,7 @@ public final class DigTask implements Task {
             // Standing on the layer: drop into it first, then strip it from the inside.
             next = underFeet.get(0);
         } else if (feetY == layerY) {
-            BlockPos ahead = adjacentInOrder(level, player.blockPosition());
+            BlockPos ahead = nextInPattern(level, player);
             if (ahead != null) {
                 if (!prepareTool(player, level.getBlockState(ahead))) return;
                 target = ahead;
@@ -371,6 +381,23 @@ public final class DigTask implements Task {
         return best;
     }
 
+    /**
+     * Strictly the pattern: the first open block in the order, if it is in reach
+     * and in sight from where the player stands; null otherwise (then walk there).
+     */
+    private BlockPos nextInPattern(Level level, LocalPlayer player) {
+        Vec3 eye = player.getEyePosition();
+        double reach = player.blockInteractionRange() - 0.5;
+        for (BlockPos pos : order) {
+            if (done(level, pos)) continue;
+            if (level.getBlockState(pos).getDestroySpeed(level, pos) < 0) continue;
+            if (fluidNear(level, pos) != null) return null;
+            if (Vec3.atCenterOf(pos).distanceTo(eye) > reach) return null;
+            return sight(level, player, eye, pos) != null ? pos : null;
+        }
+        return null;
+    }
+
     private void startStrip(LocalPlayer player) {
         Vec3 eye = player.getEyePosition();
         // Low on the block's near face: the crosshair stays on it while walking at it.
@@ -387,19 +414,7 @@ public final class DigTask implements Task {
         Level level = mc.level;
         SmoothLook.tick();
         if (done(level, target)) {
-            BlockPos feet = player.blockPosition();
-            // Plan from the hole just mined, not from where the player still stands:
-            // the next block is then straight ahead in the row, no turn to the side.
-            boolean stepping = !feet.equals(target) && feet.distManhattan(target) == 1;
-            BlockPos from = stepping ? target : feet;
-            BlockPos ahead = feet.getY() == layerY ? adjacentInOrder(level, from) : null;
-            if (ahead != null && stepping && ahead.equals(feet)) ahead = null;
-            // Nothing further on: walk into the hole and plan again from there.
-            if (ahead == null && stepping) {
-                mc.options.keyUp.setDown(true);
-                if (++mineTicks > 40) stopStrip(mc);
-                return;
-            }
+            BlockPos ahead = player.blockPosition().getY() == layerY ? nextInPattern(level, player) : null;
             if (ahead == null || !prepareTool(player, level.getBlockState(ahead))) {
                 stopStrip(mc);
                 return;
@@ -415,8 +430,11 @@ public final class DigTask implements Task {
             stopStrip(mc);
             return;
         }
-        // Forward only once facing the block: walking presses against it while the attack mines it.
-        mc.options.keyUp.setDown(Math.abs(SmoothLook.yawLeft(player)) < 30f);
+        // Walk only towards the middle block of the lane ahead (never sideways into a
+        // side block), and only once facing it: walking presses into it while it is mined.
+        BlockPos feet = player.blockPosition();
+        boolean straightAhead = target.getX() == feet.getX() && target.getZ() != feet.getZ();
+        mc.options.keyUp.setDown(straightAhead && Math.abs(SmoothLook.yawLeft(player)) < 30f);
     }
 
     private void stopStrip(Minecraft mc) {
