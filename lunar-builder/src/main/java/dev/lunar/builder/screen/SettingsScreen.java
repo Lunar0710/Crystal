@@ -27,6 +27,10 @@ public final class SettingsScreen extends Screen {
     private EditBox address;
     private int page = 0;
     private String info = null;
+    /** Two tabs, so nothing overlaps: the switches, and the server allowlist. */
+    private static boolean serversTab = false;
+    /** Where init put things, so render writes its text in the same places. */
+    private int listHeaderY, listTop, contentBottom;
 
     public SettingsScreen(Screen parent) {
         super(Component.literal("Lunar Builder"));
@@ -38,6 +42,22 @@ public final class SettingsScreen extends Screen {
         Config config = Config.get();
         int cx = width / 2, left = cx - 155, y = 34;
 
+        Button settingsTab = addRenderableWidget(Button.builder(Component.literal("Einstellungen"), b -> { serversTab = false; rebuildWidgets(); })
+                .bounds(left, y, 150, 20).build());
+        Button serverTab = addRenderableWidget(Button.builder(Component.literal("Server-Freigaben"), b -> { serversTab = true; rebuildWidgets(); })
+                .bounds(left + 160, y, 150, 20).build());
+        settingsTab.active = serversTab;
+        serverTab.active = !serversTab;
+        y += 30;
+        if (serversTab) {
+            initServers(config, left, y);
+        } else {
+            initSettings(config, left, y);
+        }
+        addRenderableWidget(Button.builder(Component.literal("Fertig"), b -> onClose()).bounds(cx - 75, height - 28, 150, 20).build());
+    }
+
+    private void initSettings(Config config, int left, int y) {
         addRenderableWidget(Button.builder(Component.literal("Tempo: " + config.digSpeed), b -> {
             int i = Config.SPEEDS.indexOf(config.digSpeed);
             config.digSpeed = Config.SPEEDS.get((i + 1) % Config.SPEEDS.size());
@@ -99,9 +119,12 @@ public final class SettingsScreen extends Screen {
             config.save();
             rebuildWidgets();
         }).bounds(left + 160, y, 150, 20).build());
+        contentBottom = y + 20;
+    }
 
-        // The allowlist.
-        y += 44;
+    private void initServers(Config config, int left, int y) {
+        listHeaderY = y;
+        y += 14;
         address = new EditBox(font, left, y, 200, 20, Component.literal("Serveradresse"));
         address.setHint(Component.literal("z. B. mein-server.de"));
         address.setMaxLength(100);
@@ -116,6 +139,7 @@ public final class SettingsScreen extends Screen {
                     .bounds(left, y, 310, 20).build());
             y += 24;
         }
+        listTop = y;
         List<String> list = config.allowlist;
         int pages = Math.max(1, (list.size() + PER_PAGE - 1) / PER_PAGE);
         page = Math.min(page, pages - 1);
@@ -133,8 +157,9 @@ public final class SettingsScreen extends Screen {
                     .bounds(left, y + 2, 20, 18).build());
             addRenderableWidget(Button.builder(Component.literal(">"), b -> { page = (page + 1) % pages; rebuildWidgets(); })
                     .bounds(left + 24, y + 2, 20, 18).build());
+            y += 22;
         }
-        addRenderableWidget(Button.builder(Component.literal("Fertig"), b -> onClose()).bounds(cx - 75, height - 28, 150, 20).build());
+        contentBottom = y;
     }
 
     /** Only after "Ja, ist erlaubt". */
@@ -167,21 +192,21 @@ public final class SettingsScreen extends Screen {
         boolean here = LunarBuilder.allowed(mc);
         String where = mc.level == null ? "" : here ? "Hier aktiv" : LunarBuilder.FOREIGN;
         graphics.drawCenteredString(font, where, cx, 22, here ? 0xFF70FF70 : 0xFFFF7070);
-        int y = 34 + 24 + 30;
-        graphics.drawString(font, "Freigegebene Server (Automatisierung erlaubt):", left, y, 0xFFFFFFFF, true);
-        y += 14 + 24;
-        ServerData current = mc.getCurrentServer();
-        if (current != null && !mc.hasSingleplayerServer()) y += 24;
-        List<String> list = Config.get().allowlist;
-        if (list.isEmpty()) {
-            graphics.drawString(font, "Keine – Lunar Builder läuft nur im Einzelspieler.", left, y + 4, 0xFFAAAAAA, true);
-        }
-        for (int i = page * PER_PAGE; i < Math.min(list.size(), (page + 1) * PER_PAGE); i++) {
-            graphics.drawString(font, list.get(i), left + 4, y + 5, 0xFFDDDDDD, true);
-            y += 20;
+        if (serversTab) {
+            graphics.drawString(font, "Freigegebene Server (Automatisierung erlaubt):", left, listHeaderY, 0xFFFFFFFF, true);
+            List<String> list = Config.get().allowlist;
+            int y = listTop;
+            if (list.isEmpty()) {
+                graphics.drawString(font, "Keine – Lunar Builder läuft nur im Einzelspieler.", left, y + 4, 0xFFAAAAAA, true);
+            }
+            for (int i = page * PER_PAGE; i < Math.min(list.size(), (page + 1) * PER_PAGE); i++) {
+                graphics.drawString(font, list.get(i), left + 4, y + 5, 0xFFDDDDDD, true);
+                y += 20;
+            }
         }
         if (info != null) graphics.drawCenteredString(font, info, cx, height - 44, 0xFFFFD060);
-        graphics.drawCenteredString(font, "Tasten: " + LunarBuilder.keyName(LunarBuilder.pauseKey) + " Pause/Weiter · "
+        // The key line only where it has room (small windows, big GUI scale).
+        if (contentBottom + 6 < height - 56) graphics.drawCenteredString(font, "Tasten: " + LunarBuilder.keyName(LunarBuilder.pauseKey) + " Pause/Weiter · "
                 + LunarBuilder.keyName(LunarBuilder.stopKey) + " Stopp · Auswahl: Spitzhacke Links-/Rechtsklick", cx, height - 56, 0xFF999999);
     }
 
