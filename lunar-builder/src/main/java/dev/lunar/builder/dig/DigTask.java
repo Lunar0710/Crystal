@@ -225,7 +225,7 @@ public final class DigTask implements Task {
         BlockPos centre = null;
         // Something could not be aimed at: the next block is then the one needing the
         // smallest turn from where the head points, so it never whips round and back.
-        boolean recovering = !unreachable.isEmpty();
+        boolean recovering = false;
         BlockPos gentle = null;
         float gentleTurn = Float.MAX_VALUE;
         Vec3 eyeNow = player.getEyePosition();
@@ -263,7 +263,9 @@ public final class DigTask implements Task {
             if (wide && centre == null && (pos.getX() - minX) % 3 == 1 && (pos.getZ() - minZ) % 3 == 1) centre = pos;
         }
         layerLeft = left;
-        if (gentle != null) next = gentle;
+        // Strictly the pattern: the next block is always the first open one in the order
+        // (a block that could not be aimed at is skipped for a while, never swapped for
+        // a "closer" one, which made it flip between two places).
         // A new layer begins at the start of the pattern (the corner lane): walk
         // onto that block first and drop in there, not wherever the last layer ended.
         if (!wide && player.blockPosition().getY() == layerY + 1) {
