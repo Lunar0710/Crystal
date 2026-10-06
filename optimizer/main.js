@@ -43,7 +43,7 @@ function createWindow(show = true) {
       if (!settings.trayHintShown) { settings.trayHintShown = true; saveSettings(); notify('Lunar Optimizer läuft weiter', 'Im Infobereich neben der Uhr. Rechtsklick auf den Mond zum Beenden.') }
     }
   })
-  win.on('closed', () => { win = null })
+  win.on('closed', () => { win = null; siShellOn(false) })
   win.on('maximize', () => win.webContents.send('win:state', { maximized: true }))
   win.on('unmaximize', () => win.webContents.send('win:state', { maximized: false }))
 }
@@ -205,17 +205,41 @@ function cpuLoad() {
   lastCpu = now
   return { total: cores.reduce((x, y) => x + y, 0) / Math.max(1, cores.length), cores }
 }
-const slow = { gpu: { at: 0, data: null, every: 5000 }, temp: { at: 0, data: null, every: 10000 }, net: { at: 0, data: null, every: 3000 } }
+const slow = { gpu: { at: 0, data: null, every: 3000 }, temp: { at: 0, data: null, every: 15000 }, net: { at: 0, data: null, every: 3000 } }
 async function cached(key, fn) {
   const c = slow[key], now = Date.now()
   if (now - c.at >= c.every) { c.at = now; c.data = await fn().catch(() => c.data) }
   return c.data
 }
+// Live GPU numbers straight from nvidia-smi: one small process. si.graphics()
+// started several PowerShells per call, every few seconds, and on older CPUs
+// that alone kept the processor busy.
+function nvidiaLive() {
+  const exe = [path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'nvidia-smi.exe'),
+    path.join(process.env.ProgramFiles || 'C:\\Program Files', 'NVIDIA Corporation', 'NVSMI', 'nvidia-smi.exe')].find(p => fs.existsSync(p))
+  if (!exe) return Promise.resolve([])
+  return new Promise(resolve => execFile(exe, ['--query-gpu=utilization.gpu,temperature.gpu,memory.used,memory.total', '--format=csv,noheader,nounits'],
+    { windowsHide: true, timeout: 4000 }, (err, out) => {
+      if (err) return resolve([])
+      const [u, t, used, total] = String(out).split(/\r?\n/)[0].split(',').map(v => parseFloat(v))
+      resolve([{ utilizationGpu: isNaN(u) ? null : u, temperatureGpu: isNaN(t) ? null : t, memoryUsed: isNaN(used) ? null : used, memoryTotal: isNaN(total) ? null : total }])
+    }))
+}
+
+// Temperature and network come from systeminformation, which asks PowerShell:
+// one PowerShell kept open while the window is, not a new one per reading.
+let siShell = false
+function siShellOn(on) {
+  if (!isWin || on === siShell) return
+  try { on ? si.powerShellStart() : si.powerShellRelease(); siShell = on } catch {}
+}
+
 async function live(want = {}) {
+  if (want.temp || want.net) siShellOn(true)
   const load = cpuLoad()
   const total = os.totalmem(), free = os.freemem()
   const [gpus, temp, netStats] = await Promise.all([
-    want.gpu ? cached('gpu', () => si.graphics().then(g => g.controllers)) : Promise.resolve(slow.gpu.data),
+    want.gpu ? cached('gpu', nvidiaLive) : Promise.resolve(slow.gpu.data),
     want.temp ? cached('temp', () => si.cpuTemperature()) : Promise.resolve(slow.temp.data),
     want.net ? cached('net', () => si.networkStats()) : Promise.resolve(null),
   ])
