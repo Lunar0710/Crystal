@@ -495,7 +495,7 @@ function notify(title, body) { try { if (Notification.isSupported()) new Notific
 const pushSettings = () => { win && win.webContents.send('settings', settings); tray && tray.refresh && tray.refresh() }
 
 // ---------------------------------------------------------------- auto game mode
-// Every 5 s one tasklist (a few milliseconds, no PowerShell). When a known
+// Every 8 s one tasklist (a few milliseconds, no PowerShell). When a known
 // game starts: its priority goes to High (never Realtime) and the chosen
 // background apps are closed. Nothing runs while the switch is off.
 const GAMES = {
@@ -573,7 +573,7 @@ async function watchTickInner() {
 function restartWatcher() {
   clearInterval(watchTimer); watchTimer = null
   if (!settings.gameMode || !settings.timerRes) { activeGames.clear(); holdTimer(false) }
-  if (settings.gameMode && isWin) { watchTimer = setInterval(watchTick, 5000); watchTick() }
+  if (settings.gameMode && isWin) { watchTimer = setInterval(watchTick, 8000); watchTick() }
 }
 
 // ---------------------------------------------------------------- IPC

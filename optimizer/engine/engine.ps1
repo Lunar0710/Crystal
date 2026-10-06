@@ -420,6 +420,16 @@ $Tweaks = @(
        name = 'Multiplane Overlay (MPO) aus'
        desc = 'Behebt Flackern, schwarze Bildschirme und Ruckler mit zwei Monitoren oder beim Alt-Tab, die viele NVIDIA- und AMD-Karten mit MPO haben. Läuft bei dir alles sauber, bringt es nichts.'
        reg = @(, @('HKLM:\SOFTWARE\Microsoft\Windows\Dwm', 'OverlayTestMode', 5, 'DWord')) },
+    @{ id = 'mitigations'; cat = 'Leistung'; admin = $true; reboot = $true; impact = 'hoch'; optional = $true
+       name = 'Extrem: CPU-Schutz gegen Spectre/Meltdown aus'
+       desc = 'Auf älteren Intel-CPUs (bis etwa 9. Generation) kosten diese Schutzmaßnahmen spürbar Leistung, das gibt sie zurück. Dafür ist der PC gegen diese Angriffe ungeschützt: nur auf einem reinen Spiele-PC sinnvoll. Wirkt nach dem Neustart.'
+       reg = @(
+           @('HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management', 'FeatureSettingsOverride', 3, 'DWord'),
+           @('HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management', 'FeatureSettingsOverrideMask', 3, 'DWord')) },
+    @{ id = 'noupdreboot'; cat = 'System'; admin = $true; reboot = $false; impact = 'niedrig'
+       name = 'Kein Zwangs-Neustart durch Updates'
+       desc = 'Windows Update startet den PC nicht mehr von selbst neu, solange du angemeldet bist (zum Beispiel mitten im Spiel oder über Nacht beim AFK-Farmen). Updates werden trotzdem installiert.'
+       reg = @(, @('HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU', 'NoAutoRebootWithLoggedOnUsers', 1, 'DWord')) },
     @{ id = 'vbs'; cat = 'Leistung'; admin = $true; reboot = $true; impact = 'hoch'; optional = $true
        name = 'Speicher-Integrität (HVCI) aus'
        desc = 'Die "Kernisolierung" prüft jeden Treiber in einer virtuellen Maschine und kostet in Spielen bis zu 5 bis 10 % FPS. Aus heißt: etwas weniger Schutz vor bösartigen Treibern. Manche Anti-Cheats (z. B. Valorant, FACEIT) verlangen sie auf Windows 11, dann anlassen.'
@@ -698,6 +708,7 @@ $CleanTargets = @(
     @{ id = 'usertemp'; name = 'Temporäre Dateien'; desc = 'Reste von Installationen und Programmen'; admin = $false; paths = @($env:TEMP) },
     @{ id = 'wintemp'; name = 'Windows-Temp'; desc = 'Temporäre Dateien von Windows selbst'; admin = $true; paths = @((Join-Path $env:SystemRoot 'Temp')) },
     @{ id = 'updates'; name = 'Update-Downloads'; desc = 'Bereits installierte Windows-Updates'; admin = $true; paths = @((Join-Path $env:SystemRoot 'SoftwareDistribution\Download')) },
+    @{ id = 'shadercache'; name = 'Shader-Cache'; desc = 'Zwischengespeicherte Shader von Grafikkarte und DirectX, werden beim Spielen neu erstellt. Hilft gegen Ruckler nach Treiber-Updates.'; admin = $false; paths = @((Join-Path $env:LOCALAPPDATA 'NVIDIA\DXCache'), (Join-Path $env:LOCALAPPDATA 'NVIDIA\GLCache'), (Join-Path $env:LOCALAPPDATA 'D3DSCache'), (Join-Path $env:LOCALAPPDATA 'AMD\DxCache'), (Join-Path $env:LOCALAPPDATA 'AMD\GLCache')) },
     @{ id = 'dumps'; name = 'Absturzberichte'; desc = 'Speicherabbilder alter Programmabstürze'; admin = $true; paths = @((Join-Path $env:LOCALAPPDATA 'CrashDumps'), (Join-Path $env:SystemRoot 'Minidump'), (Join-Path $env:ProgramData 'Microsoft\Windows\WER\ReportArchive')) },
     @{ id = 'thumbs'; name = 'Miniaturansichten'; desc = 'Vorschaubilder im Explorer, werden neu erstellt'; admin = $false; paths = @(); files = (Join-Path $env:LOCALAPPDATA 'Microsoft\Windows\Explorer\thumbcache_*.db') },
     @{ id = 'recycle'; name = 'Papierkorb'; desc = 'Gelöschte Dateien endgültig entfernen'; admin = $false; paths = @(); recycle = $true }
