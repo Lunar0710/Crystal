@@ -35,6 +35,9 @@ function createWindow(show = true) {
   })
   win.removeMenu()
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'))
+  // Hardware page, temperatures and network all ask PowerShell through systeminformation:
+  // one shared PowerShell while the window is open instead of one per question.
+  siShellOn(true)
   if (show) win.once('ready-to-show', () => win.show())
   win.webContents.setWindowOpenHandler(({ url }) => { shell.openExternal(url); return { action: 'deny' } })
   win.on('close', e => {
