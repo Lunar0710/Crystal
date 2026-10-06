@@ -57,10 +57,7 @@ public class MixinInGameHud {
     private void onRenderOverlayMessage(GuiGraphics context, DeltaTracker tickCounter, CallbackInfo ci) {
         if (CrystalClient.getInstance() == null || overlayMessageString == null || overlayMessageTime <= 0) return;
 
-        ActionBarDisplay module = CrystalClient.getInstance().getModuleManager().getModuleByName("ActionBar")
-                .filter(m -> m.isEnabled())
-                .map(m -> (ActionBarDisplay) m)
-                .orElse(null);
+        ActionBarDisplay module = CrystalClient.getInstance().getModuleManager().getEnabled(ActionBarDisplay.class);
         if (module == null) return;
 
         ci.cancel();
@@ -89,10 +86,7 @@ public class MixinInGameHud {
     private void onRenderTitleAndSubtitle(GuiGraphics context, DeltaTracker tickCounter, CallbackInfo ci) {
         if (CrystalClient.getInstance() == null || title == null || titleTime <= 0) return;
 
-        Titles module = CrystalClient.getInstance().getModuleManager().getModuleByName("Titles")
-                .filter(m -> m.isEnabled())
-                .map(m -> (Titles) m)
-                .orElse(null);
+        Titles module = CrystalClient.getInstance().getModuleManager().getEnabled(Titles.class);
         if (module == null) return;
 
         ci.cancel();
@@ -133,10 +127,7 @@ public class MixinInGameHud {
     private void onRenderCrosshair(GuiGraphics context, DeltaTracker tickCounter, CallbackInfo ci) {
         if (CrystalClient.getInstance() == null) return;
 
-        Crosshair module = CrystalClient.getInstance().getModuleManager().getModuleByName("Crosshair")
-                .filter(m -> m.isEnabled())
-                .map(m -> (Crosshair) m)
-                .orElse(null);
+        Crosshair module = CrystalClient.getInstance().getModuleManager().getEnabled(Crosshair.class);
         if (module == null) return;
 
         ci.cancel();
@@ -151,10 +142,7 @@ public class MixinInGameHud {
     private void onRenderScoreboardSidebar(GuiGraphics context, Objective objective, CallbackInfo ci) {
         if (CrystalClient.getInstance() == null) return;
 
-        Scoreboard module = CrystalClient.getInstance().getModuleManager().getModuleByName("Scoreboard")
-                .filter(m -> m.isEnabled())
-                .map(m -> (Scoreboard) m)
-                .orElse(null);
+        Scoreboard module = CrystalClient.getInstance().getModuleManager().getEnabled(Scoreboard.class);
         if (module == null) return;
 
         ci.cancel();

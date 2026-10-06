@@ -280,13 +280,20 @@ public final class CrystalNet {
             address = System.getProperty(TEST_ROOM_PROPERTY);
             if (address == null) return null;
         }
+        // Asked every tick; the hash only changes with the address.
+        if (address.equals(lastAddress)) return lastRoom;
         try {
             byte[] hash = MessageDigest.getInstance("SHA-256").digest(("crystal:" + address).getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(hash, 0, 16);
+            lastRoom = HexFormat.of().formatHex(hash, 0, 16);
+            lastAddress = address;
+            return lastRoom;
         } catch (Exception e) {
             return null;
         }
     }
+
+    private static String lastAddress;
+    private static String lastRoom;
 
     // ------------------------------------------------------------ helpers
 

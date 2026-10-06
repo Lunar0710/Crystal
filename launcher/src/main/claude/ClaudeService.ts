@@ -7,7 +7,7 @@ declare function fetch(url: string, init?: {
 }): Promise<{ ok: boolean; status: number; json(): Promise<any> }>
 
 const API_URL = 'https://api.anthropic.com/v1/messages'
-const MODEL = 'claude-sonnet-4-5'
+const MODEL = 'claude-opus-5'
 
 export interface CrashAnalysis {
   success: boolean
@@ -53,10 +53,17 @@ export class ClaudeService {
           'content-type': 'application/json',
           'x-api-key': apiKey,
           'anthropic-version': '2023-06-01',
+          // Lets a declined request run again on the fallback model
+          // Anthropic picks for that kind of refusal, instead of failing.
+          'anthropic-beta': 'server-side-fallback-2026-07-01',
         },
         body: JSON.stringify({
           model: MODEL,
-          max_tokens: 800,
+          fallbacks: 'default',
+          // Thinking is on by default and counts against max_tokens; low effort
+          // keeps it short for a three-line answer.
+          max_tokens: 4000,
+          output_config: { effort: 'low' },
           messages: [{
             role: 'user',
             content: `You are analyzing a Minecraft Java Edition crash report from a Fabric modded client ("Nexora Client"). Given the crash report below, respond with exactly three sections in this format, nothing else:\n\nSUMMARY: <one sentence, what crashed>\nCAUSE: <one or two sentences, most likely root cause>\nFIX: <concrete, actionable steps the user can take — e.g. remove a specific mod, update Java, lower render distance>\n\nCrash report:\n${trimmed}`,
@@ -70,7 +77,15 @@ export class ClaudeService {
       }
 
       const data = await res.json()
-      const text: string = data?.content?.[0]?.text || ''
+      if (data?.stop_reason === 'refusal') {
+        return { success: false, error: 'Claude hat die Analyse dieses Crash-Reports abgelehnt.' }
+      }
+      // content also holds thinking blocks now, so collect the text blocks
+      // instead of reading content[0].
+      const text: string = (data?.content || [])
+        .filter((b: any) => b?.type === 'text')
+        .map((b: any) => b.text)
+        .join('\n')
 
       const summary = text.match(/SUMMARY:\s*(.+)/i)?.[1]?.trim()
       const likelyCause = text.match(/CAUSE:\s*(.+)/i)?.[1]?.trim()

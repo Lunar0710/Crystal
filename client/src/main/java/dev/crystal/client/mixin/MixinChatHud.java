@@ -87,10 +87,7 @@ public class MixinChatHud {
     //?}
         if (CrystalClient.getInstance() == null) return;
 
-        ChatFilter filter = CrystalClient.getInstance().getModuleManager().getModuleByName("ChatFilter")
-                .filter(m -> m.isEnabled())
-                .map(m -> (ChatFilter) m)
-                .orElse(null);
+        ChatFilter filter = CrystalClient.getInstance().getModuleManager().getEnabled(ChatFilter.class);
         if (filter == null) return;
 
         String[] keywords = filter.getKeywords();

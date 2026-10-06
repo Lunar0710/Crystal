@@ -4,40 +4,39 @@ import dev.crystal.client.CrystalClient;
 import dev.crystal.client.module.render.NameTags;
 //? if >=26 {
 /*import net.minecraft.client.renderer.SubmitNodeCollection;
-import net.minecraft.client.renderer.state.OptionsRenderState;
 *///?} else if >=1.21.9 {
-import net.minecraft.client.Options;
 import net.minecraft.client.renderer.feature.NameTagFeatureRenderer;
 //?} else {
-/*import net.minecraft.client.Options;
-import net.minecraft.client.renderer.entity.EntityRenderer;
+/*import net.minecraft.client.renderer.entity.EntityRenderer;
 *///?}
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Redirect;
+import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 
-/** NameTags "Background Opacity" for the dark box behind nametags. */
+/**
+ * NameTags "Background Opacity" for the dark box behind nametags. Modifies
+ * the value instead of redirecting the call: two mods redirecting the same
+ * call crash the game at start, modified values simply chain.
+ */
 //? if >=26 {
 /*@Mixin(SubmitNodeCollection.class)
 public class MixinLabelCommands {
 
-    @Redirect(method = "submitNameTag", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/state/OptionsRenderState;getBackgroundOpacity(F)F"))
-    private float crystal$labelBackground(OptionsRenderState options, float fallback) {
+    @ModifyExpressionValue(method = "submitNameTag", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/state/OptionsRenderState;getBackgroundOpacity(F)F"))
 *///?} else if >=1.21.9 {
 @Mixin(NameTagFeatureRenderer.Storage.class)
 public class MixinLabelCommands {
 
-    @Redirect(method = "add", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/Options;getBackgroundOpacity(F)F"))
-    private float crystal$labelBackground(Options options, float fallback) {
+    @ModifyExpressionValue(method = "add", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/Options;getBackgroundOpacity(F)F"))
 //?} else {
 /*@Mixin(EntityRenderer.class)
 public class MixinLabelCommands {
 
-    @Redirect(method = "renderNameTag", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/Options;getBackgroundOpacity(F)F"))
-    private float crystal$labelBackground(Options options, float fallback) {
+    @ModifyExpressionValue(method = "renderNameTag", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/Options;getBackgroundOpacity(F)F"))
 *///?}
+    private float crystal$labelBackground(float vanilla) {
         CrystalClient client = CrystalClient.getInstance();
         NameTags module = client == null ? null : client.getModuleManager().getEnabled(NameTags.class);
-        return module != null ? module.getBackgroundOpacity() : options.getBackgroundOpacity(fallback);
+        return module != null ? module.getBackgroundOpacity() : vanilla;
     }
 }

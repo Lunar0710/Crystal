@@ -46,7 +46,16 @@ function setSplashStatus(text: string, percent?: number) {
 
 const UI_ZOOM = 0.88
 
-function createMainWindow() {
+/** Resolves once the main window has rendered its first frame. */
+let mainWindowReady: Promise<void> = Promise.resolve()
+
+/**
+ * {@code showWhenReady} false: the window loads hidden and waits for
+ * {@link showMainWindow}. The start builds it right away, behind the splash,
+ * instead of only after the update check, so the page is ready when the
+ * splash goes.
+ */
+function createMainWindow(showWhenReady = true) {
   mainWindow = new BrowserWindow({
     // Compact like Feather's launcher: the page is drawn at UI_ZOOM, so this
     // window still holds the ~1100px layout the pages were built for.
@@ -90,24 +99,31 @@ function createMainWindow() {
   // load, because a reload would otherwise fall back to 100%.
   mainWindow.webContents.on('did-finish-load', () => mainWindow?.webContents.setZoomFactor(UI_ZOOM))
 
-  mainWindow.once('ready-to-show', () => {
-    splashWindow?.close()
-    splashWindow = null
-    new BrandingManager(store).apply(mainWindow)
-    mainWindow?.show()
-    // Made it to a real, rendering window — this build is confirmed good.
-    new UpdateGuard(store).confirmStartupSuccess()
-  })
+  const win = mainWindow
+  mainWindowReady = new Promise(resolve => win.once('ready-to-show', () => resolve()))
+  if (showWhenReady) void showMainWindow()
 
   mainWindow.on('closed', () => {
     mainWindow = null
   })
 }
 
+async function showMainWindow() {
+  await mainWindowReady
+  if (!mainWindow) return
+  splashWindow?.close()
+  splashWindow = null
+  new BrandingManager(store).apply(mainWindow)
+  mainWindow.show()
+  // Made it to a real, rendering window — this build is confirmed good.
+  new UpdateGuard(store).confirmStartupSuccess()
+}
+
 // The update check usually resolves in a few hundred milliseconds (and fails
 // instantly when no release channel is configured), which would make the splash
-// flash by unseen. Hold it long enough to actually read.
-const MIN_SPLASH_MS = 2600
+// flash by unseen. Hold it long enough to actually read, but no longer: the
+// main window loads behind it meanwhile, so this is the whole wait.
+const MIN_SPLASH_MS = 1200
 
 /** The instance a desktop shortcut asks for: "--launch-instance=<id>". */
 function quickLaunchArg(argv: string[]): string | null {
@@ -179,6 +195,8 @@ app.whenReady().then(async () => {
 
   registerIpcHandlers(store)
   syncThemeToClient((store.get('theme') as string) || 'crystal-blue')
+  // Loads hidden while the update check runs; shown further down.
+  createMainWindow(false)
 
   setSplashStatus('Suche nach Updates...', 40)
 
@@ -221,7 +239,7 @@ app.whenReady().then(async () => {
   }
 
   setSplashStatus('Nexora wird gestartet...', 100)
-  createMainWindow()
+  await showMainWindow()
 
   // A skipped update still shows as the dismissible banner inside the launcher.
   // Sent only once the page has loaded and subscribed: a result that arrived

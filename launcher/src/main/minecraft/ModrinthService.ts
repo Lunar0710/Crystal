@@ -486,8 +486,22 @@ export class ModrinthService {
   async exportModpack(instanceId: string, outPath: string): Promise<{ ok: boolean; message: string }> {
     const instance = this.instances?.get(instanceId)
     if (!instance) return { ok: false, message: 'Instanz nicht gefunden.' }
+    // The pack must name its loader and version; Nexora records neither for
+    // Forge (and cannot start Forge), so the pack would import as plain Minecraft.
+    if (instance.loader !== 'fabric' && instance.loader !== 'vanilla') {
+      return { ok: false, message: 'Nur Fabric- und Vanilla-Instanzen lassen sich als .mrpack teilen.' }
+    }
     const gameDir = this.gameDir(instance.id)
     const zip = new ZipWriter()
+
+    const addTree = (dir: string, rel: string) => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name)
+        if (entry.isDirectory()) addTree(full, `${rel}/${entry.name}`)
+        else if (entry.isFile()) zip.add(`overrides/${rel}/${entry.name}`, fs.readFileSync(full))
+      }
+    }
+    let bundled = 0
 
     // Every content file by sha1, looked up with one request.
     const content: { rel: string; file: string; sha1: string }[] = []
@@ -496,7 +510,12 @@ export class ModrinthService {
       if (!fs.existsSync(dir)) continue
       for (const name of fs.readdirSync(dir)) {
         const file = path.join(dir, name)
-        if (name.endsWith('.disabled') || /^(?:nexora|crystal-client)-\d.*\.jar$/.test(name) || !fs.statSync(file).isFile()) continue
+        if (name.endsWith('.disabled') || /^(?:nexora|crystal-client)-\d.*\.jar$/.test(name)) continue
+        // Unzipped resource and shader packs are folders: Modrinth can't know them, so they are bundled.
+        if (fs.statSync(file).isDirectory()) {
+          if (folder !== 'mods') { addTree(file, `${folder}/${name}`); bundled++ }
+          continue
+        }
         const sha1 = this.sha1Of(file)
         if (sha1) content.push({ rel: `${folder}/${name}`, file, sha1 })
       }
@@ -516,7 +535,6 @@ export class ModrinthService {
     }
 
     const files: MrpackFile[] = []
-    let bundled = 0
     for (const c of content) {
       const match = known[c.sha1]?.files.find(f => f.hashes?.sha1 === c.sha1)
       if (match) {
@@ -528,13 +546,6 @@ export class ModrinthService {
     }
 
     // Settings: the config folder and the game options.
-    const addTree = (dir: string, rel: string) => {
-      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-        const full = path.join(dir, entry.name)
-        if (entry.isDirectory()) addTree(full, `${rel}/${entry.name}`)
-        else if (entry.isFile()) zip.add(`overrides/${rel}/${entry.name}`, fs.readFileSync(full))
-      }
-    }
     if (fs.existsSync(path.join(gameDir, 'config'))) addTree(path.join(gameDir, 'config'), 'config')
     if (fs.existsSync(path.join(gameDir, 'options.txt'))) zip.add('overrides/options.txt', fs.readFileSync(path.join(gameDir, 'options.txt')))
 

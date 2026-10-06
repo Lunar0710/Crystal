@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import Store from 'electron-store'
 import { logger } from '../logs/Logger'
+import { writeFileAtomic } from '../util/atomicWrite'
 
 /**
  * The Nexora server the game connects to for other players' emotes and
@@ -36,7 +37,7 @@ export function writeEquippedCapeId(dir: string, capeId: unknown): void {
   const json = JSON.stringify({ cape: id })
   try {
     if (fs.existsSync(target) && fs.readFileSync(target, 'utf8') === json) return
-    fs.writeFileSync(target, json)
+    writeFileAtomic(target, json)
   } catch (err) {
     logger.warn('launcher', 'equipped.json konnte nicht geschrieben werden', String(err))
   }
