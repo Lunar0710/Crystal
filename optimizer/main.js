@@ -35,9 +35,6 @@ function createWindow(show = true) {
   })
   win.removeMenu()
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'))
-  // Hardware page, temperatures and network all ask PowerShell through systeminformation:
-  // one shared PowerShell while the window is open instead of one per question.
-  siShellOn(true)
   if (show) win.once('ready-to-show', () => win.show())
   win.webContents.setWindowOpenHandler(({ url }) => { shell.openExternal(url); return { action: 'deny' } })
   win.on('close', e => {
@@ -46,7 +43,7 @@ function createWindow(show = true) {
       if (!settings.trayHintShown) { settings.trayHintShown = true; saveSettings(); notify('Lunar Optimizer läuft weiter', 'Im Infobereich neben der Uhr. Rechtsklick auf den Mond zum Beenden.') }
     }
   })
-  win.on('closed', () => { win = null; siShellOn(false) })
+  win.on('closed', () => { win = null })
   win.on('maximize', () => win.webContents.send('win:state', { maximized: true }))
   win.on('unmaximize', () => win.webContents.send('win:state', { maximized: false }))
 }
@@ -229,16 +226,10 @@ function nvidiaLive() {
     }))
 }
 
-// Temperature and network come from systeminformation, which asks PowerShell:
-// one PowerShell kept open while the window is, not a new one per reading.
-let siShell = false
-function siShellOn(on) {
-  if (!isWin || on === siShell) return
-  try { on ? si.powerShellStart() : si.powerShellRelease(); siShell = on } catch {}
-}
-
+// Temperature and network (monitor page only) still ask systeminformation, which
+// starts a PowerShell per reading; its shared-PowerShell mode hung on parallel
+// queries, so it is not used.
 async function live(want = {}) {
-  if (want.temp || want.net) siShellOn(true)
   const load = cpuLoad()
   const total = os.totalmem(), free = os.freemem()
   const [gpus, temp, netStats] = await Promise.all([
