@@ -84,7 +84,9 @@ public final class Modrinth {
             for (JsonElement f : chosen.getAsJsonArray("files")) {
                 if (file == null || f.getAsJsonObject().get("primary").getAsBoolean()) file = f.getAsJsonObject();
             }
-            String name = file.get("filename").getAsString().replaceAll("[\\\\/:*?\"<>|]", "_");
+            if (file.has("size") && file.get("size").getAsLong() > 40L * 1024 * 1024)
+                throw new IllegalStateException("Pack zu groß (über 40 MB)");
+            String name = file.get("filename").getAsString().replaceAll("§.", "").trim().replaceAll("[\\\\/:*?\"<>|]", "_");
             if (!name.toLowerCase().endsWith(".zip")) name = name + ".zip";
             Path target = resourcepacks.resolve(name);
             final String fileName = name;
@@ -103,9 +105,13 @@ public final class Modrinth {
         });
     }
 
-    /** Raw bytes of a project icon (png/jpg; webp cannot be decoded and is skipped by the caller). */
+    /** Raw bytes of a project icon (png; webp icons go through a png converter). */
     public static CompletableFuture<byte[]> icon(String url) {
         if (url == null || url.isBlank()) return CompletableFuture.completedFuture(null);
-        return HTTP.sendAsync(get(url), HttpResponse.BodyHandlers.ofByteArray()).thenApply(r -> r.statusCode() == 200 ? r.body() : null);
+        // Modrinth serves icons as webp, which STB cannot read: the public wsrv.nl image proxy turns them into png.
+        String fetch = url.toLowerCase(java.util.Locale.ROOT).endsWith(".webp")
+                ? "https://wsrv.nl/?output=png&w=64&url=" + java.net.URLEncoder.encode(url, java.nio.charset.StandardCharsets.UTF_8)
+                : url;
+        return HTTP.sendAsync(get(fetch), HttpResponse.BodyHandlers.ofByteArray()).thenApply(r -> r.statusCode() == 200 ? r.body() : null);
     }
 }

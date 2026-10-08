@@ -30,7 +30,7 @@ public final class PackScreen extends Screen {
     private static final int BG = 0xE00B0D12, PANEL = 0xFF14171E, CARD = 0xFF1B1F28, CARD_HOVER = 0xFF232836,
             LINE = 0xFF2A3040, ACCENT = 0xFF8B6CFF, ACCENT_DIM = 0xFF5B47B0, TEXT = 0xFFF2F3F7, MUTED = 0xFF8C93A6, GOOD = 0xFF5EE0A0;
 
-    private static final String PICTURE_TAB = "Menü-Bild", BROWSER_TAB = "Pack-Browser";
+    private static final String PICTURE_TAB = "Menü-Bild", BROWSER_TAB = "Mehr Packs";
     private static final int HEADER = 30, FOOTER = 30, SIDEBAR = 112, PICKER = 156, CARD_W = 128, CARD_H = 46, GAP = 6;
 
     private final Screen parent;
@@ -69,7 +69,7 @@ public final class PackScreen extends Screen {
 
     @Override
     protected void init() {
-        if (packs.isEmpty()) packs = PackFiles.scan(minecraft.getResourcePackDirectory(), MixWriter.FOLDER);
+        if (packs.isEmpty()) packs = LunarPacks.allPacks(minecraft);
         String keep = searchBox == null ? "" : searchBox.getValue();
         searchBox = new net.minecraft.client.gui.components.EditBox(font, SIDEBAR + 14, HEADER + 34, 200, 18, Component.literal("Suche"));
         searchBox.setHint(Component.literal("z. B. K1RBE, Crystal, Totem …"));
@@ -107,6 +107,12 @@ public final class PackScreen extends Screen {
         if (pack == null) return "Standard";
         String n = pack.replaceAll("(?i)\\.zip$", "").replaceAll("§.", "").replaceAll("^[!\\s]+", "");
         return n.length() > max ? n.substring(0, max - 1) + "…" : n;
+    }
+
+    /** Cuts text to fit maxWidth pixels, with "…" when cut. */
+    private String fit(String text, int maxWidth) {
+        if (font.width(text) <= maxWidth) return text;
+        return font.plainSubstrByWidth(text, Math.max(0, maxWidth - font.width("…"))) + "…";
     }
 
     // ------------------------------------------------------------ previews
@@ -182,6 +188,10 @@ public final class PackScreen extends Screen {
     @Override
     public void render(GuiGraphics g, int mx, int my, float delta) {
         hits.clear();
+        if (ProPacks.changed) {
+            ProPacks.changed = false;
+            packs = LunarPacks.allPacks(minecraft);
+        }
         g.fill(0, 0, width, height, BG);
 
         // Header
@@ -189,7 +199,10 @@ public final class PackScreen extends Screen {
         g.fill(0, HEADER - 1, width, HEADER, LINE);
         g.drawString(font, "LUNAR", 12, 11, ACCENT, false);
         g.drawString(font, "PACKS", 12 + font.width("LUNAR "), 11, TEXT, false);
-        g.drawString(font, packs.size() + " Packs · " + LunarPacks.choices.size() + " Items gewählt", 12 + font.width("LUNAR PACKS  "), 11, MUTED, false);
+        String status = packs.size() + " Packs · " + LunarPacks.choices.size() + " Items gewählt"
+                + (ProPacks.running ? " · Pro-Packs " + ProPacks.done + "/" + ProPacks.total : "");
+        int statusX = 12 + font.width("LUNAR PACKS  ");
+        g.drawString(font, fit(status, width - 200 - statusX), statusX, 11, MUTED, false);
         button(g, "Anwenden", width - 190, 6, 86, 18, true, true, mx, my, () -> say(LunarPacks.apply(minecraft, packs)));
         button(g, "Fertig", width - 98, 6, 86, 18, false, true, mx, my, this::onClose);
 
@@ -224,10 +237,11 @@ public final class PackScreen extends Screen {
             g.drawString(font, "Ganzes Pack:", 12, fy + 5, MUTED, false);
             int bx = 12 + font.width("Ganzes Pack: ");
             button(g, "<", bx, fy, 16, 18, false, true, mx, my, () -> wholePack--);
-            g.drawString(font, shortName(packs.get(wholePack).name, 22), bx + 22, fy + 5, TEXT, false);
-            int after = bx + 22 + font.width(shortName(packs.get(wholePack).name, 22)) + 6;
+            String packLabel = fit(shortName(packs.get(wholePack).name, 40), Math.max(30, width - 200 - (bx + 22) - 22 - font.width("Übernehmen") - 14 - 10));
+            g.drawString(font, packLabel, bx + 22, fy + 5, TEXT, false);
+            int after = bx + 22 + font.width(packLabel) + 6;
             button(g, ">", after, fy, 16, 18, false, true, mx, my, () -> wholePack++);
-            button(g, "Übernehmen", after + 22, fy, 76, 18, false, true, mx, my, () -> {
+            button(g, "Übernehmen", after + 22, fy, font.width("Übernehmen") + 14, 18, false, true, mx, my, () -> {
                 PackFiles p = packs.get(Math.floorMod(wholePack, packs.size()));
                 int n = 0;
                 for (Slot s : Slot.ALL) if (p.covers(s)) { LunarPacks.choices.put(s.id(), p.name); n++; }
@@ -235,7 +249,7 @@ public final class PackScreen extends Screen {
             });
         }
         button(g, "Neu einlesen", width - 196, fy, 88, 18, false, true, mx, my, () -> {
-            packs = PackFiles.scan(minecraft.getResourcePackDirectory(), MixWriter.FOLDER);
+            packs = LunarPacks.allPacks(minecraft);
             releasePreviews();
             say(packs.size() + " Packs gefunden");
         });
@@ -262,7 +276,8 @@ public final class PackScreen extends Screen {
         int maxScroll = Math.max(0, (slots.size() + cols - 1) / cols - rowsVisible);
         scroll = Math.max(0, Math.min(scroll, maxScroll));
         g.drawString(font, tab, areaX, top + 8, TEXT, false);
-        g.drawString(font, "Klick auf ein Item: Pack wählen", areaX + font.width(tab) + 8, top + 8, MUTED, false);
+        int hintX = areaX + font.width(tab) + 8, hintR = areaR - (maxScroll > 0 ? font.width("Mausrad: mehr") + 8 : 0);
+        g.drawString(font, fit("Klick auf ein Item: Pack wählen", hintR - hintX), hintX, top + 8, MUTED, false);
         int y0 = top + 22;
         for (int i = scroll * cols; i < slots.size(); i++) {
             int idx = i - scroll * cols, col = idx % cols, row = idx / cols;
@@ -274,8 +289,9 @@ public final class PackScreen extends Screen {
             g.renderOutline(x, y, CARD_W, CARD_H, on ? ACCENT : LINE);
             String chosen = LunarPacks.choices.get(s.id());
             drawPreview(g, s, chosen, x + 7, y + 7, 32);
-            g.drawString(font, shortName(s.label(), 15), x + 46, y + 10, TEXT, false);
-            g.drawString(font, shortName(chosen, 15), x + 46, y + 24, chosen == null ? MUTED : GOOD, false);
+            g.drawString(font, fit(s.label(), CARD_W - 52), x + 46, y + 10, TEXT, false);
+            ProPacks.Info chosenPro = chosen == null ? null : ProPacks.info(chosen);
+            g.drawString(font, fit(chosenPro != null ? chosenPro.title() : shortName(chosen, 40), CARD_W - 52), x + 46, y + 24, chosen == null ? MUTED : GOOD, false);
             hits.add(new Hit(x, y, CARD_W, CARD_H, () -> { selected = s; pickerScroll = 0; }));
         }
         if (maxScroll > 0) g.drawString(font, "Mausrad: mehr", areaR - font.width("Mausrad: mehr"), top + 8, MUTED, false);
@@ -304,13 +320,16 @@ public final class PackScreen extends Screen {
             g.fill(x + 6, y, x + w - 6, y + entryH - 4, on ? CARD_HOVER : over ? 0xFF1F2430 : CARD);
             g.renderOutline(x + 6, y, w - 12, entryH - 4, on ? ACCENT : LINE);
             drawPreview(g, selected, opt, x + 12, y + 4, 32);
-            g.drawString(font, shortName(opt, 14), x + 50, y + 10, on ? TEXT : MUTED, false);
-            g.drawString(font, opt == null ? "Vanilla / deine Packs" : on ? "gewählt" : "wählen", x + 50, y + 22, on ? GOOD : 0xFF5C6375, false);
+            ProPacks.Info pro = opt == null ? null : ProPacks.info(opt);
+            String title = pro != null ? pro.title() : shortName(opt, 40);
+            String sub = opt == null ? "Vanilla / deine Packs" : on ? "gewählt" : pro != null ? "Pro · " + pro.author() : "dein Pack";
+            g.drawString(font, fit(title, w - 64), x + 50, y + 10, on ? TEXT : MUTED, false);
+            g.drawString(font, fit(sub, w - 64), x + 50, y + 22, on ? GOOD : pro != null ? ACCENT_DIM : 0xFF5C6375, false);
             final String pick = opt;
             hits.add(new Hit(x + 6, y, w - 12, entryH - 4, () -> choose(selected, pick)));
         }
-        if (options.size() == 1) g.drawString(font, "Keins deiner Packs", x + 10, listTop + entryH + 4, MUTED, false);
-        if (options.size() == 1) g.drawString(font, "ändert dieses Item.", x + 10, listTop + entryH + 16, MUTED, false);
+        if (options.size() == 1) g.drawString(font, ProPacks.running ? "Pro-Packs laden noch …" : "Kein Pack ändert", x + 10, listTop + entryH + 4, MUTED, false);
+        if (options.size() == 1 && !ProPacks.running) g.drawString(font, "dieses Item.", x + 10, listTop + entryH + 16, MUTED, false);
     }
 
     /** Pictures offered in the picture tab (newest first) and their loaded thumbnails. */
@@ -345,11 +364,11 @@ public final class PackScreen extends Screen {
         if (pictures == null) pictures = MenuBackground.candidates(60);
         int x = SIDEBAR + 14, areaR = width - 14;
         g.drawString(font, "Hauptmenü-Bild", x, top + 8, TEXT, false);
-        g.drawString(font, "Dein eigenes Bild statt des drehenden Panoramas", x, top + 20, MUTED, false);
+        g.drawString(font, fit("Dein eigenes Bild statt des drehenden Panoramas", areaR - x), x, top + 20, MUTED, false);
 
         // Current picture, as it looks in the menu
-        int previewW = Math.max(120, Math.min(220, (areaR - x) / 2 - 10)), previewH = previewW * 9 / 16;
-        int py = top + 36;
+        int previewW = Math.max(120, Math.min(220, (areaR - x) / 2 - 10)), previewH = Math.max(40, Math.min(previewW * 9 / 16, bottom - (top + 46) - 8 - 62 - 4));
+        int py = top + 46;
         g.fill(x, py, x + previewW, py + previewH, CARD);
         g.renderOutline(x, py, previewW, previewH, LINE);
         if (MenuBackground.active()) {
@@ -381,21 +400,21 @@ public final class PackScreen extends Screen {
 
         // Thumbnails from Downloads, Pictures, Desktop
         int gx = x + previewW + 16, size = 64, gap = 6;
-        g.drawString(font, "Downloads · Bilder · Desktop", gx, top + 36 - 12 + 0, MUTED, false);
+        g.drawString(font, fit("Downloads · Bilder · Desktop", areaR - gx), gx, top + 34, MUTED, false);
         int cols = Math.max(1, (areaR - gx + gap) / (size + gap));
-        int rowsVisible = Math.max(1, (bottom - (top + 36) - 6) / (size + gap));
+        int rowsVisible = Math.max(1, (bottom - (top + 46) - 6) / (size + gap));
         int maxScroll = Math.max(0, (pictures.size() + cols - 1) / cols - rowsVisible);
         scroll = Math.max(0, Math.min(scroll, maxScroll));
         if (pictures.isEmpty()) {
-            g.drawString(font, "Keine Bilder gefunden (png, jpg, bmp, gif).", gx, top + 40, MUTED, false);
-            g.drawString(font, "Leg dein Bild in Downloads und such neu.", gx, top + 52, MUTED, false);
+            g.drawString(font, fit("Keine Bilder gefunden (png, jpg, bmp, gif).", areaR - gx), gx, top + 48, MUTED, false);
+            g.drawString(font, fit("Leg dein Bild in Downloads und such neu.", areaR - gx), gx, top + 60, MUTED, false);
         }
         boolean loadedOne = false;
         for (int i = scroll * cols; i < pictures.size(); i++) {
             int idx = i - scroll * cols, col = idx % cols, row = idx / cols;
             if (row >= rowsVisible) break;
             java.nio.file.Path file = pictures.get(i);
-            int tx = gx + col * (size + gap), ty = top + 36 + row * (size + gap);
+            int tx = gx + col * (size + gap), ty = top + 46 + row * (size + gap);
             boolean over = hover(tx, ty, size, size, mx, my);
             g.fill(tx, ty, tx + size, ty + size, CARD);
             boolean cached = thumbs.containsKey(file);
@@ -464,7 +483,7 @@ public final class PackScreen extends Screen {
     private void download(Modrinth.Hit hit) {
         if (!downloading.add(hit.id())) return;
         say("Lade " + shortName(hit.title(), 28) + " …");
-        Modrinth.download(hit, minecraft.getResourcePackDirectory()).whenComplete((file, error) -> minecraft.execute(() -> {
+        ProPacks.add(hit).whenComplete((file, error) -> minecraft.execute(() -> {
             downloading.remove(hit.id());
             if (error != null) {
                 Throwable cause = error.getCause() != null ? error.getCause() : error;
@@ -472,8 +491,8 @@ public final class PackScreen extends Screen {
                 return;
             }
             downloaded.add(hit.id());
-            packs = PackFiles.scan(minecraft.getResourcePackDirectory(), MixWriter.FOLDER);
-            say(shortName(hit.title(), 28) + " geladen – jetzt bei den Items wählbar");
+            packs = LunarPacks.allPacks(minecraft);
+            say(shortName(hit.title(), 28) + " ist jetzt bei den Items wählbar");
         }));
     }
 
@@ -484,8 +503,8 @@ public final class PackScreen extends Screen {
 
     private void renderBrowserTab(GuiGraphics g, int mx, int my, int top, int bottom, float delta) {
         int x = SIDEBAR + 14, areaR = width - 14;
-        g.drawString(font, "Pack-Browser", x, top + 8, TEXT, false);
-        g.drawString(font, "Packs von Pros direkt von Modrinth laden – danach einzelne Items daraus wählen", x, top + 20, MUTED, false);
+        g.drawString(font, "Mehr Packs", x, top + 8, TEXT, false);
+        g.drawString(font, fit("Pro-Packs sind schon dabei – hier noch mehr hinzufügen, dann bei den Items wählen", areaR - x), x, top + 20, MUTED, false);
         searchBox.setX(x);
         searchBox.setY(top + 34);
         searchBox.setWidth(Math.min(260, areaR - x - 70));
@@ -524,10 +543,11 @@ public final class PackScreen extends Screen {
             Preview icon = icons.get(hit.id());
             if (icon != null) drawCover(g, icon.id(), icon.width(), icon.height(), x + 4, y + 2, 32, 32);
             else g.fill(x + 4, y + 2, x + 36, y + 34, 0xFF262B38);
-            g.drawString(font, shortName(hit.title(), 34), x + 44, y + 6, TEXT, false);
-            g.drawString(font, "von " + shortName(hit.author(), 18) + " · " + count(hit.downloads()) + " Downloads", x + 44, y + 19, MUTED, false);
-            boolean have = downloaded.contains(hit.id()), busy = downloading.contains(hit.id());
-            button(g, have ? "✔ Geladen" : busy ? "Lädt …" : "Herunterladen", areaR - 98, y + 8, 92, 18, !have && !busy, !have && !busy, mx, my, () -> download(hit));
+            int textW = areaR - 104 - (x + 44);
+            g.drawString(font, fit(shortName(hit.title(), 60), textW), x + 44, y + 6, TEXT, false);
+            g.drawString(font, fit("von " + hit.author() + " · " + count(hit.downloads()) + " Downloads", textW), x + 44, y + 19, MUTED, false);
+            boolean have = downloaded.contains(hit.id()) || ProPacks.have(hit.id()), busy = downloading.contains(hit.id());
+            button(g, have ? "✔ Dabei" : busy ? "Lädt …" : "Hinzufügen", areaR - 98, y + 8, 92, 18, !have && !busy, !have && !busy, mx, my, () -> download(hit));
         }
     }
 

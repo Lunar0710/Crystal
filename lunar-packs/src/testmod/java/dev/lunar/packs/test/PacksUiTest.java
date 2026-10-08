@@ -123,7 +123,7 @@ public final class PacksUiTest implements ClientModInitializer {
                 case 6 -> {
                     PackScreen screen = mc.screen instanceof PackScreen p ? p : new PackScreen(null);
                     if (mc.screen != screen) mc.setScreen(screen);
-                    screen.selectTabForTest("Pack-Browser");
+                    screen.selectTabForTest("Mehr Packs");
                     screen.searchForTest("K1RBE");
                     wait = 20;
                     step++;
@@ -140,9 +140,29 @@ public final class PacksUiTest implements ClientModInitializer {
                     wait = 20;
                     step++;
                 }
+                case 10 -> {
+                    // Pro packs fetched in the background: the anchor must have pro choices.
+                    if (dev.lunar.packs.ProPacks.running && wait-- > -6000) return;
+                    PackScreen screen = (PackScreen) mc.screen;
+                    screen.selectTabForTest(screen.tabsForTest().get(0));
+                    screen.selectSlotForTest("anchor");
+                    long pro = LunarPacks.allPacks(mc).stream().filter(dev.lunar.packs.ProPacks::isPro).count();
+                    long proAnchor = LunarPacks.allPacks(mc).stream().filter(dev.lunar.packs.ProPacks::isPro)
+                            .filter(pk -> pk.covers(dev.lunar.packs.Slot.ALL.stream().filter(sl -> sl.id().equals("anchor")).findFirst().get())).count();
+                    notes.add("pro packs: " + pro + " (" + dev.lunar.packs.ProPacks.done + "/" + dev.lunar.packs.ProPacks.total + "), with anchor: " + proAnchor);
+                    wait = 40;
+                    step = 11;
+                }
+                case 11 -> {
+                    shot(mc, "picker-anchor");
+                    wait = 20;
+                    step = 9;
+                }
                 case 9 -> {
+                    if (notes.stream().noneMatch(n -> n.startsWith("pro packs: "))) { step = 10; return; }
                     boolean ok = MenuBackground.active() && notes.stream().anyMatch(n -> n.contains("totem in mix: true"))
-                            && notes.stream().anyMatch(n -> n.startsWith("modrinth results: ") && !n.endsWith("-1") && !n.endsWith(" 0"));
+                            && notes.stream().anyMatch(n -> n.startsWith("modrinth results: ") && !n.endsWith("-1") && !n.endsWith(" 0"))
+                            && notes.stream().anyMatch(n -> n.startsWith("pro packs: ") && !n.endsWith("with anchor: 0"));
                     finish(mc, (ok ? "PASS" : "FAIL") + "\n" + String.join("\n", notes));
                 }
                 default -> { }

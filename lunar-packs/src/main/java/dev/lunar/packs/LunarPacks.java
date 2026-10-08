@@ -50,7 +50,10 @@ public final class LunarPacks implements ClientModInitializer {
     public void onInitializeClient() {
         loadChoices();
         openKey = KeyBindingHelper.registerKeyBinding(new KeyMapping("key.lunar-packs.open", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_J, CATEGORY));
-        ClientLifecycleEvents.CLIENT_STARTED.register(mc -> MenuBackground.reload());
+        ClientLifecycleEvents.CLIENT_STARTED.register(mc -> {
+            MenuBackground.reload();
+            ProPacks.start();
+        });
         ClientTickEvents.END_CLIENT_TICK.register(mc -> {
             while (openKey.consumeClick()) mc.setScreen(new PackScreen(mc.screen));
         });
@@ -86,6 +89,13 @@ public final class LunarPacks implements ClientModInitializer {
         } catch (Exception e) {
             LOGGER.warn("[Lunar Packs] Auswahl nicht gespeichert: {}", e.toString());
         }
+    }
+
+    /** Your own packs plus the fetched pro packs. */
+    public static List<PackFiles> allPacks(Minecraft mc) {
+        List<PackFiles> all = new ArrayList<>(PackFiles.scan(mc.getResourcePackDirectory(), MixWriter.FOLDER));
+        all.addAll(PackFiles.scan(ProPacks.folder(), "index.json"));
+        return all;
     }
 
     /**
