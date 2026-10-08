@@ -58,7 +58,7 @@ public final class DigWorldTest implements ClientModInitializer {
     private void tick(Minecraft mc) {
         try {
             if (System.currentTimeMillis() - startedAt > DEADLINE_MS) {
-                fail(mc, "deadline, phase " + phase + ", task=" + (LunarBuilder.task() == null ? "none" : LunarBuilder.task().status()));
+                fail(mc, "deadline, phase " + phase + ", screen=" + (mc.screen == null ? "none" : mc.screen.getClass().getSimpleName()) + ", task=" + (LunarBuilder.task() == null ? "none" : LunarBuilder.task().status()));
                 return;
             }
             ticks++;
@@ -82,6 +82,15 @@ public final class DigWorldTest implements ClientModInitializer {
     }
 
     private void createWorld(Minecraft mc) {
+        // Fresh game folder (CI): the accessibility welcome screen comes before the title screen.
+        if (mc.getOverlay() == null && mc.screen != null && !(mc.screen instanceof TitleScreen) && ticks > 100) {
+            log("skipping first-start screen " + mc.screen.getClass().getSimpleName());
+            mc.options.onboardAccessibility = false;
+            mc.options.save();
+            mc.setScreen(new TitleScreen());
+            ticks = 0;
+            return;
+        }
         if (mc.getOverlay() != null || !(mc.screen instanceof TitleScreen) || ticks < 20) return;
         mc.options.pauseOnLostFocus = false;
         CreateWorldScreen.openFresh(mc, () -> mc.setScreen(new TitleScreen()));
