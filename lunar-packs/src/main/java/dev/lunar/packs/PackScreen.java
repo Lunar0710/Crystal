@@ -303,40 +303,114 @@ public final class PackScreen extends Screen {
         if (options.size() == 1) g.drawString(font, "ändert dieses Item.", x + 10, listTop + entryH + 16, MUTED, false);
     }
 
+    /** Pictures offered in the picture tab (newest first) and their loaded thumbnails. */
+    private List<java.nio.file.Path> pictures = null;
+    private final Map<java.nio.file.Path, Preview> thumbs = new HashMap<>();
+
+    /** One thumbnail per frame at most, so a folder full of big photos never freezes the menu. */
+    private Preview thumb(java.nio.file.Path file, boolean mayLoad) {
+        if (thumbs.containsKey(file)) return thumbs.get(file);
+        if (!mayLoad) return null;
+        Preview result = null;
+        try {
+            NativeImage image = MenuBackground.decode(file, 96, false);
+            Identifier id = Identifier.fromNamespaceAndPath(LunarPacks.MOD_ID, "thumb/" + Integer.toHexString(file.hashCode() & 0x7fffffff));
+            minecraft.getTextureManager().register(id, new DynamicTexture(() -> "Lunar Packs thumbnail", image));
+            result = new Preview(id, image.getWidth(), image.getHeight());
+        } catch (Exception e) {
+            LunarPacks.LOGGER.info("[Lunar Packs] Vorschaubild nicht lesbar: {} ({})", file.getFileName(), e.toString());
+        }
+        thumbs.put(file, result);
+        return result;
+    }
+
+    /** Draws a picture into a w×h box, cropped to fill it. */
+    private static void drawCover(GuiGraphics g, Identifier id, int pw, int ph, int x, int y, int w, int h) {
+        float scale = Math.max((float) w / pw, (float) h / ph);
+        int texW = Math.max(w, Math.round(pw * scale)), texH = Math.max(h, Math.round(ph * scale));
+        g.blit(RenderPipelines.GUI_TEXTURED, id, x, y, (texW - w) / 2f, (texH - h) / 2f, w, h, texW, texH);
+    }
+
     private void renderPictureTab(GuiGraphics g, int mx, int my, int top, int bottom) {
-        int x = SIDEBAR + 14, w = width - SIDEBAR - 28;
+        if (pictures == null) pictures = MenuBackground.candidates(60);
+        int x = SIDEBAR + 14, areaR = width - 14;
         g.drawString(font, "Hauptmenü-Bild", x, top + 8, TEXT, false);
         g.drawString(font, "Dein eigenes Bild statt des drehenden Panoramas", x, top + 20, MUTED, false);
-        int previewH = Math.max(40, bottom - top - 90), previewW = Math.min(w, previewH * 16 / 9);
-        int px = x, py = top + 36;
-        g.fill(px, py, px + previewW, py + previewH, CARD);
-        g.renderOutline(px, py, previewW, previewH, LINE);
+
+        // Current picture, as it looks in the menu
+        int previewW = Math.max(120, Math.min(220, (areaR - x) / 2 - 10)), previewH = previewW * 9 / 16;
+        int py = top + 36;
+        g.fill(x, py, x + previewW, py + previewH, CARD);
+        g.renderOutline(x, py, previewW, previewH, LINE);
         if (MenuBackground.active()) {
-            g.enableScissor(px + 1, py + 1, px + previewW - 1, py + previewH - 1);
+            g.enableScissor(x + 1, py + 1, x + previewW - 1, py + previewH - 1);
             g.pose().pushMatrix();
-            g.pose().translate(px, py);
-            float s = (float) previewW / width;
-            g.pose().scale(s, (float) previewH / height);
+            g.pose().translate(x, py);
+            g.pose().scale((float) previewW / width, (float) previewH / height);
             MenuBackground.draw(g, width, height);
             g.pose().popMatrix();
             g.disableScissor();
         } else {
-            g.drawCenteredString(font, "Kein Bild gewählt", px + previewW / 2, py + previewH / 2 - 4, MUTED);
+            g.drawCenteredString(font, "Normales Panorama", x + previewW / 2, py + previewH / 2 - 4, MUTED);
         }
-        int by = py + previewH + 10;
-        button(g, "Bild wählen…", x, by, 110, 20, true, true, mx, my, () -> {
-            say("Bild auswählen – Fenster öffnet sich …");
-            MenuBackground.choose(() -> say(MenuBackground.active() ? "Menü-Bild gesetzt" : "Bild nicht lesbar"));
-        });
-        button(g, "Schwarz-Weiß: " + (LunarPacks.settings.grayscale ? "an" : "aus"), x + 116, by, 110, 20, false, true, mx, my, () -> {
+        int by = py + previewH + 8;
+        button(g, "Schwarz-Weiß: " + (LunarPacks.settings.grayscale ? "an" : "aus"), x, by, previewW, 18, false, true, mx, my, () -> {
             LunarPacks.settings.grayscale = !LunarPacks.settings.grayscale;
             LunarPacks.saveChoices();
             MenuBackground.reload();
         });
-        button(g, "Entfernen", x + 232, by, 80, 20, false, MenuBackground.active(), mx, my, () -> {
+        button(g, "Bild entfernen", x, by + 22, previewW, 18, false, MenuBackground.active(), mx, my, () -> {
             MenuBackground.remove();
             say("Normales Menü wieder an");
         });
+        button(g, "Ordner neu durchsuchen", x, by + 44, previewW, 18, false, true, mx, my, () -> {
+            pictures = MenuBackground.candidates(60);
+            scroll = 0;
+            say(pictures.size() + " Bilder gefunden");
+        });
+
+        // Thumbnails from Downloads, Pictures, Desktop
+        int gx = x + previewW + 16, size = 64, gap = 6;
+        g.drawString(font, "Downloads · Bilder · Desktop", gx, top + 36 - 12 + 0, MUTED, false);
+        int cols = Math.max(1, (areaR - gx + gap) / (size + gap));
+        int rowsVisible = Math.max(1, (bottom - (top + 36) - 6) / (size + gap));
+        int maxScroll = Math.max(0, (pictures.size() + cols - 1) / cols - rowsVisible);
+        scroll = Math.max(0, Math.min(scroll, maxScroll));
+        if (pictures.isEmpty()) {
+            g.drawString(font, "Keine Bilder gefunden (png, jpg, bmp, gif).", gx, top + 40, MUTED, false);
+            g.drawString(font, "Leg dein Bild in Downloads und such neu.", gx, top + 52, MUTED, false);
+        }
+        boolean loadedOne = false;
+        for (int i = scroll * cols; i < pictures.size(); i++) {
+            int idx = i - scroll * cols, col = idx % cols, row = idx / cols;
+            if (row >= rowsVisible) break;
+            java.nio.file.Path file = pictures.get(i);
+            int tx = gx + col * (size + gap), ty = top + 36 + row * (size + gap);
+            boolean over = hover(tx, ty, size, size, mx, my);
+            g.fill(tx, ty, tx + size, ty + size, CARD);
+            boolean cached = thumbs.containsKey(file);
+            Preview t = thumb(file, !loadedOne);
+            if (!cached && thumbs.containsKey(file)) loadedOne = true;
+            if (!thumbs.containsKey(file)) {
+                g.drawCenteredString(font, "…", tx + size / 2, ty + size / 2 - 4, MUTED);
+            } else {
+                if (t != null) drawCover(g, t.id(), t.width(), t.height(), tx, ty, size, size);
+                else g.drawCenteredString(font, "?", tx + size / 2, ty + size / 2 - 4, MUTED);
+            }
+            g.renderOutline(tx, ty, size, size, over ? ACCENT : LINE);
+            if (over) {
+                String name = shortName(file.getFileName().toString(), 28);
+                int w = font.width(name) + 8;
+                g.fill(mx + 8, my - 14, mx + 8 + w, my - 2, 0xF0101318);
+                g.drawString(font, name, mx + 12, my - 12, TEXT, false);
+            }
+            hits.add(new Hit(tx, ty, size, size, () -> say(MenuBackground.set(file) ? "Menü-Bild gesetzt" : "Bild nicht lesbar")));
+        }
+    }
+
+    private void releaseThumbs() {
+        for (Preview p : thumbs.values()) if (p != null) minecraft.getTextureManager().release(p.id());
+        thumbs.clear();
     }
 
     // ------------------------------------------------------------ input
@@ -366,6 +440,7 @@ public final class PackScreen extends Screen {
     @Override
     public void removed() {
         releasePreviews();
+        releaseThumbs();
         super.removed();
     }
 
