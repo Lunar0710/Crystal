@@ -5,6 +5,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.loader.api.FabricLoader;
@@ -33,13 +34,23 @@ public final class LunarPacks implements ClientModInitializer {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static KeyMapping openKey;
 
-    /** Slot id -> pack file name. */
-    public static Map<String, String> choices = new LinkedHashMap<>();
+    /** What config/lunar-packs.json holds. */
+    public static final class Settings {
+        /** Slot id -> pack file name. */
+        public Map<String, String> choices = new LinkedHashMap<>();
+        /** Menu picture in black and white. */
+        public boolean grayscale = true;
+    }
+
+    public static Settings settings = new Settings();
+    /** Slot id -> pack file name (the same map as settings.choices). */
+    public static Map<String, String> choices = settings.choices;
 
     @Override
     public void onInitializeClient() {
         loadChoices();
         openKey = KeyBindingHelper.registerKeyBinding(new KeyMapping("key.lunar-packs.open", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_J, CATEGORY));
+        ClientLifecycleEvents.CLIENT_STARTED.register(mc -> MenuBackground.reload());
         ClientTickEvents.END_CLIENT_TICK.register(mc -> {
             while (openKey.consumeClick()) mc.setScreen(new PackScreen(mc.screen));
         });
@@ -52,9 +63,17 @@ public final class LunarPacks implements ClientModInitializer {
     private static void loadChoices() {
         try {
             if (Files.exists(configFile())) {
-                Map<String, String> read = GSON.fromJson(Files.readString(configFile(), StandardCharsets.UTF_8),
-                        new TypeToken<LinkedHashMap<String, String>>() {}.getType());
-                if (read != null) choices = read;
+                String json = Files.readString(configFile(), StandardCharsets.UTF_8);
+                Settings read = json.contains("\"choices\"") ? GSON.fromJson(json, Settings.class) : null;
+                if (read == null) {
+                    // 1.1.0 wrote only the slot -> pack map.
+                    read = new Settings();
+                    Map<String, String> old = GSON.fromJson(json, new TypeToken<LinkedHashMap<String, String>>() {}.getType());
+                    if (old != null) read.choices = old;
+                }
+                if (read.choices == null) read.choices = new LinkedHashMap<>();
+                settings = read;
+                choices = read.choices;
             }
         } catch (Exception e) {
             LOGGER.warn("[Lunar Packs] Auswahl nicht lesbar: {}", e.toString());
@@ -63,7 +82,7 @@ public final class LunarPacks implements ClientModInitializer {
 
     public static void saveChoices() {
         try {
-            Files.writeString(configFile(), GSON.toJson(choices), StandardCharsets.UTF_8);
+            Files.writeString(configFile(), GSON.toJson(settings), StandardCharsets.UTF_8);
         } catch (Exception e) {
             LOGGER.warn("[Lunar Packs] Auswahl nicht gespeichert: {}", e.toString());
         }

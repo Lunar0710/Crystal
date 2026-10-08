@@ -97,6 +97,8 @@ public record Slot(String id, String group, String label, String icon, String pr
                     "textures/gui/sprites/hud/", "textures/gui/icons")),
             new Slot("gui", "Optik", "Inventar & Menüs", "chest", "textures/gui/container/inventory.png", List.of(
                     "textures/gui/container/", "textures/gui/sprites/container/")),
+            new Slot("title", "Optik", "Hauptmenü (Panorama & Logo)", "grass_block", "textures/gui/title/background/panorama_0.png", List.of(
+                    "textures/gui/title/")),
             new Slot("font", "Optik", "Schrift", "name_tag", "textures/font/ascii.png", List.of(
                     "font/", "textures/font/")),
             new Slot("sky", "Optik", "Himmel (OptiFine-Sky)", "light_blue_stained_glass", "", List.of(

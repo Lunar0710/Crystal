@@ -10,6 +10,7 @@
   "entrypoints": {
     "client": ["dev.lunar.packs.LunarPacks"]
   },
+  "mixins": ["lunar-packs.mixins.json"],
   "depends": {
     "fabricloader": ">=0.19.3",
     "fabric-api": "*",

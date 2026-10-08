@@ -44,7 +44,7 @@ public final class PackScreen extends Screen {
     }
 
     private int perPage() {
-        return Math.max(3, (height - 120) / ROW);
+        return Math.max(3, (height - 146) / ROW);
     }
 
     @Override
@@ -63,6 +63,24 @@ public final class PackScreen extends Screen {
         }
 
         int bottom = height - 28;
+        // Main menu picture.
+        addRenderableWidget(Button.builder(Component.literal("Menü-Bild wählen…"), b -> {
+            message = "Bild auswählen (Fenster öffnet sich) …";
+            MenuBackground.choose(() -> { message = MenuBackground.active() ? "Menü-Bild gesetzt" : "Bild nicht lesbar"; rebuildWidgets(); });
+        }).bounds(left, bottom - 72, 120, 20).build());
+        addRenderableWidget(Button.builder(Component.literal("Schwarz-Weiß: " + (LunarPacks.settings.grayscale ? "an" : "aus")), b -> {
+            LunarPacks.settings.grayscale = !LunarPacks.settings.grayscale;
+            LunarPacks.saveChoices();
+            MenuBackground.reload();
+            rebuildWidgets();
+        }).bounds(left + 125, bottom - 72, 100, 20).build());
+        Button removeBg = addRenderableWidget(Button.builder(Component.literal("Bild entfernen"), b -> {
+            MenuBackground.remove();
+            message = "Normales Menü wieder an";
+            rebuildWidgets();
+        }).bounds(left + 230, bottom - 72, 90, 20).build());
+        removeBg.active = MenuBackground.active();
+
         addRenderableWidget(Button.builder(Component.literal("<"), b -> { page = (page + pages - 1) % pages; rebuildWidgets(); })
                 .bounds(left, bottom - 48, 20, 20).build()).active = pages > 1;
         addRenderableWidget(Button.builder(Component.literal(">"), b -> { page = (page + 1) % pages; rebuildWidgets(); })
@@ -180,7 +198,7 @@ public final class PackScreen extends Screen {
                 graphics.blit(RenderPipelines.GUI_TEXTURED, p.id(), left + 168, y + 2, 0, 0, 16, 16, 16, texH);
             }
         }
-        if (message != null) graphics.drawCenteredString(font, message, cx, height - 88, 0xFFFFD060);
+        if (message != null) graphics.drawCenteredString(font, message, cx, height - 112, 0xFFFFD060);
     }
 
     @Override
