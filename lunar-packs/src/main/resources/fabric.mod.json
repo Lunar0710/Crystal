@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "lunar-packs",
+  "version": "${version}",
+  "name": "Lunar Packs",
+  "description": "Nimm einzelne Items aus deinen Texture Packs (z. B. nur den Anchor aus K1RBE, nur den Crystal aus einem anderen) und leg sie als ein Pack über alle anderen. / Pick single items out of your resource packs and stack them in one pack on top.",
+  "authors": ["Lunar_cpvp"],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["dev.lunar.packs.LunarPacks"]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.3",
+    "fabric-api": "*",
+    "minecraft": "~1.21.11",
+    "java": ">=21"
+  }
+}

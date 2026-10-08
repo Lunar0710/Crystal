@@ -1,0 +1,52 @@
+# Builds and unit-tests the Lunar Packs mod (lunar-packs/, Minecraft 1.21.11).
+# On a push to lunar-packs-release it also publishes the jar and version.json
+# to the lunar-packs-dist branch.
+name: Lunar Packs
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['cloud/lunar-packs', 'lunar-packs-release']
+    paths:
+      - 'lunar-packs/**'
+      - '.github/workflows/lunar-packs.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: lunar-packs
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Build and unit tests
+        run: |
+          chmod +x gradlew
+          ./gradlew build --no-daemon --stacktrace
+
+      - name: Publish to lunar-packs-dist
+        if: github.ref == 'refs/heads/lunar-packs-release'
+        run: |
+          VERSION=$(grep '^mod_version=' gradle.properties | cut -d= -f2)
+          FILE="lunar-packs-$VERSION.jar"
+          mkdir -p "$RUNNER_TEMP/dist"
+          cp "build/libs/$FILE" "$RUNNER_TEMP/dist/"
+          cd "$RUNNER_TEMP/dist"
+          SHA=$(sha256sum "$FILE" | cut -d' ' -f1)
+          printf '{"version":"%s","file":"%s","sha256":"%s"}\n' "$VERSION" "$FILE" "$SHA" > version.json
+          git init -q -b lunar-packs-dist
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -qm "Lunar Packs $VERSION (${GITHUB_SHA::7})"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" lunar-packs-dist
