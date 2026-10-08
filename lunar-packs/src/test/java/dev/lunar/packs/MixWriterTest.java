@@ -61,6 +61,35 @@ class MixWriterTest {
     }
 
     @Test
+    void followsTexturesInTheirOwnNamespace(@TempDir Path dir) throws IOException {
+        zip(dir.resolve("Custom.zip"), Map.of(
+                "pack.mcmeta", "{}",
+                "assets/minecraft/items/end_crystal.json", "{\"model\":{\"type\":\"minecraft:model\",\"model\":\"realm:item/crystal\"}}",
+                "assets/realm/models/item/crystal.json", "{\"textures\":{\"layer0\":\"realm:item/crystal_tex\"}}",
+                "assets/realm/textures/item/crystal_tex.png", "png",
+                "assets/realm/textures/item/unrelated.png", "png"));
+        PackFiles pack = PackFiles.scan(dir, MixWriter.FOLDER).get(0);
+        var files = MixWriter.filesFor(pack, Slot.byId("crystal"));
+        assertTrue(files.contains("assets/realm/models/item/crystal.json"));
+        assertTrue(files.contains("assets/realm/textures/item/crystal_tex.png"));
+        assertFalse(files.contains("assets/realm/textures/item/unrelated.png"));
+        assertEquals("assets/realm/textures/item/crystal_tex.png", MixWriter.previewEntry(pack, Slot.byId("crystal")));
+    }
+
+    @Test
+    void bowDoesNotTakeTheBowl() {
+        Slot bow = Slot.byId("bow");
+        assertTrue(bow.matches("assets/minecraft/textures/item/bow.png"));
+        assertTrue(bow.matches("assets/minecraft/textures/item/bow_pulling_2.png"));
+        assertFalse(bow.matches("assets/minecraft/textures/item/bowl.png"));
+    }
+
+    @Test
+    void slotIdsAreUnique() {
+        assertEquals(Slot.ALL.size(), Slot.ALL.stream().map(Slot::id).distinct().count());
+    }
+
+    @Test
     void theMixItselfIsNeverOffered(@TempDir Path dir) throws IOException {
         Files.createDirectories(dir.resolve(MixWriter.FOLDER));
         Files.writeString(dir.resolve(MixWriter.FOLDER).resolve("pack.mcmeta"), "{}");

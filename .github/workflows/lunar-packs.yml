@@ -6,10 +6,8 @@ name: Lunar Packs
 on:
   workflow_dispatch:
   push:
+    # No paths filter: a first push to a new branch would not match one.
     branches: ['cloud/lunar-packs', 'lunar-packs-release']
-    paths:
-      - 'lunar-packs/**'
-      - '.github/workflows/lunar-packs.yml'
 
 permissions:
   contents: write

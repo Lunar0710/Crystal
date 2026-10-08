@@ -24,8 +24,11 @@ public final class MixWriter {
 
     public static final String FOLDER = "Lunar Mix";
 
-    /** "minecraft:item/foo" or "item/foo" inside model/item JSON. */
-    private static final Pattern REF = Pattern.compile("\"((?:minecraft:)?(?:item|block|entity|particle|custom|lunar)[a-z0-9_/.\\-]*)\"");
+    /**
+     * Any quoted resource location in a JSON file ("item/foo", "minecraft:item/foo",
+     * "k1rbe:item/totem"): taken along when the pack has a texture or model there.
+     */
+    private static final Pattern REF = Pattern.compile("\"(?:([a-z0-9_.\\-]+):)?([a-z0-9_.\\-]+(?:/[a-z0-9_.\\-]+)+)\"");
 
     private MixWriter() {}
 
@@ -66,13 +69,29 @@ public final class MixWriter {
             String json = new String(pack.read(e), StandardCharsets.UTF_8);
             Matcher m = REF.matcher(json);
             while (m.find()) {
-                String ref = m.group(1).replace("minecraft:", "");
-                for (String candidate : new String[]{"assets/minecraft/textures/" + ref + ".png", "assets/minecraft/models/" + ref + ".json"}) {
+                String ns = m.group(1) == null ? "minecraft" : m.group(1);
+                String ref = m.group(2);
+                for (String candidate : new String[]{"assets/" + ns + "/textures/" + ref + ".png", "assets/" + ns + "/models/" + ref + ".json",
+                        "assets/" + ns + "/textures/" + ref}) {
                     if (pack.has(candidate) && !files.contains(candidate)) todo.add(candidate);
                 }
             }
         }
         return files;
+    }
+
+    /**
+     * The texture to show for a slot in this pack: its preview texture if the
+     * pack has it, else the first texture the slot takes from the pack. Null: none.
+     */
+    public static String previewEntry(PackFiles pack, Slot slot) {
+        if (!slot.preview().isEmpty() && pack.has("assets/minecraft/" + slot.preview())) return "assets/minecraft/" + slot.preview();
+        try {
+            for (String f : filesFor(pack, slot)) if (f.endsWith(".png") && f.contains("/textures/")) return f;
+        } catch (IOException ignored) {
+            // Unreadable model JSON: no preview.
+        }
+        return null;
     }
 
     private static void deleteTree(Path dir) throws IOException {
