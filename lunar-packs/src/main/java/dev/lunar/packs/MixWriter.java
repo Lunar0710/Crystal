@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.LinkedHashSet;
@@ -87,7 +88,14 @@ public final class MixWriter {
     public static String previewEntry(PackFiles pack, Slot slot) {
         if (!slot.preview().isEmpty() && pack.has("assets/minecraft/" + slot.preview())) return "assets/minecraft/" + slot.preview();
         try {
-            for (String f : filesFor(pack, slot)) if (f.endsWith(".png") && f.contains("/textures/")) return f;
+            List<String> pngs = new ArrayList<>();
+            for (String f : filesFor(pack, slot)) {
+                String name = f.substring(f.lastIndexOf(47) + 1);
+                if (f.endsWith(".png") && f.contains("/textures/") && !name.matches("(?i)(blank|empty|transparent|invisible|none)\\.png")) pngs.add(f);
+            }
+            // A texture named after the item beats helper textures (glow, overlay, ...).
+            for (String f : pngs) if (f.substring(f.lastIndexOf(47) + 1).startsWith(slot.icon())) return f;
+            if (!pngs.isEmpty()) return pngs.get(0);
         } catch (IOException ignored) {
             // Unreadable model JSON: no preview.
         }

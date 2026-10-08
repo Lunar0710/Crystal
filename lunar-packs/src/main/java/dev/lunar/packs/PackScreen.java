@@ -150,6 +150,11 @@ public final class PackScreen extends Screen {
             g.blit(RenderPipelines.GUI_TEXTURED, p.id(), x, y, 0, 0, size, size, size, texH);
         } else {
             drawItem(g, slot, x, y, size / 16f);
+            // Pack changes only the 3D model, not the picture
+            if (packName != null && size >= 24) {
+                g.fill(x + size - 15, y + size - 9, x + size, y + size, 0xE0101318);
+                g.drawString(font, "3D", x + size - 13, y + size - 8, ACCENT, false);
+            }
         }
     }
 
