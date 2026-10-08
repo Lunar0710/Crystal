@@ -145,7 +145,21 @@ public final class DigWorldTest implements ClientModInitializer {
         next();
     }
 
+    /** Dig timing: when it started, the last progress change, the longest stretch without one. */
+    private long digStart = -1, lastChange = -1, longestStall = 0;
+    private int lastProgress = Integer.MIN_VALUE;
+
     private void waitForDig(Minecraft mc) {
+        var task = LunarBuilder.task();
+        if (task != null) {
+            if (digStart < 0) digStart = lastChange = ticks;
+            int p = task.progress();
+            if (p != lastProgress) {
+                longestStall = Math.max(longestStall, ticks - lastChange);
+                lastProgress = p;
+                lastChange = ticks;
+            }
+        }
         if (ticks % 200 == 0 && LunarBuilder.task() != null) log("progress: " + LunarBuilder.task().status() + " at " + mc.player.position());
         if (mc.screen != null && LunarBuilder.task() != null) mc.setScreen(null);
         if (LunarBuilder.task() == null) next();
@@ -180,7 +194,8 @@ public final class DigWorldTest implements ClientModInitializer {
         // The gate once more, inside the game: singleplayer yes, a server not on the list no.
         check(LunarBuilder.allowed(mc), "singleplayer not allowed");
         check(!Gate.allowed(false, "fremder-server.net", List.of("mein-server.de")), "foreign server allowed");
-        result(mc, "PASS 75 blocks dug in 3 layers, health=" + health + ", player at " + mc.player.position());
+        result(mc, "PASS 75 blocks dug in 3 layers in " + (lastChange - digStart) / 20 + " s, longest stall " + longestStall / 20.0
+                + " s, health=" + health + ", player at " + mc.player.position());
     }
 
     // ------------------------------------------------------------ helpers
