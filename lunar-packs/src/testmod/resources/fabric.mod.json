@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "lunar-packs-test",
+  "version": "1.0.0",
+  "name": "Lunar Packs UI test",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["dev.lunar.packs.test.PacksUiTest"]
+  },
+  "depends": {
+    "lunar-packs": "*"
+  }
+}

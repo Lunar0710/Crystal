@@ -13,6 +13,29 @@ repositories {
     mavenCentral()
 }
 
+// Test-only mod (local/CI UI test, src/testmod); never part of the released jar.
+sourceSets {
+    testmod {
+        compileClasspath += main.compileClasspath + main.output
+        runtimeClasspath += main.runtimeClasspath + main.output
+    }
+}
+
+loom {
+    mods {
+        'lunar-packs' { sourceSet sourceSets.main }
+        'lunar-packs-test' { sourceSet sourceSets.testmod }
+    }
+    runs {
+        testClient {
+            client()
+            name 'Test Client'
+            source sourceSets.testmod
+            runDir 'run'
+        }
+    }
+}
+
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     mappings loom.officialMojangMappings()

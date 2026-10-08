@@ -537,6 +537,30 @@ public final class PackScreen extends Screen {
         iconRequested.clear();
     }
 
+    // ------------------------------------------------------------ test hooks (UI test only)
+
+    public List<String> tabsForTest() {
+        return tabs;
+    }
+
+    public void selectTabForTest(String t) {
+        tab = t;
+        selected = null;
+        scroll = 0;
+    }
+
+    public void selectSlotForTest(String slotId) {
+        selected = Slot.byId(slotId);
+    }
+
+    public void searchForTest(String query) {
+        search(query);
+    }
+
+    public int resultsForTest() {
+        return results == null ? -1 : results.size();
+    }
+
     // ------------------------------------------------------------ input
 
     @Override
