@@ -88,7 +88,11 @@ public final class MenuBackground {
      * side is at most {@code maxSide} (0 = full size), black and white if asked.
      */
     public static NativeImage decode(Path file, int maxSide, boolean gray) throws IOException {
-        byte[] bytes = Files.readAllBytes(file);
+        return decode(Files.readAllBytes(file), maxSide, gray);
+    }
+
+    /** The same from bytes (a downloaded icon). */
+    public static NativeImage decode(byte[] bytes, int maxSide, boolean gray) throws IOException {
         ByteBuffer data = MemoryUtil.memAlloc(bytes.length);
         try (MemoryStack stack = MemoryStack.stackPush()) {
             data.put(bytes).flip();

@@ -30,7 +30,7 @@ public final class PackScreen extends Screen {
     private static final int BG = 0xE00B0D12, PANEL = 0xFF14171E, CARD = 0xFF1B1F28, CARD_HOVER = 0xFF232836,
             LINE = 0xFF2A3040, ACCENT = 0xFF8B6CFF, ACCENT_DIM = 0xFF5B47B0, TEXT = 0xFFF2F3F7, MUTED = 0xFF8C93A6, GOOD = 0xFF5EE0A0;
 
-    private static final String PICTURE_TAB = "Menü-Bild";
+    private static final String PICTURE_TAB = "Menü-Bild", BROWSER_TAB = "Pack-Browser";
     private static final int HEADER = 30, FOOTER = 30, SIDEBAR = 112, PICKER = 156, CARD_W = 128, CARD_H = 46, GAP = 6;
 
     private final Screen parent;
@@ -62,6 +62,7 @@ public final class PackScreen extends Screen {
         LinkedHashSet<String> groups = new LinkedHashSet<>();
         for (Slot s : Slot.ALL) groups.add(s.group());
         tabs.addAll(groups);
+        tabs.add(BROWSER_TAB);
         tabs.add(PICTURE_TAB);
         tab = tabs.get(0);
     }
@@ -69,6 +70,13 @@ public final class PackScreen extends Screen {
     @Override
     protected void init() {
         if (packs.isEmpty()) packs = PackFiles.scan(minecraft.getResourcePackDirectory(), MixWriter.FOLDER);
+        String keep = searchBox == null ? "" : searchBox.getValue();
+        searchBox = new net.minecraft.client.gui.components.EditBox(font, SIDEBAR + 14, HEADER + 34, 200, 18, Component.literal("Suche"));
+        searchBox.setHint(Component.literal("z. B. K1RBE, Crystal, Totem …"));
+        searchBox.setMaxLength(60);
+        searchBox.setValue(keep);
+        searchBox.visible = false;
+        addWidget(searchBox);
     }
 
     // ------------------------------------------------------------ actions
@@ -202,7 +210,9 @@ public final class PackScreen extends Screen {
             ty += 22;
         }
 
+        if (searchBox != null) searchBox.visible = tab.equals(BROWSER_TAB);
         if (tab.equals(PICTURE_TAB)) renderPictureTab(g, mx, my, top, bottom);
+        else if (tab.equals(BROWSER_TAB)) renderBrowserTab(g, mx, my, top, bottom, delta);
         else renderItemsTab(g, mx, my, top, bottom);
 
         // Footer
@@ -413,10 +423,126 @@ public final class PackScreen extends Screen {
         thumbs.clear();
     }
 
+    // ------------------------------------------------------------ pack browser (Modrinth)
+
+    private net.minecraft.client.gui.components.EditBox searchBox;
+    private List<Modrinth.Hit> results = null;
+    private boolean searching = false;
+    private final Map<String, Preview> icons = new HashMap<>();
+    private final java.util.Set<String> iconRequested = new java.util.HashSet<>();
+    private final java.util.Set<String> downloading = new java.util.HashSet<>(), downloaded = new java.util.HashSet<>();
+    private static final String[] QUICK = {"Beliebt", "Crystal PvP", "PvP", "K1RBE", "Marlow", "Totem", "FPS", "Overlay"};
+
+    private void search(String query) {
+        searching = true;
+        results = null;
+        scroll = 0;
+        Modrinth.search(query.equals("Beliebt") ? "" : query).whenComplete((hits, error) -> minecraft.execute(() -> {
+            searching = false;
+            results = hits == null ? List.of() : hits;
+            if (error != null) say("Modrinth nicht erreichbar");
+        }));
+    }
+
+    private void requestIcon(Modrinth.Hit hit) {
+        if (!iconRequested.add(hit.id())) return;
+        Modrinth.icon(hit.iconUrl()).whenComplete((bytes, error) -> {
+            if (bytes == null) return;
+            minecraft.execute(() -> {
+                try {
+                    NativeImage image = MenuBackground.decode(bytes, 64, false);
+                    Identifier id = Identifier.fromNamespaceAndPath(LunarPacks.MOD_ID, "icon/" + hit.id().toLowerCase(java.util.Locale.ROOT));
+                    minecraft.getTextureManager().register(id, new DynamicTexture(() -> "Lunar Packs icon", image));
+                    icons.put(hit.id(), new Preview(id, image.getWidth(), image.getHeight()));
+                } catch (Exception ignored) {
+                    // webp and the like: no icon, the placeholder stays.
+                }
+            });
+        });
+    }
+
+    private void download(Modrinth.Hit hit) {
+        if (!downloading.add(hit.id())) return;
+        say("Lade " + shortName(hit.title(), 28) + " …");
+        Modrinth.download(hit, minecraft.getResourcePackDirectory()).whenComplete((file, error) -> minecraft.execute(() -> {
+            downloading.remove(hit.id());
+            if (error != null) {
+                Throwable cause = error.getCause() != null ? error.getCause() : error;
+                say("Fehler: " + cause.getMessage());
+                return;
+            }
+            downloaded.add(hit.id());
+            packs = PackFiles.scan(minecraft.getResourcePackDirectory(), MixWriter.FOLDER);
+            say(shortName(hit.title(), 28) + " geladen – jetzt bei den Items wählbar");
+        }));
+    }
+
+    private static String count(long n) {
+        return n >= 1_000_000 ? String.format(java.util.Locale.ROOT, "%.1fM", n / 1_000_000.0)
+                : n >= 1_000 ? String.format(java.util.Locale.ROOT, "%.0fk", n / 1_000.0) : String.valueOf(n);
+    }
+
+    private void renderBrowserTab(GuiGraphics g, int mx, int my, int top, int bottom, float delta) {
+        int x = SIDEBAR + 14, areaR = width - 14;
+        g.drawString(font, "Pack-Browser", x, top + 8, TEXT, false);
+        g.drawString(font, "Packs von Pros direkt von Modrinth laden – danach einzelne Items daraus wählen", x, top + 20, MUTED, false);
+        searchBox.setX(x);
+        searchBox.setY(top + 34);
+        searchBox.setWidth(Math.min(260, areaR - x - 70));
+        searchBox.visible = true;
+        searchBox.render(g, mx, my, delta);
+        button(g, "Suchen", x + searchBox.getWidth() + 6, top + 34, 60, 18, true, !searching, mx, my, () -> search(searchBox.getValue()));
+        int qx = x, qy = top + 58;
+        for (String q : QUICK) {
+            int w = font.width(q) + 12;
+            if (qx + w > areaR) break;
+            button(g, q, qx, qy, w, 16, false, !searching, mx, my, () -> {
+                searchBox.setValue(q.equals("Beliebt") ? "" : q);
+                search(q);
+            });
+            qx += w + 4;
+        }
+
+        int listTop = top + 82, rowH = 40;
+        if (results == null) {
+            g.drawString(font, searching ? "Suche läuft …" : "Such nach einem Pack oder tipp auf einen Vorschlag.", x, listTop + 4, MUTED, false);
+            return;
+        }
+        if (results.isEmpty()) {
+            g.drawString(font, "Nichts gefunden.", x, listTop + 4, MUTED, false);
+            return;
+        }
+        int visible = Math.max(1, (bottom - listTop - 4) / rowH);
+        scroll = Math.max(0, Math.min(scroll, Math.max(0, results.size() - visible)));
+        for (int i = scroll; i < Math.min(results.size(), scroll + visible); i++) {
+            Modrinth.Hit hit = results.get(i);
+            int y = listTop + (i - scroll) * rowH;
+            boolean over = hover(x, y, areaR - x, rowH - 4, mx, my);
+            g.fill(x, y, areaR, y + rowH - 4, over ? CARD_HOVER : CARD);
+            g.renderOutline(x, y, areaR - x, rowH - 4, LINE);
+            requestIcon(hit);
+            Preview icon = icons.get(hit.id());
+            if (icon != null) drawCover(g, icon.id(), icon.width(), icon.height(), x + 4, y + 2, 32, 32);
+            else g.fill(x + 4, y + 2, x + 36, y + 34, 0xFF262B38);
+            g.drawString(font, shortName(hit.title(), 34), x + 44, y + 6, TEXT, false);
+            g.drawString(font, "von " + shortName(hit.author(), 18) + " · " + count(hit.downloads()) + " Downloads", x + 44, y + 19, MUTED, false);
+            boolean have = downloaded.contains(hit.id()), busy = downloading.contains(hit.id());
+            button(g, have ? "✔ Geladen" : busy ? "Lädt …" : "Herunterladen", areaR - 98, y + 8, 92, 18, !have && !busy, !have && !busy, mx, my, () -> download(hit));
+        }
+    }
+
+    private void releaseIcons() {
+        for (Preview p : icons.values()) if (p != null) minecraft.getTextureManager().release(p.id());
+        icons.clear();
+        iconRequested.clear();
+    }
+
     // ------------------------------------------------------------ input
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        // The search field takes the keyboard when clicked, gives it back when clicked elsewhere.
+        if (searchBox != null && searchBox.visible) setFocused(searchBox.isMouseOver(event.x(), event.y()) ? searchBox : null);
         if (event.button() == 0) {
             for (int i = hits.size() - 1; i >= 0; i--) {
                 Hit h = hits.get(i);
@@ -427,6 +553,16 @@ public final class PackScreen extends Screen {
             }
         }
         return super.mouseClicked(event, doubleClick);
+    }
+
+    @Override
+    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+        // Enter in the search field searches.
+        if (searchBox != null && searchBox.visible && searchBox.isFocused() && (event.input() == 257 || event.input() == 335)) {
+            search(searchBox.getValue());
+            return true;
+        }
+        return super.keyPressed(event);
     }
 
     @Override
@@ -441,6 +577,7 @@ public final class PackScreen extends Screen {
     public void removed() {
         releasePreviews();
         releaseThumbs();
+        releaseIcons();
         super.removed();
     }
 
