@@ -587,6 +587,11 @@ ipcMain.handle('tools:conflicts', async () => {
   for (const p of procs) { const n = OTHER_TWEAKERS[p.name.toLowerCase()]; if (n) found.add(n) }
   return [...found]
 })
+// Security check: only when the page is opened or "Prüfen" is clicked, never in
+// the watcher. "full" runs it elevated (Defender exclusions, C:Recovery and
+// SYSTEM tasks are only readable as admin); every fix needs admin.
+ipcMain.handle('security:scan', (_e, full) => engine('security-scan', { elevate: !!full }))
+ipcMain.handle('security:fix', (_e, fix) => engine('security-fix', { arg: fix, elevate: true }))
 ipcMain.handle('proc:kill', (_e, pids) => {
   let killed = 0
   for (const pid of pids) { try { process.kill(pid); killed++ } catch {} }
@@ -645,6 +650,18 @@ async function selftest(file) {
   await step('overview', async () => { const r = await engine('overview'); if (!r.ok || !r.tweaks || !r.dns) throw new Error(JSON.stringify(r).slice(0, 300)); return { tweaks: r.tweaks.length, startup: (r.startup || []).length, dns: r.dns.adapters.length } })
   await step('startup-list', async () => { const r = await engine('startup-list'); if (!r.ok) throw new Error(r.error); return r })
   await step('clean-scan', async () => { const r = await engine('clean-scan'); if (!r.ok) throw new Error(r.error); return r })
+  await step('security-scan', async () => { const r = await engine('security-scan'); if (!r.ok || !r.checks || r.checks.length < 6) throw new Error(JSON.stringify(r).slice(0, 300)); return r })
+  // The page itself: opening "Sicherheit" runs the scan once and lists every check.
+  await step('security-page', async () => {
+    const js = "document.querySelector('#nav [data-page=security]').click()"
+    await win.webContents.executeJavaScript(js)
+    for (let i = 0; i < 120; i++) {
+      const n = await win.webContents.executeJavaScript("document.querySelectorAll('#secChecks .li').length")
+      if (n >= 6) return { rows: n, findings: await win.webContents.executeJavaScript("document.querySelectorAll('#secFindings .issue').length") }
+      await new Promise(r => setTimeout(r, 500))
+    }
+    throw new Error('security page empty: ' + await win.webContents.executeJavaScript("document.getElementById('secChecks').textContent"))
+  })
   // Only the elevated path (Start-Process -Verb RunAs, its quoting and the answer file).
   if (selftestArg.includes('elevated')) {
     await step('elevated-clean-scan', async () => { const r = await engine('clean-scan', { elevate: true }); if (!r.ok) throw new Error(r.error); return r.targets.length })

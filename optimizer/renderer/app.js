@@ -43,6 +43,7 @@
     liveTick()
     if (p === 'startup' && !startupLoaded) loadStartup()
     if (p === 'clean' && !cleanLoaded) scanClean()
+    if (p === 'security' && !secLoaded) scanSecurity()
     requestAnimationFrame(() => charts.forEach(c => { c.resize(); c.draw() }))
   }
   document.querySelectorAll('#nav a').forEach(a => a.onclick = () => go(a.dataset.page))
@@ -347,6 +348,51 @@
     await scanClean()
   })
 
+  // ------------------------------------------------------------ security
+  // One engine run when the page is opened or "Prüfen" is clicked; nothing polls.
+  // "Vollständig" runs it elevated: Defender exclusions, C:Recovery and SYSTEM
+  // tasks are only readable as admin.
+  let secLoaded = false, secList = []
+  async function scanSecurity(full = false) {
+    secLoaded = true
+    $('secChecks').innerHTML = `<div class="empty">${full ? 'Wird mit Admin-Rechten geprüft …' : 'Wird geprüft …'}</div>`
+    const r = await api.security(full).catch(() => null)
+    if (!r || !r.ok) { $('secChecks').innerHTML = `<div class="empty">${esc(r && r.error || 'Nicht verfügbar')}</div>`; return }
+    S.security = r
+    renderSecurity(); render()
+  }
+  function renderSecurity() {
+    const r = S.security, limited = r.limited || []
+    const order = { bad: 0, warn: 1, info: 2 }
+    secList = [...r.findings].sort((a, b) => order[a.sev] - order[b.sev])
+    const worst = area => (secList.find(f => f.area === area) || {}).sev || 'info'
+    $('secFull').hidden = r.admin || !limited.length
+    $('secChecks').innerHTML = r.checks.map(c => `<div class="li"><i class="sev ${c.ok ? 'good' : worst(c.area)}"></i><div><b>${esc(c.label)}</b></div><span class="note-r">${esc(c.note)}</span></div>`).join('') +
+      (limited.length ? `<div class="li"><i class="sev info"></i><div><b>Ohne Admin-Rechte nicht alles lesbar</b><small>${esc(limited.join(', '))}. „Vollständig prüfen“ fragt einmal nach Admin-Rechten.</small></div></div>` : '')
+    $('secCount').textContent = secList.length || ''
+    $('secFindings').innerHTML = secList.length ? secList.map((f, i) => `<div class="issue"><i class="sev ${f.sev}"></i><div><b>${esc(f.title)}</b><small>${esc(f.detail)}</small>${f.command ? `<code>${esc(f.command)}</code>` : ''}</div>
+      ${f.fix ? `<button class="btn ghost sm" data-secfix="${i}"><span>${esc(f.fixLabel)}</span></button>` : ''}${f.area === 'autostart' ? '<button class="btn ghost sm" data-go="startup"><span>Autostart</span></button>' : ''}</div>`).join('')
+      : `<div class="issue"><i class="sev good"></i><div><b>Nichts Auffälliges</b><small>Firewall an, keine bedenklichen Defender-Ausnahmen, Aufgaben oder Autostarts.${limited.length ? ' Ohne Admin-Rechte war nicht alles lesbar.' : ''}</small></div></div>`
+  }
+  $('secScan').onclick = e => busy(e.currentTarget, () => scanSecurity(false))
+  $('secFull').onclick = e => busy(e.currentTarget, () => scanSecurity(true))
+  document.addEventListener('click', async e => {
+    const b = e.target.closest('[data-secfix]'); if (!b) return
+    const f = secList[+b.dataset.secfix]; if (!f || !f.fix) return
+    const q = {
+      firewall: ['Firewall einschalten?', 'Schaltet die Windows-Firewall in allen Profilen wieder ein und entfernt eine Richtlinie, die sie ausgeschaltet hält.', 'Einschalten'],
+      exclusion: ['Ausnahme entfernen?', `„${f.fix.value}“ wird wieder von Defender geprüft. Braucht ein Programm die Ausnahme wirklich, lässt sie sich in der Windows-Sicherheit neu anlegen.`, 'Entfernen'],
+      task: ['Aufgabe deaktivieren?', `„${f.fix.path}“ startet nicht mehr. Gelöscht wird nichts, in der Aufgabenplanung lässt sie sich wieder aktivieren.`, 'Deaktivieren'],
+    }[f.fix.type]
+    if (!q || !await confirmBox(...q)) return
+    await busy(b, async () => {
+      const r = await api.securityFix(f.fix)
+      if (!r || !r.ok) { toast('Nicht geändert: ' + (r && r.error), true); return }
+      toast({ firewall: 'Firewall ist wieder an.', exclusion: 'Ausnahme entfernt.', task: 'Aufgabe deaktiviert.' }[f.fix.type])
+      if (r.scan && r.scan.ok) { S.security = r.scan; renderSecurity(); render() } else await scanSecurity()
+    })
+  })
+
   // ------------------------------------------------------------ processes
   let procTimer = 0
   async function refreshProcs() {
@@ -600,6 +646,11 @@
     if (S.hw && (S.hw.layout || []).filter(m => m.size).length === 1) list.push({ sev: 'info', pts: 4, title: 'Arbeitsspeicher im Single-Channel', detail: 'Ein zweites gleiches Modul verdoppelt die Bandbreite.', act: ['Details', 'hardware'] })
     if (S.hw && (S.hw.disks || []).length && S.hw.disks.every(p => /HD/i.test(p.type || ''))) list.push({ sev: 'bad', pts: 10, title: 'Keine SSD gefunden', detail: 'Mit einer SSD starten Windows und Spiele um ein Vielfaches schneller.', act: ['Details', 'hardware'] })
     if (S.conflicts && S.conflicts.length >= 2) list.push({ sev: 'warn', pts: Math.min(10, S.conflicts.length * 2), title: `${S.conflicts.length} Tweak-Programme laufen gleichzeitig`, detail: `${S.conflicts.join(', ')}: Sie stellen Energieplan, Prioritäten und RAM gegenseitig um und kosten selbst CPU. Eins reicht, die anderen beenden und aus dem Autostart nehmen.`, act: ['Autostart', 'startup'] })
+    if (S.security) {
+      const bad = S.security.findings.filter(f => f.sev === 'bad'), warn = S.security.findings.filter(f => f.sev === 'warn')
+      if (bad.length) list.push({ sev: 'bad', pts: Math.min(30, bad.length * 10), title: bad.length === 1 ? 'Ein Sicherheitsproblem gefunden' : `${bad.length} Sicherheitsprobleme gefunden`, detail: bad.map(f => f.title).join(' · '), act: ['Ansehen', 'security'] })
+      else if (warn.length) list.push({ sev: 'warn', pts: 3, title: warn.length === 1 ? 'Ein Sicherheitshinweis' : `${warn.length} Sicherheitshinweise`, detail: warn.map(f => f.title).join(' · '), act: ['Ansehen', 'security'] })
+    }
     if (S.startup) { const on = S.startup.filter(i => i.enabled).length; if (on > 8) list.push({ sev: 'warn', pts: 5, title: `${on} Programme starten mit Windows`, detail: 'Jedes davon kostet beim Hochfahren Zeit und läuft danach im Hintergrund.', act: ['Autostart', 'startup'] }) }
     if (S.clean) { const junk = S.clean.targets.filter(t => t.id !== 'recycle').reduce((a, t) => a + t.bytes, 0); if (junk > 2 * GB) list.push({ sev: 'info', pts: 3, title: `${fmtBytes(junk)} Datenmüll`, detail: 'Temporäre Dateien und alte Update-Downloads.', act: ['Aufräumen', 'clean'] }) }
     if (S.cpuSamples.length >= 20) { const avg = S.cpuSamples.reduce((a, b) => a + b, 0) / S.cpuSamples.length; if (avg > 35) list.push({ sev: 'warn', pts: 6, title: `CPU im Leerlauf zu ${Math.round(avg)} % ausgelastet`, detail: 'Irgendetwas läuft im Hintergrund mit. Der Live-Monitor zeigt was.', act: ['Ansehen', 'monitor'] }) }

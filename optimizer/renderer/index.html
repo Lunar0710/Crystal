@@ -30,6 +30,7 @@
       <a data-page="tweaks"><svg viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>Optimieren</a>
       <a data-page="startup"><svg viewBox="0 0 24 24"><path d="M12 3v9"/><path d="M6.3 7.3a8 8 0 1 0 11.4 0"/></svg>Autostart</a>
       <a data-page="clean"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>Aufräumen</a>
+      <a data-page="security"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v5.5c0 4.4-3 8.2-7 9.5-4-1.3-7-5.1-7-9.5V6z"/><path d="M9 12l2 2 4-4"/></svg>Sicherheit</a>
       <a data-page="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Einstellungen</a>
     </nav>
     <div class="side-foot">
@@ -149,6 +150,15 @@
       <p class="note">Nur Dateien, die Windows und Programme von selbst neu anlegen. Deine Dokumente, Bilder und Downloads werden nie angefasst. Shader-Caches bleiben, damit Spiele danach nicht ruckeln.</p>
       <div class="list shell"><div class="core" id="clean"><div class="empty">Wird gescannt …</div></div></div>
       <div class="clean-foot"><span id="cleanTotal"></span><button class="btn solid" id="cleanRun" disabled><span>Aufräumen</span><i><svg viewBox="0 0 16 16"><path d="M3 8.5l3 3 7-7"/></svg></i></button></div>
+    </section>
+    <!-- Sicherheit -->
+    <section class="page" id="p-security">
+      <div class="page-head"><div><span class="eyebrow">Sicherheit</span><h1>Was Schadsoftware gern heimlich verstellt.</h1></div>
+        <div class="row-btns"><button class="btn ghost sm" id="secFull" hidden><span>Vollständig prüfen (Admin)</span></button><button class="btn solid sm" id="secScan"><span>Prüfen</span></button></div></div>
+      <p class="note">Fernsteuerungs-Trojaner, oft versteckt in Cheat-Clients und „Mods“, schalten die Firewall ab, nehmen sich von der Virenprüfung aus und verstecken sich in geplanten Aufgaben. Hier wird nur gelesen. Ändern passiert nur, wenn du bei einem Punkt auf den Knopf drückst; Aufgaben werden dabei nur deaktiviert, nie gelöscht. Ersetzt keinen Virenscanner.</p>
+      <div class="list shell"><div class="core" id="secChecks"><div class="empty">Noch nicht geprüft.</div></div></div>
+      <h2 class="h2">Gefunden <span id="secCount" class="count"></span></h2>
+      <div class="issues" id="secFindings"></div>
     </section>
     <!-- Einstellungen -->
     <section class="page" id="p-settings">

@@ -12,6 +12,7 @@
   Actions: state | apply -Ids a,b | revert -Ids a,b | undo
            startup-list | startup-set -Arg <json>
            clean-scan | clean-run -Ids a,b
+           security-scan | security-fix -Arg <json>
 #>
 param(
     [string]$Action = 'state',
@@ -881,6 +882,393 @@ function Invoke-RamClean([int[]]$Skip) {
     return [pscustomobject]@{ ok = $true; trimmed = $n; purged = $purged; freedBytes = [int64]([math]::Max(0, [double]$after - [double]$before)); availBytes = [int64]$after; totalBytes = [int64][LunarMem]::Total() }
 }
 
+# ------------------------------------------------------------------ security
+# Read-only look at what remote-access trojans (often from cheat clients) like
+# to change: firewall off, broad Defender exclusions, scheduled tasks and
+# autostarts running from odd folders, scripts that survive "Reset this PC".
+# Registry, COM and the event log reader only: the CIM cmdlets
+# (Get-NetFirewallProfile, Get-MpPreference, Get-ScheduledTask) take seconds
+# each on a busy PC. Nothing is changed here; security-fix changes exactly one
+# item and only if this scan still flags it.
+$WinNames = @('runtimebroker.exe', 'svchost.exe', 'csrss.exe', 'lsass.exe', 'winlogon.exe', 'wininit.exe', 'services.exe', 'smss.exe', 'explorer.exe',
+    'dllhost.exe', 'taskhostw.exe', 'conhost.exe', 'spoolsv.exe', 'sihost.exe', 'ctfmon.exe', 'dwm.exe', 'taskmgr.exe', 'msmpeng.exe', 'searchindexer.exe',
+    'searchhost.exe', 'wuauclt.exe', 'rundll32.exe', 'regsvr32.exe', 'audiodg.exe', 'fontdrvhost.exe', 'securityhealthservice.exe', 'securityhealthsystray.exe',
+    'wmiprvse.exe', 'lsm.exe', 'system.exe', 'winupdate.exe', 'windowsupdate.exe')
+$Interpreters = @('python.exe', 'pythonw.exe', 'powershell.exe', 'pwsh.exe', 'cmd.exe', 'wscript.exe', 'cscript.exe', 'mshta.exe', 'rundll32.exe', 'regsvr32.exe', 'msbuild.exe', 'installutil.exe')
+$RiskyExt = @('exe', 'dll', 'scr', 'com', 'pif', 'ps1', 'psm1', 'bat', 'cmd', 'vbs', 'vbe', 'js', 'jse', 'wsf', 'hta', 'jar', 'py', 'pyw', 'msi', 'lnk')
+$TempDirs = @($env:TEMP, $env:TMP, (Join-Path $env:SystemRoot 'Temp')) | Where-Object { $_ } | ForEach-Object { $_.TrimEnd('\').ToLower() } | Select-Object -Unique
+
+$SigCache = @{}
+# 'ms' = validly signed by Microsoft, 'valid' = validly signed by someone else, 'none', 'missing'.
+function Get-Signer([string]$p) {
+    $k = $p.ToLower()
+    if ($SigCache.ContainsKey($k)) { return $SigCache[$k] }
+    $r = 'none'
+    if (-not (Test-Path -LiteralPath $p -PathType Leaf -ErrorAction SilentlyContinue)) { $r = 'missing' }
+    else {
+        try {
+            $s = Get-AuthenticodeSignature -LiteralPath $p -ErrorAction Stop
+            if ($s.Status -eq 'Valid') { $r = $(if ($s.SignerCertificate.Subject -match 'O=Microsoft Corporation') { 'ms' } else { 'valid' }) }
+        } catch {}
+    }
+    $SigCache[$k] = $r
+    return $r
+}
+
+# The program a command line starts: "C:\a b\x.exe" -arg, C:\x.exe -arg, %windir%\x.exe.
+function Get-CmdExe([string]$cmd) {
+    $c = [Environment]::ExpandEnvironmentVariables("$cmd").Trim()
+    if (-not $c) { return '' }
+    if ($c.StartsWith('"')) { return $c.Substring(1).Split('"')[0] }
+    if ($c -match '^(.+?\.(exe|com|bat|cmd|vbs|js|ps1|scr|pif|py|pyw))(\s|,|$)') { return $Matches[1] }
+    return ($c -split '\s')[0]
+}
+# Script and program paths inside the arguments (python C:\x\y.py, cmd /c C:\x.bat).
+function Get-ArgPaths([string]$args2) {
+    $a = [Environment]::ExpandEnvironmentVariables("$args2")
+    @([regex]::Matches($a, '[a-zA-Z]:\\[^"*?<>|\r\n]+?\.(?:exe|dll|py|pyw|ps1|vbs|js|jse|bat|cmd|hta|jar|scr)\b') | ForEach-Object { $_.Value })
+}
+function Test-Under([string]$p, [string[]]$dirs) {
+    $l = $p.ToLower()
+    foreach ($d in $dirs) { if ($d -and ($l -eq $d -or $l.StartsWith($d + '\'))) { return $true } }
+    return $false
+}
+# Plain string work instead of [IO.Path]: Windows PowerShell throws on ? or < in a path.
+function Get-Leaf([string]$p) { return ("$p".Split('\')[-1]).ToLower() }
+function Get-Dir([string]$p) { $i = "$p".LastIndexOf('\'); if ($i -lt 0) { return '' }; return "$p".Substring(0, $i).ToLower() }
+$SysDirs = @($env:SystemRoot, (Join-Path $env:SystemRoot 'System32'), (Join-Path $env:SystemRoot 'SysWOW64')) | ForEach-Object { $_.ToLower() }
+# Why a program path is suspicious, or $null. -AppData: also programs in the
+# user's AppData that aren't validly signed (scheduled tasks; Run keys point
+# there all the time).
+function Get-PathRisk([string]$p, [switch]$AppData) {
+    $r = Get-PathRiskCore $p -AppData:$AppData
+    # Already deleted: a leftover pointing nowhere, worth a look but no alarm.
+    if ($r -and -not (Test-Path -LiteralPath $p -ErrorAction SilentlyContinue)) { $r = @{ sev = 'warn'; why = $r.why + ' Die Datei selbst gibt es nicht mehr; vermutlich ein Rest, der nichts mehr startet.' } }
+    return $r
+}
+function Get-PathRiskCore([string]$p, [switch]$AppData) {
+    if ($p -notmatch '^[a-zA-Z]:\\') { return $null }
+    $l = $p.ToLower()
+    if ($l -match '^[a-z]:\\recovery(\\|$)') { return @{ sev = 'bad'; why = 'liegt in C:\Recovery, dem Wiederherstellungs-Ordner von Windows. Dort haben Programme nichts zu suchen, Schadsoftware versteckt sich gern dort.' } }
+    if ((Test-Under $l $TempDirs) -or $l -match '\\appdata\\local\\temp\\') { return @{ sev = 'bad'; why = 'liegt in einem Temp-Ordner. Echte Programme starten nicht dauerhaft aus Temp.' } }
+    $leaf = Get-Leaf $l
+    $dir = Get-Dir $l
+    if ($WinNames -contains $leaf -and $SysDirs -notcontains $dir -and $l -notmatch '\\windows\\(winsxs|servicing|systemapps)\\') {
+        $sig = Get-Signer $p
+        if ($sig -ne 'ms') { return @{ sev = 'bad'; why = "trägt den Namen einer Windows-Datei ($leaf), liegt aber nicht in System32 und ist nicht von Microsoft signiert. Klassische Tarnung von Schadsoftware." } }
+    }
+    if ($AppData -and $l -match '\\appdata\\(local|roaming)\\') {
+        $sig = Get-Signer $p
+        if ($sig -eq 'none') { return @{ sev = 'warn'; why = 'liegt im AppData-Ordner und ist nicht signiert. Kann harmlos sein (kleine Tools), ist aber auch der Lieblingsort von Schadsoftware.' } }
+    }
+    return $null
+}
+
+function Get-FirewallState {
+    $names = @{ 1 = 'Domäne'; 2 = 'Privat'; 4 = 'Öffentlich' }
+    $polKey = @{ 1 = 'DomainProfile'; 2 = 'PrivateProfile'; 4 = 'PublicProfile' }
+    $fw = $null; try { $fw = New-Object -ComObject HNetCfg.FwPolicy2 } catch {}
+    foreach ($t in 1, 2, 4) {
+        $on = $null
+        if ($fw) { try { $on = [bool]$fw.FirewallEnabled($t) } catch {} }
+        $pol = Get-RegValue "HKLM:\SOFTWARE\Policies\Microsoft\WindowsFirewall\$($polKey[$t])" 'EnableFirewall'
+        [pscustomobject]@{ type = $t; name = $names[$t]; enabled = $on; policyOff = ($null -ne $pol -and [int]$pol -eq 0) }
+    }
+}
+# Firewall switched off in the last 7 days, from the firewall's own log
+# (2003 on Windows 10, 2082 on 11). Setting type 1 = "Firewall aktivieren".
+function Get-FirewallOffEvents {
+    $xp = "*[System[(EventID=2003 or EventID=2082) and TimeCreated[timediff(@SystemTime) <= 604800000]] and EventData[Data[@Name='SettingType']='1']]"
+    $list = @()
+    try {
+        $q = New-Object Diagnostics.Eventing.Reader.EventLogQuery('Microsoft-Windows-Windows Firewall With Advanced Security/Firewall', [Diagnostics.Eventing.Reader.PathType]::LogName, $xp)
+        $q.ReverseDirection = $true
+        $rd = New-Object Diagnostics.Eventing.Reader.EventLogReader($q)
+        $n = 0
+        while ($n -lt 300 -and ($e = $rd.ReadEvent())) {
+            $n++
+            $d = @{}; foreach ($x in ([xml]$e.ToXml()).Event.EventData.Data) { $d[$x.Name] = $x.'#text' }
+            $when = $e.TimeCreated; $e.Dispose()
+            $val = "$($d['SettingValue'])"
+            if ($val -notmatch '^0+$') { continue }
+            $prof = [int]$(if ($d['Profiles']) { $d['Profiles'] } else { $d['ProfileChanged'] })
+            $list += [pscustomobject]@{ time = $when.ToString('o'); profiles = $prof; app = "$($d['ModifyingApplication'])"; user = "$($d['ModifyingUser'])" }
+        }
+        $rd.Dispose()
+    } catch {}
+    return $list
+}
+
+$ExclAllow = '\\nv_cache(\\|$)|\\steam(\\|$)|\\steamapps(\\|$)|\\steamservice\.exe$'
+function Get-ExclusionRisk([string]$kind, [string]$value) {
+    $v = [Environment]::ExpandEnvironmentVariables($value).Trim().TrimEnd('\')
+    $l = $v.ToLower()
+    if ($l -match $ExclAllow) { return $null }
+    $prof = $env:USERPROFILE.ToLower()
+    if ($kind -eq 'extension') {
+        if ($RiskyExt -contains $l.TrimStart('.', '*')) { return @{ sev = 'bad'; why = "Defender prüft keine .$($l.TrimStart('.', '*'))-Dateien mehr, auf dem ganzen PC. Damit kann jedes Programm dieser Art unbemerkt laufen." } }
+        return $null
+    }
+    if ($kind -eq 'process') {
+        $leaf = Get-Leaf $l
+        if ($Interpreters -contains $leaf) { return @{ sev = 'bad'; why = "Alles, was $leaf ausführt, wird nicht mehr geprüft. Schadsoftware nutzt genau solche Programme (Python, PowerShell, cmd) als Träger." } }
+        $r = Get-PathRisk $v -AppData
+        if ($r) { return @{ sev = 'bad'; why = "Ausgenommenes Programm $($r.why)" } }
+        return $null
+    }
+    $x = $l -replace '\*', 'x'
+    $users = (Join-Path $env:SystemDrive 'Users').ToLower()
+    $broad = @(
+        @('^[a-z]:\\?(x)?$', 'ein ganzes Laufwerk'),
+        @("^$([regex]::Escape($users))(\\x)?$", 'alle Benutzerordner (C:\Users)'),
+        @("^$([regex]::Escape($users))\\[^\\]+$", 'einen kompletten Benutzerordner'),
+        @("^$([regex]::Escape($users))\\[^\\]+\\appdata(\\(local|roaming|locallow))?$", 'den ganzen AppData-Ordner'),
+        @('^[a-z]:\\recovery(\\|$)', 'den Wiederherstellungs-Ordner C:\Recovery'),
+        @('^[a-z]:\\windows(\\(system32|syswow64|temp))?$', 'einen Windows-Systemordner'),
+        @('^[a-z]:\\programdata$', 'den ganzen ProgramData-Ordner'),
+        @('^[a-z]:\\program files( \(x86\))?$', 'alle installierten Programme'),
+        @('^[a-z]:\\users\\public$', 'den öffentlichen Benutzerordner')
+    )
+    foreach ($b in $broad) { if ($x -match $b[0]) { return @{ sev = 'bad'; why = "Diese Ausnahme nimmt $($b[1]) von der Virenprüfung aus. Was dort liegt, sieht Defender nicht mehr." } } }
+    if ($x -eq $prof) { return @{ sev = 'bad'; why = 'Diese Ausnahme nimmt deinen kompletten Benutzerordner von der Virenprüfung aus.' } }
+    $ext = $(if ((Get-Leaf $l) -match '\.([^.]+)$') { $Matches[1] } else { '' })
+    $tempLike = (Test-Under $l $TempDirs) -or $l -match '\\appdata\\local\\temp(\\|$)'
+    if ($RiskyExt -contains $ext -and ($tempLike -or $l -match '\\appdata\\|^[a-z]:\\recovery\\|^[a-z]:\\users\\public\\')) {
+        return @{ sev = 'bad'; why = 'Ein einzelnes Programm in AppData, Temp oder C:\Recovery ist von der Virenprüfung ausgenommen. Das richten fast nur Schadprogramme für sich selbst ein.' }
+    }
+    if ($tempLike) { return @{ sev = 'warn'; why = 'Ein Temp-Ordner ist von der Virenprüfung ausgenommen. Dort landen Downloads und Installer, gerade die sollte Defender sehen.' } }
+    return $null
+}
+# Exclusions straight from the registry (only admins may read it). Policy
+# ones come from a group policy and can't be removed with Remove-MpPreference.
+function Get-DefenderExclusions {
+    $out = @(); $denied = $false
+    $kinds = @{ Paths = 'path'; Processes = 'process'; Extensions = 'extension' }
+    foreach ($root in @(@{ key = 'HKLM:\SOFTWARE\Microsoft\Windows Defender\Exclusions'; policy = $false }, @{ key = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Exclusions'; policy = $true })) {
+        foreach ($k in $kinds.Keys) {
+            $p = "$($root.key)\$k"
+            try {
+                $item = Get-Item -LiteralPath $p -ErrorAction Stop
+                foreach ($n in $item.GetValueNames()) { if ($n) { $out += [pscustomobject]@{ kind = $kinds[$k]; value = $n; policy = $root.policy } } }
+            } catch [System.Security.SecurityException] { $denied = $true } catch [System.UnauthorizedAccessException] { $denied = $true } catch {
+                if ("$($_.Exception.Message)" -match 'Zugriff|access|denied|verweigert') { $denied = $true }
+            }
+        }
+    }
+    return [pscustomobject]@{ items = $out; denied = $denied }
+}
+
+function Get-AllTasks {
+    $svc = New-Object -ComObject Schedule.Service
+    $svc.Connect()
+    $stack = New-Object Collections.Stack
+    $stack.Push($svc.GetFolder('\'))
+    $list = @()
+    while ($stack.Count) {
+        $f = $stack.Pop()
+        try { foreach ($t in $f.GetTasks(1)) { $list += $t } } catch {}
+        try { foreach ($c in $f.GetFolders(0)) { $stack.Push($c) } } catch {}
+    }
+    return $list
+}
+function Get-SuspiciousTasks {
+    $found = @()
+    foreach ($t in Get-AllTasks) {
+        try { $def = $t.Definition } catch { continue }
+        foreach ($a in $def.Actions) {
+            if ($a.Type -ne 0) { continue }
+            $exe = Get-CmdExe $a.Path
+            $risk = Get-PathRisk $exe -AppData
+            $hit = $exe
+            if (-not $risk -and $Interpreters -contains (Get-Leaf $exe)) {
+                foreach ($ap in Get-ArgPaths $a.Arguments) { $r2 = Get-PathRisk $ap -AppData; if ($r2) { $risk = $r2; $hit = $ap; break } }
+                if (-not $risk -and "$($a.Arguments)" -match '(?i)-e(nc|ncodedcommand)?\s+[A-Za-z0-9+/=]{40,}') { $risk = @{ sev = 'warn'; why = 'startet PowerShell mit verschlüsseltem (Base64-)Befehl. So verstecken Schadprogramme, was sie tun.' } }
+            }
+            if (-not $risk) { continue }
+            $user = "$($def.Principal.UserId)"; if (-not $user) { $user = "$($def.Principal.GroupId)" }
+            $found += [pscustomobject]@{ path = $t.Path; name = $t.Name; enabled = [bool]$t.Enabled; hidden = [bool]$def.Settings.Hidden; user = $user
+                                         command = (("$($a.Path) $($a.Arguments)").Trim()); hit = $hit; sev = $risk.sev; why = $risk.why }
+            break
+        }
+    }
+    return $found
+}
+
+function Get-SuspiciousRunKeys {
+    $keys = @(
+        @{ key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'; label = 'Benutzer' },
+        @{ key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\RunOnce'; label = 'Benutzer, einmalig' },
+        @{ key = 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Run'; label = 'Alle Benutzer' },
+        @{ key = 'HKLM:\Software\Microsoft\Windows\CurrentVersion\RunOnce'; label = 'Alle Benutzer, einmalig' },
+        @{ key = 'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Run'; label = 'Alle Benutzer (32 Bit)' }
+    )
+    $found = @()
+    foreach ($k in $keys) {
+        if (-not (Test-Path $k.key)) { continue }
+        $props = Get-ItemProperty -Path $k.key -ErrorAction SilentlyContinue
+        if (-not $props) { continue }
+        foreach ($p in $props.PSObject.Properties) {
+            if ($p.Name -like 'PS*') { continue }
+            $cmd = "$($p.Value)"
+            $exe = Get-CmdExe $cmd
+            $risk = Get-PathRisk $exe
+            if (-not $risk -and $Interpreters -contains (Get-Leaf $exe)) {
+                foreach ($ap in Get-ArgPaths $cmd) { $r2 = Get-PathRisk $ap; if ($r2) { $risk = $r2; break } }
+            }
+            if (-not $risk -and $exe -match '^[a-zA-Z]:\\' -and -not (Test-Path -LiteralPath $exe -ErrorAction SilentlyContinue)) {
+                $risk = @{ sev = 'warn'; why = 'zeigt auf eine Datei, die es nicht mehr gibt. Meist ein Rest eines deinstallierten Programms, manchmal der Rest einer entfernten Schadsoftware.' }
+            }
+            if ($risk) { $found += [pscustomobject]@{ name = $p.Name; source = $k.label; command = $cmd; sev = $risk.sev; why = $risk.why } }
+        }
+    }
+    return $found
+}
+
+# Scripts that Windows runs by itself after "Diesen PC zurücksetzen" or a fresh
+# setup. Some PC makers use them; a RAT uses them to come back after a reset.
+function Get-ResetScripts {
+    $out = @(); $denied = $false
+    $oem = Join-Path $env:SystemDrive 'Recovery\OEM'
+    try {
+        if (Test-Path -LiteralPath $oem -ErrorAction Stop) {
+            foreach ($f in Get-ChildItem -LiteralPath $oem -Force -File -ErrorAction Stop | Where-Object { $_.Name -eq 'ResetConfig.xml' -or $_.Extension -in '.cmd', '.bat' }) {
+                $runs = @()
+                if ($f.Name -eq 'ResetConfig.xml') { try { $runs = @(([xml](Get-Content -LiteralPath $f.FullName -Raw -ErrorAction Stop)).SelectNodes('//*[local-name()="Path"]') | ForEach-Object { $_.InnerText.Trim() }) } catch {} }
+                $out += [pscustomobject]@{ path = $f.FullName; modified = $f.LastWriteTime.ToString('o'); runs = $runs; preview = (Get-ScriptPreview $f.FullName) }
+            }
+        }
+    } catch { $denied = $true }
+    foreach ($n in 'SetupComplete.cmd', 'ErrorHandler.cmd') {
+        $p = Join-Path $env:SystemRoot "Setup\Scripts\$n"
+        if (Test-Path -LiteralPath $p) { $f = Get-Item -LiteralPath $p -Force; $out += [pscustomobject]@{ path = $f.FullName; modified = $f.LastWriteTime.ToString('o'); runs = @(); preview = (Get-ScriptPreview $f.FullName) } }
+    }
+    return [pscustomobject]@{ items = $out; denied = $denied }
+}
+function Get-ScriptPreview([string]$p) {
+    if ($p -notmatch '\.(cmd|bat)$') { return '' }
+    try { return ((Get-Content -LiteralPath $p -TotalCount 40 -ErrorAction Stop | Where-Object { $_.Trim() -and $_ -notmatch '^\s*(@?echo off|rem\b|::)' } | Select-Object -First 3) -join ' | ') } catch { return '' }
+}
+
+function Get-SecurityScan {
+    $sw = [Diagnostics.Stopwatch]::StartNew()
+    $findings = New-Object Collections.ArrayList
+    $checks = New-Object Collections.ArrayList
+    $limited = @()
+    $add = { param($f) [void]$findings.Add([pscustomobject]$f) }
+
+    # Firewall
+    $fw = @(Get-FirewallState)
+    $off = @($fw | Where-Object { $_.enabled -eq $false })
+    $polOff = @($fw | Where-Object { $_.policyOff })
+    if ($off.Count) {
+        & $add @{ id = 'firewall'; area = 'firewall'; sev = 'bad'; title = "Firewall ist aus: $(($off | ForEach-Object { $_.name }) -join ', ')"
+                  detail = 'Ohne Firewall kann jedes Programm im Netz Verbindungen zu deinem PC annehmen. Windows schaltet sie nie von selbst aus; das waren ein Programm, ein Tweak-Tool oder Schadsoftware.' + $(if ($polOff.Count) { ' Zusätzlich hält eine Richtlinie sie aus; die wird beim Einschalten entfernt.' } else { '' })
+                  fix = @{ type = 'firewall' }; fixLabel = 'Einschalten' }
+    } elseif ($polOff.Count) {
+        & $add @{ id = 'firewall-policy'; area = 'firewall'; sev = 'warn'; title = 'Eine Richtlinie will die Firewall ausschalten'
+                  detail = "Für $(($polOff | ForEach-Object { $_.name }) -join ', ')" + ' steht in den Gruppenrichtlinien „Firewall aus“. Auf einem Heim-PC setzt das kein normales Programm.'; fix = @{ type = 'firewall' }; fixLabel = 'Richtlinie entfernen' }
+    }
+    [void]$checks.Add([pscustomobject]@{ area = 'firewall'; label = 'Firewall'; ok = (-not $off.Count -and -not $polOff.Count); note = $(if ($off.Count) { "aus: $(($off | ForEach-Object { $_.name }) -join ', ')" } elseif (@($fw | Where-Object { $null -eq $_.enabled }).Count) { 'Status nicht lesbar' } else { 'an in allen Profilen' }) })
+
+    # Firewall switched off recently
+    $ev = @(Get-FirewallOffEvents)
+    if ($ev.Count) {
+        # One switch-off writes an event per profile: counted once.
+        $times = { param($l) @($l | ForEach-Object { $_.time.Substring(0, 19) } | Select-Object -Unique).Count }
+        $toggles = & $times $ev
+        $byApp = @($ev | Group-Object app | ForEach-Object { [pscustomobject]@{ app = $_.Name; count = (& $times $_.Group) } } | Sort-Object count -Descending)
+        $last = [datetime]$ev[0].time
+        $apps = ($byApp | ForEach-Object { "$(if ($_.app) { $_.app } else { 'unbekannt' }) ($($_.count)×)" }) -join ', '
+        & $add @{ id = 'firewall-events'; area = 'events'; sev = $(if ($off.Count) { 'bad' } else { 'warn' })
+                  title = "Firewall wurde in den letzten 7 Tagen $($toggles)× ausgeschaltet"
+                  detail = "Zuletzt am $($last.ToString('dd.MM. HH:mm')). Ausgeschaltet von: $apps." + $(if ($apps -match 'netsh\.exe') { ' netsh.exe ist ein Windows-Werkzeug; ein anderes Programm oder Skript hat es aufgerufen. Passiert das immer wieder, läuft etwas im Hintergrund, das die Firewall gezielt abschaltet.' } else { '' })
+                  apps = $byApp; fix = $null }
+    }
+    [void]$checks.Add([pscustomobject]@{ area = 'events'; label = 'Firewall-Protokoll (7 Tage)'; ok = ($ev.Count -eq 0); note = $(if ($ev.Count) { "$($toggles)× ausgeschaltet" } else { 'nie ausgeschaltet' }) })
+
+    # Defender exclusions
+    $ex = Get-DefenderExclusions
+    $exBad = 0
+    if ($ex.denied -and -not @($ex.items).Count) { $limited += 'Defender-Ausnahmen' }
+    foreach ($e in @($ex.items)) {
+        $r = Get-ExclusionRisk $e.kind $e.value
+        if (-not $r) { continue }
+        $exBad++
+        $kindLabel = @{ path = 'Ordner/Datei'; process = 'Programm'; extension = 'Dateityp' }[$e.kind]
+        & $add @{ id = "excl:$($e.kind):$($e.value)"; area = 'defender'; sev = $r.sev; title = "Defender-Ausnahme ($kindLabel): $($e.value)"
+                  detail = $r.why + $(if ($e.policy) { ' Per Gruppenrichtlinie gesetzt, entfernen über gpedit.msc.' } else { '' })
+                  fix = $(if ($e.policy) { $null } else { @{ type = 'exclusion'; kind = $e.kind; value = $e.value } }); fixLabel = 'Ausnahme entfernen' }
+    }
+    [void]$checks.Add([pscustomobject]@{ area = 'defender'; label = 'Defender-Ausnahmen'; ok = ($exBad -eq 0 -and -not ($ex.denied -and -not @($ex.items).Count)); note = $(if ($ex.denied -and -not @($ex.items).Count) { 'nur mit Admin-Rechten lesbar' } elseif ($exBad) { "$exBad von $(@($ex.items).Count) bedenklich" } else { "$(@($ex.items).Count) geprüft, unauffällig" }) })
+
+    # Scheduled tasks
+    $tasks = @(); $taskErr = $false
+    try { $tasks = @(Get-SuspiciousTasks) } catch { $taskErr = $true }
+    if (-not $IsAdmin) { $limited += 'Aufgabenplanung (nur eigene Aufgaben sichtbar)' }
+    foreach ($t in $tasks) {
+        & $add @{ id = "task:$($t.path)"; area = 'tasks'; sev = $(if ($t.enabled) { $t.sev } else { 'info' }); title = "Geplante Aufgabe $($t.path)$(if (-not $t.enabled) { ' (deaktiviert)' })"
+                  detail = "Startet $($t.hit): $($t.why)" + $(if ($t.user -match 'S-1-5-18|SYSTEM') { ' Läuft als SYSTEM, also mit vollen Rechten.' } else { '' }) + $(if ($t.hidden) { ' Die Aufgabe ist als versteckt markiert.' } else { '' })
+                  command = $t.command; fix = $(if ($t.enabled) { @{ type = 'task'; path = $t.path } } else { $null }); fixLabel = 'Deaktivieren' }
+    }
+    [void]$checks.Add([pscustomobject]@{ area = 'tasks'; label = 'Geplante Aufgaben'; ok = (-not @($tasks | Where-Object { $_.enabled }).Count -and -not $taskErr); note = $(if ($taskErr) { 'nicht lesbar' } elseif ($tasks.Count) { "$($tasks.Count) auffällig" } else { 'unauffällig' }) })
+
+    # Reset / setup scripts
+    $rs = Get-ResetScripts
+    if ($rs.denied) { $limited += 'C:\Recovery' }
+    foreach ($f in @($rs.items)) {
+        $isReset = $f.path -match '\\Recovery\\'
+        & $add @{ id = "file:$($f.path)"; area = 'files'; sev = 'warn'; title = "$(if ($isReset) { 'Skript für „PC zurücksetzen“' } else { 'Skript nach Windows-Setup' }): $($f.path)"
+                  detail = $(if ($isReset) { 'Windows führt das beim Zurücksetzen des PCs automatisch aus. Manche Hersteller (Dell, HP, Lenovo) legen so etwas ab; kennst du es nicht, kann sich Schadsoftware damit nach dem Zurücksetzen neu installieren.' } else { 'Windows führt das nach einer Neuinstallation einmal mit vollen Rechten aus. Normalerweise gibt es diese Datei nicht.' }) + $(if (@($f.runs).Count) { " Startet: $(@($f.runs) -join ', ')." } else { '' })
+                  command = $f.preview; modified = $f.modified; fix = $null }
+    }
+    [void]$checks.Add([pscustomobject]@{ area = 'files'; label = 'Wiederherstellung und Setup'; ok = (-not @($rs.items).Count -and -not $rs.denied); note = $(if ($rs.denied) { 'C:\Recovery nur mit Admin-Rechten lesbar' } elseif (@($rs.items).Count) { "$(@($rs.items).Count) Skripte" } else { 'keine Skripte' }) })
+
+    # Run keys
+    $runs = @(Get-SuspiciousRunKeys)
+    foreach ($r in $runs) {
+        & $add @{ id = "run:$($r.source):$($r.name)"; area = 'autostart'; sev = $r.sev; title = 'Autostart „' + $r.name + '“ (' + $r.source + ')'; detail = "Der Eintrag $($r.why)"; command = $r.command; fix = $null }
+    }
+    [void]$checks.Add([pscustomobject]@{ area = 'autostart'; label = 'Autostart (Registry)'; ok = (-not @($runs | Where-Object { $_.sev -eq 'bad' }).Count); note = $(if ($runs.Count) { "$($runs.Count) auffällig" } else { 'unauffällig' }) })
+
+    return [pscustomobject]@{ ok = $true; admin = $IsAdmin; limited = @($limited); checks = @($checks); findings = @($findings)
+                              firewall = @($fw | ForEach-Object { [pscustomobject]@{ name = $_.name; enabled = $_.enabled } }); ms = $sw.ElapsedMilliseconds }
+}
+
+# Exactly one change, and only for something the scan flags right now.
+function Invoke-SecurityFix($a) {
+    switch ($a.type) {
+        'firewall' {
+            foreach ($k in 'DomainProfile', 'PrivateProfile', 'PublicProfile') {
+                $p = "HKLM:\SOFTWARE\Policies\Microsoft\WindowsFirewall\$k"
+                $v = Get-RegValue $p 'EnableFirewall'
+                if ($null -ne $v -and [int]$v -eq 0) { Remove-ItemProperty -Path $p -Name 'EnableFirewall' -ErrorAction Stop }
+            }
+            $out = & netsh.exe advfirewall set allprofiles state on 2>&1
+            if ($LASTEXITCODE -ne 0) { throw "netsh: $out" }
+            $still = @(Get-FirewallState | Where-Object { $_.enabled -eq $false })
+            if ($still.Count) { throw "Firewall bleibt aus ($(($still | ForEach-Object { $_.name }) -join ', ')). Vermutlich schaltet ein Programm sie sofort wieder ab." }
+        }
+        'exclusion' {
+            $e = @((Get-DefenderExclusions).items | Where-Object { -not $_.policy -and $_.kind -eq $a.kind -and $_.value -eq $a.value })
+            if (-not $e.Count) { throw 'Diese Ausnahme gibt es nicht mehr.' }
+            if (-not (Get-ExclusionRisk $a.kind $a.value)) { throw 'Diese Ausnahme gilt als unbedenklich und bleibt.' }
+            switch ($a.kind) {
+                'path' { Remove-MpPreference -ExclusionPath $a.value -ErrorAction Stop }
+                'process' { Remove-MpPreference -ExclusionProcess $a.value -ErrorAction Stop }
+                'extension' { Remove-MpPreference -ExclusionExtension $a.value -ErrorAction Stop }
+            }
+        }
+        'task' {
+            $t = @(Get-SuspiciousTasks | Where-Object { $_.path -eq $a.path -and $_.enabled })
+            if (-not $t.Count) { throw 'Diese Aufgabe ist nicht (mehr) auffällig oder schon deaktiviert.' }
+            $i = $a.path.LastIndexOf('\')
+            $folder = $a.path.Substring(0, $i + 1); $name = $a.path.Substring($i + 1)
+            Disable-ScheduledTask -TaskPath $folder -TaskName $name -ErrorAction Stop | Out-Null
+        }
+        default { throw "Unbekannte Korrektur $($a.type)" }
+    }
+}
+
 # ------------------------------------------------------------------ actions
 try {
     $idList = @($Ids -split ',' | Where-Object { $_ })
@@ -968,6 +1356,13 @@ try {
             $skip = @($PID)
             if ($Arg) { $a = $Arg | ConvertFrom-Json; if ($a.skip) { $skip += @($a.skip | ForEach-Object { [int]$_ }) } }
             Write-Result (Invoke-RamClean $skip)
+        }
+        'security-scan' { Write-Result (Get-SecurityScan) }
+        'security-fix' {
+            $a = $Arg | ConvertFrom-Json
+            Invoke-SecurityFix $a
+            # A fresh scan from the same elevated run: no second admin prompt to show the result.
+            Write-Result ([pscustomobject]@{ ok = $true; scan = (Get-SecurityScan) })
         }
         default { Write-Result ([pscustomobject]@{ ok = $false; error = "Unbekannte Aktion $Action" }) }
     }

@@ -281,3 +281,10 @@ a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: un
 
 .grade { width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; flex: none; font-family: var(--display); font-stretch: 112%; font-size: 20px; font-weight: 800; }
 .grade.good { background: rgba(61,190,122,.16); color: #6be3a2; } .grade.warn { background: rgba(240,161,58,.16); color: #ffc27a; } .grade.bad { background: rgba(229,72,77,.16); color: #ff8a8e; }
+/* Sicherheit */
+.li > .sev { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.li .note-r { font-size: 12px; color: var(--ash); white-space: nowrap; }
+#secFindings .issue { align-items: flex-start; }
+#secFindings .issue small { display: block; margin-top: 3px; }
+#secFindings .issue .sev { margin-top: 6px; }
+.issue code { display: block; margin-top: 6px; font: 11.5px var(--mono); color: var(--dim); word-break: break-all; }
