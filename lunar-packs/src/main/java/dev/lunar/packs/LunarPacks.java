@@ -56,7 +56,20 @@ public final class LunarPacks implements ClientModInitializer {
         });
         ClientTickEvents.END_CLIENT_TICK.register(mc -> {
             while (openKey.consumeClick()) mc.setScreen(new PackScreen(mc.screen));
+            // Once the game is up: a saved choice that never made it into the mix is applied now.
+            if (!startupChecked && mc.getOverlay() == null && mc.screen instanceof net.minecraft.client.gui.screens.TitleScreen) {
+                startupChecked = true;
+                if (!choices.isEmpty() && !mixActive(mc)) LOGGER.info("[Lunar Packs] {}", apply(mc, allPacks(mc)));
+            }
         });
+    }
+
+    private static boolean startupChecked = false;
+
+    /** Whether the mix pack exists and is switched on. */
+    public static boolean mixActive(Minecraft mc) {
+        return Files.isDirectory(mc.getResourcePackDirectory().resolve(MixWriter.FOLDER))
+                && mc.getResourcePackRepository().getSelectedIds().contains("file/" + MixWriter.FOLDER);
     }
 
     private static Path configFile() {
