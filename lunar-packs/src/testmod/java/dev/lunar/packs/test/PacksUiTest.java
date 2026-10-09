@@ -25,7 +25,7 @@ import java.util.zip.ZipOutputStream;
  * test picture, sets the picture as menu background (screenshot), opens the
  * Lunar Packs menu and screenshots every tab, opens the picker for the totem,
  * applies a mix from the test pack and checks the files, searches Modrinth
- * in the pack browser. Verdict in run/lp-test-result.txt, screenshots in
+ * in the pack browser, filters the picker, saves and loads a preset. Verdict in run/lp-test-result.txt, screenshots in
  * run/screenshots/.
  */
 public final class PacksUiTest implements ClientModInitializer {
@@ -137,8 +137,33 @@ public final class PacksUiTest implements ClientModInitializer {
                 }
                 case 8 -> {
                     shot(mc, "browser");
+                    PackScreen screen = (PackScreen) mc.screen;
+                    screen.selectTabForTest(screen.tabsForTest().get(0));
+                    screen.selectSlotForTest("totem");
+                    screen.filterForTest("lptest");
+                    wait = 30;
+                    step = 12;
+                }
+                case 12 -> {
+                    // Picker filter, then a preset saved, cleared and loaded again.
+                    PackScreen screen = (PackScreen) mc.screen;
+                    shot(mc, "picker-filter");
+                    notes.add("filter lptest: " + screen.pickerOptionsForTest());
+                    screen.filterForTest("");
+                    LunarPacks.choices.put("totem", "LPTest.zip");
+                    screen.savePresetForTest("Test-Preset");
+                    LunarPacks.choices.clear();
+                    screen.loadPresetForTest("Test-Preset");
+                    notes.add("preset roundtrip: " + LunarPacks.choices.get("totem") + " | saved: " + LunarPacks.settings.presets.keySet());
+                    screen.openPresetsForTest(true);
+                    wait = 100;
+                    step = 13;
+                }
+                case 13 -> {
+                    shot(mc, "presets");
+                    ((PackScreen) mc.screen).openPresetsForTest(false);
                     wait = 20;
-                    step++;
+                    step = 9;
                 }
                 case 10 -> {
                     // Pro packs fetched in the background: the anchor must have pro choices.
@@ -162,7 +187,9 @@ public final class PacksUiTest implements ClientModInitializer {
                     if (notes.stream().noneMatch(n -> n.startsWith("pro packs: "))) { step = 10; return; }
                     boolean ok = MenuBackground.active() && notes.stream().anyMatch(n -> n.contains("totem in mix: true"))
                             && notes.stream().anyMatch(n -> n.startsWith("modrinth results: ") && !n.endsWith("-1") && !n.endsWith(" 0"))
-                            && notes.stream().anyMatch(n -> n.startsWith("pro packs: ") && !n.endsWith("with anchor: 0"));
+                            && notes.stream().anyMatch(n -> n.startsWith("pro packs: ") && !n.endsWith("with anchor: 0"))
+                            && notes.stream().anyMatch(n -> n.equals("filter lptest: 1"))
+                            && notes.stream().anyMatch(n -> n.startsWith("preset roundtrip: LPTest.zip"));
                     finish(mc, (ok ? "PASS" : "FAIL") + "\n" + String.join("\n", notes));
                 }
                 default -> { }

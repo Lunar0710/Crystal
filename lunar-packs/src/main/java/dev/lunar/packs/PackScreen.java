@@ -53,6 +53,14 @@ public final class PackScreen extends Screen {
     private Map<String, String> applied;
     /** Option under the mouse in the picker (shown big), "" for none. */
     private String hoverOption = "";
+    /** Filter field in the picker, name field when saving a preset. */
+    private net.minecraft.client.gui.components.EditBox filterBox, presetBox;
+    /** Preset dropdown: open, typing a name, preset waiting for a second click on ×, list scroll. */
+    private boolean presetsOpen = false, naming = false;
+    private String pendingDelete = null;
+    private int presetScroll = 0;
+    /** Where the dropdown and its button were last drawn (x, y, w, h). */
+    private int[] popupRect = null, presetButtonRect = null;
 
     /** Clickable areas of the last frame, front to back. */
     private final List<Hit> hits = new ArrayList<>();
@@ -90,6 +98,47 @@ public final class PackScreen extends Screen {
         searchBox.setValue(keep);
         searchBox.visible = false;
         addWidget(searchBox);
+        filterBox = field(filterBox, 40, "Name oder Autor …");
+        filterBox.setResponder(s -> pickerScroll = 0);
+        presetBox = field(presetBox, 24, "Name");
+    }
+
+    /** A borderless text field drawn into our own rounded well; keeps its text over a resize. */
+    private net.minecraft.client.gui.components.EditBox field(net.minecraft.client.gui.components.EditBox old, int max, String hint) {
+        var box = new net.minecraft.client.gui.components.EditBox(font, 0, 0, 100, 8, Component.literal(hint));
+        box.setBordered(false);
+        box.setMaxLength(max);
+        box.setHint(Component.literal(hint));
+        box.setTextColor(TEXT);
+        if (old != null) box.setValue(old.getValue());
+        box.visible = false;
+        addWidget(box);
+        return box;
+    }
+
+    /**
+     * Draws a text field: rounded well, accent outline while typing, the box
+     * placed inside; clicking anywhere on the well puts the cursor in it.
+     */
+    private void drawField(GuiGraphics g, net.minecraft.client.gui.components.EditBox box, int x, int y, int w, int h, int textRight,
+                           int mx, int my, float delta) {
+        boolean focused = box.isFocused();
+        float a = anim("field|" + System.identityHashCode(box), focused || hover(x, y, w, h, mx, my));
+        round(g, x, y, w, h, WELL);
+        roundOutline(g, x, y, w, h, focused ? ACCENT : mix(LINE_SOFT, ACCENT_DIM, a));
+        box.setX(x + 5);
+        box.setY(y + (h - 8) / 2);
+        box.setWidth(Math.max(10, w - 10 - textRight));
+        box.visible = true;
+        box.render(g, mx, my, delta);
+        hits.add(new Hit(x, y, w, h, () -> setFocused(box)));
+    }
+
+    /** Takes the keyboard away from a field that is no longer drawn. */
+    private void hideField(net.minecraft.client.gui.components.EditBox box) {
+        if (box == null) return;
+        box.visible = false;
+        if (getFocused() == box) setFocused(null);
     }
 
     // ------------------------------------------------------------ actions
@@ -120,6 +169,86 @@ public final class PackScreen extends Screen {
         // Pro packs first, then your own, each by name
         list.sort((a, b) -> ProPacks.isPro(a) != ProPacks.isPro(b) ? (ProPacks.isPro(a) ? -1 : 1) : title(a.name).compareToIgnoreCase(title(b.name)));
         return list;
+    }
+
+    /** Opens the picker for a slot (null closes it); a new item starts with an empty filter. */
+    private void select(Slot slot) {
+        if (slot != selected && filterBox != null) filterBox.setValue("");
+        selected = slot;
+        pickerScroll = 0;
+    }
+
+    /** Whether a picker option matches every word of the filter (title, file name, author). */
+    private static boolean matches(String opt, String query) {
+        if (query.isBlank()) return true;
+        String hay;
+        if (opt == null) hay = "standard vanilla";
+        else {
+            ProPacks.Info pro = ProPacks.info(opt);
+            hay = title(opt) + " " + opt + " " + (pro != null ? pro.author() + " pro" : "eigenes pack");
+        }
+        hay = hay.toLowerCase(java.util.Locale.ROOT);
+        for (String word : query.toLowerCase(java.util.Locale.ROOT).trim().split("\\s+")) if (!hay.contains(word)) return false;
+        return true;
+    }
+
+    /** Standard plus every pack that changes the selected item, narrowed by the filter. */
+    private List<String> pickerOptions() {
+        List<String> options = new ArrayList<>();
+        String query = filterBox == null ? "" : filterBox.getValue();
+        if (matches(null, query)) options.add(null);
+        for (PackFiles p : packsFor(selected)) if (matches(p.name, query)) options.add(p.name);
+        return options;
+    }
+
+    // ------------------------------------------------------------ presets
+
+    private Map<String, Map<String, String>> presets() {
+        if (LunarPacks.settings.presets == null) LunarPacks.settings.presets = new java.util.LinkedHashMap<>();
+        return LunarPacks.settings.presets;
+    }
+
+    private void savePreset(String rawName) {
+        String name = rawName == null ? "" : rawName.trim();
+        if (name.isEmpty()) {
+            say("Gib dem Preset einen Namen");
+            return;
+        }
+        if (LunarPacks.choices.isEmpty()) {
+            say("Erst Items wählen, dann speichern");
+            return;
+        }
+        boolean existed = presets().containsKey(name);
+        presets().put(name, new java.util.LinkedHashMap<>(LunarPacks.choices));
+        LunarPacks.saveChoices();
+        naming = false;
+        hideField(presetBox);
+        say("Preset „" + shortName(name, 24) + "“ " + (existed ? "überschrieben" : "gespeichert"));
+    }
+
+    /** Puts the preset's picks in place and applies them, like "Anwenden". */
+    private void loadPreset(String name) {
+        Map<String, String> preset = presets().get(name);
+        if (preset == null) return;
+        LunarPacks.choices.clear();
+        LunarPacks.choices.putAll(preset);
+        long missing = preset.values().stream().distinct().filter(p -> pack(p) == null).count();
+        String result = LunarPacks.apply(minecraft, packs);
+        applied = new HashMap<>(LunarPacks.choices);
+        presetsOpen = false;
+        say(result.startsWith("Fehler") ? result : "Preset „" + shortName(name, 24) + "“ angewendet"
+                + (missing > 0 ? " · " + missing + (missing == 1 ? " Pack fehlt" : " Packs fehlen") : ""));
+    }
+
+    private void deletePreset(String name) {
+        presets().remove(name);
+        LunarPacks.saveChoices();
+        pendingDelete = null;
+        say("Preset „" + shortName(name, 24) + "“ gelöscht");
+    }
+
+    private String freePresetName() {
+        for (int i = presets().size() + 1; ; i++) if (!presets().containsKey("Preset " + i)) return "Preset " + i;
     }
 
     private void choose(Slot slot, String packName) {
@@ -442,6 +571,19 @@ public final class PackScreen extends Screen {
             packs = LunarPacks.allPacks(minecraft);
         }
         g.fillGradient(0, 0, width, height, BG_TOP, BG_BOTTOM);
+        // Fields show up again where they are drawn this frame.
+        filterBox.visible = false;
+        presetBox.visible = false;
+        if (!presetsOpen) {
+            naming = false;
+            pendingDelete = null;
+        }
+        // Under an open dropdown nothing else lights up.
+        int fullMx = mx, fullMy = my;
+        if (presetsOpen && popupRect != null && hover(popupRect[0], popupRect[1], popupRect[2], popupRect[3], mx, my)) {
+            mx = -1;
+            my = -1;
+        }
 
         renderHeader(g, mx, my);
         int top = HEADER, bottom = height - FOOTER;
@@ -450,10 +592,18 @@ public final class PackScreen extends Screen {
         if (searchBox != null) searchBox.visible = tab.equals(BROWSER_TAB);
         if (tab.equals(PICTURE_TAB)) renderPictureTab(g, mx, my, top, bottom);
         else if (tab.equals(BROWSER_TAB)) renderBrowserTab(g, mx, my, top, bottom, delta);
-        else renderItemsTab(g, mx, my, top, bottom);
+        else renderItemsTab(g, mx, my, top, bottom, delta);
 
-        renderFooter(g, mx, my, bottom);
+        renderFooter(g, fullMx, fullMy, bottom);
+        if (presetsOpen) renderPresets(g, fullMx, fullMy, top, bottom, delta);
+        else {
+            popupRect = null;
+            anims.put("presets-pop", 0f);
+        }
         renderToast(g, bottom);
+        // a field that was not drawn gives the keyboard back
+        if (!filterBox.visible) hideField(filterBox);
+        if (!presetBox.visible) hideField(presetBox);
     }
 
     private void renderHeader(GuiGraphics g, int mx, int my) {
@@ -513,7 +663,7 @@ public final class PackScreen extends Screen {
                 pill(g, n, SIDEBAR - 14 - font.width(n), ty + (rh - 10) / 2, alpha(ACCENT, 0.3f), ACCENT_2);
             }
             final String target = t;
-            hits.add(new Hit(4, ty, SIDEBAR - 9, rh, () -> { tab = target; selected = null; scroll = 0; pickerScroll = 0; }));
+            hits.add(new Hit(4, ty, SIDEBAR - 9, rh, () -> { tab = target; select(null); scroll = 0; }));
             ty += step;
         }
     }
@@ -522,31 +672,143 @@ public final class PackScreen extends Screen {
         g.fill(0, bottom, width, height, PANEL);
         g.fill(0, bottom, width, bottom + 1, LINE_SOFT);
         int fy = bottom + 6;
+        // Right: rescan, then the preset dropdown (which also holds "Auswahl leeren")
+        int rw = font.width("Neu einlesen") + 16, rx = width - 12 - rw;
+        button(g, "Neu einlesen", rx, fy, rw, 18, false, true, mx, my, () -> {
+            packs = LunarPacks.allPacks(minecraft);
+            releasePreviews();
+            say(packs.size() + " Packs gefunden");
+        });
+        String presetCount = presets().isEmpty() ? null : String.valueOf(presets().size());
+        int pw = font.width("Presets") + 30 + (presetCount == null ? 0 : font.width(presetCount) + 10), px = rx - 6 - pw;
+        presetButtonRect = new int[] {px, fy, pw, 18};
+        boolean overP = hover(px, fy, pw, 18, mx, my);
+        float pa = anim("presets-btn", overP || presetsOpen);
+        round(g, px, fy, pw, 18, mix(CARD, CARD_HOVER, pa));
+        roundOutline(g, px, fy, pw, 18, presetsOpen ? ACCENT : mix(LINE, ACCENT_DIM, pa));
+        g.drawString(font, "Presets", px + 8, fy + 5, TEXT, false);
+        // caret: points up while closed (the list opens upwards), down while open
+        int cx = px + pw - 14, cy = fy + 7;
+        for (int i = 0; i < 3; i++) {
+            int row = presetsOpen ? i : 2 - i;
+            g.fill(cx + i, cy + row, cx + 5 - i, cy + row + 1, presetsOpen ? ACCENT_2 : MUTED);
+        }
+        if (presetCount != null) pill(g, presetCount, px + 12 + font.width("Presets"), fy + 4, alpha(ACCENT, 0.3f), ACCENT_2);
+        hits.add(new Hit(px, fy, pw, 18, () -> {
+            presetsOpen = !presetsOpen;
+            presetScroll = 0;
+        }));
+
+        // Left: take every item a whole pack has
         if (!packs.isEmpty()) {
             wholePack = Math.floorMod(wholePack, packs.size());
-            g.drawString(font, "Ganzes Pack:", 12, fy + 5, MUTED, false);
-            int bx = 12 + font.width("Ganzes Pack: ");
+            int okW = font.width("Übernehmen") + 14, right = px - 10;
+            String label = "Ganzes Pack:";
+            if (right - 12 - font.width(label + " ") - 50 - okW - 50 < 0) label = "Pack:";
+            g.drawString(font, label, 12, fy + 5, MUTED, false);
+            int bx = 12 + font.width(label + " ");
             button(g, "<", bx, fy, 16, 18, false, true, mx, my, () -> wholePack--);
-            String packLabel = fit(title(packs.get(wholePack).name), Math.max(30, width - 200 - (bx + 22) - 22 - font.width("Übernehmen") - 14 - 10));
+            String packLabel = fit(title(packs.get(wholePack).name), Math.max(24, right - (bx + 22) - 6 - 16 - 6 - okW));
             g.drawString(font, packLabel, bx + 22, fy + 5, TEXT, false);
             int after = bx + 22 + font.width(packLabel) + 6;
             button(g, ">", after, fy, 16, 18, false, true, mx, my, () -> wholePack++);
-            button(g, "Übernehmen", after + 22, fy, font.width("Übernehmen") + 14, 18, false, true, mx, my, () -> {
+            button(g, "Übernehmen", after + 22, fy, okW, 18, false, true, mx, my, () -> {
                 PackFiles p = packs.get(Math.floorMod(wholePack, packs.size()));
                 int n = 0;
                 for (Slot s : Slot.ALL) if (p.covers(s)) { LunarPacks.choices.put(s.id(), p.name); n++; }
                 say(n + " Items aus " + shortName(title(p.name), 24) + " gewählt");
             });
         }
-        button(g, "Neu einlesen", width - 196, fy, 88, 18, false, true, mx, my, () -> {
-            packs = LunarPacks.allPacks(minecraft);
-            releasePreviews();
-            say(packs.size() + " Packs gefunden");
-        });
-        button(g, "Zurücksetzen", width - 102, fy, 90, 18, false, true, mx, my, () -> {
+    }
+
+    /**
+     * The preset dropdown above its footer button: saved selections (click
+     * loads and applies, × twice deletes), saving the current one under a
+     * name, and clearing the selection.
+     */
+    private void renderPresets(GuiGraphics g, int mx, int my, int top, int bottom, float delta) {
+        List<String> names = new ArrayList<>(presets().keySet());
+        int rowH = 18, w = Math.min(190, width - 16);
+        int btnRight = presetButtonRect[0] + presetButtonRect[2];
+        int x = Math.max(8, Math.min(btnRight - w, width - 8 - w));
+        int fixed = 6 + 14 + 4 + rowH + 6 + rowH + 6; // title, save row, line, clear row, padding
+        int maxRows = Math.max(1, (bottom - top - 8 - fixed) / rowH);
+        int listRows = Math.max(1, Math.min(names.size(), maxRows));
+        presetScroll = Math.max(0, Math.min(presetScroll, names.size() - listRows));
+        int h = fixed + listRows * rowH;
+        float in = anim("presets-pop", true);
+        int y = bottom + 2 - h + Math.round((1 - in) * 6);
+        popupRect = new int[] {x, y, w, h};
+        hits.add(new Hit(x, y, w, h, () -> {})); // the panel itself swallows clicks
+
+        for (int i = 1; i <= 4; i++) round(g, x - i, y - i + 2, w + 2 * i, h + 2 * i, alpha(0xFF000000, 0.10f));
+        round(g, x, y, w, h, PANEL_2);
+        roundOutline(g, x, y, w, h, LINE);
+        g.drawString(font, Component.literal("Presets").withStyle(ChatFormatting.BOLD), x + 8, y + 7, TEXT, false);
+        String sub = names.isEmpty() ? "" : names.size() + " gespeichert";
+        g.drawString(font, sub, x + w - 8 - font.width(sub), y + 7, FAINT, false);
+
+        int ry = y + 20;
+        if (names.isEmpty()) {
+            g.drawString(font, fit("Noch keine – speichere deine Auswahl", w - 16), x + 8, ry + 5, FAINT, false);
+        }
+        for (int i = presetScroll; i < names.size() && i < presetScroll + listRows; i++) {
+            String name = names.get(i);
+            Map<String, String> preset = presets().get(name);
+            int rowY = ry + (i - presetScroll) * rowH;
+            boolean current = preset.equals(LunarPacks.choices) && !preset.isEmpty();
+            boolean over = hover(x + 4, rowY, w - 8, rowH - 2, mx, my);
+            float a = anim("preset|" + name, over);
+            if (a > 0 || current) round(g, x + 4, rowY, w - 8, rowH - 2, current ? mix(CARD_HOVER, 0xFF2A2546, 0.6f) : alpha(CARD_HOVER, a));
+            if (current) round(g, x + 4, rowY + 4, 2, rowH - 10, GOOD);
+            boolean confirm = name.equals(pendingDelete);
+            String del = confirm ? "Löschen?" : "×";
+            int dw = font.width(del) + 8, dx = x + w - 6 - dw;
+            String count = preset.size() + (preset.size() == 1 ? " Item" : " Items");
+            int countX = dx - 6 - font.width(count);
+            g.drawString(font, fit(name, countX - 6 - (x + 10)), x + 10, rowY + 4, current ? GOOD : mix(TEXT, ACCENT_2, a), false);
+            g.drawString(font, count, countX, rowY + 4, FAINT, false);
+            boolean overDel = hover(dx, rowY + 2, dw, rowH - 6, mx, my);
+            round(g, dx, rowY + 2, dw, rowH - 6, confirm ? WARN : overDel ? CARD_HOVER : 0);
+            g.drawCenteredString(font, del, dx + dw / 2, rowY + 4, confirm ? 0xFF1A1206 : overDel ? TEXT : FAINT);
+            hits.add(new Hit(x + 4, rowY, w - 8, rowH - 2, () -> loadPreset(name)));
+            hits.add(new Hit(dx, rowY + 2, dw, rowH - 6, () -> {
+                if (name.equals(pendingDelete)) deletePreset(name);
+                else pendingDelete = name;
+            }));
+        }
+        if (names.size() > listRows) {
+            // scroll bar
+            int trackY = ry, trackH = listRows * rowH - 2;
+            int barH = Math.max(6, trackH * listRows / names.size());
+            int barY = trackY + (trackH - barH) * presetScroll / Math.max(1, names.size() - listRows);
+            g.fill(x + w - 3, barY, x + w - 2, barY + barH, ACCENT_DIM);
+        }
+
+        // Save row: a button, or the name field while naming
+        int sy = ry + listRows * rowH + 4;
+        if (naming) {
+            int okW = font.width("OK") + 14;
+            drawField(g, presetBox, x + 6, sy, w - 12 - okW - 4, rowH, 0, mx, my, delta);
+            button(g, "OK", x + w - 6 - okW, sy, okW, rowH, true, true, mx, my, () -> savePreset(presetBox.getValue()));
+        } else {
+            boolean can = !LunarPacks.choices.isEmpty();
+            button(g, can ? "+ Auswahl speichern" : "Erst Items wählen", x + 6, sy, w - 12, rowH, can, can, mx, my, () -> {
+                naming = true;
+                presetBox.setValue(freePresetName());
+                setFocused(presetBox);
+            });
+        }
+        g.fill(x + 6, sy + rowH + 3, x + w - 6, sy + rowH + 4, LINE_SOFT);
+        int cy = sy + rowH + 7;
+        boolean any = !LunarPacks.choices.isEmpty(), overClear = any && hover(x + 6, cy, w - 12, rowH, mx, my);
+        float ca = anim("presets-clear", overClear);
+        if (ca > 0) round(g, x + 6, cy, w - 12, rowH, alpha(alpha(WARN, 0.18f), ca));
+        g.drawString(font, "Auswahl leeren", x + 12, cy + 5, any ? mix(MUTED, WARN, ca) : FAINT, false);
+        if (any) hits.add(new Hit(x + 6, cy, w - 12, rowH, () -> {
             LunarPacks.choices.clear();
             say("Auswahl geleert");
-        });
+        }));
     }
 
     /** Message pill that slides up, stays a few seconds and fades. */
@@ -556,14 +818,17 @@ public final class PackScreen extends Screen {
         if (age > 4000) return;
         float in = Math.min(1f, age / 180f), out = age > 3500 ? 1f - (age - 3500) / 500f : 1f;
         float ease = 1 - (1 - in) * (1 - in);
-        int w = font.width(message) + 28, x = (width - w) / 2, y = bottom - 28 + Math.round((1 - ease) * 12);
+        int w = font.width(message) + 28, x = (width - w) / 2;
+        // with the dropdown open the toast moves to the free space beside it
+        if (presetsOpen && popupRect != null && x + w > popupRect[0] - 6) x = Math.max(4, (popupRect[0] - 6 - w) / 2);
+        int y = bottom - 28 + Math.round((1 - ease) * 12);
         round(g, x, y, w, 20, alpha(0xF0161A23, out));
         roundOutline(g, x, y, w, 20, alpha(ACCENT_DIM, out));
         g.fill(x + 8, y + 8, x + 12, y + 12, alpha(ACCENT_2, out));
         if (out > 0.05f) g.drawString(font, message, x + 18, y + 6, alpha(TEXT, out), false);
     }
 
-    private void renderItemsTab(GuiGraphics g, int mx, int my, int top, int bottom) {
+    private void renderItemsTab(GuiGraphics g, int mx, int my, int top, int bottom, float delta) {
         List<Slot> slots = slotsOfTab();
         boolean picker = selected != null;
         // the picker slides over the cards like a drawer, so the grid keeps its layout
@@ -615,22 +880,21 @@ public final class PackScreen extends Screen {
             }
             long count = packsFor(s).size();
             if (count > 0 && chosen == null) g.drawString(font, count + " Looks", x + 55, y + 37, FAINT, false);
-            hits.add(new Hit(x, y, cw, CARD_H, () -> { selected = s; pickerScroll = 0; }));
+            hits.add(new Hit(x, y, cw, CARD_H, () -> select(s)));
         }
-        if (picker) renderPicker(g, mx, my, top, bottom);
+        if (picker) renderPicker(g, mx, my, top, bottom, delta);
     }
 
     /** Right panel: big live preview on top, then a tile for Standard and every pack that changes the item. */
-    private void renderPicker(GuiGraphics g, int mx, int my, int top, int bottom) {
+    private void renderPicker(GuiGraphics g, int mx, int my, int top, int bottom, float delta) {
         int x = width - PICKER, w = PICKER;
         // soft shadow so the drawer reads as lying above the cards
         for (int i = 1; i <= 6; i++) g.fill(x - i, top, x - i + 1, bottom, alpha(0xFF000000, 0.28f * (7 - i) / 6f));
         g.fill(x, top, width, bottom, PANEL);
         g.fill(x, top, x + 1, bottom, LINE_SOFT);
 
-        List<String> options = new ArrayList<>();
-        options.add(null);
-        for (PackFiles p : packsFor(selected)) options.add(p.name);
+        int total = packsFor(selected).size() + 1;
+        List<String> options = pickerOptions();
         String current = LunarPacks.choices.get(selected.id());
         String shown = hoverOption.isEmpty() ? current : "\0".equals(hoverOption) ? null : hoverOption;
 
@@ -652,11 +916,32 @@ public final class PackScreen extends Screen {
             g.drawString(font, "Vanilla / deine Packs", tx, top + 41, FAINT, false);
         }
         g.drawString(font, fit(Objects.equals(shown, current) ? "✔ gewählt" : "Klick = wählen", tw + 16), tx, top + 60, Objects.equals(shown, current) ? GOOD : MUTED, false);
-        button(g, "×", width - 22, top + 6, 16, 16, false, true, mx, my, () -> selected = null);
+        button(g, "×", width - 22, top + 6, 16, 16, false, true, mx, my, () -> select(null));
+
+        // Filter field once there is more to choose from than a few tiles
+        int listTop = top + stage + 16;
+        String query = filterBox.getValue();
+        if (total > 4 || !query.isEmpty()) {
+            int fy = top + stage + 14, fw = w - 16;
+            String n = query.isEmpty() ? total + " Looks" : options.size() + "/" + total;
+            int nw = font.width(n) + (query.isEmpty() ? 6 : 20);
+            drawField(g, filterBox, x + 8, fy, fw, 16, nw, mx, my, delta);
+            int nx = x + 8 + fw - nw;
+            g.drawString(font, n, nx, fy + 4, query.isEmpty() ? FAINT : options.isEmpty() ? WARN : ACCENT_2, false);
+            if (!query.isEmpty()) {
+                // clear the filter
+                int clx = x + 8 + fw - 14;
+                boolean overCl = hover(clx, fy + 2, 12, 12, mx, my);
+                if (overCl) round(g, clx, fy + 2, 12, 12, CARD_HOVER);
+                g.drawCenteredString(font, "×", clx + 6, fy + 4, overCl ? TEXT : MUTED);
+                hits.add(new Hit(clx, fy + 2, 12, 12, () -> filterBox.setValue("")));
+            }
+            listTop = fy + 16 + 6;
+        }
 
         // Tiles, two per row
-        int listTop = top + stage + 16, tileW = (w - 8 - 8 - 6) / 2, tileH = 62;
-        int rows = (options.size() + 1) / 2, visibleRows = Math.max(1, (bottom - listTop - 4) / (tileH + 6));
+        int tileW = (w - 8 - 8 - 6) / 2, tileH = 62;
+        int rows = (options.size() + 1) / 2, visibleRows = Math.max(1, (bottom - listTop - 4 + 6) / (tileH + 6));
         pickerScroll = Math.max(0, Math.min(pickerScroll, Math.max(0, rows - visibleRows)));
         String hoverNow = "";
         for (int i = pickerScroll * 2; i < options.size(); i++) {
@@ -680,7 +965,10 @@ public final class PackScreen extends Screen {
             hits.add(new Hit(bx, by, tileW, tileH, () -> choose(selected, pick)));
         }
         hoverOption = hoverNow;
-        if (options.size() == 1) {
+        if (options.isEmpty()) {
+            g.drawString(font, fit("Nichts passt zu „" + query.trim() + "“.", w - 20), x + 10, listTop + 4, MUTED, false);
+            g.drawString(font, fit("Anderes Wort oder × zum Leeren.", w - 20), x + 10, listTop + 16, FAINT, false);
+        } else if (total == 1) {
             int ty = listTop + tileH + 10;
             String dots = ".".repeat((int) (System.currentTimeMillis() / 400 % 4));
             g.drawString(font, ProPacks.running ? "Pro-Packs laden" + dots : "Kein Pack ändert", x + 10, ty, MUTED, false);
@@ -933,7 +1221,27 @@ public final class PackScreen extends Screen {
     }
 
     public void selectSlotForTest(String slotId) {
-        selected = Slot.byId(slotId);
+        select(Slot.byId(slotId));
+    }
+
+    public void filterForTest(String query) {
+        filterBox.setValue(query);
+    }
+
+    public int pickerOptionsForTest() {
+        return selected == null ? -1 : pickerOptions().size();
+    }
+
+    public void savePresetForTest(String name) {
+        savePreset(name);
+    }
+
+    public void loadPresetForTest(String name) {
+        loadPreset(name);
+    }
+
+    public void openPresetsForTest(boolean open) {
+        presetsOpen = open;
     }
 
     public void searchForTest(String query) {
@@ -948,8 +1256,14 @@ public final class PackScreen extends Screen {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-        // The search field takes the keyboard when clicked, gives it back when clicked elsewhere.
-        if (searchBox != null && searchBox.visible) setFocused(searchBox.isMouseOver(event.x(), event.y()) ? searchBox : null);
+        // A field takes the keyboard when clicked (our fields through their hit), gives it back when clicked elsewhere.
+        setFocused(searchBox != null && searchBox.visible && searchBox.isMouseOver(event.x(), event.y()) ? searchBox : null);
+        // A click next to the open dropdown only closes it.
+        if (presetsOpen && popupRect != null && !hover(popupRect[0], popupRect[1], popupRect[2], popupRect[3], (int) event.x(), (int) event.y())
+                && !(presetButtonRect != null && hover(presetButtonRect[0], presetButtonRect[1], presetButtonRect[2], presetButtonRect[3], (int) event.x(), (int) event.y()))) {
+            presetsOpen = false;
+            return true;
+        }
         if (event.button() == 0) {
             for (int i = hits.size() - 1; i >= 0; i--) {
                 Hit h = hits.get(i);
@@ -964,9 +1278,33 @@ public final class PackScreen extends Screen {
 
     @Override
     public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+        boolean enter = event.input() == 257 || event.input() == 335, escape = event.input() == 256;
         // Enter in the search field searches.
-        if (searchBox != null && searchBox.visible && searchBox.isFocused() && (event.input() == 257 || event.input() == 335)) {
+        if (searchBox != null && searchBox.visible && searchBox.isFocused() && enter) {
             search(searchBox.getValue());
+            return true;
+        }
+        // Enter saves the preset name, Escape leaves the naming.
+        if (naming && presetBox.isFocused() && (enter || escape)) {
+            if (enter) savePreset(presetBox.getValue());
+            else {
+                naming = false;
+                hideField(presetBox);
+            }
+            return true;
+        }
+        // Enter in the filter takes the first look that matches; Escape leaves the field.
+        if (filterBox != null && filterBox.visible && filterBox.isFocused() && (enter || escape)) {
+            if (enter && selected != null) {
+                List<String> options = pickerOptions();
+                if (!options.isEmpty()) choose(selected, options.get(0));
+            }
+            setFocused(null);
+            return true;
+        }
+        // Escape closes the dropdown before the menu.
+        if (escape && presetsOpen) {
+            presetsOpen = false;
             return true;
         }
         return super.keyPressed(event);
@@ -975,6 +1313,10 @@ public final class PackScreen extends Screen {
     @Override
     public boolean mouseScrolled(double mx, double my, double dx, double dy) {
         int step = dy > 0 ? -1 : dy < 0 ? 1 : 0;
+        if (presetsOpen && popupRect != null && hover(popupRect[0], popupRect[1], popupRect[2], popupRect[3], (int) mx, (int) my)) {
+            presetScroll = Math.max(0, presetScroll + step);
+            return true;
+        }
         if (selected != null && mx >= width - PICKER) pickerScroll = Math.max(0, pickerScroll + step);
         else scroll = Math.max(0, scroll + step);
         return true;

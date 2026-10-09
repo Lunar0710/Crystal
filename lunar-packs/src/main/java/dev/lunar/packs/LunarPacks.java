@@ -40,6 +40,8 @@ public final class LunarPacks implements ClientModInitializer {
         public Map<String, String> choices = new LinkedHashMap<>();
         /** Menu picture in black and white. */
         public boolean grayscale = true;
+        /** Saved selections: preset name -> (slot id -> pack file name). */
+        public Map<String, Map<String, String>> presets = new LinkedHashMap<>();
     }
 
     public static Settings settings = new Settings();
@@ -88,6 +90,7 @@ public final class LunarPacks implements ClientModInitializer {
                     if (old != null) read.choices = old;
                 }
                 if (read.choices == null) read.choices = new LinkedHashMap<>();
+                if (read.presets == null) read.presets = new LinkedHashMap<>();
                 settings = read;
                 choices = read.choices;
             }
