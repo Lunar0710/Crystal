@@ -217,6 +217,11 @@ public final class DigTask implements Task {
         }
     }
 
+    /** The middle X of the three-wide lane (see startLayer) that X belongs to. */
+    private int laneCentre(int x) {
+        return Math.min(minX + 1 + (x - minX) / 3 * 3, maxX);
+    }
+
     private boolean done(Level level, BlockPos pos) {
         return skipped.contains(pos) || level.getBlockState(pos).isAir();
     }
@@ -357,12 +362,20 @@ public final class DigTask implements Task {
         // Out of reach or out of sight: walk to a spot from which it is neither.
         final BlockPos goal = target;
         double eyeHeight = player.getEyeHeight();
-        List<BlockPos> path = Walker.findPath(level, player.blockPosition(), spot -> {
+        java.util.function.Predicate<BlockPos> canDig = spot -> {
             if (spot.below().equals(goal)) return false;
             Vec3 spotEye = new Vec3(spot.getX() + 0.5, spot.getY() + eyeHeight, spot.getZ() + 0.5);
             if (spotEye.distanceTo(Vec3.atCenterOf(goal)) > player.blockInteractionRange() - 0.6) return false;
             return (wide ? topSight(level, player, spotEye, goal) : sight(level, player, spotEye, goal)) != null;
-        }, goal);
+        };
+        List<BlockPos> path = null;
+        // Inside the layer: into the middle of the block's lane, from where the
+        // lane is stripped walking on (beside it, every block needs a stop).
+        if (!wide && player.blockPosition().getY() == layerY) {
+            int middle = laneCentre(goal.getX());
+            path = Walker.findPath(level, player.blockPosition(), spot -> spot.getX() == middle && spot.getY() == layerY && canDig.test(spot), goal);
+        }
+        if (path == null) path = Walker.findPath(level, player.blockPosition(), canDig, goal);
         if (path == null || path.size() <= 1) {
             unreachable.put(goal, now);
             return;
@@ -502,6 +515,12 @@ public final class DigTask implements Task {
 
     private void aimAt(LocalPlayer player, Vec3 eye, BlockHitResult sight) {
         float[] look = PlacementPlanner.aim(eye, sight.getLocation());
+        // Straight down onto the block under the feet: the sideways angle means
+        // nothing there and jumps with every hair the player moves; keep the head's.
+        if (Math.hypot(sight.getLocation().x - eye.x, sight.getLocation().z - eye.z) < 0.3) {
+            look[0] = player.getYRot();
+            look[1] = 90f;
+        }
         face = sight.getDirection();
         SmoothLook.lookAt(look[0], look[1], Config.get().turnSpeed());
         settled = 0;

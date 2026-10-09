@@ -60,6 +60,9 @@ public final class DigWorldTest implements ClientModInitializer {
     private long startedAt, scenarioStart;
     private long deadlineMs = 10 * 60_000L;
     private final List<String> results = new ArrayList<>();
+    private boolean anyFailed = false;
+    /** Ticks the running job has been paused (the test has nobody to press P). */
+    private int pausedTicks = 0;
 
     @Override
     public void onInitializeClient() {
@@ -77,6 +80,12 @@ public final class DigWorldTest implements ClientModInitializer {
                 String extra = digBox != null ? ", " + remaining(mc) + " blocks left" : "";
                 fail(mc, "deadline, phase " + phase + ", screen=" + (mc.screen == null ? "none" : mc.screen.getClass().getSimpleName())
                         + ", task=" + (LunarBuilder.task() == null ? "none" : LunarBuilder.task().status()) + extra);
+                return;
+            }
+            pausedTicks = LunarBuilder.task() != null && LunarBuilder.paused() ? pausedTicks + 1 : 0;
+            if (pausedTicks > 30 * 20) {
+                String extra = digBox != null ? ", " + remaining(mc) + " blocks left" : "";
+                fail(mc, "paused for 30 s, task=" + LunarBuilder.task().status() + extra);
                 return;
             }
             ticks++;
@@ -479,7 +488,7 @@ public final class DigWorldTest implements ClientModInitializer {
     }
 
     private void done(Minecraft mc) {
-        result(mc, "PASS " + String.join(" | ", results) + " (" + (System.currentTimeMillis() - startedAt) / 1000 + " s total)");
+        result(mc, (anyFailed ? "FAIL " : "PASS ") + String.join(" | ", results) + " (" + (System.currentTimeMillis() - startedAt) / 1000 + " s total)");
     }
 
     // ------------------------------------------------------------ helpers
@@ -505,9 +514,22 @@ public final class DigWorldTest implements ClientModInitializer {
         if (!ok) throw new AssertionError(message);
     }
 
+    /** The scenario running now fails; the next one still runs, the verdict at the end is FAIL. */
     private void fail(Minecraft mc, String why) {
-        if (!results.isEmpty()) why += " | before: " + String.join(" | ", results);
-        result(mc, "FAIL " + why);
+        String scenario = phase >= 1 && phase < 10 ? "dig" : phase >= 10 && phase < 20 ? "big" : phase >= 20 && phase < 30 ? "redstone" : null;
+        if (scenario == null) {
+            if (!results.isEmpty()) why += " | before: " + String.join(" | ", results);
+            result(mc, "FAIL " + why);
+            return;
+        }
+        String line = "FAIL " + scenario + ": " + why;
+        log(line);
+        results.add(line);
+        anyFailed = true;
+        if (LunarBuilder.task() != null) LunarBuilder.stopTask(mc, null);
+        if (mc.screen != null) mc.setScreen(null);
+        pausedTicks = 0;
+        nextScenario(scenario);
     }
 
     private void result(Minecraft mc, String text) {

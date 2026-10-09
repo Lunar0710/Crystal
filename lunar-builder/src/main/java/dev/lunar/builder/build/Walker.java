@@ -102,14 +102,19 @@ public final class Walker {
         if (player == null) return false;
         if (flyTo != null) return flyTick(mc, player, turnSpeed);
         if (path == null) return false;
-        // Past waypoints that are already behind: the next one still ahead.
-        while (index < path.size()) {
-            BlockPos next = path.get(index);
-            double dx = next.getX() + 0.5 - player.getX(), dz = next.getZ() + 0.5 - player.getZ();
+        // Past waypoints that are already behind: the next one still ahead. The
+        // look-ahead walks straight past corners without touching them, so the
+        // furthest waypoint the player is at counts, not only the next one
+        // (otherwise it stood on the goal still aiming at it, spinning on the spot).
+        for (int j = path.size() - 1; j >= index; j--) {
+            BlockPos at = path.get(j);
+            double dx = at.getX() + 0.5 - player.getX(), dz = at.getZ() + 0.5 - player.getZ();
             // The last step precisely onto the spot.
-            double tolerance = index == path.size() - 1 ? 0.2 : 0.4;
-            if (dx * dx + dz * dz < tolerance * tolerance && Math.abs(player.getY() - next.getY()) < 0.6) index++;
-            else break;
+            double tolerance = j == path.size() - 1 ? 0.2 : 0.4;
+            if (dx * dx + dz * dz < tolerance * tolerance && Math.abs(player.getY() - at.getY()) < 0.6) {
+                index = j + 1;
+                break;
+            }
         }
         if (index >= path.size()) {
             stop(mc);

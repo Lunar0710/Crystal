@@ -56,8 +56,8 @@ jobs:
         if: always()
         run: |
           [ -f gametest.log ] || exit 0
-          grep -E '\[lb-test\]|\[Lunar Builder\]' gametest.log | sed -e 's/^.*\[lb-test\]/[lb-test]/' -e 's/^.*\[Lunar Builder\]/[Lunar Builder]/' | tail -150 > lbtest.key || true
-          split -l 10 lbtest.key lbtest.part. || true
+          grep -E '\[lb-test\]|\[Lunar Builder\]' gametest.log | sed -e 's/^.*\[lb-test\]/[lb-test]/' -e 's/^.*\[Lunar Builder\]/[Lunar Builder]/' | tail -400 > lbtest.key || true
+          split -l 40 lbtest.key lbtest.part. || true
           for p in lbtest.part.*; do
             [ -s "$p" ] || continue
             msg=$(sed -e 's/%/%25/g' "$p" | awk '{printf "%s%%0A", $0}')

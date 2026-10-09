@@ -209,19 +209,26 @@ public final class LunarBuilder implements ClientModInitializer {
         if (message != null) notify(message);
     }
 
-    /** Pauses the running task with a reason (inventory full, worn tool, ...). */
     /** Degrees the head turned in each of the last SPIN_TICKS ticks of a job. */
     private static final int SPIN_TICKS = 60;
     private static final float SPIN_LIMIT = 1080f;
     private static final float[] spin = new float[SPIN_TICKS];
     private static int spinIndex = 0;
     private static float lastYaw = Float.NaN;
+    private static int spinProgress = Integer.MIN_VALUE;
 
     /**
-     * Three full turns in three seconds is no work any more, it is the planner
-     * hopping between targets it can not get at: pause instead of spinning.
+     * Three full turns in three seconds without a block dug or placed is no
+     * work any more, it is the planner hopping between targets it can not get
+     * at: pause instead of spinning. Turning to block after block that does
+     * get done (left, right, ahead while stripping a lane) is fine.
      */
     private static void watchSpin(Minecraft mc) {
+        int progress = task.progress();
+        if (progress != spinProgress) {
+            spinProgress = progress;
+            java.util.Arrays.fill(spin, 0f);
+        }
         float yaw = mc.player.getYRot();
         spin[spinIndex++ % SPIN_TICKS] = Float.isNaN(lastYaw) ? 0f : Math.abs(net.minecraft.util.Mth.wrapDegrees(yaw - lastYaw));
         lastYaw = yaw;
@@ -259,6 +266,7 @@ public final class LunarBuilder implements ClientModInitializer {
         lastYaw = Float.NaN;
     }
 
+    /** Pauses the running task with a reason (inventory full, worn tool, ...). */
     public static void pauseWith(String message) {
         Minecraft mc = Minecraft.getInstance();
         resetSpin();

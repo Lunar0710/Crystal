@@ -30,6 +30,8 @@ loom {
             name 'Test Client'
             source sourceSets.testmod
             runDir 'run'
+            // Every click of the builder in the log (BuildTask.TRACE).
+            vmArg '-Dlunarbuilder.trace=1'
         }
     }
 }
