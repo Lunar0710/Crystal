@@ -169,7 +169,17 @@ public final class DigWorldTest implements ClientModInitializer {
                 lastChange = ticks;
             }
         }
-        if (ticks % 200 == 0 && LunarBuilder.task() != null) log("progress: " + LunarBuilder.task().status() + " at " + mc.player.position());
+        if (ticks % 200 == 0 && LunarBuilder.task() != null) {
+            log("progress: " + LunarBuilder.task().status() + " at " + mc.player.position());
+            // Why nothing happens: what the task wants, where it looks, what is in the way
+            String hit = mc.hitResult instanceof BlockHitResult b ? "block " + b.getBlockPos().toShortString() + " " + mc.level.getBlockState(b.getBlockPos()).getBlock()
+                    : mc.hitResult == null ? "none" : mc.hitResult.getType().toString();
+            log("  attack=" + LunarBuilder.holdAttack() + " paused=" + LunarBuilder.paused() + " screen=" + (mc.screen == null ? "none" : mc.screen.getClass().getSimpleName())
+                    + " yaw=" + Math.round(mc.player.getYRot()) + " pitch=" + Math.round(mc.player.getXRot()) + " crosshair=" + hit
+                    + " keys fwd=" + mc.options.keyUp.isDown() + " sneak=" + mc.options.keyShift.isDown() + " use=" + mc.options.keyUse.isDown()
+                    + " food=" + mc.player.getFoodData().getFoodLevel() + " onGround=" + mc.player.onGround()
+                    + " destroying=" + mc.gameMode.isDestroying());
+        }
         if (mc.screen != null && LunarBuilder.task() != null) mc.setScreen(null);
         if (LunarBuilder.task() == null) next();
     }
