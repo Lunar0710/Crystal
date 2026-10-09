@@ -1,6 +1,6 @@
 # Builds the standalone Lunar Builder mod (lunar-builder/, Minecraft 1.21.11),
-# runs the gate unit tests and a world test in a singleplayer world
-# (5x5 area, 3 layers dug, all blocks must be air). Nothing is published.
+# runs the gate unit tests and world tests in a singleplayer world
+# (5x5 dig, 30x30 dig, a redstone build; see DigWorldTest). Nothing is published.
 name: Lunar Builder
 
 on:
@@ -14,7 +14,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 75
     defaults:
       run:
         working-directory: lunar-builder
@@ -41,13 +41,28 @@ jobs:
       - name: Linux display for the game window
         run: sudo apt-get update && sudo apt-get install -y xvfb libgl1-mesa-dri libglx-mesa0
 
-      - name: World test (singleplayer, 5x5 area, 3 layers)
+      - name: World test (singleplayer, dig and build)
         env:
           LB_TEST: '1'
+          # Comma list of dig, big, redstone; empty runs all of them.
+          LB_TEST_SCENARIOS: ''
         run: |
-          timeout 25m xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew runTestClient --no-daemon --stacktrace 2>&1 | tee gametest.log || true
+          timeout 55m xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew runTestClient --no-daemon --stacktrace 2>&1 | tee gametest.log || true
           cat run/lb-test-result.txt
           grep -q '^PASS' run/lb-test-result.txt
+
+      # The test's own lines as notices (readable without downloading logs, also on success).
+      - name: Test report
+        if: always()
+        run: |
+          [ -f gametest.log ] || exit 0
+          grep -E '\[lb-test\]|\[Lunar Builder\]' gametest.log | sed -e 's/^.*\[lb-test\]/[lb-test]/' -e 's/^.*\[Lunar Builder\]/[Lunar Builder]/' | tail -150 > lbtest.key || true
+          split -l 10 lbtest.key lbtest.part. || true
+          for p in lbtest.part.*; do
+            [ -s "$p" ] || continue
+            msg=$(sed -e 's/%/%25/g' "$p" | awk '{printf "%s%%0A", $0}')
+            echo "::notice title=lb-test::$msg"
+          done
 
       - uses: actions/upload-artifact@v4
         if: always()

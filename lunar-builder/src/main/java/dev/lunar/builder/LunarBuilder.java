@@ -185,6 +185,16 @@ public final class LunarBuilder implements ClientModInitializer {
             notify("Keine Litematica-Platzierung geladen.");
             return;
         }
+        startBuild(source);
+    }
+
+    /** Builds what the source says (Litematica, or the CI test's own schematic). */
+    public static void startBuild(dev.lunar.builder.build.SchematicSource source) {
+        Minecraft mc = Minecraft.getInstance();
+        if (!allowed(mc)) {
+            showForeignHint(mc);
+            return;
+        }
         stopTask(mc, null);
         Config config = Config.get();
         task = new BuildTask(source, config.turnSpeed(), config.blocksPerSecond());

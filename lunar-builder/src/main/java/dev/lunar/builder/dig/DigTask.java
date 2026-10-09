@@ -55,6 +55,8 @@ public final class DigTask implements Task {
     private final Map<BlockPos, Long> unreachable = new HashMap<>();
     private int unreachableRounds = 0;
     private int belowLeft = 0, layerLeft = 0;
+    /** Blocks dug so far (strip mining goes on for a whole lane without counting the layer again). */
+    private int dug = 0;
 
     private Phase phase = Phase.PICK;
     private BlockPos target;
@@ -102,7 +104,7 @@ public final class DigTask implements Task {
 
     @Override
     public int progress() {
-        return (topY - layerY) * 1_000_000 - (layerLeft + belowLeft) + skipped.size();
+        return dug + skipped.size() + (topY - layerY);
     }
 
     @Override
@@ -128,6 +130,13 @@ public final class DigTask implements Task {
             }
         }
         return text;
+    }
+
+    /** For the log: what it is doing right now. */
+    @Override
+    public String toString() {
+        return "phase=" + phase + " target=" + (target == null ? "none" : target.toShortString()) + " layer=" + layerY
+                + " unreachable=" + unreachable.size() + " skipped=" + skipped.size() + " walking=" + walker.walking();
     }
 
     /** Blocks to dig when first counted, and when (for % and time left). */
@@ -457,6 +466,7 @@ public final class DigTask implements Task {
         Level level = mc.level;
         SmoothLook.tick();
         if (done(level, target)) {
+            if (level.getBlockState(target).isAir()) countDug();
             BlockPos ahead = player.blockPosition().getY() == layerY ? nextInPattern(level, player) : null;
             // Next block further down the lane than reach: walk on towards it instead
             // of stopping to plan a route; mining starts once the crosshair is on it.
@@ -528,6 +538,7 @@ public final class DigTask implements Task {
         Level level = mc.level;
         SmoothLook.tick();
         if (level.getBlockState(target).isAir()) {
+            countDug();
             SmoothLook.stop();
             // No rest between blocks unless careful: straight on to the next one.
             timer = Config.get().careful() ? Config.get().pauseTicks() : 0;
@@ -547,6 +558,11 @@ public final class DigTask implements Task {
         }
         // The attack is held like the left mouse button: the game itself mines
         // what the crosshair is on (MinecraftMixin), swing and progress included.
+    }
+
+    private void countDug() {
+        dug++;
+        if (layerLeft > 0) layerLeft--;
     }
 
     // ------------------------------------------------------------ checks

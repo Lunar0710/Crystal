@@ -1406,6 +1406,11 @@ public class BuildTask implements Task {
         status = "Bauen · " + text;
     }
 
+    @Override
+    public String toString() {
+        return debugStatus();
+    }
+
     /** For the log. */
     public String debugStatus() {
         return String.format(Locale.ROOT, "left=%d wrong=%d supports=%d missing=%s first=%s", left, wrong, supports.size(), missing, firstLeft);

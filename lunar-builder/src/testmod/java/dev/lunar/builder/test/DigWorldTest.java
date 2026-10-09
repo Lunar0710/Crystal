@@ -19,6 +19,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.levelgen.presets.WorldPresets;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
@@ -28,37 +29,54 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 /**
- * CI only (LB_TEST=1): creates a flat singleplayer world, builds a stone block
- * with a dirt layer high up, picks a 5x5 area with the pickaxe (left click
- * corner 1, right click corner 2 one block higher on purpose), 3 layers deep,
- * and checks afterwards that all 75 blocks are air, nothing outside the area
- * was dug and the player is alive. Verdict in run/lb-test-result.txt.
+ * CI only (LB_TEST=1), in one flat singleplayer world, one scenario after the other:
+ * <ul>
+ * <li>dig: a stone block with a dirt layer high up, a 5x5 area picked with the
+ * pickaxe (left click corner 1, right click corner 2 one block higher on
+ * purpose), 3 layers deep; all 75 blocks air, nothing outside dug.</li>
+ * <li>big: a 30x30 area 2 layers deep on a bigger platform, started from the
+ * middle; every block dug, nothing outside, time and longest stall.</li>
+ * <li>redstone: a board of redstone parts (RedstoneBoard) built in survival by
+ * the real BuildTask; every block as the schematic wants it, nothing fired.</li>
+ * </ul>
+ * LB_TEST_SCENARIOS picks some of them (comma list), default all.
+ * Verdict in run/lb-test-result.txt.
  */
 public final class DigWorldTest implements ClientModInitializer {
 
     private static final int TOP = 105;
-    private static final long DEADLINE_MS = 15 * 60_000L;
+    /** Longest time without a block dug that still counts as working. */
+    private static final int MAX_STALL_TICKS = 8 * 20;
 
+    private Set<String> scenarios;
     private int phase = 0, ticks = 0;
     private int x, z;
     private BlockPos corner1, corner2;
-    private long startedAt;
+    private long startedAt, scenarioStart;
+    private long deadlineMs = 10 * 60_000L;
+    private final List<String> results = new ArrayList<>();
 
     @Override
     public void onInitializeClient() {
         if (System.getenv("LB_TEST") == null) return;
-        startedAt = System.currentTimeMillis();
+        String list = System.getenv("LB_TEST_SCENARIOS");
+        scenarios = Set.of((list == null || list.isBlank() ? "dig,big,redstone" : list).split(","));
+        log("scenarios: " + scenarios);
+        startedAt = scenarioStart = System.currentTimeMillis();
         ClientTickEvents.END_CLIENT_TICK.register(this::tick);
     }
 
     private void tick(Minecraft mc) {
         try {
-            if (System.currentTimeMillis() - startedAt > DEADLINE_MS) {
-                fail(mc, "deadline, phase " + phase + ", screen=" + (mc.screen == null ? "none" : mc.screen.getClass().getSimpleName()) + ", task=" + (LunarBuilder.task() == null ? "none" : LunarBuilder.task().status()));
+            if (System.currentTimeMillis() - scenarioStart > deadlineMs) {
+                String extra = digBox != null ? ", " + remaining(mc) + " blocks left" : "";
+                fail(mc, "deadline, phase " + phase + ", screen=" + (mc.screen == null ? "none" : mc.screen.getClass().getSimpleName())
+                        + ", task=" + (LunarBuilder.task() == null ? "none" : LunarBuilder.task().status()) + extra);
                 return;
             }
             ticks++;
@@ -69,6 +87,15 @@ public final class DigWorldTest implements ClientModInitializer {
                 case 3 -> startDig(mc);
                 case 4 -> waitForDig(mc);
                 case 5 -> verify(mc);
+                case 10 -> setUpBig(mc);
+                case 11 -> startBig(mc);
+                case 12 -> waitForDig(mc);
+                case 13 -> verifyBig(mc);
+                case 20 -> setUpRedstone(mc);
+                case 21 -> startRedstone(mc);
+                case 22 -> waitForBuild(mc);
+                case 23 -> verifyRedstone(mc);
+                case 90 -> done(mc);
                 default -> { }
             }
         } catch (Throwable t) {
@@ -79,6 +106,23 @@ public final class DigWorldTest implements ClientModInitializer {
     private void next() {
         phase++;
         ticks = 0;
+    }
+
+    /** On to the next scenario that is switched on (or the end). */
+    private void nextScenario(String after) {
+        List<String> order = List.of("dig", "big", "redstone");
+        int[] phases = {1, 10, 20};
+        int from = order.indexOf(after) + 1;
+        phase = 90;
+        for (int i = from; i < order.size(); i++) {
+            if (scenarios.contains(order.get(i))) {
+                phase = phases[i];
+                break;
+            }
+        }
+        ticks = 0;
+        scenarioStart = System.currentTimeMillis();
+        digBox = null;
     }
 
     private void createWorld(Minecraft mc) {
@@ -118,6 +162,12 @@ public final class DigWorldTest implements ClientModInitializer {
         log("world loaded, player at " + start.toShortString());
         command(mc, "difficulty peaceful");
         command(mc, "gamemode survival @a");
+        command(mc, "gamerule doDaylightCycle false");
+        if (!scenarios.contains("dig")) {
+            nextScenario("dig");
+            return;
+        }
+        deadlineMs = 6 * 60_000L;
         command(mc, String.format("fill %d %d %d %d %d %d stone", x - 6, TOP - 6, z - 6, x + 6, TOP, z + 6));
         command(mc, String.format("fill %d %d %d %d %d %d dirt", x - 2, TOP - 1, z - 2, x + 2, TOP - 1, z + 2));
         command(mc, String.format("tp @a %d %d %d 0 0", x, TOP + 1, z));
@@ -151,55 +201,111 @@ public final class DigWorldTest implements ClientModInitializer {
         screen.start();
         check(LunarBuilder.task() != null, "dig did not start");
         log("dig started");
+        watchDig(x - 2, z - 2, x + 2, z + 2, TOP, TOP - 2);
         next();
     }
 
-    /** Dig timing: when it started, the last progress change, the longest stretch without one. */
-    private long digStart = -1, lastChange = -1, longestStall = 0;
-    private int lastProgress = Integer.MIN_VALUE;
+    // ------------------------------------------------------------ dig timing
 
-    private void waitForDig(Minecraft mc) {
-        var task = LunarBuilder.task();
-        if (task != null) {
-            if (digStart < 0) digStart = lastChange = ticks;
-            int p = task.progress();
-            if (p != lastProgress) {
-                longestStall = Math.max(longestStall, ticks - lastChange);
-                lastProgress = p;
-                lastChange = ticks;
+    /** The box being dug {minX, minZ, maxX, maxZ, topY, bottomY}; null while no dig is watched. */
+    private int[] digBox;
+    /** Dig timing: when it started, the last change of blocks left, the longest stretch without one. */
+    private long digStart, lastChange, longestStall, stallAt;
+    private int lastLeft;
+    private boolean stallLogged;
+
+    private void watchDig(int minX, int minZ, int maxX, int maxZ, int topY, int bottomY) {
+        digBox = new int[]{minX, minZ, maxX, maxZ, topY, bottomY};
+        digStart = lastChange = -1;
+        longestStall = 0;
+        lastLeft = Integer.MIN_VALUE;
+        stallLogged = false;
+    }
+
+    /** Blocks of the dig box not yet air (client world). */
+    private int remaining(Minecraft mc) {
+        if (digBox == null || mc.level == null) return -1;
+        int left = 0;
+        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+        for (int y = digBox[5]; y <= digBox[4]; y++) {
+            for (int bx = digBox[0]; bx <= digBox[2]; bx++) {
+                for (int bz = digBox[1]; bz <= digBox[3]; bz++) {
+                    if (!mc.level.getBlockState(pos.set(bx, y, bz)).isAir()) left++;
+                }
             }
         }
-        if (ticks % 200 == 0 && LunarBuilder.task() != null) {
-            log("progress: " + LunarBuilder.task().status() + " at " + mc.player.position());
-            // Why nothing happens: what the task wants, where it looks, what is in the way
-            String hit = mc.hitResult instanceof BlockHitResult b ? "block " + b.getBlockPos().toShortString() + " " + mc.level.getBlockState(b.getBlockPos()).getBlock()
-                    : mc.hitResult == null ? "none" : mc.hitResult.getType().toString();
-            log("  attack=" + LunarBuilder.holdAttack() + " paused=" + LunarBuilder.paused() + " screen=" + (mc.screen == null ? "none" : mc.screen.getClass().getSimpleName())
-                    + " yaw=" + Math.round(mc.player.getYRot()) + " pitch=" + Math.round(mc.player.getXRot()) + " crosshair=" + hit
-                    + " keys fwd=" + mc.options.keyUp.isDown() + " sneak=" + mc.options.keyShift.isDown() + " use=" + mc.options.keyUse.isDown()
-                    + " food=" + mc.player.getFoodData().getFoodLevel() + " onGround=" + mc.player.onGround()
-                    + " destroying=" + mc.gameMode.isDestroying());
+        return left;
+    }
+
+    /** The task state last logged, for the trace of the first half minute of a dig. */
+    private String lastTrace = "";
+    private int traceLines = 0;
+
+    private void waitForDig(Minecraft mc) {
+        if (digStart < 0) {
+            digStart = lastChange = ticks;
+            lastTrace = "";
+            traceLines = 0;
+        }
+        // The first 30 s: every change of what the task does, with where it looks.
+        var traced = LunarBuilder.task();
+        if (traced != null && ticks - digStart < 600 && traceLines < 80) {
+            String now = traced + " paused=" + LunarBuilder.paused();
+            if (!now.equals(lastTrace)) {
+                lastTrace = now;
+                traceLines++;
+                log("t" + (ticks - digStart) + " " + now + " yaw=" + Math.round(mc.player.getYRot()) + " pitch=" + Math.round(mc.player.getXRot())
+                        + " at " + shortPos(mc.player.position()));
+            }
+        }
+        int left = remaining(mc);
+        if (left != lastLeft) {
+            if (ticks - lastChange > longestStall) {
+                longestStall = ticks - lastChange;
+                stallAt = lastChange;
+            }
+            lastLeft = left;
+            lastChange = ticks;
+            stallLogged = false;
+        }
+        // A stall in the making: once, what the task is doing.
+        if (!stallLogged && ticks - lastChange > MAX_STALL_TICKS && LunarBuilder.task() != null) {
+            stallLogged = true;
+            log("stall " + (ticks - lastChange) / 20 + " s at " + left + " left:");
+            diagnose(mc);
+        }
+        if (ticks % 600 == 0 && LunarBuilder.task() != null) {
+            log("progress: " + LunarBuilder.task().status() + " (" + left + " left) at " + shortPos(mc.player.position()));
         }
         if (mc.screen != null && LunarBuilder.task() != null) mc.setScreen(null);
-        if (LunarBuilder.task() == null) next();
+        if (LunarBuilder.task() == null) {
+            // The last stretch counts too (a dig that stopped with blocks left).
+            longestStall = Math.max(longestStall, ticks - lastChange);
+            next();
+        }
+    }
+
+    private void diagnose(Minecraft mc) {
+        var task = LunarBuilder.task();
+        String hit = mc.hitResult instanceof BlockHitResult b ? "block " + b.getBlockPos().toShortString() + " " + mc.level.getBlockState(b.getBlockPos()).getBlock()
+                : mc.hitResult == null ? "none" : mc.hitResult.getType().toString();
+        log("  status=" + (task == null ? "none" : task.status()) + " debug=" + (task == null ? "" : task.toString()));
+        log("  at " + shortPos(mc.player.position()) + " attack=" + LunarBuilder.holdAttack() + " paused=" + LunarBuilder.paused()
+                + " screen=" + (mc.screen == null ? "none" : mc.screen.getClass().getSimpleName())
+                + " yaw=" + Math.round(mc.player.getYRot()) + " pitch=" + Math.round(mc.player.getXRot()) + " crosshair=" + hit
+                + " fwd=" + mc.options.keyUp.isDown() + " sneak=" + mc.options.keyShift.isDown() + " use=" + mc.options.keyUse.isDown()
+                + " food=" + mc.player.getFoodData().getFoodLevel() + " onGround=" + mc.player.onGround()
+                + " destroying=" + mc.gameMode.isDestroying() + " held=" + mc.player.getMainHandItem().getItem());
+    }
+
+    private String digSummary() {
+        return "in " + (lastChange - digStart) / 20 + " s, longest stall " + longestStall / 20.0 + " s (at " + (stallAt - digStart) / 20 + " s)";
     }
 
     private void verify(Minecraft mc) {
         if (ticks < 20) return;
         Screenshot.grab(mc.gameDirectory, "lb-dug.png", mc.getMainRenderTarget(), 1, msg -> log("screenshot: " + msg.getString()));
-        List<BlockPos> notAir = onServer(mc, () -> {
-            List<BlockPos> list = new ArrayList<>();
-            var level = mc.getSingleplayerServer().overworld();
-            for (int y = TOP; y > TOP - 3; y--) {
-                for (int dx = -2; dx <= 2; dx++) {
-                    for (int dz = -2; dz <= 2; dz++) {
-                        BlockPos pos = new BlockPos(x + dx, y, z + dz);
-                        if (!level.getBlockState(pos).isAir()) list.add(pos);
-                    }
-                }
-            }
-            return list;
-        });
+        List<BlockPos> notAir = notAir(mc, x - 2, z - 2, x + 2, z + 2, TOP, TOP - 2);
         boolean wallsIntact = onServer(mc, () -> {
             var level = mc.getSingleplayerServer().overworld();
             return !level.getBlockState(new BlockPos(x + 3, TOP, z)).isAir()
@@ -213,11 +319,174 @@ public final class DigWorldTest implements ClientModInitializer {
         // The gate once more, inside the game: singleplayer yes, a server not on the list no.
         check(LunarBuilder.allowed(mc), "singleplayer not allowed");
         check(!Gate.allowed(false, "fremder-server.net", List.of("mein-server.de")), "foreign server allowed");
-        result(mc, "PASS 75 blocks dug in 3 layers in " + (lastChange - digStart) / 20 + " s, longest stall " + longestStall / 20.0
-                + " s, health=" + health + ", player at " + mc.player.position());
+        String line = "dig 5x5x3: 75 blocks " + digSummary() + ", health=" + health;
+        log(line);
+        results.add(line);
+        check(longestStall <= MAX_STALL_TICKS, "5x5 dig stood still for " + longestStall / 20.0 + " s");
+        nextScenario("dig");
+    }
+
+    private List<BlockPos> notAir(Minecraft mc, int minX, int minZ, int maxX, int maxZ, int topY, int bottomY) {
+        return onServer(mc, () -> {
+            List<BlockPos> list = new ArrayList<>();
+            var level = mc.getSingleplayerServer().overworld();
+            for (int y = topY; y >= bottomY; y--) {
+                for (int bx = minX; bx <= maxX; bx++) {
+                    for (int bz = minZ; bz <= maxZ; bz++) {
+                        BlockPos pos = new BlockPos(bx, y, bz);
+                        if (!level.getBlockState(pos).isAir()) list.add(pos);
+                    }
+                }
+            }
+            return list;
+        });
+    }
+
+    // ------------------------------------------------------------ big area
+
+    private int bigX;
+
+    private void setUpBig(Minecraft mc) {
+        if (ticks == 1) {
+            deadlineMs = 25 * 60_000L;
+            bigX = x + 60;
+            command(mc, String.format("tp @a %d %d %d 0 0", bigX, TOP + 1, z));
+            return;
+        }
+        if (ticks < 60) return;
+        // A 38x38 platform, the 30x30 area in its middle, 2 layers of it dug.
+        command(mc, String.format("fill %d %d %d %d %d %d stone", bigX - 18, TOP - 4, z - 18, bigX + 19, TOP, z + 19));
+        command(mc, String.format("tp @a %d %d %d 0 0", bigX, TOP + 1, z));
+        command(mc, "clear @a");
+        command(mc, "give @a diamond_pickaxe[enchantments={efficiency:5,unbreaking:3}]");
+        command(mc, "give @a diamond_shovel");
+        command(mc, "effect clear @a");
+        next();
+    }
+
+    private void startBig(Minecraft mc) {
+        if (ticks < 40) return;
+        if (mc.screen != null) mc.setScreen(null);
+        check(!mc.level.getBlockState(new BlockPos(bigX + 15, TOP, z + 15)).isAir(), "big platform not there");
+        mc.player.getInventory().setSelectedSlot(0);
+        check(LunarBuilder.startDig(new BlockPos(bigX - 14, TOP, z - 14), new BlockPos(bigX + 15, TOP, z + 15), 2), "big dig did not start");
+        log("big dig started, player at " + shortPos(mc.player.position()));
+        watchDig(bigX - 14, z - 14, bigX + 15, z + 15, TOP, TOP - 1);
+        next();
+    }
+
+    private void verifyBig(Minecraft mc) {
+        if (ticks < 20) return;
+        Screenshot.grab(mc.gameDirectory, "lb-big.png", mc.getMainRenderTarget(), 1, msg -> log("screenshot: " + msg.getString()));
+        List<BlockPos> notAir = notAir(mc, bigX - 14, z - 14, bigX + 15, z + 15, TOP, TOP - 1);
+        // Outside: the ring around the area in both layers, and the layer under it.
+        List<BlockPos> dugOutside = onServer(mc, () -> {
+            List<BlockPos> list = new ArrayList<>();
+            var level = mc.getSingleplayerServer().overworld();
+            for (int y = TOP - 1; y <= TOP; y++) {
+                for (int i = -15; i <= 16; i++) {
+                    for (BlockPos pos : new BlockPos[]{new BlockPos(bigX + i, y, z - 15), new BlockPos(bigX + i, y, z + 16),
+                            new BlockPos(bigX - 15, y, z + i), new BlockPos(bigX + 16, y, z + i)}) {
+                        if (level.getBlockState(pos).isAir()) list.add(pos);
+                    }
+                }
+            }
+            for (int bx = bigX - 14; bx <= bigX + 15; bx++) {
+                for (int bz = z - 14; bz <= z + 15; bz++) {
+                    BlockPos pos = new BlockPos(bx, TOP - 2, bz);
+                    if (level.getBlockState(pos).isAir()) list.add(pos);
+                }
+            }
+            return list;
+        });
+        float health = mc.player.getHealth();
+        String line = "big 30x30x2: " + (1800 - notAir.size()) + "/1800 blocks " + digSummary() + ", health=" + health;
+        log(line);
+        results.add(line);
+        check(notAir.isEmpty(), "big area: " + notAir.size() + " blocks not dug, first " + notAir.subList(0, Math.min(10, notAir.size())));
+        check(dugOutside.isEmpty(), "big area: dug outside " + dugOutside.subList(0, Math.min(10, dugOutside.size())));
+        check(health > 0f, "player died in the big area");
+        check(longestStall <= MAX_STALL_TICKS, "big area stood still for " + longestStall / 20.0 + " s");
+        check(lastChange - digStart < 20 * 60 * 20, "big area took " + (lastChange - digStart) / 20 + " s");
+        nextScenario("big");
+    }
+
+    // ------------------------------------------------------------ redstone build
+
+    private RedstoneBoard board;
+    private int buildX;
+    private final List<String> fired = new ArrayList<>();
+    private long buildStart;
+
+    private void setUpRedstone(Minecraft mc) {
+        if (ticks == 1) {
+            deadlineMs = 12 * 60_000L;
+            buildX = x - 60;
+            command(mc, String.format("tp @a %d %d %d 0 0", buildX - 3, TOP + 1, z - 3));
+            return;
+        }
+        if (ticks < 60) return;
+        command(mc, String.format("fill %d %d %d %d %d %d stone", buildX - 6, TOP, z - 6, buildX + 17, TOP, z + 27));
+        command(mc, String.format("fill %d %d %d %d %d %d air", buildX - 6, TOP + 1, z - 6, buildX + 17, TOP + 6, z + 27));
+        command(mc, String.format("tp @a %d %d %d 0 0", buildX - 3, TOP + 1, z - 3));
+        command(mc, "clear @a");
+        for (String item : RedstoneBoard.ITEMS) command(mc, "give @a " + item);
+        board = new RedstoneBoard(new BlockPos(buildX, TOP + 1, z));
+        next();
+    }
+
+    private void startRedstone(Minecraft mc) {
+        if (ticks < 40) return;
+        if (mc.screen != null) mc.setScreen(null);
+        check(mc.player.getInventory().countItem(Items.OBSERVER) > 0, "items not given");
+        LunarBuilder.startBuild(board);
+        check(LunarBuilder.task() != null, "build did not start");
+        log("redstone build started, " + board.blocks.size() + " blocks");
+        buildStart = ticks;
+        next();
+    }
+
+    private void waitForBuild(Minecraft mc) {
+        if (mc.screen != null && LunarBuilder.task() != null) mc.setScreen(null);
+        if (ticks % 5 == 0) {
+            // Nothing may fire while building: a piston head or moving block is a misfire.
+            for (BlockPos pos : BlockPos.betweenClosed(board.min.offset(-1, -1, -1), board.max.offset(1, 2, 1))) {
+                var block = mc.level.getBlockState(pos).getBlock();
+                if ((block == Blocks.PISTON_HEAD || block == Blocks.MOVING_PISTON) && fired.size() < 5) {
+                    fired.add(pos.subtract(board.origin).toShortString() + " at " + ticks / 20 + " s");
+                }
+            }
+        }
+        if (ticks % 400 == 0 && LunarBuilder.task() != null) {
+            log("build: " + LunarBuilder.task().status() + " at " + shortPos(mc.player.position().subtract(Vec3.atLowerCornerOf(board.origin))));
+        }
+        if (LunarBuilder.task() == null) next();
+    }
+
+    private void verifyRedstone(Minecraft mc) {
+        if (ticks < 20) return;
+        Screenshot.grab(mc.gameDirectory, "lb-redstone.png", mc.getMainRenderTarget(), 1, msg -> log("screenshot: " + msg.getString()));
+        List<String> wrong = onServer(mc, () -> board.differences(mc.getSingleplayerServer().overworld()::getBlockState));
+        String line = "redstone: " + (board.blocks.size()) + " blocks in " + (ticks + 0) / 20 + "+ s, "
+                + wrong.size() + " wrong, misfires " + fired;
+        for (String w : wrong) log("  wrong " + w);
+        log(line);
+        results.add(line);
+        check(wrong.isEmpty(), "redstone: " + wrong.size() + " wrong: " + String.join("; ", wrong.subList(0, Math.min(6, wrong.size()))));
+        check(fired.isEmpty(), "redstone: pistons fired while building: " + fired);
+        check(mc.player.getHealth() > 0f, "player died while building");
+        nextScenario("redstone");
+    }
+
+    private void done(Minecraft mc) {
+        result(mc, "PASS " + String.join(" | ", results) + " (" + (System.currentTimeMillis() - startedAt) / 1000 + " s total)");
     }
 
     // ------------------------------------------------------------ helpers
+
+    private static String shortPos(Vec3 pos) {
+        return String.format(java.util.Locale.ROOT, "(%.2f, %.2f, %.2f)", pos.x, pos.y, pos.z);
+    }
 
     private static void command(Minecraft mc, String command) {
         IntegratedServer server = mc.getSingleplayerServer();
@@ -237,6 +506,7 @@ public final class DigWorldTest implements ClientModInitializer {
     }
 
     private void fail(Minecraft mc, String why) {
+        if (!results.isEmpty()) why += " | before: " + String.join(" | ", results);
         result(mc, "FAIL " + why);
     }
 
