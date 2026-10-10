@@ -499,6 +499,17 @@ public final class DigTask implements Task {
             stopStrip(mc);
             return;
         }
+        // Another block of the job in front of the target (going over to the next
+        // lane past its side block): that one first, never stand and wait behind it.
+        if (mc.hitResult instanceof BlockHitResult hit && hit.getType() == HitResult.Type.BLOCK) {
+            BlockPos on = hit.getBlockPos();
+            BlockState onState = level.getBlockState(on);
+            if (!on.equals(target) && inWork(on) && !onState.isAir() && onState.getDestroySpeed(level, on) >= 0
+                    && onState.getFluidState().isEmpty() && fluidNear(level, on) == null) {
+                target = on.immutable();
+                mineTicks = 0;
+            }
+        }
         // Walk only towards the middle block of the lane ahead (never sideways into a
         // side block), and only once facing it: walking presses into it while it is mined.
         BlockPos feet = player.blockPosition();

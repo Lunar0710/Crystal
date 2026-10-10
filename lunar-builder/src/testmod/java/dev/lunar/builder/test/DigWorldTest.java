@@ -359,7 +359,8 @@ public final class DigWorldTest implements ClientModInitializer {
         if (ticks == 1) {
             deadlineMs = 25 * 60_000L;
             bigX = x + 60;
-            command(mc, String.format("tp @a %d %d %d 0 0", bigX, TOP + 1, z));
+            // Load the spot first; a teleport into unloaded air drops the player into the void.
+            command(mc, String.format("forceload add %d %d %d %d", bigX - 18, z - 18, bigX + 19, z + 19));
             return;
         }
         if (ticks < 60) return;
@@ -431,7 +432,7 @@ public final class DigWorldTest implements ClientModInitializer {
         if (ticks == 1) {
             deadlineMs = 12 * 60_000L;
             buildX = x - 60;
-            command(mc, String.format("tp @a %d %d %d 0 0", buildX - 3, TOP + 1, z - 3));
+            command(mc, String.format("forceload add %d %d %d %d", buildX - 6, z - 6, buildX + 17, z + 27));
             return;
         }
         if (ticks < 60) return;
