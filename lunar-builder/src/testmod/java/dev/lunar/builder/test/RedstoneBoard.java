@@ -52,7 +52,8 @@ final class RedstoneBoard implements SchematicSource {
         // Facing up needs a look upwards: high up beside the pillar, from below.
         put(9, 2, 3, facing(Blocks.OBSERVER.defaultBlockState(), Direction.UP));
         for (int y = 0; y <= 2; y++) put(10, y, 3, stone);
-        put(11, 2, 3, facing(Blocks.OBSERVER.defaultBlockState(), Direction.DOWN));
+        // Facing down needs a look downwards: on the floor against the pillar, from above.
+        put(11, 0, 3, facing(Blocks.OBSERVER.defaultBlockState(), Direction.DOWN));
         // Pistons, normal and sticky, the same way.
         put(0, 0, 6, facing(Blocks.PISTON.defaultBlockState(), Direction.NORTH));
         put(2, 0, 6, facing(Blocks.STICKY_PISTON.defaultBlockState(), Direction.EAST));
