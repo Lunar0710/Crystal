@@ -469,6 +469,10 @@ public final class DigWorldTest implements ClientModInitializer {
         }
         if (ticks % 400 == 0 && LunarBuilder.task() != null) {
             log("build: " + LunarBuilder.task().status() + " at " + shortPos(mc.player.position().subtract(Vec3.atLowerCornerOf(board.origin))));
+            // What is still missing and what the task thinks about it.
+            log("  task: " + LunarBuilder.task());
+            List<String> open = board.differences(mc.level::getBlockState);
+            for (String d : open.subList(0, Math.min(10, open.size()))) log("  open " + d);
         }
         if (LunarBuilder.task() == null) next();
     }

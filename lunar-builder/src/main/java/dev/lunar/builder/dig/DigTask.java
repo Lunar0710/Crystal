@@ -61,7 +61,7 @@ public final class DigTask implements Task {
     private Phase phase = Phase.PICK;
     private BlockPos target;
     private Direction face = Direction.UP;
-    private int timer = 0, settled = 0, mineTicks = 0, walkStuck = 0;
+    private int timer = 0, settled = 0, mineTicks = 0, walkStuck = 0, offTarget = 0;
     private final Walker walker = new Walker();
     private boolean finished = false;
 
@@ -470,6 +470,7 @@ public final class DigTask implements Task {
         float[] look = PlacementPlanner.aim(eye, point);
         SmoothLook.lookAt(look[0], look[1], Config.get().turnSpeed());
         mineTicks = 0;
+        offTarget = 0;
         unreachableRounds = 0;
         phase = Phase.STRIP;
     }
@@ -494,7 +495,8 @@ public final class DigTask implements Task {
         }
         ItemStack held = player.getMainHandItem();
         boolean toolWorn = held.isDamageableItem() && held.getMaxDamage() - held.getDamageValue() <= MIN_DURABILITY;
-        if (toolWorn || ++mineTicks > MAX_MINE_TICKS || player.blockPosition().getY() != layerY) {
+        if (toolWorn || mineTicks > MAX_MINE_TICKS || player.blockPosition().getY() != layerY) {
+            // Only a block hit that long without breaking is given up; one it could not aim at is not.
             if (mineTicks > MAX_MINE_TICKS) skipped.add(target);
             stopStrip(mc);
             return;
@@ -509,6 +511,23 @@ public final class DigTask implements Task {
                 target = on.immutable();
                 mineTicks = 0;
             }
+        }
+        boolean onTarget = mc.hitResult instanceof BlockHitResult hit && hit.getType() == HitResult.Type.BLOCK && hit.getBlockPos().equals(target);
+        if (onTarget) {
+            mineTicks++;
+            offTarget = 0;
+        } else if (++offTarget % 10 == 1) {
+            // The crosshair is on something outside the job: aim again at the part of the
+            // target that can be seen; none for two seconds: walk to it from somewhere else.
+            Vec3 eye = player.getEyePosition();
+            BlockHitResult seen = sight(level, player, eye, target);
+            if (seen == null || offTarget > 40) {
+                unreachable.put(target, level.getGameTime());
+                stopStrip(mc);
+                return;
+            }
+            float[] look = PlacementPlanner.aim(eye, seen.getLocation());
+            SmoothLook.lookAt(look[0], look[1], Config.get().turnSpeed());
         }
         // Walk only towards the middle block of the lane ahead (never sideways into a
         // side block), and only once facing it: walking presses into it while it is mined.
