@@ -98,6 +98,17 @@ public final class PlacementPlanner {
         }
         candidates.removeIf(c -> c.result == null || c.result.getBlock() != want.getBlock());
         if (candidates.isEmpty()) return null;
+        // A look right on the edge between two directions (a piston clicked at 45°)
+        // can come out the other way on the server: only clicks that give the same
+        // block with the look a little off either way count, if there are any.
+        try {
+            List<Candidate> steady = new ArrayList<>();
+            for (Candidate c : candidates) if (steady(level, player, block, want, stack, c)) steady.add(c);
+            if (!steady.isEmpty()) candidates = steady;
+        } finally {
+            player.setYRot(yaw0);
+            player.setXRot(pitch0);
+        }
 
         // Only properties the click can change matter (stair shape, fence
         // connections and the like follow the neighbours, not the click).
@@ -278,6 +289,16 @@ public final class PlacementPlanner {
         if (!level.hasChunkAt(pos)) return false;
         BlockState state = level.getBlockState(pos);
         return !state.isAir() && !state.canBeReplaced() && state.getFluidState().isEmpty();
+    }
+
+    /** The same result with the look 2.5 degrees off in any direction. */
+    private static boolean steady(Level level, LocalPlayer player, Block block, BlockState want, ItemStack stack, Candidate c) {
+        for (float[] d : new float[][] {{2.5f, 0}, {-2.5f, 0}, {0, 2.5f}, {0, -2.5f}}) {
+            Candidate other = simulate(level, player, block, want, stack, c.clickPos, c.face, c.hit, c.yaw + d[0],
+                    Math.max(-90f, Math.min(90f, c.pitch + d[1])), c.rotate);
+            if (other.result == null || !other.result.equals(c.result)) return false;
+        }
+        return true;
     }
 
     private static Candidate simulate(Level level, LocalPlayer player, Block block, BlockState want, ItemStack stack,

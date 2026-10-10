@@ -147,6 +147,9 @@ public class BuildTask implements Task {
     /** Blocks waiting for a neighbour, since when; after MAX_WAIT_TICKS a support is fine. */
     private final Map<BlockPos, Long> waitingSince = new java.util.HashMap<>();
     private static final long MAX_WAIT_TICKS = 100;
+    /** Blocks that could not be placed the right way round from anywhere for GIVE_UP_TICKS: left out. */
+    private final java.util.Set<BlockPos> givenUp = new java.util.HashSet<>();
+    private static final long GIVE_UP_TICKS = 20 * 20;
 
     // Walking to work out of reach (big schematics).
     private boolean walk = true;
@@ -436,7 +439,14 @@ public class BuildTask implements Task {
                 if (plan == null && placeSupport(mc, player, target.pos)) return true;
             }
             // Never a block turned the wrong way: it could not be fixed without
-            // breaking it. It waits until a neighbour to click against is there.
+            // breaking it. It waits until a neighbour to click against is there;
+            // too long, and it is left out so the rest of the build goes on.
+            if (now - waitingSince.computeIfAbsent(target.pos, p -> now) > GIVE_UP_TICKS) {
+                givenUp.add(target.pos.immutable());
+                LunarBuilder.notify(target.state.getBlock().getName().getString() + " bei " + target.pos.toShortString()
+                        + " lässt sich so nicht setzen – ausgelassen, der Rest geht weiter.");
+                continue;
+            }
             waiting++;
         }
         return false;
@@ -452,7 +462,7 @@ public class BuildTask implements Task {
         for (BlockPos pos : BlockPos.betweenClosed(eye.offset(-r, -r, -r), eye.offset(r, r, r))) {
             if (pos.distToCenterSqr(player.getEyePosition()) > (reach + 0.5) * (reach + 0.5)) continue;
             BlockState want = source.expected(pos);
-            if (want == null || want.isAir() || placedWithOtherHalf(want)) continue;
+            if (want == null || want.isAir() || placedWithOtherHalf(want) || givenUp.contains(pos)) continue;
             BlockState have = level.getBlockState(pos);
             // Done: connections and stair shapes follow the neighbours, not the click.
             if (PlacementPlanner.matches(have, want)) continue;
@@ -604,6 +614,7 @@ public class BuildTask implements Task {
 
     /** A block of the schematic still to place (or turn) here, that a walk can get to. */
     private boolean isOpen(Level level, BlockPos pos) {
+        if (givenUp.contains(pos)) return false;
         BlockState want = source.expected(pos);
         if (want == null || want.isAir() || placedWithOtherHalf(want)) return false;
         BlockState have = level.getBlockState(pos);
@@ -1376,7 +1387,9 @@ public class BuildTask implements Task {
             if (allDone) {
                 finished = true;
                 halt(Minecraft.getInstance());
-                LunarBuilder.notify(wrong > 0 ? "Platzierung gebaut, " + wrong + " Blöcke passen nicht." : "Platzierung fertig gebaut.");
+                LunarBuilder.notify((wrong > 0 ? "Platzierung gebaut, " + wrong + " Blöcke passen nicht." : "Platzierung fertig gebaut.")
+                        + (givenUp.isEmpty() ? "" : " " + givenUp.size() + " ausgelassen (von Hand setzen): "
+                        + givenUp.stream().limit(5).map(BlockPos::toShortString).collect(java.util.stream.Collectors.joining("; "))));
                 return;
             }
             message(wrong > 0 ? "In Reichweite fertig, " + wrong + " Blöcke passen nicht" : "In Reichweite fertig");
