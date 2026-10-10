@@ -470,6 +470,33 @@ public final class PackScreen extends Screen {
         return result;
     }
 
+    /** The pack's main sky picture, scaled down on loading (sky sheets are often huge). */
+    private Preview skyTexture(PackFiles pack) {
+        String key = pack.name + "|sky";
+        if (textures.containsKey(key)) return textures.get(key);
+        Preview result = null;
+        String best = null;
+        for (String e : pack.entries()) {
+            String lower = e.toLowerCase(java.util.Locale.ROOT);
+            if (!lower.endsWith(".png") || !lower.matches(".*/(optifine|mcpatcher)/sky/.*")) continue;
+            // world0 (the overworld) and the first sky layer first
+            if (best == null || (lower.contains("world0") && !best.toLowerCase(java.util.Locale.ROOT).contains("world0"))
+                    || (lower.contains("world0") == best.toLowerCase(java.util.Locale.ROOT).contains("world0") && e.compareTo(best) < 0)) best = e;
+        }
+        if (best != null) {
+            try {
+                NativeImage image = MenuBackground.decode(pack.read(best), 768, false);
+                Identifier id = Identifier.fromNamespaceAndPath(LunarPacks.MOD_ID, "sky/" + Integer.toHexString(key.hashCode() & 0x7fffffff));
+                minecraft.getTextureManager().register(id, new DynamicTexture(() -> "Lunar Packs sky", image));
+                result = new Preview(id, image.getWidth(), image.getHeight());
+            } catch (Exception e) {
+                LunarPacks.LOGGER.info("[Lunar Packs] Himmel aus {} nicht lesbar: {}", pack.name, e.toString());
+            }
+        }
+        textures.put(key, result);
+        return result;
+    }
+
     /**
      * Draws the slot the way it looks in the game (a block as a cube, the
      * crystal as glass around its core, the shield from the front) when the
@@ -496,6 +523,17 @@ public final class PackScreen extends Screen {
             float bob = (float) Math.sin(System.currentTimeMillis() / 400.0) * size * 0.04f;
             cube(g, t, 40, 0, t, new int[] {40, 48, 56, 32}, 8, 8, 64, cx, cy + bob, size * 0.5f, -yaw * 1.3f);
             cube(g, t, 8, 0, t, new int[] {8, 16, 24, 0}, 8, 8, 64, cx, cy + bob, size * 0.95f, yaw);
+            return true;
+        }
+        if (slot.id().equals("sky")) {
+            if (pack == null) return false;
+            Preview t = skyTexture(pack);
+            if (t == null) return false;
+            // OptiFine skies are a 3x2 sheet of cube faces: the middle of the lower
+            // row looks straight at the horizon, the part you see most in the game.
+            boolean sheet = Math.abs(t.width() * 2 - t.height() * 3) < t.width() / 10;
+            int rw = sheet ? t.width() / 3 : t.width(), rh = sheet ? t.height() / 2 : t.height();
+            face(g, t, sheet ? rw : 0, sheet ? rh : 0, rw, rh, t.width(), t.height(), x, y, size, 0, 0, size, 0);
             return true;
         }
         if (slot.id().equals("shield")) {
