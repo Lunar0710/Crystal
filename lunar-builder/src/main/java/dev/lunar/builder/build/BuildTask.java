@@ -130,6 +130,11 @@ public class BuildTask implements Task {
     private int clicks = 0;
 
     @Override
+    public boolean moving() {
+        return walker.walking() || edgeDir != null || pillarTop != Integer.MIN_VALUE;
+    }
+
+    @Override
     public int progress() {
         return changed;
     }
@@ -162,7 +167,7 @@ public class BuildTask implements Task {
     private static final long MAX_WAIT_TICKS = 100;
     /** Blocks that could not be placed the right way round from anywhere for GIVE_UP_TICKS: left out. */
     private final java.util.Set<BlockPos> givenUp = new java.util.HashSet<>();
-    private static final long GIVE_UP_TICKS = 20 * 20;
+    private static final long GIVE_UP_TICKS = 60 * 20;
 
     // Walking to work out of reach (big schematics).
     private boolean walk = true;
@@ -891,6 +896,8 @@ public class BuildTask implements Task {
     private boolean escapeUp(Minecraft mc, LocalPlayer player) {
         BlockPos here = player.blockPosition();
         if (fillerItem(mc, player) == null || !player.onGround() || !columnFree(mc.level, here, here.getY() + 2)) return false;
+        // Only when the work is up there: never a tower to nowhere.
+        if (globalLayer == Integer.MAX_VALUE || globalLayer <= here.getY()) return false;
         if (TRACE) LunarBuilder.LOGGER.info("[Lunar Builder] build walled in at {}: pillar up two", here.toShortString());
         pillarTop = here.getY() + 2;
         pillarBase = null;
@@ -905,7 +912,7 @@ public class BuildTask implements Task {
         for (int y = feet.getY(); y <= topY + 1; y++) {
             BlockPos pos = new BlockPos(feet.getX(), y, feet.getZ());
             BlockState want = source.expected(pos);
-            if (want != null && !want.isAir()) return false;
+            if (want != null && !want.isAir() && !(want.getBlock() instanceof net.minecraft.world.level.block.LiquidBlock)) return false;
             if (!level.getBlockState(pos).canBeReplaced()) return false;
         }
         return true;
@@ -1149,6 +1156,8 @@ public class BuildTask implements Task {
 
     private boolean stillToBuild(Level level, BlockPos pos) {
         BlockState want = source.expected(pos);
+        // Water and lava come last: until then their cells are free to stand in.
+        if (want != null && want.getBlock() instanceof net.minecraft.world.level.block.LiquidBlock) return false;
         return want != null && !want.isAir() && !PlacementPlanner.matches(level.getBlockState(pos), want);
     }
 
@@ -1305,10 +1314,22 @@ public class BuildTask implements Task {
         // None of the six touches anything: a chain of supports from the nearest
         // solid block towards it. One link per step, the one next to the solid
         // block first; the next step finds a shorter chain from there.
+        Item fillerForChain = fillerItem(mc, player);
+        chainFiller = fillerForChain == null ? ItemStack.EMPTY : new ItemStack(fillerForChain);
         BlockPos link = chainStart(mc.level, player, target);
         if (link != null && placeSupportAt(mc, player, link)) {
             supportFor.put(link.immutable(), target.immutable());
             return true;
+        }
+        if (TRACE && mc.level.getGameTime() % 40 == 0) {
+            StringBuilder why = new StringBuilder();
+            for (Direction dir : order) {
+                BlockPos spot = target.relative(dir);
+                why.append(dir.getName().charAt(0)).append(':')
+                        .append(!mc.level.getBlockState(spot).canBeReplaced() ? "solid" : !spotFree(player, spot) ? "notfree" : "noclick").append(' ');
+            }
+            LunarBuilder.LOGGER.info("[Lunar Builder] build no support for {}: {}| chain start {}", target.toShortString(), why,
+                    link == null ? "none in reach" : link.toShortString() + " (could not place)");
         }
         return false;
     }
@@ -1319,6 +1340,13 @@ public class BuildTask implements Task {
      * reach. Down first, so chains are pillars where they can be.
      */
     private BlockPos chainStart(Level level, LocalPlayer player, BlockPos target) {
+        return chainStart(level, player, target, false);
+    }
+
+    /** The filler a chain would be built of, for checking a link can really be clicked into place. */
+    private ItemStack chainFiller = ItemStack.EMPTY;
+
+    private BlockPos chainStart(Level level, LocalPlayer player, BlockPos target, boolean anyDistance) {
         Direction[] order = {Direction.DOWN, Direction.NORTH, Direction.SOUTH, Direction.EAST, Direction.WEST, Direction.UP};
         double reach = player.blockInteractionRange() - 0.5;
         Vec3 eye = player.getEyePosition();
@@ -1335,7 +1363,7 @@ public class BuildTask implements Task {
                 if (depth.containsKey(spot)) continue;
                 depth.put(spot, d + 1);
                 if (!level.hasChunkAt(spot) || !level.getBlockState(spot).canBeReplaced() || !spotFree(player, spot)) continue;
-                if (hasClickableNeighbour(level, spot) && Vec3.atCenterOf(spot).distanceTo(eye) <= reach) return spot;
+                if (hasClickableNeighbour(level, spot) && (anyDistance || Vec3.atCenterOf(spot).distanceTo(eye) <= reach)) return spot;
                 queue.add(spot);
             }
         }
@@ -1345,7 +1373,8 @@ public class BuildTask implements Task {
     /** A spot a support may use: nothing of the schematic goes there, and you don't stand in it. */
     private boolean spotFree(LocalPlayer player, BlockPos spot) {
         BlockState planned = source.expected(spot);
-        if (planned != null && !planned.isAir()) return false;
+        // A support may stand where water comes later: it goes before the water is poured.
+        if (planned != null && !planned.isAir() && !(planned.getBlock() instanceof net.minecraft.world.level.block.LiquidBlock)) return false;
         // Grass, mycelium, paths and farmland turn into dirt under a block, and stay dirt.
         BlockState below = source.expected(spot.below());
         if (below != null && dirtUnderBlock(below.getBlock())) return false;

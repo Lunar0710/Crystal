@@ -238,7 +238,7 @@ public final class LunarBuilder implements ClientModInitializer {
             java.util.Arrays.fill(spin, 0f);
         }
         float yaw = mc.player.getYRot();
-        spin[spinIndex++ % SPIN_TICKS] = Float.isNaN(lastYaw) ? 0f : Math.abs(net.minecraft.util.Mth.wrapDegrees(yaw - lastYaw));
+        spin[spinIndex++ % SPIN_TICKS] = Float.isNaN(lastYaw) || task.moving() ? 0f : Math.abs(net.minecraft.util.Mth.wrapDegrees(yaw - lastYaw));
         lastYaw = yaw;
         float total = 0f;
         for (float d : spin) total += d;

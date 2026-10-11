@@ -36,4 +36,9 @@ public interface Task {
 
     /** The mouse leaves the head alone while true. */
     boolean holdsLook();
+
+    /** Walking, climbing or edging somewhere: turns of the head then are part of moving, not spinning. */
+    default boolean moving() {
+        return false;
+    }
 }
