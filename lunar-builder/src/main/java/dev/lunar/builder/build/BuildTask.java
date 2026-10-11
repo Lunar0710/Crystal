@@ -389,7 +389,7 @@ public class BuildTask implements Task {
             }
             if (step(mc, player)) budget -= 1f;
             else if (globalLayer == Integer.MAX_VALUE && fluidStep(mc, player)) budget -= 1f;
-            else if (walk && --walkCooldown <= 0) {
+            else if (walk && mc.level.getGameTime() >= stayUntil && --walkCooldown <= 0) {
                 // Nothing to do in reach: off to the nearest block of the lowest open
                 // layer, or once all is built, back to supports still standing.
                 walkCooldown = 20;
@@ -891,6 +891,8 @@ public class BuildTask implements Task {
     }
 
     private int noWayWalks = 0;
+    /** Just pillared up: no walking off before this (supports and bridges from the top first). */
+    private long stayUntil = Long.MIN_VALUE;
 
     /** Pillars up two blocks where you stand (the blocks count as supports and go again later). */
     private boolean escapeUp(Minecraft mc, LocalPlayer player) {
@@ -921,6 +923,8 @@ public class BuildTask implements Task {
     private void pillarStep(Minecraft mc, LocalPlayer player) {
         turning = true;
         if (player.getBlockY() >= pillarTop) {
+            // Up there for a reason: build out from the top before walking anywhere.
+            stayUntil = mc.level.getGameTime() + 200;
             stopPillar(mc);
             return;
         }
@@ -957,6 +961,11 @@ public class BuildTask implements Task {
     }
 
     private void stopPillar(Minecraft mc) {
+        if (TRACE && pillarTop != Integer.MIN_VALUE && mc.player != null) {
+            StackTraceElement from = new Throwable().getStackTrace()[1];
+            LunarBuilder.LOGGER.info("[Lunar Builder] build pillar ends at feet {} (top {}) from {}:{}", mc.player.getBlockY(), pillarTop,
+                    from.getMethodName(), from.getLineNumber());
+        }
         if (pillarTop != Integer.MIN_VALUE) mc.options.keyJump.setDown(false);
         pillarTop = Integer.MIN_VALUE;
         pillarBase = null;
