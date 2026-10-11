@@ -156,6 +156,8 @@ final class RedstoneBoard implements SchematicSource {
 
     /** Same block and every property the build decides; power and dust connections left out. */
     static boolean same(BlockState have, BlockState want) {
+        // Dirt grows grass by itself next to grass in daylight.
+        if (want.is(Blocks.DIRT) && (have.is(Blocks.GRASS_BLOCK) || have.is(Blocks.MYCELIUM))) return true;
         if (have.getBlock() != want.getBlock()) return false;
         for (Property<?> property : want.getProperties()) {
             if (IGNORED.contains(property.getName())) continue;

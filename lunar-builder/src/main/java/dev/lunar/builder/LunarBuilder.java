@@ -123,6 +123,14 @@ public final class LunarBuilder implements ClientModInitializer {
         return paused;
     }
 
+    /** Like pressing the pause key on a paused job. */
+    public static void resume() {
+        if (task != null && paused) {
+            paused = false;
+            notify("Weiter.");
+        }
+    }
+
     public static boolean holdsLook() {
         return task != null && !paused && task.holdsLook();
     }

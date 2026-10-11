@@ -29,7 +29,8 @@ import java.util.function.Predicate;
  */
 public final class Walker {
 
-    private static final int MAX_NODES = 4000;
+    private static final int MAX_NODES = 12000;
+    private static final int SEARCH_RADIUS = 28;
     private static final int MAX_DROP = 3;
     private static final int LOOK_AHEAD = 4;
 
@@ -236,8 +237,39 @@ public final class Walker {
 
     /** The shortest walk from {@code start} to any spot {@code goal} accepts, or null if there is none close enough to find. */
     public static List<BlockPos> findPath(Level level, BlockPos start, Predicate<BlockPos> goal, BlockPos towards) {
+        return search(level, start, goal, towards, null);
+    }
+
+    /**
+     * Like findPath, but looks a little further than the first good spot and takes
+     * the one where {@code score} (blocks that can be reached from there, say) is
+     * worth the extra steps: each point of score is worth two steps.
+     */
+    public static List<BlockPos> findBestPath(Level level, BlockPos start, Predicate<BlockPos> goal, BlockPos towards,
+                                              java.util.function.ToIntFunction<BlockPos> score) {
+        return search(level, start, goal, towards, score);
+    }
+
+    private static List<BlockPos> search(Level level, BlockPos start, Predicate<BlockPos> goal, BlockPos towards,
+                                         java.util.function.ToIntFunction<BlockPos> score) {
+        BlockPos at = start;
         if (!standable(level, start)) start = start.below();
-        if (!standable(level, start)) return null;
+        if (!standable(level, start)) {
+            // Standing on something low inside the feet's own block (a repeater, a
+            // comparator, a slab, a carpet): the walk starts right there.
+            if (free(level, at.above()) && level.getBlockState(at).getCollisionShape(level, at).max(Direction.Axis.Y) <= 0.6) {
+                start = at;
+            } else {
+                // Half on one block, half on another (or on something odd): the
+                // nearest spot right beside that you can stand on, one step away.
+                BlockPos best = null;
+                for (BlockPos near : BlockPos.betweenClosed(at.offset(-1, -1, -1), at.offset(1, 1, 1))) {
+                    if (standable(level, near) && (best == null || near.distSqr(at) < best.distSqr(at))) best = near.immutable();
+                }
+                if (best == null) return null;
+                start = best;
+            }
+        }
         record Node(BlockPos pos, int cost, int estimate) {}
         PriorityQueue<Node> open = new PriorityQueue<>((a, b) -> Integer.compare(a.cost + a.estimate, b.cost + b.estimate));
         Map<BlockPos, BlockPos> cameFrom = new HashMap<>();
@@ -245,14 +277,21 @@ public final class Walker {
         open.add(new Node(start, 0, estimate(start, towards)));
         costs.put(start, 0);
         int expanded = 0;
+        BlockPos bestGoal = null;
+        int bestValue = Integer.MIN_VALUE, goals = 0, firstGoalAt = -1;
         while (!open.isEmpty() && expanded++ < MAX_NODES) {
             Node node = open.poll();
             if (node.cost > costs.getOrDefault(node.pos, Integer.MAX_VALUE)) continue;
+            if (bestGoal != null && (goals >= 16 || expanded - firstGoalAt > 400)) break;
             if (goal.test(node.pos)) {
-                List<BlockPos> result = new ArrayList<>();
-                for (BlockPos p = node.pos; p != null; p = cameFrom.get(p)) result.add(p);
-                Collections.reverse(result);
-                return result;
+                if (score == null) return pathTo(node.pos, cameFrom);
+                int value = score.applyAsInt(node.pos) * 20 - node.cost;
+                if (value > bestValue) {
+                    bestValue = value;
+                    bestGoal = node.pos;
+                }
+                goals++;
+                if (firstGoalAt < 0) firstGoalAt = expanded;
             }
             for (Direction dir : Direction.Plane.HORIZONTAL) {
                 BlockPos side = node.pos.relative(dir);
@@ -274,6 +313,8 @@ public final class Walker {
                     }
                 }
                 if (to == null || nearFluid(level, to)) continue;
+                // Only near the start or the goal: an open plain around would be searched for ever.
+                if (to.distManhattan(towards) > SEARCH_RADIUS && to.distManhattan(start) > SEARCH_RADIUS) continue;
                 int cost = node.cost + 10 + extra * 5;
                 if (cost < costs.getOrDefault(to, Integer.MAX_VALUE)) {
                     costs.put(to, cost);
@@ -282,11 +323,31 @@ public final class Walker {
                 }
             }
         }
+        if (bestGoal != null) return pathTo(bestGoal, cameFrom);
+        if (System.getProperty("lunarbuilder.trace") != null) {
+            BlockState feetState = level.getBlockState(at), groundState = level.getBlockState(at.below());
+            dev.lunar.builder.LunarBuilder.LOGGER.info("[Lunar Builder] walker: no way from {} (start {}, feet {}, ground {}), {} nodes looked at",
+                    at.toShortString(), start.toShortString(), feetState.getBlock(), groundState.getBlock(), expanded);
+        }
         return null;
     }
 
+    private static List<BlockPos> pathTo(BlockPos end, Map<BlockPos, BlockPos> cameFrom) {
+        List<BlockPos> result = new ArrayList<>();
+        for (BlockPos p = end; p != null; p = cameFrom.get(p)) result.add(p);
+        Collections.reverse(result);
+        return result;
+    }
+
+    /** Every spot a walk from {@code start} can get to within the search limits (for diagnostics). */
+    public static java.util.Set<BlockPos> reachable(Level level, BlockPos start, BlockPos towards) {
+        java.util.Set<BlockPos> seen = new java.util.HashSet<>();
+        findPath(level, start, spot -> { seen.add(spot.immutable()); return false; }, towards);
+        return seen;
+    }
+
     private static int estimate(BlockPos from, BlockPos to) {
-        return 10 * (Math.abs(from.getX() - to.getX()) + Math.abs(from.getZ() - to.getZ()));
+        return 10 * (Math.abs(from.getX() - to.getX()) + Math.abs(from.getZ() - to.getZ())) + 5 * Math.abs(from.getY() - to.getY());
     }
 
     /** Water or lava next to the spot (feet or head height, or the ground beside it). */

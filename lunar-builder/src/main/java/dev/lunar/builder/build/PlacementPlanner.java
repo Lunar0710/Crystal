@@ -54,6 +54,8 @@ public final class PlacementPlanner {
 
     private PlacementPlanner() {}
 
+    private static final boolean DEBUG_CHEST = System.getProperty("lunarbuilder.debugchest") != null;
+
     /**
      * The best way to place {@code want} at {@code target} with {@code stack},
      * or null when no neighbouring block can be clicked (it needs a support).
@@ -81,20 +83,31 @@ public final class PlacementPlanner {
                 BlockPos neighbour = target.relative(toNeighbour);
                 // Chests, hoppers, doors, repeaters and the like open or change on
                 // a click: against those the click is made sneaking, as by hand.
-                boolean sneak = !clickable(level, neighbour);
-                if (sneak && !solidToClick(level, neighbour)) continue;
+                boolean mustSneak = !clickable(level, neighbour);
+                if (mustSneak && !solidToClick(level, neighbour)) continue;
+                // Sneaking also changes what some blocks become (a chest won't join the
+                // one beside it): both ways are tried, the scoring picks.
+                boolean sneakMatters = block instanceof net.minecraft.world.level.block.ChestBlock;
                 Direction face = toNeighbour.getOpposite();
                 for (Vec3 point : facePoints(neighbour, face)) {
                     if (point.distanceTo(eye) > reach) continue;
                     BlockHitResult ray = sight(level, player, eye, point);
                     if (ray == null || !ray.getBlockPos().equals(neighbour) || ray.getDirection() != face) continue;
                     float[] look = aim(eye, ray.getLocation());
-                    candidates.add(simulate(level, player, block, want, stack, neighbour, face, ray.getLocation(), look[0], look[1], sneak));
+                    candidates.add(simulate(level, player, block, want, stack, neighbour, face, ray.getLocation(), look[0], look[1], mustSneak));
+                    if (sneakMatters && !mustSneak) {
+                        candidates.add(simulate(level, player, block, want, stack, neighbour, face, ray.getLocation(), look[0], look[1], true));
+                    }
                 }
             }
         } finally {
             player.setYRot(yaw0);
             player.setXRot(pitch0);
+        }
+        if (DEBUG_CHEST && want.getBlock() instanceof net.minecraft.world.level.block.ChestBlock && !candidates.isEmpty()) {
+            java.util.Map<String, Integer> seen = new java.util.TreeMap<>();
+            for (Candidate c : candidates) seen.merge(String.valueOf(c.result) + (c.rotate ? " sneak" : ""), 1, Integer::sum);
+            dev.lunar.builder.LunarBuilder.LOGGER.info("[Lunar Builder] plan chest {} want {}: {}", target.toShortString(), want, seen);
         }
         candidates.removeIf(c -> c.result == null || c.result.getBlock() != want.getBlock());
         if (candidates.isEmpty()) return null;
@@ -144,6 +157,28 @@ public final class PlacementPlanner {
         return new Plan(best.clickPos, best.face, best.hit, best.yaw, best.pitch, true, sameOrientation(best.result, want), best.rotate);
     }
 
+    /**
+     * A point on one of the block's faces that the crosshair reaches from {@code eye}
+     * (the block itself is hit first, nothing in front), or null if none in reach.
+     */
+    public static Vec3 visiblePoint(Level level, LocalPlayer player, Vec3 eye, BlockPos pos) {
+        double reach = player.blockInteractionRange();
+        Vec3 best = null;
+        double bestDist = Double.MAX_VALUE;
+        for (Direction face : Direction.values()) {
+            for (Vec3 point : facePoints(pos, face)) {
+                double dist = point.distanceTo(eye);
+                if (dist > reach || dist >= bestDist) continue;
+                BlockHitResult ray = sight(level, player, eye, point);
+                if (ray != null && ray.getBlockPos().equals(pos)) {
+                    best = point;
+                    bestDist = dist;
+                }
+            }
+        }
+        return best;
+    }
+
     /** What the crosshair would be on looking from {@code eye} at {@code point}, or null for nothing. */
     private static BlockHitResult sight(Level level, LocalPlayer player, Vec3 eye, Vec3 point) {
         // A little past the full-block face, so blocks smaller than a full cube
@@ -187,9 +222,20 @@ public final class PlacementPlanner {
      * picked by the look, the first one that can stay where it is.
      */
     private static BlockState placementState(Block block, BlockState want, BlockPlaceContext context) {
+        // The item's own rules first: scaffolding clicked on scaffolding goes to the
+        // end of it, not here; such a click doesn't place at the target.
+        BlockPos target = context.getClickedPos();
+        if (context.getItemInHand().getItem() instanceof BlockItem item) {
+            BlockPlaceContext updated = item.updatePlacementContext(context);
+            if (updated == null || !updated.getClickedPos().equals(target)) return null;
+            context = updated;
+        }
         if (!context.canPlace()) return null;
         if (want.getBlock() == block || want.getBlock().asItem() != context.getItemInHand().getItem()) {
-            return block.getStateForPlacement(context);
+            BlockState state = block.getStateForPlacement(context);
+            // The game refuses a block that can't stay where it is (scaffolding too far
+            // from anything holding it, a carpet over air): no use clicking.
+            return state != null && state.canSurvive(context.getLevel(), target) ? state : null;
         }
         Direction attach = context.getItemInHand().getItem() instanceof net.minecraft.world.item.HangingSignItem ? Direction.UP : Direction.DOWN;
         for (Direction direction : context.getNearestLookingDirections()) {
@@ -241,6 +287,11 @@ public final class PlacementPlanner {
     public static boolean sameOrientation(BlockState got, BlockState want) {
         for (Property<?> property : want.getProperties()) {
             if (NOT_FROM_CLICK.contains(property.getName())) continue;
+            // A double chest's half follows its partner like a stair's shape: the first
+            // half goes down single (facing right), the second joins it.
+            if (property == net.minecraft.world.level.block.ChestBlock.TYPE
+                    && want.getValue(net.minecraft.world.level.block.ChestBlock.TYPE) != net.minecraft.world.level.block.state.properties.ChestType.SINGLE
+                    && got.getValue(net.minecraft.world.level.block.ChestBlock.TYPE) == net.minecraft.world.level.block.state.properties.ChestType.SINGLE) continue;
             if (!got.getValue(property).equals(want.getValue(property))) return false;
         }
         return true;
@@ -255,6 +306,9 @@ public final class PlacementPlanner {
      * right click changes afterwards (repeater delay, comparator mode).
      */
     public static boolean matches(BlockState have, BlockState want) {
+        // Dirt in daylight next to grass (or mycelium) grows it by itself: that counts as done.
+        if (want.is(net.minecraft.world.level.block.Blocks.DIRT)
+                && (have.is(net.minecraft.world.level.block.Blocks.GRASS_BLOCK) || have.is(net.minecraft.world.level.block.Blocks.MYCELIUM))) return true;
         return have.getBlock() == want.getBlock() && sameOrientation(have, want) && !needsAdjusting(have, want);
     }
 
@@ -291,11 +345,25 @@ public final class PlacementPlanner {
         return !state.isAir() && !state.canBeReplaced() && state.getFluidState().isEmpty();
     }
 
-    /** The same result with the look 2.5 degrees off in any direction. */
+    /**
+     * The same result with the look 2.5 degrees off in any direction, and with the
+     * click point a little off on the face: a point right on the middle line (a slab
+     * clicked at half height) can come out the other way on the server.
+     */
     private static boolean steady(Level level, LocalPlayer player, Block block, BlockState want, ItemStack stack, Candidate c) {
         for (float[] d : new float[][] {{2.5f, 0}, {-2.5f, 0}, {0, 2.5f}, {0, -2.5f}}) {
             Candidate other = simulate(level, player, block, want, stack, c.clickPos, c.face, c.hit, c.yaw + d[0],
                     Math.max(-90f, Math.min(90f, c.pitch + d[1])), c.rotate);
+            if (other.result == null || !other.result.equals(c.result)) return false;
+        }
+        double e = 0.06;
+        for (double[] d : new double[][] {{e, 0}, {-e, 0}, {0, e}, {0, -e}}) {
+            Vec3 shifted = switch (c.face.getAxis()) {
+                case X -> c.hit.add(0, d[0], d[1]);
+                case Y -> c.hit.add(d[0], 0, d[1]);
+                case Z -> c.hit.add(d[0], d[1], 0);
+            };
+            Candidate other = simulate(level, player, block, want, stack, c.clickPos, c.face, shifted, c.yaw, c.pitch, c.rotate);
             if (other.result == null || !other.result.equals(c.result)) return false;
         }
         return true;
@@ -306,12 +374,23 @@ public final class PlacementPlanner {
         // Only the client's own copy of the look: nothing is sent while simulating.
         player.setYRot(yaw);
         player.setXRot(pitch);
+        // Sneaking changes what some blocks become (a chest won't join its neighbour).
+        boolean shift = player.isShiftKeyDown();
+        player.setShiftKeyDown(rotate);
         BlockState result;
         try {
             BlockPlaceContext context = new BlockPlaceContext(player, InteractionHand.MAIN_HAND, stack, new BlockHitResult(hit, face, neighbour, false));
             result = placementState(block, want, context);
         } catch (RuntimeException e) {
             result = null;
+        } finally {
+            player.setShiftKeyDown(shift);
+        }
+        // The game reads sneaking from the keys, which a simulation can't press: a chest
+        // placed sneaking against anything but another chest stays on its own.
+        if (rotate && result != null && result.getBlock() instanceof net.minecraft.world.level.block.ChestBlock
+                && !(level.getBlockState(neighbour).getBlock() instanceof net.minecraft.world.level.block.ChestBlock)) {
+            result = result.setValue(net.minecraft.world.level.block.ChestBlock.TYPE, net.minecraft.world.level.block.state.properties.ChestType.SINGLE);
         }
         return new Candidate(neighbour, face, hit, yaw, pitch, rotate, result);
     }

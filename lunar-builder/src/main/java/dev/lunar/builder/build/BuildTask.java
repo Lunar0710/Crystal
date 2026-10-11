@@ -131,8 +131,21 @@ public class BuildTask implements Task {
 
     @Override
     public int progress() {
-        return clicks;
+        return changed;
     }
+
+    /** Clicks that really changed a block (placed, set) plus supports broken: what "progress" means. */
+    private int changed = 0;
+    /** The last click's target and what was there before, checked a few ticks later. */
+    private BlockPos verifyPos;
+    private BlockState verifyBefore;
+    private long verifyAt;
+
+    /** A block left out is tried again after this long (its neighbour may be there by now), a few times. */
+    private static final long RETRY_GIVEN_UP_TICKS = 30 * 20;
+    private static final int MAX_RETRIES = 3;
+    private final Map<BlockPos, Long> givenUpAt = new java.util.HashMap<>();
+    private final Map<BlockPos, Integer> retries = new java.util.HashMap<>();
 
     /** Supports placed by us, broken once the block they held up is in. */
     private final Deque<BlockPos> supports = new ArrayDeque<>();
@@ -255,6 +268,51 @@ public class BuildTask implements Task {
         if (finished || player == null || mc.level == null || mc.gameMode == null) return;
 
         if (filler == null) filler = new ContainerFiller(source);
+        if (verifyPos != null && mc.level.getGameTime() - verifyAt >= 4) {
+            BlockState placedNow = mc.level.getBlockState(verifyPos);
+            BlockState wanted = source.expected(verifyPos);
+            // Our own block, but turned the wrong way (the server read the look
+            // differently): broken again and placed anew, twice at most.
+            if (wanted != null && !wanted.isAir() && wanted.getFluidState().isEmpty() && placedNow.getBlock() == wanted.getBlock() && !isDoubleSlab(wanted)
+                    && !PlacementPlanner.matches(placedNow, wanted) && !PlacementPlanner.needsAdjusting(placedNow, wanted)
+                    && !placedNow.equals(verifyBefore) && fixes.merge(verifyPos.immutable(), 1, Integer::sum) <= 2) {
+                toFix.add(verifyPos.immutable());
+                if (TRACE) LunarBuilder.LOGGER.info("[Lunar Builder] build {} came out as {}, breaking it to place again",
+                        verifyPos.toShortString(), placedNow);
+            }
+            if (!placedNow.equals(verifyBefore)) {
+                changed++;
+                noWayWalks = 0;
+                // A new block is something to click against: its neighbours that could
+                // not be reached or placed before get a fresh chance (a hopper waiting
+                // for the dropper it points into).
+                for (Direction dir : Direction.values()) {
+                    BlockPos next = verifyPos.relative(dir);
+                    unreachable.remove(next);
+                    waitingSince.remove(next);
+                    if (givenUp.remove(next)) givenUpAt.remove(next);
+                    BlockState want = source.expected(next);
+                    if (want != null && !want.isAir()) {
+                        if (scanFromY != Integer.MIN_VALUE) scanFromY = Math.min(scanFromY, next.getY());
+                        globalLayer = Math.min(globalLayer, next.getY());
+                    }
+                }
+            }
+            verifyPos = null;
+        }
+        // Left-out blocks get another go once in a while: what they needed may be there now.
+        long nowTick = mc.level.getGameTime();
+        givenUpAt.entrySet().removeIf(e -> {
+            if (nowTick - e.getValue() < RETRY_GIVEN_UP_TICKS || retries.getOrDefault(e.getKey(), 0) >= MAX_RETRIES) return false;
+            retries.merge(e.getKey(), 1, Integer::sum);
+            if (TRACE) LunarBuilder.LOGGER.info("[Lunar Builder] build retry left-out {}", e.getKey().toShortString());
+            givenUp.remove(e.getKey());
+            waitingSince.remove(e.getKey());
+            // Its layer counted as finished: look from there again, or it is never found.
+            if (scanFromY != Integer.MIN_VALUE) scanFromY = Math.min(scanFromY, e.getKey().getY());
+            globalLayer = Math.min(globalLayer, e.getKey().getY());
+            return true;
+        });
         // Crouch at edges while walking (never step off), and catch a fall with a block.
         walker.setCareful(true);
         if (useSupports && rescueFall(mc, player)) return;
@@ -278,6 +336,11 @@ public class BuildTask implements Task {
         if (pillarTop != Integer.MIN_VALUE) {
             pillarStep(mc, player);
             return;
+        }
+        if (edgeDir != null && edgeStep(mc, player)) return;
+        if (atEdge && ++edgeTicks > 60) {
+            atEdge = false;
+            setSneak(mc, false);
         }
         if (walker.walking()) {
             turning = true;
@@ -320,11 +383,18 @@ public class BuildTask implements Task {
                 if (globalLayer > player.getBlockY() + 1 && useSupports && startPillar(mc, player)) return;
             }
             if (step(mc, player)) budget -= 1f;
+            else if (globalLayer == Integer.MAX_VALUE && fluidStep(mc, player)) budget -= 1f;
             else if (walk && --walkCooldown <= 0) {
                 // Nothing to do in reach: off to the nearest block of the lowest open
                 // layer, or once all is built, back to supports still standing.
                 walkCooldown = 20;
-                if (!startWalk(mc, player, false) && globalLayer == Integer.MAX_VALUE) walkToSupport(mc, player);
+                if (!startWalk(mc, player, false)) {
+                    if (globalLayer == Integer.MAX_VALUE) walkToSupport(mc, player);
+                    // Walled in by your own build (no way anywhere): up two blocks to walk over it.
+                    // Walled in or cut off on a pillar (no way anywhere): up where you stand,
+                    // or a new pillar beside the next block.
+                    else if (noWayWalks >= 6 && useSupports && (escapeUp(mc, player) || startPillar(mc, player))) noWayWalks = 0;
+                }
             }
         }
 
@@ -415,15 +485,21 @@ public class BuildTask implements Task {
             if (plan != null && plan.exact()) {
                 if (select(mc, player, item) == null) continue;
                 place(mc, player, plan, target.pos);
+                if (atEdge) leaveEdge(mc);
                 return true;
             }
             // Something to click against is there, just not the right way
             // round from where you stand: another spot helps, a support does
             // not. Walking finds that spot; supports only once no walk gets there.
             if (walk && hasClickableNeighbour(level, target.pos) && !unreachable.containsKey(target.pos)) {
+                if (TRACE && level.getGameTime() % 100 == 0) LunarBuilder.LOGGER.info("[Lunar Builder] build {} needs another spot (plan {})",
+                        target.pos.toShortString(), plan == null ? "none" : "not exact");
                 elsewhere++;
                 continue;
             }
+            // No better spot to walk to: leaning over the edge of the block you stand
+            // on, sneaking (bridging), its side faces can be clicked.
+            if (startEdge(mc, player, target.pos, placeAs, copy)) return true;
             // A schematic neighbour still to come will give something to click
             // against (roofs grow inward from the walls): wait for it rather than
             // put in a support. Only for a while, in case two blocks wait on each other.
@@ -443,6 +519,7 @@ public class BuildTask implements Task {
             // too long, and it is left out so the rest of the build goes on.
             if (now - waitingSince.computeIfAbsent(target.pos, p -> now) > GIVE_UP_TICKS) {
                 givenUp.add(target.pos.immutable());
+                givenUpAt.put(target.pos.immutable(), now);
                 LunarBuilder.notify(target.state.getBlock().getName().getString() + " bei " + target.pos.toShortString()
                         + " lässt sich so nicht setzen – ausgelassen, der Rest geht weiter.");
                 continue;
@@ -668,7 +745,11 @@ public class BuildTask implements Task {
             }
             skip.add(candidate.pos);
         }
-        if (target == null) return false;
+        if (target == null) {
+            if (TRACE && level.getGameTime() % 100 == 0) LunarBuilder.LOGGER.info("[Lunar Builder] build walk: nothing a walk helps with (skipped {}, layer {})",
+                    skip.stream().map(BlockPos::toShortString).toList(), globalLayer);
+            return false;
+        }
         final Target goalTarget = target;
         Vec3 centre = Vec3.atCenterOf(goalTarget.pos);
         double eyeHeight = player.getEyeHeight();
@@ -701,10 +782,18 @@ public class BuildTask implements Task {
             if (besideIt(spot, goalTarget.pos)) return false;
             return !checkPlan || placeableFrom(level, player, goalTarget, eye);
         };
-        List<BlockPos> path = Walker.findPath(level, player.blockPosition(), onLayer, goalTarget.pos);
+        // Of the spots that do, the one with the most open blocks of the layer in reach.
+        List<Target> layerOpen = candidates;
+        java.util.function.ToIntFunction<BlockPos> reachable = spot -> {
+            Vec3 eye = new Vec3(spot.getX() + 0.5, spot.getY() + eyeHeight, spot.getZ() + 0.5);
+            int n = 0;
+            for (Target t : layerOpen) if (Vec3.atCenterOf(t.pos).distanceTo(eye) <= reach - 0.5) n++;
+            return n;
+        };
+        List<BlockPos> path = Walker.findBestPath(level, player.blockPosition(), onLayer, goalTarget.pos, reachable);
         if (path == null) {
             margin[0] = 0.5;
-            path = Walker.findPath(level, player.blockPosition(), onLayer, goalTarget.pos);
+            path = Walker.findBestPath(level, player.blockPosition(), onLayer, goalTarget.pos, reachable);
         }
         // Already standing there: nothing to walk.
         if (path != null && path.size() <= 1) return false;
@@ -727,8 +816,35 @@ public class BuildTask implements Task {
             LunarBuilder.LOGGER.info("[Lunar Builder] build walk to {} (layer {}) from {}: {}", goalTarget.pos.toShortString(), globalLayer,
                     player.blockPosition().toShortString(), path == null ? "no way" : path.size() + " steps");
         }
+        if (path == null && player.getBoundingBox().intersects(new net.minecraft.world.phys.AABB(goalTarget.pos))) {
+            // Standing in its space and no ideal spot: first just out of the way, plan again from there.
+            path = Walker.findPath(level, player.blockPosition(), spot -> !spot.equals(goalTarget.pos)
+                    && !spot.above().equals(goalTarget.pos) && !besideIt(spot, goalTarget.pos)
+                    && !stillToBuild(level, spot) && !stillToBuild(level, spot.above())
+                    && spot.distManhattan(player.blockPosition()) >= 1, goalTarget.pos);
+            if (TRACE && path != null) LunarBuilder.LOGGER.info("[Lunar Builder] build stepping out of the way of {}", goalTarget.pos.toShortString());
+        }
         if (path == null) {
+            if (TRACE) {
+                // Which spots near it would do at all, and what is wrong with the rest.
+                List<String> spots = new ArrayList<>();
+                int noPlan = 0, notStandable = 0;
+                for (BlockPos spot : BlockPos.betweenClosed(goalTarget.pos.offset(-3, -1, -3), goalTarget.pos.offset(3, 2, 3))) {
+                    if (!Walker.standable(level, spot)) { notStandable++; continue; }
+                    Vec3 eye = new Vec3(spot.getX() + 0.5, spot.getY() + eyeHeight, spot.getZ() + 0.5);
+                    if (eye.distanceTo(centre) > reach - 0.5 || besideIt(spot, goalTarget.pos)) continue;
+                    if (checkPlan && !placeableFrom(level, player, goalTarget, eye)) { noPlan++; continue; }
+                    if (spots.size() < 6) spots.add(spot.toShortString());
+                }
+                java.util.Set<BlockPos> canReach = Walker.reachable(level, player.blockPosition(), goalTarget.pos);
+                long okReachable = spots.stream().filter(sp -> canReach.stream().anyMatch(r -> r.toShortString().equals(sp))).count();
+                int near = 0;
+                for (BlockPos r : canReach) if (r.distManhattan(goalTarget.pos) <= 4) near++;
+                LunarBuilder.LOGGER.info("[Lunar Builder] build   spots for {}: ok {} ({} of them reachable) | no plan {} | not standable {} | reachable near it {} of {}",
+                        goalTarget.pos.toShortString(), spots, okReachable, noPlan, notStandable, near, canReach.size());
+            }
             unreachable.put(goalTarget.pos, level.getGameTime());
+            noWayWalks++;
             return false;
         }
         if (!goalTarget.pos.equals(walkTarget)) walkStuck = 0;
@@ -769,8 +885,23 @@ public class BuildTask implements Task {
         return true;
     }
 
+    private int noWayWalks = 0;
+
+    /** Pillars up two blocks where you stand (the blocks count as supports and go again later). */
+    private boolean escapeUp(Minecraft mc, LocalPlayer player) {
+        BlockPos here = player.blockPosition();
+        if (fillerItem(mc, player) == null || !player.onGround() || !columnFree(mc.level, here, here.getY() + 2)) return false;
+        if (TRACE) LunarBuilder.LOGGER.info("[Lunar Builder] build walled in at {}: pillar up two", here.toShortString());
+        pillarTop = here.getY() + 2;
+        pillarBase = null;
+        return true;
+    }
+
     /** Nothing of the schematic in the column from the feet up to the given height (plus head room). */
     private boolean columnFree(Level level, BlockPos feet, int topY) {
+        // Not on grass the schematic wants: under the pillar it would turn to dirt for good.
+        BlockState ground = source.expected(feet.below());
+        if (ground != null && dirtUnderBlock(ground.getBlock())) return false;
         for (int y = feet.getY(); y <= topY + 1; y++) {
             BlockPos pos = new BlockPos(feet.getX(), y, feet.getZ());
             BlockState want = source.expected(pos);
@@ -934,17 +1065,23 @@ public class BuildTask implements Task {
         double reach = player.blockInteractionRange();
         double eyeHeight = player.getEyeHeight();
         for (BlockPos support : supports) {
-            if (level.getBlockState(support).isAir() || !supportDone(level, support)) continue;
+            if (level.getBlockState(support).isAir() || !supportDone(level, support) || stuckSupports.contains(support)) continue;
             Vec3 centre = Vec3.atCenterOf(support);
-            if (centre.distanceTo(player.getEyePosition()) <= reach - 0.5) continue;
+            // In reach and in sight: it gets broken from here.
+            if (centre.distanceTo(player.getEyePosition()) <= reach - 0.5 && !breakLater.containsKey(support)
+                    && PlacementPlanner.visiblePoint(level, player, player.getEyePosition(), support) != null) continue;
             List<BlockPos> path = Walker.findPath(level, player.blockPosition(), spot -> {
                 if (spot.getX() == support.getX() && spot.getZ() == support.getZ() && spot.getY() > support.getY()) return false;
-                return new Vec3(spot.getX() + 0.5, spot.getY() + eyeHeight, spot.getZ() + 0.5).distanceTo(centre) <= reach - 1.0;
+                Vec3 eye = new Vec3(spot.getX() + 0.5, spot.getY() + eyeHeight, spot.getZ() + 0.5);
+                return eye.distanceTo(centre) <= reach - 1.0 && PlacementPlanner.visiblePoint(level, player, eye, support) != null;
             }, support);
             if (path != null && path.size() > 1) {
+                breakLater.remove(support);
                 walker.start(path);
                 return;
             }
+            // No spot to see it from (the build closed in around it): left for you, the build can end.
+            if (path == null && supportWalkFails.merge(support, 1, Integer::sum) >= 5) stuckSupports.add(support);
         }
     }
 
@@ -1068,6 +1205,9 @@ public class BuildTask implements Task {
             boolean againstBlock = plan.clickPos().equals(target)
                     || (plan.sneak() ? PlacementPlanner.solidToClick(level, plan.clickPos()) : PlacementPlanner.clickable(level, plan.clickPos()));
             if (againstBlock && player.getEyePosition().distanceTo(plan.hit()) <= player.blockInteractionRange()) {
+                verifyPos = target.immutable();
+                verifyBefore = level.getBlockState(target);
+                verifyAt = level.getGameTime();
                 click(mc, plan);
                 BlockState placedState = source.expected(target);
                 if (placedState != null && filler != null) filler.placed(target, placedState);
@@ -1131,6 +1271,13 @@ public class BuildTask implements Task {
             LunarBuilder.LOGGER.info("[Lunar Builder] build click {} face={} hit={} held={} look={}/{} planned={}/{} turned={}",
                     plan.clickPos().toShortString(), plan.face(), plan.hit(), mc.player.getMainHandItem().getItem(),
                     mc.player.getYRot(), mc.player.getXRot(), plan.yaw(), plan.pitch(), plan.needsRotation());
+        }
+        // The server decides the facing from the look it has: tell it the look of
+        // this click right before it (otherwise a fresh turn can still be missing
+        // there and an observer or dispenser comes out the old way).
+        if (mc.getConnection() != null) {
+            mc.getConnection().send(new net.minecraft.network.protocol.game.ServerboundMovePlayerPacket.Rot(
+                    mc.player.getYRot(), mc.player.getXRot(), mc.player.onGround(), mc.player.horizontalCollision));
         }
         mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, plan.hitResult());
         clicks++;
@@ -1199,7 +1346,26 @@ public class BuildTask implements Task {
     private boolean spotFree(LocalPlayer player, BlockPos spot) {
         BlockState planned = source.expected(spot);
         if (planned != null && !planned.isAir()) return false;
+        // Grass, mycelium, paths and farmland turn into dirt under a block, and stay dirt.
+        BlockState below = source.expected(spot.below());
+        if (below != null && dirtUnderBlock(below.getBlock())) return false;
+        // Not where the build closes in on every side: it could never be broken again.
+        boolean open = false;
+        for (Direction dir : Direction.values()) {
+            BlockState around = source.expected(spot.relative(dir));
+            if (around == null || around.isAir()) {
+                open = true;
+                break;
+            }
+        }
+        if (!open) return false;
         return !player.getBoundingBox().intersects(new net.minecraft.world.phys.AABB(spot));
+    }
+
+    private static boolean dirtUnderBlock(net.minecraft.world.level.block.Block block) {
+        return block instanceof net.minecraft.world.level.block.SpreadingSnowyDirtBlock
+                || block instanceof net.minecraft.world.level.block.DirtPathBlock
+                || block instanceof net.minecraft.world.level.block.FarmBlock;
     }
 
     /** A filler block at the spot, from the inventory (or creative). */
@@ -1209,12 +1375,265 @@ public class BuildTask implements Task {
             missing.merge(chosenFiller() != null ? chosenFiller() : Items.DIRT, 1, Integer::sum);
             return false;
         }
-        Plan plan = PlacementPlanner.plan(mc.level, player, spot, ((BlockItem) filler).getBlock().defaultBlockState(), new ItemStack(filler));
-        if (plan == null) return false;
+        BlockState fillerState = ((BlockItem) filler).getBlock().defaultBlockState();
+        Plan plan = PlacementPlanner.plan(mc.level, player, spot, fillerState, new ItemStack(filler));
+        if (plan == null) return startEdge(mc, player, spot, fillerState, new ItemStack(filler));
         if (select(mc, player, filler) == null) return false;
         supports.add(spot.immutable());
         place(mc, player, plan, spot);
+        if (atEdge) leaveEdge(mc);
         return true;
+    }
+
+
+    // ------------------------------------------------------------ water and lava
+
+    /** Fluids still to pour (counted by the last fluid scan), and when that scan was. */
+    private int fluidsLeft = 0;
+    private List<BlockPos> fluidTargets = List.of();
+    private long fluidScanAt = Long.MIN_VALUE;
+    private final Map<BlockPos, Integer> fluidTries = new java.util.HashMap<>();
+    private static final int MAX_FLUID_TRIES = 4;
+
+    /** The bucket a spot needs: a water or lava source the schematic wants there, or water for a block standing in it. */
+    private static Item bucketFor(BlockState want, BlockState have) {
+        var fluid = want.getFluidState();
+        if (fluid.isEmpty() || !fluid.isSource()) return null;
+        if (want.getBlock() instanceof net.minecraft.world.level.block.LiquidBlock) {
+            if (have.getFluidState().isSource() && have.getFluidState().getType() == fluid.getType()) return null;
+            if (!have.canBeReplaced() && have.getFluidState().isEmpty()) return null;
+            return fluid.is(net.minecraft.tags.FluidTags.LAVA) ? Items.LAVA_BUCKET : Items.WATER_BUCKET;
+        }
+        // Waterlogged: the block is there, only the water in it is missing.
+        if (have.getBlock() == want.getBlock() && have.hasProperty(BlockStateProperties.WATERLOGGED)
+                && !have.getValue(BlockStateProperties.WATERLOGGED)) return Items.WATER_BUCKET;
+        return null;
+    }
+
+    private List<BlockPos> scanFluids(Level level) {
+        List<BlockPos> found = new ArrayList<>();
+        for (BlockPos[] box : source.bounds()) {
+            for (BlockPos pos : BlockPos.betweenClosed(box[0], box[1])) {
+                if (!level.hasChunkAt(pos)) continue;
+                BlockState want = source.expected(pos);
+                if (want == null || want.getFluidState().isEmpty()) continue;
+                if (fluidTries.getOrDefault(pos, 0) >= MAX_FLUID_TRIES) continue;
+                if (bucketFor(want, level.getBlockState(pos)) != null) found.add(pos.immutable());
+            }
+        }
+        // Bottom up: water that runs down finds its floor already there.
+        found.sort(Comparator.comparingInt(BlockPos::getY));
+        return found;
+    }
+
+    /**
+     * Once every block is in: water and lava where the schematic wants a source,
+     * poured with a bucket like by hand, water into blocks that stand in it, empty
+     * buckets filled again from water that comes back (two sources side by side).
+     * True when something was done (a pour, a refill, a walk).
+     */
+    private boolean fluidStep(Minecraft mc, LocalPlayer player) {
+        Level level = mc.level;
+        if (!stuckSupports.containsAll(supports) || breaking != null) return false;
+        if (level.getGameTime() - fluidScanAt >= 20) {
+            fluidTargets = scanFluids(level);
+            fluidScanAt = level.getGameTime();
+        }
+        fluidsLeft = fluidTargets.size();
+        if (fluidTargets.isEmpty()) return false;
+        Vec3 eye = player.getEyePosition();
+        double reach = player.blockInteractionRange();
+        BlockPos nearest = null;
+        for (BlockPos target : fluidTargets) {
+            BlockState want = source.expected(target);
+            BlockState have = level.getBlockState(target);
+            Item bucket = bucketFor(want, have);
+            if (bucket == null) continue;
+            if (nearest == null || target.distSqr(player.blockPosition()) < nearest.distSqr(player.blockPosition())) nearest = target;
+            if (Vec3.atCenterOf(target).distanceTo(eye) > reach + 0.5) continue;
+            boolean lava = bucket == Items.LAVA_BUCKET;
+            // Lava never right above you or next to your feet.
+            if (lava && (target.getY() >= player.getBlockY() - 0 && Vec3.atCenterOf(target).distanceTo(player.position()) < 2.0)) continue;
+            if (!has(mc, player, bucket)) {
+                missing.merge(bucket, 1, Integer::sum);
+                if (bucket == Items.WATER_BUCKET && refillWater(mc, player)) return true;
+                continue;
+            }
+            Vec3 aimAt = pourPoint(level, player, eye, target, have, want);
+            if (aimAt == null) continue;
+            if (select(mc, player, bucket) == null) continue;
+            fluidTries.merge(target, 1, Integer::sum);
+            float[] look = PlacementPlanner.aim(eye, aimAt);
+            BlockPos at = target;
+            turnThen(player, look[0], look[1], SETTLE_TICKS, () -> {
+                verifyPos = at;
+                verifyBefore = mc.level.getBlockState(at);
+                verifyAt = mc.level.getGameTime();
+                if (TRACE) LunarBuilder.LOGGER.info("[Lunar Builder] build pour {} at {}", bucket, at.toShortString());
+                useHeld(mc);
+                fluidScanAt = Long.MIN_VALUE;
+            });
+            return true;
+        }
+        // Nothing in reach: walk to the nearest one.
+        if (nearest != null && walk && --walkCooldown <= 0) {
+            walkCooldown = 20;
+            BlockPos goal = nearest;
+            double eyeHeight = player.getEyeHeight();
+            List<BlockPos> path = Walker.findPath(level, player.blockPosition(), spot -> {
+                Vec3 e = new Vec3(spot.getX() + 0.5, spot.getY() + eyeHeight, spot.getZ() + 0.5);
+                return e.distanceTo(Vec3.atCenterOf(goal)) <= reach - 0.5 && !spot.equals(goal) && !spot.above().equals(goal)
+                        && pourPoint(level, player, e, goal, level.getBlockState(goal), source.expected(goal)) != null;
+            }, goal);
+            if (path != null && path.size() > 1) {
+                walker.start(path);
+                return true;
+            }
+            fluidTries.merge(goal, 1, Integer::sum);
+        }
+        return false;
+    }
+
+    /**
+     * Where to look so the bucket pours into {@code target}: a side of a solid
+     * neighbour facing it (the water goes in front of what you look at), or the
+     * block itself when it is to stand in water. Null if nothing can be seen.
+     */
+    private static Vec3 pourPoint(Level level, LocalPlayer player, Vec3 eye, BlockPos target, BlockState have, BlockState want) {
+        boolean waterlog = !(want.getBlock() instanceof net.minecraft.world.level.block.LiquidBlock);
+        if (waterlog) return PlacementPlanner.visiblePoint(level, player, eye, target);
+        for (Direction toNeighbour : Direction.values()) {
+            BlockPos neighbour = target.relative(toNeighbour);
+            BlockState n = level.getBlockState(neighbour);
+            // A block that can stand in water would take it in itself (a slab, a stair).
+            if (!PlacementPlanner.solidToClick(level, neighbour) || n.getBlock() instanceof net.minecraft.world.level.block.LiquidBlockContainer) continue;
+            Direction face = toNeighbour.getOpposite();
+            Vec3 centre = Vec3.atCenterOf(neighbour).add(face.getStepX() * 0.5, face.getStepY() * 0.5, face.getStepZ() * 0.5);
+            for (double a : new double[] {0, -0.3, 0.3}) {
+                for (double b : new double[] {0, -0.3, 0.3}) {
+                    Vec3 point = switch (face.getAxis()) {
+                        case X -> centre.add(0, a, b);
+                        case Y -> centre.add(a, 0, b);
+                        case Z -> centre.add(a, b, 0);
+                    };
+                    if (point.distanceTo(eye) > player.blockInteractionRange()) continue;
+                    net.minecraft.world.phys.BlockHitResult hit = level.clip(new net.minecraft.world.level.ClipContext(eye, point.add(point.subtract(eye).normalize().scale(0.3)),
+                            net.minecraft.world.level.ClipContext.Block.OUTLINE, net.minecraft.world.level.ClipContext.Fluid.NONE, player));
+                    if (hit.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK && hit.getBlockPos().equals(neighbour) && hit.getDirection() == face) {
+                        return hit.getLocation();
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    /** An empty bucket filled from water that comes back by itself (a source with two source neighbours). */
+    private boolean refillWater(Minecraft mc, LocalPlayer player) {
+        if (findSlot(player, Items.BUCKET) < 0) return false;
+        Level level = mc.level;
+        Vec3 eye = player.getEyePosition();
+        BlockPos feet = player.blockPosition();
+        for (BlockPos pos : BlockPos.betweenClosed(feet.offset(-4, -3, -4), feet.offset(4, 2, 4))) {
+            var fluid = level.getFluidState(pos);
+            if (!fluid.isSource() || !fluid.is(net.minecraft.tags.FluidTags.WATER)) continue;
+            if (!(level.getBlockState(pos).getBlock() instanceof net.minecraft.world.level.block.LiquidBlock)) continue;
+            int sources = 0;
+            for (Direction dir : Direction.Plane.HORIZONTAL) if (level.getFluidState(pos.relative(dir)).isSource()) sources++;
+            boolean floor = !level.getBlockState(pos.below()).canBeReplaced() || level.getFluidState(pos.below()).isSource();
+            if (sources < 2 || !floor) continue;
+            Vec3 point = Vec3.atCenterOf(pos).add(0, 0.4, 0);
+            if (point.distanceTo(eye) > player.blockInteractionRange()) continue;
+            net.minecraft.world.phys.BlockHitResult hit = level.clip(new net.minecraft.world.level.ClipContext(eye, point.add(point.subtract(eye).normalize().scale(0.3)),
+                    net.minecraft.world.level.ClipContext.Block.OUTLINE, net.minecraft.world.level.ClipContext.Fluid.SOURCE_ONLY, player));
+            if (hit.getType() != net.minecraft.world.phys.HitResult.Type.BLOCK || !hit.getBlockPos().equals(pos)) continue;
+            if (select(mc, player, Items.BUCKET) == null) return false;
+            float[] look = PlacementPlanner.aim(eye, hit.getLocation());
+            BlockPos at = pos.immutable();
+            turnThen(player, look[0], look[1], SETTLE_TICKS, () -> {
+                if (TRACE) LunarBuilder.LOGGER.info("[Lunar Builder] build refill water at {}", at.toShortString());
+                useHeld(mc);
+            });
+            return true;
+        }
+        return false;
+    }
+
+    /** A right click with the held item into the air in front (a bucket aims itself). */
+    private void useHeld(Minecraft mc) {
+        if (mc.getConnection() != null) {
+            mc.getConnection().send(new net.minecraft.network.protocol.game.ServerboundMovePlayerPacket.Rot(
+                    mc.player.getYRot(), mc.player.getXRot(), mc.player.onGround(), mc.player.horizontalCollision));
+        }
+        mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND);
+        clicks++;
+        mc.player.swing(InteractionHand.MAIN_HAND);
+    }
+
+    // ------------------------------------------------------------ bridging
+
+    /** Sneaking towards this side of the block you stand on, to place from its edge; null when not. */
+    private Direction edgeDir = null;
+    private boolean atEdge = false;
+    private int edgeTicks = 0;
+    private double edgeLastPos = Double.NaN;
+    private final Map<BlockPos, Integer> edgeTries = new java.util.HashMap<>();
+    /** How far past the middle of the block the body can lean while sneaking (it stops at the edge). */
+    private static final double EDGE_OFFSET = 0.78;
+
+    /**
+     * Whether the block could be placed from the edge of the block you stand on
+     * (crouched, leaning out over one side); if so, starts sneaking there.
+     */
+    private boolean startEdge(Minecraft mc, LocalPlayer player, BlockPos target, BlockState want, ItemStack stack) {
+        if (edgeDir != null || atEdge || !player.onGround() || player.getAbilities().flying) return false;
+        if (edgeTries.merge(target.immutable(), 1, Integer::sum) > 2) return false;
+        Level level = mc.level;
+        BlockPos feet = player.blockPosition();
+        if (!PlacementPlanner.solidToClick(level, feet.below()) && level.getBlockState(feet).getCollisionShape(level, feet).isEmpty()) return false;
+        double eyeHeight = player.getEyeHeight(net.minecraft.world.entity.Pose.CROUCHING);
+        for (Direction dir : Direction.Plane.HORIZONTAL) {
+            BlockPos side = feet.relative(dir);
+            // The body leans into the next column: room there for feet and head.
+            if (!Walker.freeForBody(level, side)) continue;
+            Vec3 eye = new Vec3(feet.getX() + 0.5 + dir.getStepX() * EDGE_OFFSET, feet.getY() + eyeHeight,
+                    feet.getZ() + 0.5 + dir.getStepZ() * EDGE_OFFSET);
+            Plan plan = PlacementPlanner.plan(level, player, target, want, stack, eye);
+            if (plan != null && plan.exact()) {
+                if (TRACE) LunarBuilder.LOGGER.info("[Lunar Builder] build edge: sneaking {} to place {}", dir, target.toShortString());
+                edgeDir = dir;
+                edgeTicks = 0;
+                edgeLastPos = Double.NaN;
+                SmoothLook.lookAt(dir.toYRot(), 60f, turnSpeed);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** One tick of sneaking to the edge; false once there (the next step places from there). */
+    private boolean edgeStep(Minecraft mc, LocalPlayer player) {
+        setSneak(mc, true);
+        SmoothLook.tick();
+        double along = edgeDir.getAxis() == Direction.Axis.X ? player.getX() : player.getZ();
+        mc.options.keyUp.setDown(Math.abs(SmoothLook.yawLeft(player)) < 20f);
+        // Sneaking stops you at the edge by itself: there once you no longer move.
+        boolean still = !Double.isNaN(edgeLastPos) && Math.abs(along - edgeLastPos) < 0.003;
+        edgeLastPos = along;
+        if ((still && edgeTicks > 3) || ++edgeTicks > 40) {
+            mc.options.keyUp.setDown(false);
+            SmoothLook.stop();
+            edgeDir = null;
+            atEdge = true;
+            edgeTicks = 0;
+            return false;
+        }
+        return true;
+    }
+
+    private void leaveEdge(Minecraft mc) {
+        atEdge = false;
+        // Sneak stays down until the click is made (place() lets go of it afterwards).
     }
 
     /**
@@ -1237,9 +1656,11 @@ public class BuildTask implements Task {
         });
         if (breaking != null) {
             if (level.getBlockState(breaking).isAir()) {
+                toFix.remove(breaking);
                 supports.remove(breaking);
                 supportFor.remove(breaking);
                 recentlyBroken.put(breaking, now);
+                changed++;
                 breaking = null;
                 return false;
             }
@@ -1247,25 +1668,52 @@ public class BuildTask implements Task {
             // while the crosshair is on it; otherwise look at it again.
             boolean onIt = mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult hit
                     && hit.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK && hit.getBlockPos().equals(breaking);
-            if (!onIt) breaking = null;
+            if (!onIt) {
+                // Something else got in front of it: a few tries, then later.
+                if (breakMisses.merge(breaking, 1, Integer::sum) >= 3) {
+                    breakLater.put(breaking, now);
+                    breakMisses.remove(breaking);
+                }
+                breaking = null;
+            }
             return true;
         }
+        breakLater.values().removeIf(since -> now - since > 30 * 20);
         // Supports already gone (broken by hand, washed away) are forgotten.
         supports.removeIf(support -> level.getBlockState(support).isAir());
-        for (BlockPos support : supports) {
-            if (!supportDone(level, support)) continue;
+        toFix.removeIf(pos -> level.getBlockState(pos).isAir());
+        List<BlockPos> toBreak = new ArrayList<>(toFix);
+        toBreak.addAll(supports);
+        for (BlockPos support : toBreak) {
+            if (!toFix.contains(support) && !supportDone(level, support)) continue;
             // Not the pillar you are standing on.
             BlockPos feet = mc.player.blockPosition();
             if (support.getX() == feet.getX() && support.getZ() == feet.getZ() && support.getY() < feet.getY()) continue;
             if (support.distToCenterSqr(mc.player.getEyePosition()) > mc.player.blockInteractionRange() * mc.player.blockInteractionRange()) continue;
-            // Look at it first; mining starts once that look is sent
+            if (breakLater.containsKey(support)) continue;
+            // Look at a part of it that can be seen (its middle may be behind a block
+            // just placed); mining starts once that look is sent
             // (continueDestroyBlock starts on a block not yet being mined).
-            float[] look = PlacementPlanner.aim(mc.player.getEyePosition(), Vec3.atCenterOf(support));
+            Vec3 spot = PlacementPlanner.visiblePoint(level, mc.player, mc.player.getEyePosition(), support);
+            if (spot == null) continue;
+            float[] look = PlacementPlanner.aim(mc.player.getEyePosition(), spot);
             turnThen(mc.player, look[0], look[1], 1, () -> breaking = support);
             return true;
         }
         return false;
     }
+
+    /** Supports no spot can see any more (closed in by the build); they don't hold the build's end up. */
+    private final java.util.Set<BlockPos> stuckSupports = new java.util.HashSet<>();
+    private final Map<BlockPos, Integer> supportWalkFails = new java.util.HashMap<>();
+
+    /** Our own blocks that came out turned the wrong way: broken and placed again. */
+    private final Deque<BlockPos> toFix = new ArrayDeque<>();
+    private final Map<BlockPos, Integer> fixes = new java.util.HashMap<>();
+
+    /** Supports the crosshair missed a few times (something in front), tried again later. */
+    private final Map<BlockPos, Integer> breakMisses = new java.util.HashMap<>();
+    private final Map<BlockPos, Long> breakLater = new java.util.HashMap<>();
 
     private boolean supportDone(Level level, BlockPos support) {
         BlockPos servedTarget = supportFor.get(support);
@@ -1383,13 +1831,16 @@ public class BuildTask implements Task {
         if (left == 0) {
             // Nothing open in the whole schematic and no support left standing: done.
             boolean allDone = globalLayer == Integer.MAX_VALUE && bottomLayer != Integer.MIN_VALUE
-                    && supports.isEmpty() && breaking == null && !source.bounds().isEmpty();
+                    && stuckSupports.containsAll(supports) && breaking == null && !source.bounds().isEmpty()
+                    && fluidsLeft == 0;
             if (allDone) {
                 finished = true;
                 halt(Minecraft.getInstance());
                 LunarBuilder.notify((wrong > 0 ? "Platzierung gebaut, " + wrong + " Blöcke passen nicht." : "Platzierung fertig gebaut.")
                         + (givenUp.isEmpty() ? "" : " " + givenUp.size() + " ausgelassen (von Hand setzen): "
-                        + givenUp.stream().limit(5).map(BlockPos::toShortString).collect(java.util.stream.Collectors.joining("; "))));
+                        + givenUp.stream().limit(5).map(BlockPos::toShortString).collect(java.util.stream.Collectors.joining("; ")))
+                        + (supports.isEmpty() ? "" : " " + supports.size() + " Stützblock(e) kommen nicht mehr ran, bitte von Hand abbauen: "
+                        + supports.stream().limit(5).map(BlockPos::toShortString).collect(java.util.stream.Collectors.joining("; "))));
                 return;
             }
             message(wrong > 0 ? "In Reichweite fertig, " + wrong + " Blöcke passen nicht" : "In Reichweite fertig");

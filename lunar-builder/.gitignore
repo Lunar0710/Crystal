@@ -3,3 +3,8 @@
 /run/
 /out/
 /gametest.log
+
+# Local schematic world tests
+results-run*.txt
+schem-test*.log*
+dbg-*.log

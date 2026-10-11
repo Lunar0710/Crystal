@@ -16,6 +16,7 @@ import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
 import net.minecraft.client.server.IntegratedServer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.Items;
@@ -43,8 +44,13 @@ import java.util.function.Supplier;
  * middle; every block dug, nothing outside, time and longest stall.</li>
  * <li>redstone: a board of redstone parts (RedstoneBoard) built in survival by
  * the real BuildTask; every block as the schematic wants it, nothing fired.</li>
+ * <li>schem (local only, never in CI): every .litematic in LB_TEST_SCHEMATICS built
+ * in survival on peaceful, one after the other on the flat ground; the test hands
+ * the player the blocks that are still missing, like a chest would. Big ones are cut
+ * to a full-height window of LB_TEST_SCHEM_MAX blocks (default 4000). Results go to
+ * run/lb-schem-results.txt as they come.</li>
  * </ul>
- * LB_TEST_SCENARIOS picks some of them (comma list), default all.
+ * LB_TEST_SCENARIOS picks some of them (comma list), default dig,big,redstone.
  * Verdict in run/lb-test-result.txt.
  */
 public final class DigWorldTest implements ClientModInitializer {
@@ -83,6 +89,22 @@ public final class DigWorldTest implements ClientModInitializer {
                 return;
             }
             pausedTicks = LunarBuilder.task() != null && LunarBuilder.paused() ? pausedTicks + 1 : 0;
+            // Real schematics: the test is the player who comes back, refills and presses P.
+            if (phase == 31 && pausedTicks == 40) {
+                helps++;
+                log("  paused, helping (" + helps + "): " + LunarBuilder.task().status());
+                log("    task: " + LunarBuilder.task() + " | player " + mc.player.blockPosition().subtract(schem.origin).toShortString());
+                List<String> open = schem.differences(mc.level::getBlockState);
+                for (String d : open.subList(0, Math.min(6, open.size()))) log("    open " + d);
+                if (helps >= 2) {
+                    fail(mc, "stuck (no progress twice), " + open.size() + " open: " + LunarBuilder.task().status()
+                            + (open.isEmpty() ? "" : ", first " + open.get(0)));
+                    return;
+                }
+                supply(mc);
+                LunarBuilder.resume();
+                pausedTicks = 0;
+            }
             if (pausedTicks > 30 * 20) {
                 String extra = digBox != null ? ", " + remaining(mc) + " blocks left" : "";
                 fail(mc, "paused for 30 s, task=" + LunarBuilder.task().status() + extra);
@@ -104,6 +126,9 @@ public final class DigWorldTest implements ClientModInitializer {
                 case 21 -> startRedstone(mc);
                 case 22 -> waitForBuild(mc);
                 case 23 -> verifyRedstone(mc);
+                case 30 -> setUpSchem(mc);
+                case 31 -> waitForSchem(mc);
+                case 32 -> verifySchem(mc);
                 case 90 -> done(mc);
                 default -> { }
             }
@@ -119,8 +144,8 @@ public final class DigWorldTest implements ClientModInitializer {
 
     /** On to the next scenario that is switched on (or the end). */
     private void nextScenario(String after) {
-        List<String> order = List.of("dig", "big", "redstone");
-        int[] phases = {1, 10, 20};
+        List<String> order = List.of("dig", "big", "redstone", "schem");
+        int[] phases = {1, 10, 20, 30};
         int from = order.indexOf(after) + 1;
         phase = 90;
         for (int i = from; i < order.size(); i++) {
@@ -168,10 +193,14 @@ public final class DigWorldTest implements ClientModInitializer {
         BlockPos start = mc.player.blockPosition();
         x = start.getX();
         z = start.getZ();
+        groundY = start.getY();
         log("world loaded, player at " + start.toShortString());
         command(mc, "difficulty peaceful");
         command(mc, "gamemode survival @a");
         command(mc, "gamerule doDaylightCycle false");
+        // Nothing may kill the builder: no mobs (peaceful), no fall damage, never hungry.
+        command(mc, "effect give @a resistance infinite 4 true");
+        command(mc, "effect give @a saturation infinite 4 true");
         if (!scenarios.contains("dig")) {
             nextScenario("dig");
             return;
@@ -492,6 +521,188 @@ public final class DigWorldTest implements ClientModInitializer {
         nextScenario("redstone");
     }
 
+
+    // ------------------------------------------------------------ real schematics (local)
+
+    private int groundY;
+    private List<Path> schemFiles;
+    private int schemIndex = 0, schemX, restarts, helps;
+    private LitematicSchematic schem;
+    private long schemStartMs;
+
+    private void nextSchematic() {
+        if (schem != null) schemX = schem.max.getX() + 24;
+        schem = null;
+        schemIndex++;
+        phase = 30;
+        ticks = 0;
+        scenarioStart = System.currentTimeMillis();
+    }
+
+    private void setUpSchem(Minecraft mc) {
+        if (schemFiles == null) {
+            String dir = System.getenv("LB_TEST_SCHEMATICS");
+            String filter = System.getenv("LB_TEST_SCHEM_FILTER");
+            check(dir != null, "LB_TEST_SCHEMATICS not set");
+            try (var files = Files.list(Path.of(dir))) {
+                schemFiles = files.filter(f -> f.toString().endsWith(".litematic") && !f.getFileName().toString().contains(" - Kopie"))
+                        .filter(f -> filter == null || filter.isBlank() || f.getFileName().toString().toLowerCase().contains(filter.toLowerCase()))
+                        .sorted(java.util.Comparator.comparingLong(f -> f.toFile().length()))
+                        .toList();
+            } catch (java.io.IOException e) {
+                throw new AssertionError("schematics folder: " + e);
+            }
+            schemX = x + 40;
+            String skip = System.getenv("LB_TEST_SCHEM_SKIP");
+            if (skip != null && !skip.isBlank()) schemIndex = Integer.parseInt(skip.trim());
+            log("schematics: " + schemFiles.size() + (schemIndex > 0 ? ", starting at " + (schemIndex + 1) : ""));
+        }
+        if (schemIndex >= schemFiles.size()) {
+            nextScenario("schem");
+            return;
+        }
+        if (ticks == 1) {
+            String max = System.getenv("LB_TEST_SCHEM_MAX");
+            Path file = schemFiles.get(schemIndex);
+            try {
+                schem = new LitematicSchematic(file, new BlockPos(schemX, groundY, z + 10), max == null ? 4000 : Integer.parseInt(max));
+            } catch (Exception e) {
+                throw new AssertionError("could not read " + file.getFileName() + ": " + e);
+            }
+            restarts = 0;
+            helps = 0;
+            deadlineMs = Math.max(8 * 60_000L, Math.min(40 * 60_000L, schem.solid * 1000L));
+            command(mc, String.format("forceload add %d %d %d %d", schem.min.getX() - 8, schem.min.getZ() - 8, schem.max.getX() + 8, schem.max.getZ() + 8));
+            log(String.format("schematic %d/%d: %s, %d blocks%s, %dx%dx%d", schemIndex + 1, schemFiles.size(), schem.name, schem.solid,
+                    schem.cut ? " (cut from " + schem.fullSolid + ")" : "", schem.max.getX() - schem.min.getX() + 1,
+                    schem.max.getY() - schem.min.getY() + 1, schem.max.getZ() - schem.min.getZ() + 1));
+            return;
+        }
+        if (ticks == 40) {
+            command(mc, String.format("tp @a %d %d %d 0 0", schem.min.getX() - 3, groundY, schem.min.getZ() - 3));
+            command(mc, "clear @a");
+            command(mc, "give @a diamond_pickaxe[enchantments={efficiency:5,unbreaking:3}]");
+            command(mc, "give @a diamond_axe");
+            command(mc, "give @a diamond_shovel");
+            command(mc, "give @a shears");
+            return;
+        }
+        if (ticks == 60) supply(mc);
+        if (ticks < 100) return;
+        if (mc.screen != null) mc.setScreen(null);
+        LunarBuilder.startBuild(schem);
+        check(LunarBuilder.task() != null, "build did not start");
+        schemStartMs = System.currentTimeMillis();
+        next();
+    }
+
+    private void waitForSchem(Minecraft mc) {
+        if (mc.screen != null && LunarBuilder.task() != null) mc.setScreen(null);
+        if (ticks % 40 == 0) supply(mc);
+        if (ticks % 1200 == 0 && LunarBuilder.task() != null) {
+            List<String> open = schem.differences(mc.level::getBlockState);
+            log("  " + schem.name + ": " + open.size() + " open after " + ticks / 20 + " s, task " + LunarBuilder.task().status());
+        }
+        if (LunarBuilder.task() != null) return;
+        // The task ended: done, or it stopped with things it could not do. Try again twice.
+        List<String> open = schem.differences(mc.level::getBlockState);
+        if (!open.isEmpty() && restarts < 2) {
+            restarts++;
+            log("  restart " + restarts + " of " + schem.name + ", " + open.size() + " open, e.g. " + open.get(0));
+            supply(mc);
+            LunarBuilder.startBuild(schem);
+            return;
+        }
+        next();
+    }
+
+    private void verifySchem(Minecraft mc) {
+        if (ticks < 20) return;
+        long seconds = (System.currentTimeMillis() - schemStartMs) / 1000;
+        Screenshot.grab(mc.gameDirectory, "lb-schem-" + schemIndex + ".png", mc.getMainRenderTarget(), 1, msg -> { });
+        List<String> wrong = onServer(mc, () -> schem.differences(mc.getSingleplayerServer().overworld()::getBlockState));
+        java.util.Map<String, Integer> byBlock = new java.util.TreeMap<>();
+        for (String w : wrong) {
+            String want = w.split(" ")[1].split("\\[")[0];
+            byBlock.merge(want, 1, Integer::sum);
+        }
+        String top = byBlock.entrySet().stream().sorted((a, b) -> b.getValue() - a.getValue()).limit(8)
+                .map(e -> e.getKey() + " " + e.getValue()).reduce((a, b) -> a + ", " + b).orElse("");
+        String line = String.format(java.util.Locale.ROOT, "%s %s: %d blocks%s in %d s (%.1f/s), %d wrong%s, restarts %d, helped %d",
+                wrong.isEmpty() ? "OK  " : "WRONG", schem.name, schem.solid, schem.cut ? " (cut from " + schem.fullSolid + ")" : "",
+                seconds, schem.solid / Math.max(1.0, seconds), wrong.size(), top.isEmpty() ? "" : " [" + top + "]", restarts, helps);
+        for (String w : wrong.subList(0, Math.min(15, wrong.size()))) log("  wrong " + w);
+        log(line);
+        results.add(line);
+        appendSchemResult(line);
+        if (!wrong.isEmpty()) anyFailed = true;
+        nextSchematic();
+    }
+
+    /** Hands over the blocks still missing (at most two stacks of each, as long as there is room). */
+    private void supply(Minecraft mc) {
+        var inv = mc.player.getInventory();
+        java.util.Map<net.minecraft.world.item.Item, Integer> need = new java.util.LinkedHashMap<>();
+        for (var e : schem.blocks.entrySet()) {
+            var want = e.getValue();
+            if (want.isAir() || RedstoneBoard.same(mc.level.getBlockState(e.getKey()), want)) continue;
+            var item = itemFor(want);
+            if (item != null) need.merge(item, perBlock(want), Integer::sum);
+            if (want.hasProperty(net.minecraft.world.level.block.state.properties.BlockStateProperties.WATERLOGGED)
+                    && want.getValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.WATERLOGGED)) {
+                need.merge(Items.WATER_BUCKET, 1, Integer::sum);
+            }
+        }
+        int free = 0;
+        for (int slot = 0; slot < 36; slot++) if (inv.getItem(slot).isEmpty()) free++;
+        // Filler for supports and pillars, like any player carries.
+        if (inv.countItem(Items.DIRT) < 64 && free > 0) {
+            command(mc, "give @a dirt " + (128 - inv.countItem(Items.DIRT)));
+            free -= 2;
+        }
+        var sorted = new ArrayList<>(need.entrySet());
+        sorted.sort((a, b) -> b.getValue() - a.getValue());
+        for (var e : sorted) {
+            if (free <= 0) break;
+            int stack = e.getKey().getDefaultMaxStackSize();
+            int want = Math.min(e.getValue(), 2 * stack);
+            int have = inv.countItem(e.getKey());
+            if (have >= want) continue;
+            int give = Math.min(want - have, free * stack);
+            command(mc, "give @a " + BuiltInRegistries.ITEM.getKey(e.getKey()) + " " + give);
+            free -= (give + stack - 1) / stack;
+        }
+    }
+
+    private static net.minecraft.world.item.Item itemFor(net.minecraft.world.level.block.state.BlockState state) {
+        var block = state.getBlock();
+        if (block == Blocks.WATER) return state.getFluidState().isSource() ? Items.WATER_BUCKET : null;
+        if (block == Blocks.LAVA) return state.getFluidState().isSource() ? Items.LAVA_BUCKET : null;
+        var item = block.asItem();
+        return item == Items.AIR ? null : item;
+    }
+
+    private static int perBlock(net.minecraft.world.level.block.state.BlockState state) {
+        if (state.hasProperty(net.minecraft.world.level.block.state.properties.BlockStateProperties.SLAB_TYPE)
+                && state.getValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.SLAB_TYPE)
+                == net.minecraft.world.level.block.state.properties.SlabType.DOUBLE) return 2;
+        for (var prop : List.of(net.minecraft.world.level.block.state.properties.BlockStateProperties.PICKLES,
+                net.minecraft.world.level.block.state.properties.BlockStateProperties.CANDLES,
+                net.minecraft.world.level.block.state.properties.BlockStateProperties.LAYERS)) {
+            if (state.hasProperty(prop)) return state.getValue(prop);
+        }
+        return 1;
+    }
+
+    private static void appendSchemResult(String line) {
+        try {
+            Path out = FabricLoader.getInstance().getGameDir().resolve("lb-schem-results.txt");
+            Files.writeString(out, line + "\n", StandardCharsets.UTF_8, java.nio.file.StandardOpenOption.CREATE,
+                    java.nio.file.StandardOpenOption.APPEND);
+        } catch (Exception ignored) {
+        }
+    }
+
     private void done(Minecraft mc) {
         result(mc, (anyFailed ? "FAIL " : "PASS ") + String.join(" | ", results) + " (" + (System.currentTimeMillis() - startedAt) / 1000 + " s total)");
     }
@@ -521,7 +732,21 @@ public final class DigWorldTest implements ClientModInitializer {
 
     /** The scenario running now fails; the next one still runs, the verdict at the end is FAIL. */
     private void fail(Minecraft mc, String why) {
-        String scenario = phase >= 1 && phase < 10 ? "dig" : phase >= 10 && phase < 20 ? "big" : phase >= 20 && phase < 30 ? "redstone" : null;
+        String scenario = phase >= 1 && phase < 10 ? "dig" : phase >= 10 && phase < 20 ? "big" : phase >= 20 && phase < 30 ? "redstone"
+                : phase >= 30 && phase < 40 ? "schem" : null;
+        if ("schem".equals(scenario)) {
+            // One schematic failing is a result too: note it and go on with the next one.
+            String line = "FAIL schem " + (schem == null ? "?" : schem.name) + ": " + why;
+            log(line);
+            results.add(line);
+            appendSchemResult(line);
+            anyFailed = true;
+            if (LunarBuilder.task() != null) LunarBuilder.stopTask(mc, null);
+            if (mc.screen != null) mc.setScreen(null);
+            pausedTicks = 0;
+            nextSchematic();
+            return;
+        }
         if (scenario == null) {
             if (!results.isEmpty()) why += " | before: " + String.join(" | ", results);
             result(mc, "FAIL " + why);
